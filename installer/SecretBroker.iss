@@ -1,7 +1,7 @@
 ﻿; SecretBroker setup program. Build it with tools\build_installer.ps1 (stages Python first).
 
 #ifndef AppVersion
-  #define AppVersion "0.3.0"
+  #define AppVersion "0.4.0"
 #endif
 #define StageDir "..\build\stage"
 #define AppIcon "{app}\python\Lib\site-packages\secretbroker\assets\icon.ico"
@@ -67,6 +67,7 @@ Type: filesandordirs; Name: "{app}"
 [Code]
 var
   OwnerName, OwnerAppData: String;
+  RemoveVault: Boolean;
 
 { The setup runs elevated; the vault belongs to the person who started it. }
 procedure ReadOriginalUser();
@@ -125,4 +126,21 @@ begin
   WizardForm.StatusLabel.Caption := 'Conectando con Claude…';
   ExecAsOriginalUser(ExpandConstant('{app}\python\python.exe'),
        '-I -c "from secretbroker import integrations; integrations.auto_connect()"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+{ [UninstallRun] removes the service first; the vault is only deleted afterwards, and only if asked.
+  Silent uninstalls keep it. }
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  DataRoot: String;
+begin
+  DataRoot := ExpandConstant('{commonappdata}\SecretBroker');
+  if (CurUninstallStep = usUninstall) and DirExists(DataRoot + '\data') then
+    RemoveVault := SuppressibleMsgBox('¿Borrar también la bóveda con todas tus credenciales?' + #13#10#13#10 +
+      'Si eliges «Sí», se perderán definitivamente y no se podrán recuperar.' + #13#10 +
+      'Si eliges «No», se conservan en ' + DataRoot + ' y volverán a estar disponibles si reinstalas SecretBroker.',
+      mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDNO) = IDYES;
+  if (CurUninstallStep = usPostUninstall) and RemoveVault then
+    if not DelTree(DataRoot, True, True, True) then
+      SuppressibleMsgBox('No se pudo borrar por completo ' + DataRoot + '. Puedes eliminar la carpeta a mano.', mbError, MB_OK, IDOK);
 end;

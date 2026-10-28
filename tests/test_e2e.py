@@ -99,6 +99,9 @@ def main():
     base = f"http://127.0.0.1:{server.server_address[1]}"
 
     write_legacy_vault()
+    (HOME / "data").mkdir(parents=True, exist_ok=True)
+    (HOME / "data" / "audit.log").write_text(json.dumps({"ts": "2026-01-01T00:00:00", "secret": "vault",
+                                                         "action": "legacy-event", "detail": "", "status": "ok"}) + "\n")
     service = Service(HOME, owner=f"{os.environ.get('USERDOMAIN')}\\{os.environ.get('USERNAME')}", isolated=False)
     service.start()
 
@@ -238,6 +241,16 @@ def main():
     events = client.request("audit", {"limit": 50})
     check(any(e["action"] == "http_request" and e["status"] == "denied" for e in events), "audit log records denials")
     check(API_KEY not in json.dumps(events), "audit log has no secrets")
+    check(any(e["action"] == "legacy-event" for e in events), "events written in clear by 0.3 are kept")
+    raw = (HOME / "data" / "audit.log").read_text()
+    check(all(word not in raw for word in ("legacy-event", "http_request", "/denied", "echo-api")), "audit log on disk is encrypted")
+    client.request("lock")
+    expect_error(lambda: call("unlock", {}, {"kind": "master_password", "value": "wrong wrong wrong"}), "proof_invalid", "failed unlock while locked")
+    expect_error(lambda: client.request("audit"), "locked", "audit log unreadable while locked")
+    call("unlock", {}, "hello")
+    events = client.request("audit", {"limit": 3})
+    check([e["action"] for e in events][:2] == ["unlock", "unlock"] and events[1]["status"] == "error",
+          "events written while locked are readable after unlocking")
 
     service.stop()
     server.shutdown()

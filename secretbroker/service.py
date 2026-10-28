@@ -45,6 +45,7 @@ CHALLENGE_TTL_SECONDS = 180
 AGENT_ACTIONS = set(actions.ACTIONS)
 POLL_OPS = {"status", "pending_approvals", "audit"}
 ALL_PROOFS = ("hello", "windows_password", "master_password")
+AUDIT_AAD = b"secretbroker/audit/v1"
 
 
 class ServiceError(Exception):
@@ -81,6 +82,7 @@ class Service:
         self._last_activity = time.monotonic()
         self._gui_seen = 0.0
         self._failures = 0
+        self._pending_audit = []
         self._server = None
 
     # ------------------------------------------------------------------ server
@@ -223,6 +225,7 @@ class Service:
         if params.get("import_legacy"):
             entries = self._read_legacy(params.get("legacy_password") or password)
         self.vault.create(password, entries)
+        self._seal_audit_log()
         self._audit("vault", "create", f"{len(entries)} credenciales", "ok")
         return self.op_status({})
 
@@ -256,6 +259,7 @@ class Service:
             self.vault.unlock_with_device()
             proof = {"kind": kind}
         self._last_activity = time.monotonic()
+        self._seal_audit_log()
         self._audit("vault", "unlock", proof.get("kind", ""), "ok")
         return self.op_status({})
 
@@ -362,12 +366,20 @@ class Service:
 
     def op_audit(self, params):
         limit = min(int(params.get("limit") or 200), 1000)
+        private_key = self.vault.audit_private_key()
         try:
             with self.audit_file.open(encoding="utf-8") as log:
-                lines = collections.deque(log, maxlen=limit)
+                lines = collections.deque((line for line in log if line.strip()), maxlen=limit)
         except OSError:
             return []
-        return [json.loads(line) for line in reversed(lines) if line.strip()]
+        events = []
+        for line in reversed(lines):
+            try:
+                events.append(self._open_audit_line(private_key, line))
+            except Exception:
+                events.append({"ts": "", "secret": "", "action": "audit", "detail": "",
+                               "status": "error", "message": "Entrada del historial ilegible"})
+        return events
 
     # ------------------------------------------------------------------ approvals (GUI)
 
@@ -467,9 +479,52 @@ class Service:
         if message:
             event["message"] = message[:300]
         with self._lock:
+            public_key = self.vault.audit_public_key()
+            if public_key is None:
+                # A vault from 0.3 or earlier that was not unlocked yet: keep it until it is.
+                self._pending_audit.append(event)
+                return
             self.data_dir.mkdir(parents=True, exist_ok=True)
             with self.audit_file.open("a", encoding="utf-8") as log:
-                log.write(json.dumps(event, ensure_ascii=False) + "\n")
+                log.write(self._seal_audit_event(public_key, event) + "\n")
+
+    @staticmethod
+    def _seal_audit_event(public_key, event):
+        return json.dumps(crypto.seal_to(public_key, json.dumps(event, ensure_ascii=False).encode("utf-8"), AUDIT_AAD))
+
+    @staticmethod
+    def _open_audit_line(private_key, line):
+        record = json.loads(line)
+        if "epk" not in record:
+            return record  # written in clear by 0.3 or earlier
+        return json.loads(crypto.open_from(private_key, record, AUDIT_AAD))
+
+    def _seal_audit_log(self):
+        """Once the vault is open: encrypt events left in clear by earlier versions and those held in memory."""
+        with self._lock:
+            public_key = self.vault.audit_public_key()
+            try:
+                lines = [line for line in self.audit_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+            except OSError:
+                lines = []
+            plain = [_plain_audit_event(line) for line in lines]
+            if not any(plain) and not self._pending_audit:
+                return
+            sealed = [self._seal_audit_event(public_key, event) if event else line for line, event in zip(lines, plain)]
+            sealed += [self._seal_audit_event(public_key, event) for event in self._pending_audit]
+            self._pending_audit = []
+            tmp = self.audit_file.with_suffix(".tmp")
+            tmp.write_text("".join(line + "\n" for line in sealed), encoding="utf-8")
+            os.replace(tmp, self.audit_file)
+
+
+def _plain_audit_event(line):
+    """The event of an audit line written in clear, or None if it is encrypted or unreadable."""
+    try:
+        record = json.loads(line)
+    except ValueError:
+        return None
+    return record if isinstance(record, dict) and "epk" not in record else None
 
 
 class _Handler(socketserver.StreamRequestHandler):

@@ -3,6 +3,9 @@
 The vault payload is encrypted with a random data key. That key is stored twice:
   - wrapped with scrypt(master password) inside vault.json  -> portable, works on any PC
   - protected with DPAPI in device_key.bin                  -> unlock with Windows (Hello / password)
+
+The audit log is encrypted to a key pair derived from the data key. Its public half is stored in
+clear in vault.json, so events can be written while the vault is locked but only read unlocked.
 """
 
 import copy
@@ -19,6 +22,7 @@ from .templates import PLACEHOLDER_RE
 FORMAT_VERSION = 2
 VAULT_AAD = b"secretbroker/vault/v2"
 DEVICE_ENTROPY = b"secretbroker/device-key/v1"
+AUDIT_KEY_INFO = b"secretbroker/audit-key/v1"
 APPROVAL_MODES = ("session", "always", "never")
 AUTH_KINDS = ("none", "header", "query", "basic")
 DEFAULT_SETTINGS = {"auto_lock_minutes": 60}
@@ -154,6 +158,7 @@ class Vault:
         self._key = None
         self._payload = None
         self._master_wrap = None
+        self._audit_public = None
 
     def exists(self):
         return self.file.exists()
@@ -212,6 +217,24 @@ class Vault:
         # Python cannot reliably zero memory; dropping references is the best available.
         with self._lock:
             self._key = self._payload = self._master_wrap = None
+
+    # ----- audit key
+
+    def audit_public_key(self):
+        """Raw X25519 public key to encrypt audit events, or None if the vault predates it and was not unlocked yet."""
+        with self._lock:
+            if self._audit_public is None and self.exists():
+                try:
+                    stored = self._load_doc().get("audit_public_key")
+                except (OSError, ValueError, ValidationError):
+                    stored = None
+                self._audit_public = crypto.unb64(stored) if stored else None
+            return self._audit_public
+
+    def audit_private_key(self):
+        with self._lock:
+            self._require_unlocked()
+            return crypto.derive_x25519(self._key, AUDIT_KEY_INFO)
 
     # ----- settings
 
@@ -280,10 +303,15 @@ class Vault:
             raise ValidationError("La bóveda está dañada o la clave no corresponde") from None
         with self._lock:
             self._key, self._payload, self._master_wrap = key, payload, doc["master"]
+            # The stored public key is not authenticated: rewrite it if missing (vaults up to 0.3) or altered.
+            expected = crypto.b64(crypto.x25519_public(crypto.derive_x25519(key, AUDIT_KEY_INFO)))
+            if doc.get("audit_public_key") != expected:
+                self._save()
 
     def _save(self):
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        doc = {"version": FORMAT_VERSION, "master": self._master_wrap,
+        self._audit_public = crypto.x25519_public(crypto.derive_x25519(self._key, AUDIT_KEY_INFO))
+        doc = {"version": FORMAT_VERSION, "master": self._master_wrap, "audit_public_key": crypto.b64(self._audit_public),
                **crypto.seal(self._key, json.dumps(self._payload).encode("utf-8"), VAULT_AAD)}
         _atomic_write(self.file, json.dumps(doc, indent=1).encode("utf-8"))
 

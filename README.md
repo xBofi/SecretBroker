@@ -19,7 +19,7 @@ Ejecuta `SecretBroker-Setup-<versión>.exe` y acepta el aviso de administrador. 
 4. Importa una bóveda anterior si la hay, registra el servicio para que arranque con Windows y lo inicia.
 5. Crea los accesos directos y conecta Claude Code y Claude Desktop si están instalados (también se puede hacer luego desde Ajustes → IA).
 
-Para actualizar, ejecuta el instalador nuevo encima: se conservan la bóveda, la cuenta y el desbloqueo con Windows. Para desinstalar, usa «Aplicaciones instaladas» de Windows; la bóveda se conserva en `C:\ProgramData\SecretBroker\data`.
+Para actualizar, ejecuta el instalador nuevo encima: se conservan la bóveda, la cuenta y el desbloqueo con Windows. Para desinstalar, usa «Aplicaciones instaladas» de Windows. El desinstalador quita el servicio y su cuenta, desconecta Claude Code y Claude Desktop y borra tus preferencias. Después pregunta si quieres borrar también la bóveda. Por defecto la respuesta es «No», y entonces se conserva en `C:\ProgramData\SecretBroker\data`.
 
 Sin instalar, la app funciona en **modo de desarrollo** (`.venv\Scripts\secretbroker.exe`): es la misma app, pero sin aislamiento.
 
@@ -64,6 +64,7 @@ Si la bóveda está bloqueada o hace falta una aprobación, el MCP abre la app y
 | Suplantar al servicio | Cada respuesta va firmada (Ed25519) con una clave que solo tiene el servicio real. |
 | Enviar la clave a otro sitio | Lista blanca de dominios por credencial, solo HTTPS, sin seguir redirecciones; el host SSH sale de la bóveda. |
 | Robo del disco | scrypt (128 MiB) + AES-256-GCM; la clave del equipo además va protegida con DPAPI. |
+| Leer el historial de actividad | Cada entrada se cifra con una clave pública (X25519 + AES-256-GCM) derivada de la bóveda: se puede escribir con la bóveda bloqueada, pero solo se lee desbloqueada. |
 | Fuerza bruta de contraseñas | Retardo creciente tras cada fallo. |
 
 **Límites conocidos.** Todo lo que pasa por tu escritorio es visible para los programas de tu sesión: un programa malicioso podría ver el portapapeles cuando copias una clave para pegarla en la app, capturar teclas o superponer ventanas falsas. Esto le ocurre igual a cualquier gestor de contraseñas. Aprueba solo solicitudes que esperes, y **nunca ejecutes Claude Code como administrador**. Los programas permitidos en `run_command` reciben la credencial, así que permite solo los necesarios.

@@ -106,6 +106,36 @@ def connect_claude_desktop():
         file.write_text(json.dumps(config, indent=2), encoding="utf-8")
 
 
+# ----------------------------------------------------------------- uninstall
+
+
+def _remove_server(file):
+    try:
+        config = json.loads(file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    if SERVER_NAME not in (config.get("mcpServers") or {}):
+        return False
+    del config["mcpServers"][SERVER_NAME]
+    file.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
+    return True
+
+
+def remove_all():
+    """Called by the uninstaller: unregister the MCP server from Claude Code and Claude Desktop and delete preferences.
+
+    It edits the config files directly instead of using the `claude` CLI, because it runs elevated with
+    USERPROFILE / APPDATA / LOCALAPPDATA pointing at the owner's profile.
+    """
+    for file in [Path.home() / ".claude.json", *_desktop_config_files()]:
+        try:
+            if _remove_server(file):
+                print(f"Quitado de {file}")
+        except OSError as exc:
+            print(f"No se pudo modificar {file}: {exc}", file=sys.stderr)
+    shutil.rmtree(PREFS_FILE.parent, ignore_errors=True)
+
+
 def status():
     return {"claude_code": claude_code_status(), "claude_desktop": claude_desktop_status()}
 

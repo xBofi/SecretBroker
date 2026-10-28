@@ -6,7 +6,10 @@ import json
 import os
 
 from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 # ~128 MiB of memory per derivation: slow enough to make offline brute force expensive.
 SCRYPT_PARAMS = {"n": 2**17, "r": 8, "p": 1}
@@ -60,6 +63,37 @@ def unwrap_with_password(password, wrap):
         return open_sealed(derive_key(password, wrap["kdf"]), wrap, _kdf_aad(wrap["kdf"]))
     except InvalidTag:
         raise WrongPassword("Contraseña maestra incorrecta") from None
+
+
+def _hkdf(material, info):
+    return HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=info).derive(material)
+
+
+def _raw_public(key):
+    return key.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+
+
+def derive_x25519(data_key, info):
+    """A key pair derived from the vault data key: anyone may encrypt to it, only the unlocked vault can read."""
+    return X25519PrivateKey.from_private_bytes(_hkdf(data_key, info))
+
+
+def x25519_public(private_key):
+    return _raw_public(private_key.public_key())
+
+
+def seal_to(public_raw, plaintext, aad):
+    """Encrypt to an X25519 public key (ephemeral ECDH + HKDF + AES-256-GCM)."""
+    ephemeral = X25519PrivateKey.generate()
+    epk = _raw_public(ephemeral.public_key())
+    key = _hkdf(ephemeral.exchange(X25519PublicKey.from_public_bytes(public_raw)), b"secretbroker/seal-to/v1" + epk)
+    return {"epk": b64(epk), **seal(key, plaintext, aad)}
+
+
+def open_from(private_key, sealed, aad):
+    epk = unb64(sealed["epk"])
+    key = _hkdf(private_key.exchange(X25519PublicKey.from_public_bytes(epk)), b"secretbroker/seal-to/v1" + epk)
+    return open_sealed(key, sealed, aad)
 
 
 def decrypt_legacy_v1(password, doc):

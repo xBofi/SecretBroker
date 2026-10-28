@@ -4,7 +4,8 @@
 
     -Owner / -OwnerAppData   install: create the service account, protect the data folder,
                              import an existing vault and start the service.
-    -Uninstall [-RemoveData] uninstall: stop and remove the service and its account.
+    -Uninstall [-RemoveData] uninstall: disconnect Claude and delete preferences for the owner,
+                             stop and remove the service and its account.
 #>
 param(
     [string]$Owner,
@@ -32,10 +33,26 @@ function Remove-Service {
     Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList" -Name $ServiceUser -ErrorAction SilentlyContinue
 }
 
+# The uninstaller runs elevated, possibly as another account: find the owner's profile through the
+# --owner argument of the service task, and clean up as if running in that profile.
+function Remove-OwnerIntegrations {
+    $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    if (-not $task -or $task.Actions[0].Arguments -notmatch '--owner "([^"]+)"') { Write-Host "Propietario desconocido."; return }
+    $sid = (New-Object Security.Principal.NTAccount($Matches[1])).Translate([Security.Principal.SecurityIdentifier]).Value
+    $profileDir = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$sid" -ErrorAction SilentlyContinue).ProfileImagePath
+    if (-not $profileDir) { Write-Host "No se encontró el perfil de $($Matches[1])."; return }
+    $env:USERPROFILE = $profileDir
+    $env:APPDATA = Join-Path $profileDir "AppData\Roaming"
+    $env:LOCALAPPDATA = Join-Path $profileDir "AppData\Local"
+    Invoke-Native { & $Python -I -c "from secretbroker import integrations; integrations.remove_all()" } | Write-Host
+}
+
 try {
     if (-not (Test-Admin)) { throw "Hacen falta permisos de administrador." }
 
     if ($Uninstall) {
+        Write-Step "Desconectando Claude y borrando preferencias"
+        try { Remove-OwnerIntegrations } catch { Write-Host "AVISO: $($_.Exception.Message)" }
         Write-Step "Quitando el servicio"
         Remove-Service
         Remove-Item (Join-Path $DataRoot "public") -Recurse -Force -ErrorAction SilentlyContinue
