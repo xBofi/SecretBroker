@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 import webbrowser
+from datetime import datetime
 from pathlib import Path
 
 from . import __version__, client, hello, integrations, links, paths, resident, scanner, templates, winsec
@@ -19,11 +20,13 @@ CLIPBOARD_CLEAR_SECONDS = 30
 AUTO_SCAN_HOURS = 12
 SESSION_FILE = integrations.PREFS_FILE.parent / "session.bin"
 SESSION_ENTROPY = b"SecretBroker/session-unlock/v1"
+BACKUP_EVERY_HOURS = 24
+BACKUPS_KEPT = 10
 # What the app that unlocked may do with one click (see service.PRESENCE_OPS).
-PRESENCE_OPS = ("approve", "complete_draft", "resume_ai", "set_ai_permissions")
+PRESENCE_OPS = ("approve", "complete_draft", "resume_ai", "set_ai_permissions", "backup", "restore")
 # Operations the service only accepts with a proof of identity.
 PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal", "rotate", "complete_draft",
-             "enable_session_unlock", "resume_ai", "set_ai_permissions",
+             "enable_session_unlock", "resume_ai", "set_ai_permissions", "backup", "restore",
              "change_master_password", "set_settings", "remove_hello", "exposure_begin"}
 
 
@@ -41,6 +44,7 @@ class Api:
         self._tray = None
         self._quitting = False
         self._hidden_once = False
+        self._backup_tried = 0.0
 
     # ----- generic bridge
 
@@ -98,9 +102,9 @@ class Api:
             if proof is not None:
                 params["proof"] = proof
             result = client.request(op, params)
-            if op in ("unlock", "exposure_begin") and isinstance(result, dict):
+            if op in ("unlock", "exposure_begin", "restore") and isinstance(result, dict):
                 self._scan_session = result.pop("exposure_session", None) or result.get("session") or self._scan_session
-            if op in ("unlock", "approve") and isinstance(result, dict) and result.get("presence"):
+            if op in ("unlock", "approve", "restore") and isinstance(result, dict) and result.get("presence"):
                 self._presence = result.pop("presence")
             return {"ok": True, "result": result}
         except hello.HelloCancelled:
@@ -304,6 +308,69 @@ class Api:
         resident.set_start_with_windows(bool(enabled))
         return True
 
+    # ----- backups
+
+    def backup_info(self):
+        prefs = integrations.load_prefs()
+        return {"folder": prefs.get("backup_folder"), "last": prefs.get("last_backup"), "suggested": str(_default_backup_folder())}
+
+    def choose_backup_folder(self):
+        import webview
+        chosen = self._window.create_file_dialog(webview.FOLDER_DIALOG) if self._window else None
+        if not chosen:
+            return {"ok": False, "code": "cancelled", "error": ""}
+        return self.set_backup_folder(chosen[0])
+
+    def set_backup_folder(self, folder):
+        integrations.set_pref("backup_folder", str(folder) if folder else None)
+        return self.backup_now() if folder else {"ok": True}
+
+    def backup_due(self):
+        prefs = integrations.load_prefs()
+        if not prefs.get("backup_folder") or time.time() - self._backup_tried < 3600:
+            return False
+        try:
+            return time.time() - datetime.fromisoformat(prefs["last_backup"]).timestamp() > BACKUP_EVERY_HOURS * 3600
+        except (KeyError, TypeError, ValueError):
+            return True
+
+    def backup_now(self):
+        """Copy the encrypted vault into the chosen folder (OneDrive, a USB drive...), keeping the last ones."""
+        folder = integrations.load_prefs().get("backup_folder")
+        if not folder:
+            return {"ok": False, "error": "Elige primero una carpeta"}
+        self._backup_tried = time.time()
+        result = self.call("backup")
+        if not result["ok"]:
+            return result
+        try:
+            target = Path(folder)
+            target.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+            (target / f"SecretBroker_{stamp}.sbbackup").write_text(result["result"]["vault"], encoding="utf-8")
+            for old in sorted(target.glob("SecretBroker_*.sbbackup"))[:-BACKUPS_KEPT]:
+                old.unlink()
+        except OSError as exc:
+            return {"ok": False, "error": f"No se pudo escribir en {folder}: {exc.strerror or exc}"}
+        integrations.set_pref("last_backup", datetime.now().isoformat(timespec="seconds"))
+        return {"ok": True, "result": {"entries": result["result"]["entries"]}}
+
+    def pick_backup_file(self):
+        import webview
+        folder = integrations.load_prefs().get("backup_folder") or str(_default_backup_folder())
+        chosen = self._window.create_file_dialog(webview.OPEN_DIALOG, directory=folder if Path(folder).is_dir() else "",
+                                                 file_types=("Copia de SecretBroker (*.sbbackup)", "Todos los archivos (*.*)")) if self._window else None
+        return chosen[0] if chosen else None
+
+    def restore_backup(self, path, master_password, proof=None):
+        try:
+            text = Path(path).read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            return {"ok": False, "error": f"No se pudo leer el archivo: {exc}"}
+        if proof is None and client.request("status")["state"] == "no_vault":
+            proof = {"kind": "none"}  # a new PC: there is no vault to protect yet (the service ignores it)
+        return self.call("restore", {"vault": text, "master_password": master_password}, proof)
+
     # ----- open the vault with the Windows session
 
     def has_session_unlock(self):
@@ -333,6 +400,13 @@ class Api:
 
     def resume_ai(self):
         return self._presence is not None and self.call("resume_ai")["ok"]
+
+
+def _default_backup_folder():
+    """OneDrive if the user has it (a copy outside this PC), otherwise Documents."""
+    onedrive = os.environ.get("OneDrive")
+    base = Path(onedrive) if onedrive and Path(onedrive).is_dir() else Path.home() / "Documents"
+    return base / "SecretBroker"
 
 
 # ----------------------------------------------------------------- clipboard (Windows)

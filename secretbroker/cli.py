@@ -1,6 +1,8 @@
 """`sb`: run your own programs with credentials from the vault as environment variables.
 
     sb run -- npm run dev
+    sb check                 is every credential of .secretbroker ready?
+    sb import [.env]         move the keys of a .env file into the vault (the user confirms in the app)
 
 The variables come from a `.secretbroker` file in the project (found in the current folder or a
 parent), which names credentials but holds no values, so it can be committed:
@@ -114,6 +116,112 @@ def run(argv, config_path=None):
     return code
 
 
+# ----------------------------------------------------------------- sb check
+
+STATUS_TEXT = {
+    "ok": "lista",
+    "missing": "no existe en la bóveda: créala en la app (o pide a la IA que la prepare)",
+    "draft": "falta la clave: pégala en la app SecretBroker",
+    "no_env": "no tiene variables de entorno en sus permisos: añádelas en la app",
+    "no_field": "no tiene esa variable: indica el dato con VARIABLE = credencial:dato",
+}
+APPROVAL_TEXT = {"session": "pide aprobación una vez", "always": "pide aprobación cada vez", "never": "no pregunta"}
+
+
+def check(config_path=None):
+    path = Path(config_path) if config_path else find_config(Path.cwd())
+    if path is None or not path.is_file():
+        raise ConfigError(f"No hay ningún {CONFIG_NAME} en esta carpeta ni en las superiores")
+    items = parse_config(path.read_text(encoding="utf-8"), path.name)
+    results = client.call("check_env", {"vars": items})
+    label = lambda r: f"{r['name'] or '*'} = {r['secret_id']}"
+    width = max(len(label(r)) for r in results)
+    for r in results:
+        text = STATUS_TEXT.get(r["status"], r["status"])
+        if r["status"] == "ok" and r.get("approval"):
+            text += f" ({APPROVAL_TEXT.get(r['approval'], r['approval'])})"
+        print(f"  {'OK' if r['status'] == 'ok' else '!!'}  {label(r):<{width}}  {text}")
+    return 0 if all(r["status"] == "ok" for r in results) else 1
+
+
+# ----------------------------------------------------------------- sb import
+
+ENV_LINE_RE = re.compile(r"^\s*(?:export\s+)?(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?P<value>.*?)\s*$")
+SECRET_NAME_RE = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|PWD|PASS\b|CREDENTIAL|AUTH|DSN|PRIVATE|_PAT\b", re.I)
+URL_WITH_PASSWORD_RE = re.compile(r"^[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s@]+@", re.I)
+
+
+def parse_env(text):
+    """[(line number, name, value)] of a .env file: KEY=value, export KEY=value, quoted values."""
+    found = []
+    for number, raw in enumerate(text.splitlines(), 1):
+        if raw.lstrip().startswith("#"):
+            continue
+        match = ENV_LINE_RE.match(raw)
+        if not match:
+            continue
+        value = match["value"]
+        if value[:1] in ("'", '"'):
+            end = value.find(value[0], 1)
+            value = value[1:end] if end > 0 else value[1:]
+        else:
+            value = re.split(r"\s+#", value, maxsplit=1)[0].strip()
+        found.append((number, match["name"], value))
+    return found
+
+
+def looks_secret(name, value):
+    return bool(value) and (bool(SECRET_NAME_RE.search(name)) or bool(URL_WITH_PASSWORD_RE.match(value)))
+
+
+def import_env(env_path, project=None, everything=False, delete=False):
+    """Never prints a value: the AI may be the one running this."""
+    env_path = Path(env_path).resolve()
+    if not env_path.is_file():
+        raise ConfigError(f"No existe {env_path}")
+    project = project or env_path.parent.name
+    slug = lambda text: re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:64]
+    entries = parse_env(env_path.read_text(encoding="utf-8"))
+    chosen = [(n, name, value) for n, name, value in entries if value and (everything or looks_secret(name, value))]
+    left = [name for _, name, value in entries if not (value and (everything or looks_secret(name, value)))]
+    if not chosen:
+        print(f"No hay nada que parezca una clave en {env_path}" + (f". Variables: {', '.join(left)}" if left else ""))
+        return 0
+    items = [{"var": name, "value": value, "id": slug(f"{project}-{name}")} for _, name, value in chosen]
+    print(f"Confirma la importación en la app SecretBroker ({len(items)} clave(s))...", flush=True)
+    result = client.call("import_env", {"source": str(env_path), "items": items})
+    mapped = {i["var"]: i["id"] for i in result["created"] + result["skipped"]}
+    for item in result["created"]:
+        print(f"  importada   {item['var']}  ->  {item['id']}")
+    for item in result["skipped"]:
+        print(f"  ya existía  {item['var']}  ->  {item['id']}")
+    if left:
+        print(f"  no son claves, se quedan en el .env: {', '.join(left)}")
+
+    config = env_path.parent / CONFIG_NAME
+    current = config.read_text(encoding="utf-8") if config.is_file() else ""
+    known = {i.get("name") for i in parse_config(current)} if current.split("#")[0].strip() else set()
+    lines = [f"{var} = {secret_id}" for var, secret_id in mapped.items() if var not in known]
+    if lines:
+        header = "" if current else "# Variables de SecretBroker: nombres de credenciales, sin valores. Se puede subir al repositorio.\n"
+        config.write_text(header + (current.rstrip("\n") + "\n" if current.strip() else "") + "\n".join(lines) + "\n",
+                          encoding="utf-8")
+        print(f"{config} actualizado: ya puedes usar  sb run -- <programa>")
+
+    if delete:
+        drop = {n for n, name, _ in chosen if name in mapped}
+        kept = [line for number, line in enumerate(env_path.read_text(encoding="utf-8").splitlines(), 1) if number not in drop]
+        if any(line.strip() and not line.lstrip().startswith("#") for line in kept):
+            env_path.write_text("\n".join(kept) + "\n", encoding="utf-8")
+            print(f"Quitadas las claves de {env_path.name}; las demás variables se quedan.")
+        else:
+            env_path.unlink()
+            print(f"{env_path.name} borrado: ya no hace falta.")
+    else:
+        print(f"Aviso: {env_path.name} sigue teniendo las claves en claro. Bórralo o repite con --delete.")
+    return 0
+
+
 def main(args=None):
     parser = argparse.ArgumentParser(prog="sb", description="Ejecuta programas con credenciales de SecretBroker.")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -121,10 +229,23 @@ def main(args=None):
                                      description="Ejemplo: sb run -- npm run dev")
     run_parser.add_argument("-f", "--file", help=f"Archivo de variables (por defecto, el {CONFIG_NAME} más cercano)")
     run_parser.add_argument("program", nargs=argparse.REMAINDER, help="Programa y argumentos, después de --")
+    check_parser = commands.add_parser("check", help=f"Comprueba que las credenciales del {CONFIG_NAME} están listas")
+    check_parser.add_argument("-f", "--file", help=f"Archivo de variables (por defecto, el {CONFIG_NAME} más cercano)")
+    import_parser = commands.add_parser("import", help="Mete las claves de un .env en la bóveda",
+                                        description="Las claves pasan del archivo a la bóveda sin mostrarse. "
+                                                    "Se confirman en la app SecretBroker.")
+    import_parser.add_argument("env", nargs="?", default=".env", help="Archivo .env (por defecto, .env)")
+    import_parser.add_argument("--project", help="Prefijo de los nombres (por defecto, el nombre de la carpeta)")
+    import_parser.add_argument("--all", action="store_true", help="Importar todas las variables, no solo las que parecen claves")
+    import_parser.add_argument("--delete", action="store_true", help="Quitar del .env las claves importadas")
     options = parser.parse_args(args)
 
-    program = options.program[1:] if options.program[:1] == ["--"] else options.program
     try:
+        if options.command == "check":
+            sys.exit(check(options.file))
+        if options.command == "import":
+            sys.exit(import_env(options.env, options.project, options.all, options.delete))
+        program = options.program[1:] if options.program[:1] == ["--"] else options.program
         sys.exit(run(program, options.file))
     except (ConfigError, BrokerError, BrokerUnavailable, OSError) as exc:
         print(f"sb: {exc}", file=sys.stderr)

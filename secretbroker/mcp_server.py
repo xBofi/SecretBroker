@@ -16,7 +16,12 @@ mcp = MCPServer(
         "(read its description: it contains the user's instructions). Reference secret values only through "
         "placeholders such as {{value}}, {{username}} or {{password}}; the broker substitutes them and "
         "redacts them from any output. Never ask the user to paste a secret into the chat. Calls may wait "
-        "while the user approves them with Windows Hello in the SecretBroker app."
+        "while the user approves them in the SecretBroker app; at the start of a task that needs several "
+        "credentials, call request_access once. To set up a project's local secrets: write a .secretbroker "
+        "file (VARIABLE = credential-id lines, no values; it can be committed), prepare missing credentials "
+        "with create_credential, move keys out of a .env with the shell command `sb import .env --delete` "
+        "(it never prints values; the user confirms in the app), check with `sb check`, run the app with "
+        "`sb run -- <command>`, and store production secrets with push_github_secret."
     ),
 )
 
@@ -106,9 +111,10 @@ def request_access(secret_ids: list[str], reason: str) -> dict:
 
 @mcp.tool()
 def create_credential(
-    template: str,
     name: str,
     description: str,
+    template: str | None = None,
+    provider: str | None = None,
     fields: dict[str, str] | None = None,
     id: str | None = None,
     allowed_hosts: list[str] | None = None,
@@ -118,7 +124,9 @@ def create_credential(
     """Prepare a new credential with everything except its secret; the user then only pastes the
     key in the SecretBroker app (it can't be used until then). Never ask for the secret in the chat.
 
-    template and its non-secret fields:
+    provider fills in a known API's URL, auth and environment variable (template api_key): openai,
+    anthropic, openrouter, github, gitlab, stripe, groq, huggingface, mistral, cloudflare, assemblyai,
+    elevenlabs, deepgram. Otherwise give a template and its non-secret fields:
       api_key   base_url (API URL; its host becomes the only allowed host), auth_style
                 (bearer | x_api_key | query | none), env_var (e.g. OPENAI_API_KEY)
       web_login url, username
@@ -131,7 +139,7 @@ def create_credential(
     ({"OPENAI_API_KEY": "{{value}}"}, used by `sb run` and run_command) and commands (CLIs allowed in
     run_command). The id defaults to a slug of the name."""
     return _call("create_draft", _drop_none(
-        template=template, name=name, description=description, fields=fields, id=id,
+        template=template, provider=provider, name=name, description=description, fields=fields, id=id,
         allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands,
     ))
 

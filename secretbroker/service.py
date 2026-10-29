@@ -33,10 +33,10 @@ import httpx
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from . import actions, crypto, exposure, links, paths, rotation, update, winsec
+from . import actions, crypto, exposure, links, paths, presets, rotation, update, winsec
 from .inject import ActionError, Redactor, substitute
 from .vault import (
-    DEFAULT_SETTINGS, Vault, VaultLocked, ValidationError, WrongPassword, agent_view,
+    DEFAULT_SETTINGS, ID_RE, Vault, VaultLocked, ValidationError, WrongPassword, agent_view,
     check_master_password, convert_legacy_entry, entry_summary,
 )
 from . import templates
@@ -55,10 +55,10 @@ SCAN_SESSION_SECONDS = 12 * 3600
 CHECK_EVERY_SECONDS = 24 * 3600
 ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 SLUG_RE = re.compile(r"[^a-z0-9]+")
-PRESENCE_OPS = ("approve", "complete_draft", "resume_ai", "set_ai_permissions")  # what the app that unlocked may do with one click
+PRESENCE_OPS = ("approve", "complete_draft", "resume_ai", "set_ai_permissions", "backup", "restore")  # what the app that unlocked may do with one click
 # Everything the AI can ask for. "Pause the AI" refuses all of it without locking the vault.
 AI_OPS = AGENT_ACTIONS | {"list_secrets", "release_env", "push_github_secret", "create_draft", "update_credential",
-                          "request_access"}
+                          "request_access", "check_env", "import_env"}
 # What the AI may do beyond using a credential, and how freely. The user sets each one in the app:
 #   free    follows each credential's own approval      notify  the same, and the user gets a notice
 #   ask     the user confirms every time                 off     refused
@@ -941,6 +941,16 @@ class Service:
 
     def op_create_draft(self, params):
         """A credential prepared by the AI with everything but its secret, which the user pastes in the app."""
+        preset_id = params.get("provider")
+        if preset_id:
+            preset = presets.get(preset_id)
+            if not preset:
+                raise ServiceError(f"Proveedor desconocido: {preset_id}. Conocidos: {', '.join(presets.PRESETS)}", "invalid")
+            if params.get("template") not in (None, "api_key"):
+                raise ServiceError("Los proveedores usan la plantilla api_key", "invalid")
+            fields, description = presets.apply(preset_id, params.get("fields") or {}, str(params.get("description") or ""))
+            params = {**params, "template": "api_key", "fields": fields, "description": description,
+                      "name": params.get("name") or preset[0]}
         template = params.get("template")
         if template not in templates.TEMPLATES:
             raise ServiceError(f"Plantilla desconocida: {template}. Usa una de: {', '.join(templates.TEMPLATES)}", "invalid")
@@ -990,6 +1000,103 @@ class Service:
         self.vault.put(updated, replaces=entry["id"])
         self._audit(entry["id"], "edit", detail, "ok")
         return {"credential": agent_view(self.vault.get(entry["id"])), "changed": [line for _, line in changes]}
+
+    def op_check_env(self, params):
+        """`sb check`: is every credential a project's .secretbroker names ready? No values involved."""
+        entries = {e["id"]: e for e in self.vault.entries()}
+        result = []
+        for item in params.get("vars") or []:
+            entry = entries.get(item.get("secret_id"))
+            env = ((entry or {}).get("policy", {}).get("commands") or {}).get("env") or {}
+            if entry is None:
+                status = "missing"
+            elif entry.get("draft"):
+                status = "draft"
+            elif not env:
+                status = "no_env"
+            elif item.get("name") and not item.get("field") and item["name"] not in env and "value" not in templates.placeholder_values(entry):
+                status = "no_field"
+            else:
+                status = "ok"
+            result.append({"name": item.get("name"), "secret_id": item.get("secret_id"), "status": status,
+                           "approval": (entry or {}).get("policy", {}).get("approval")})
+        return result
+
+    def op_import_env(self, params):
+        """`sb import`: the keys of a project's .env become credentials. The values travel from the
+        user's file to the vault through that local program, never through the AI, and the user
+        confirms the list (names only) in the app."""
+        source = str(params.get("source") or "")[:300]
+        existing = {e["id"] for e in self.vault.entries()}
+        new, skipped = [], []
+        for item in params.get("items") or []:
+            var, value, entry_id = str(item.get("var") or ""), item.get("value"), str(item.get("id") or "")
+            if not ENV_NAME_RE.match(var) or not isinstance(value, str) or not value or not ID_RE.match(entry_id):
+                raise ServiceError(f"Variable no válida: {var}", "invalid")
+            if entry_id in existing or entry_id in {n["id"] for n in new}:
+                skipped.append({"var": var, "id": entry_id, "reason": "ya existe"})
+            else:
+                new.append({"var": var, "value": value, "id": entry_id})
+        if not new:
+            return {"created": [], "skipped": skipped}
+        detail = f"Desde {source}\n" + "\n".join(f"{n['var']}  →  {n['id']}" for n in new)
+        request = {"id": "vault", "name": f"Importar {len(new)} clave(s)", "template": "generic"}
+        try:
+            self._ask_user(request, "import_env", detail, allow_session=False)
+        except ServiceError as exc:
+            self._audit("vault", "import_env", detail, "denied" if exc.code == "denied" else "error", str(exc))
+            raise
+        for item in new:
+            self.vault.put(self._imported_entry(item, source))
+            self._audit(item["id"], "import_env", f"{item['var']} desde {source}", "ok")
+        return {"created": [{"var": n["var"], "id": n["id"]} for n in new], "skipped": skipped}
+
+    @staticmethod
+    def _imported_entry(item, source):
+        var, preset_id = item["var"], presets.for_env_var(item["var"])
+        description = f"Importada de {source} ({var})."
+        if preset_id:
+            fields, description = presets.apply(preset_id, {"env_var": var}, description)
+            template, name = "api_key", f"{presets.get(preset_id)[0]} ({var})"
+        else:
+            fields, template, name = {}, "generic", var
+        fields["value"] = item["value"]
+        policy = templates.default_policy(template, fields)
+        commands = policy.setdefault("commands", {"allowed": [], "env": {}})
+        commands["env"] = {**(commands.get("env") or {}), var: "{{value}}"}
+        policy["approval"] = "session"
+        return {"id": item["id"], "name": name, "template": template, "description": description,
+                "fields": fields, "policy": policy}
+
+    # ------------------------------------------------------------------ backups
+
+    def op_backup(self, params):
+        """A copy of the vault file for the app to keep wherever the user wants. It is useless without
+        the master password; still, only the app that unlocked gets it."""
+        self._verify_proof("backup", params)
+        if not self.vault.is_unlocked:
+            raise VaultLocked()
+        return {"vault": self.vault.file.read_text(encoding="utf-8"), "entries": len(self.vault.entries()),
+                "created": datetime.now().isoformat(timespec="seconds")}
+
+    def op_restore(self, params):
+        if self.vault.exists():
+            self._verify_proof("restore", params)  # replacing a vault needs its owner
+        self._throttle()
+        try:
+            self.vault.restore(str(params.get("vault") or "").encode("utf-8"), params.get("master_password") or "")
+        except WrongPassword:
+            self._failures += 1
+            raise ServiceError("La contraseña maestra no abre esa copia", "wrong_password") from None
+        except ValueError:
+            raise ServiceError("Ese archivo no es una copia de SecretBroker", "invalid") from None
+        self._failures = 0
+        with self._lock:
+            self._grants = {}
+        self._last_activity = time.monotonic()
+        self._seal_audit_log()
+        self._audit("vault", "restore", f"{len(self.vault.entries())} credenciales", "ok")
+        return {**self.op_status({}), "exposure_session": self._new_scan_session(), "presence": self._new_presence()}
 
     def op_complete_draft(self, params):
         """The user pastes the secret of a credential the AI prepared."""

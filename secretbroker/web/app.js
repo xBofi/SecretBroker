@@ -149,6 +149,8 @@ const ACTION_LABELS = {
   revoke: 'Aprobación retirada',
   request_access: 'Acceso para una tarea',
   ai_permissions: 'Permisos de la IA',
+  import_env: 'Importada de un .env',
+  restore: 'Copia restaurada',
   pause_ai: 'IA en pausa',
   resume_ai: 'IA reanudada',
   session_unlock: 'Abrir con la sesión de Windows',
@@ -354,7 +356,9 @@ function renderSetup() {
         el('div', {}, icon('fingerprint'), el('div', {}, el('b', {}, 'Tú decides. '), el('span', { class: 'muted' }, 'Apruebas cada uso con tu PIN, huella o cara.'))),
         el('div', {}, icon('lock'), el('div', {}, el('b', {}, 'Cifrado local. '), el('span', { class: 'muted' }, 'AES-256 en este equipo. Nada sale a la nube.')))),
       status.legacy_vault ? el('p', { class: 'help' }, 'Hemos encontrado tu bóveda anterior: podrás importarla en el siguiente paso.') : null,
-      el('div', {}, el('button', { class: 'btn primary lg', onclick: passwordStep }, 'Empezar')));
+      el('div', { style: 'display:flex;gap:8px;align-items:center' },
+        el('button', { class: 'btn primary lg', onclick: passwordStep }, 'Empezar'),
+        el('button', { class: 'btn ghost lg', onclick: () => restoreBackup(() => { state.setupActive = false; state.screen = null; refreshStatus(); }) }, 'Restaurar una copia')));
   };
 
   const passwordStep = () => {
@@ -1399,6 +1403,8 @@ function renderSettings(content) {
       await refreshStatus(); renderView();
     } else { sessionToggle.checked = !sessionToggle.checked; if (result.code !== 'cancelled') toast(result.error, 'error'); }
   });
+  const backupSlot = el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Copia de seguridad'));
+  renderBackup(backupSlot);
   const startToggle = el('input', { type: 'checkbox', checked: !!state.info.start_with_windows });
   startToggle.addEventListener('change', async () => {
     await api().set_start_with_windows(startToggle.checked);
@@ -1481,6 +1487,7 @@ function renderSettings(content) {
         el('button', { class: 'btn', onclick: () => { state.view = 'access'; renderMain(); } }, 'Ver'))),
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Aplicación'),
         setting('Arrancar con Windows', 'SecretBroker se queda junto al reloj, listo para la IA. Cerrar la ventana no lo cierra: usa «Salir» en ese icono.', startToggle)),
+      backupSlot,
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Exposición'),
         setting('Analizar al desbloquear', 'Busca copias de tus claves en este equipo al desbloquear, como mucho cada 12 horas.', autoScan),
         setting('Carpetas de proyectos', 'Se revisan junto con sus historiales de git. Las carpetas donde has usado Claude Code se añaden solas.', addFolder),
@@ -1496,6 +1503,61 @@ function renderSettings(content) {
           else if (state.update && !state.update.error) toast('Ya tienes la última versión');
         } }, 'Buscar ahora'))),
       el('p', { class: 'faint small' }, `SecretBroker ${state.info.version} · ${status.owner}`))));
+}
+
+// ----------------------------------------------------------------------- backups
+
+async function renderBackup(slot) {
+  const info = await api().backup_info();
+  const title = slot.firstChild;
+  const run = async (button, fn, done) => {
+    busy(button, true);
+    const result = await fn();
+    busy(button, false);
+    if (result.ok) { toast(done); renderBackup(slot); } else if (result.code !== 'cancelled') toast(result.error, 'error');
+  };
+  const nowButton = el('button', { class: 'btn' }, 'Hacer copia ahora');
+  nowButton.addEventListener('click', () => run(nowButton, () => api().backup_now(), 'Copia guardada'));
+  const folderButton = el('button', { class: 'btn' }, info.folder ? 'Cambiar carpeta' : 'Elegir otra carpeta');
+  folderButton.addEventListener('click', () => run(folderButton, () => api().choose_backup_folder(), 'Copia guardada'));
+  const enableButton = el('button', { class: 'btn primary' }, 'Activar');
+  enableButton.addEventListener('click', () => run(enableButton, () => api().set_backup_folder(info.suggested), 'Copias activadas'));
+  slot.replaceChildren(title,
+    info.folder
+      ? setting('Copia diaria automática', `En ${info.folder}. ${info.last ? `Última: ${formatTime(info.last)}.` : ''} Se guardan las 10 últimas.`,
+        el('div', { style: 'display:flex;gap:8px' }, nowButton, folderButton))
+      : setting('Copia diaria automática', `Guarda cada día la bóveda cifrada en ${info.suggested}. Sin copia, si se estropea el disco pierdes todas las claves.`,
+        el('div', { style: 'display:flex;gap:8px' }, enableButton, folderButton)),
+    setting('Restaurar una copia', 'Sustituye la bóveda por una copia. Necesitas la contraseña maestra que tenía entonces. La bóveda actual se guarda aparte por si acaso.',
+      el('button', { class: 'btn', onclick: () => restoreBackup(async () => { await loadEntries(); renderMain(); }) }, 'Restaurar…')));
+}
+
+async function restoreBackup(onDone) {
+  const path = await api().pick_backup_file();
+  if (!path) return;
+  const pw = passwordInput({ placeholder: 'Contraseña maestra de la copia', autocomplete: 'current-password' });
+  const errorText = el('div', { class: 'error-text' });
+  const button = el('button', { class: 'btn primary' }, 'Restaurar');
+  const modal = openModal({
+    title: 'Restaurar una copia',
+    body: [el('p', { class: 'muted small selectable' }, path), el('div', { class: 'field' }, el('label', {}, 'Contraseña maestra'), pw), errorText],
+    footer: [el('button', { class: 'btn', onclick: () => modal.close() }, 'Cancelar'), button],
+  });
+  const submit = async () => {
+    errorText.textContent = '';
+    busy(button, true);
+    const restoring = state.status.state === 'no_vault'
+      ? await api().restore_backup(path, pw.input.value)
+      : await withProof((p) => api().restore_backup(path, pw.input.value, p), 'Para sustituir la bóveda actual.');
+    busy(button, false);
+    if (!restoring.ok) { if (restoring.code !== 'cancelled') errorText.textContent = restoring.error; return; }
+    modal.close();
+    toast('Copia restaurada');
+    onDone();
+  };
+  button.addEventListener('click', submit);
+  pw.input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  setTimeout(() => pw.input.focus(), 50);
 }
 
 // ----------------------------------------------------------------------- updates

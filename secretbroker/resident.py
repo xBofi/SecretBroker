@@ -148,6 +148,8 @@ class Watcher:
         self._pending, self._drafts = status["pending"], drafts
         if status["state"] == "unlocked":
             self._show_notices()
+            if self.api.backup_due():
+                self.api.backup_now()
         if self.on_status:
             self.on_status(status)
 

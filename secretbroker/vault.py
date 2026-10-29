@@ -213,6 +213,25 @@ class Vault:
             raise ValidationError("No se pudo usar la clave de este PC. Desbloquea con la contraseña maestra.") from None
         self._open(doc, key)
 
+    def restore(self, doc_bytes, master_password):
+        """Replace the vault with a backup (a copy of vault.json), after checking that the password
+        opens it. The previous file is kept next to it. Leaves the restored vault unlocked."""
+        doc = json.loads(doc_bytes)
+        if doc.get("version") != FORMAT_VERSION:
+            raise ValidationError("Esta copia no es de una bóveda de SecretBroker compatible")
+        key = crypto.unwrap_with_password(master_password, doc["master"])
+        try:
+            json.loads(crypto.open_sealed(key, doc, VAULT_AAD))
+        except Exception:
+            raise ValidationError("La copia está dañada") from None
+        with self._lock:
+            self.lock()
+            if self.exists():
+                stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+                _atomic_write(self.data_dir / f"vault.before-restore-{stamp}.json", self.file.read_bytes())
+            _atomic_write(self.file, json.dumps(doc, indent=1).encode("utf-8"))
+            self.unlock_with_master(master_password)
+
     def verify_master(self, master_password):
         try:
             crypto.unwrap_with_password(master_password, self._load_doc()["master"])

@@ -213,6 +213,7 @@ def main():
                  "approval needed while app closed -> gui_required")
 
     decisions = []
+    fresh_presence = []  # approving with Hello hands the app a new one-click token
 
     def fake_gui(decision):
         deadline = time.monotonic() + 10
@@ -223,7 +224,9 @@ def main():
                 if decision == "deny":
                     client.request("deny", {"id": request["id"]})
                 else:
-                    call("approve", {"id": request["id"], "scope": decision}, "hello")
+                    answer = call("approve", {"id": request["id"], "scope": decision}, "hello")
+                    if isinstance(answer, dict) and answer.get("presence"):
+                        fresh_presence.append(answer["presence"])
                 decisions.append((request["action"], request["detail"]))
                 return
             time.sleep(0.1)
@@ -441,6 +444,60 @@ def main():
     check(completed.returncode == 7, "sb run returns the program's exit code")
     check(any(e["action"] == "release_env" and "python -c" in e["detail"] for e in client.request("audit", {"limit": 20})),
           "releases are audited with the command")
+
+    print("Projects: sb check and sb import")
+    (HOME / "project" / ".secretbroker").write_text("DATABASE_URL = shop-db\nX = nothing-here\nY = old-ssh\n")
+    completed = subprocess.run([sys.executable, "-m", "secretbroker.cli", "check"], cwd=project, capture_output=True, text=True)
+    out = completed.stdout
+    check(completed.returncode == 1 and "OK  DATABASE_URL = shop-db" in out and "no existe" in out and "variables de entorno" in out,
+          f"sb check says what is missing: {out.strip()!r}")
+    app_dir = HOME / "shop-app"
+    app_dir.mkdir()
+    env_file = app_dir / ".env"
+    env_file.write_text("# keys\nexport OPENAI_API_KEY=\"sk-proj-IMPORTED-1234567890\"\nPORT=3000\n"
+                        "STRIPE_SECRET_KEY=sk_test_IMPORTED_abcdef\nPAYMENTS_SECRET='whsec-IMPORTED-zzz'\n")
+    gui = threading.Thread(target=fake_gui, args=("once",))
+    gui.start()
+    completed = subprocess.run([sys.executable, "-m", "secretbroker.cli", "import", "--delete"], cwd=app_dir,
+                               capture_output=True, text=True)
+    gui.join()
+    out = completed.stdout + completed.stderr
+    check(completed.returncode == 0 and "IMPORTED" not in out, f"sb import never prints values ({out.strip()[:200]!r})")
+    check(decisions[-1][0] == "import_env" and "OPENAI_API_KEY" in decisions[-1][1] and "IMPORTED" not in decisions[-1][1],
+          "the user confirms the list of names")
+    openai_entry = next(e for e in client.request("entries") if e["id"] == "shop-app-openai-api-key")
+    check(openai_entry["fields"]["base_url"] == "https://api.openai.com/v1" and openai_entry["policy"]["commands"]["env"] == {"OPENAI_API_KEY": "{{value}}"},
+          "known keys get their provider's settings")
+    check(call("reveal", {"id": "shop-app-payments-secret", "field": "value"}, "hello") == "whsec-IMPORTED-zzz",
+          "values are stored as they were (quotes removed)")
+    check(env_file.read_text().strip().splitlines() == ["# keys", "PORT=3000"], "--delete leaves only what isn't a key")
+    config = (app_dir / ".secretbroker").read_text()
+    check("OPENAI_API_KEY = shop-app-openai-api-key" in config and "STRIPE_SECRET_KEY = shop-app-stripe-secret-key" in config,
+          ".secretbroker is written for sb run")
+    completed = subprocess.run([sys.executable, "-m", "secretbroker.cli", "check"], cwd=app_dir, capture_output=True, text=True)
+    check(completed.returncode == 0, f"and sb check is happy: {completed.stdout.strip()!r}")
+
+    print("Provider presets")
+    view = client.request("create_draft", {"provider": "anthropic", "description": "Para el bot"})["credential"]
+    check(view["id"] == "anthropic" and view["http"]["allowed_hosts"] == ["api.anthropic.com"]
+          and "anthropic-version" in view["description"], "provider=anthropic fills URL, host and how to call it")
+    expect_error(lambda: client.request("create_draft", {"provider": "nope", "name": "x"}), "invalid", "unknown providers are refused")
+
+    print("Backups")
+    presence = fresh_presence[-1]
+    backup = call("backup", {}, {"kind": "presence", "token": presence})
+    expect_error(lambda: client.request("backup"), "proof_required", "only the app gets a backup")
+    client.request("create_draft", {"template": "generic", "name": "After the backup"})
+    expect_error(lambda: call("restore", {"vault": backup["vault"], "master_password": "wrong wrong wrong"},
+                              {"kind": "presence", "token": presence}), "wrong_password", "a wrong master password is refused")
+    restored = call("restore", {"vault": backup["vault"], "master_password": "a brand new master pass"},
+                    {"kind": "presence", "token": presence})
+    ids = {e["id"] for e in client.request("entries")}
+    check(restored["state"] == "unlocked" and "after-the-backup" not in ids and "shop-app-openai-api-key" in ids,
+          "restoring brings the vault back to the copy")
+    check(any(f.name.startswith("vault.before-restore-") for f in (HOME / "data").iterdir()), "the replaced vault is kept aside")
+    presence = restored["presence"]
+    client.request("pending_approvals")
 
     print("GitHub secrets")
     github = HTTPServer(("127.0.0.1", 0), FakeGitHub)

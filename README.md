@@ -46,6 +46,7 @@ El resultado es `dist\SecretBroker-Setup-<versión>.exe`, de unos 26 MB, con Pyt
 - **Acceso de la IA**: una página muestra qué credenciales puede usar la IA ahora mismo sin preguntar (y hasta cuándo), con un botón para retirar cada aprobación. **Pausar la IA** corta todo su acceso al instante (no puede ni listar las credenciales) sin bloquear la bóveda; también desde el icono junto al reloj. Reanudarla es un clic.
 - **Qué puede hacer la IA**: en «Acceso de la IA» eliges, para cada cosa que la IA puede hacer además de usar credenciales (preparar credenciales, cambiar nombre y notas, cambiar adónde puede ir una clave, dar claves a programas locales, subir a GitHub), si es *Libre*, *Avisarme*, *Preguntarme* o *Nunca*. Endurecer un permiso no pide nada; relajarlo es un clic en la app que desbloqueaste. También puedes recibir un aviso de Windows cuando la IA use credenciales que no preguntan (como mucho uno cada 10 min por credencial).
 - **Una aprobación por tarea**: la IA puede pedir al empezar todas las credenciales que va a necesitar, explicando para qué; las apruebas de una vez.
+- **Copia de seguridad**: una copia diaria de la bóveda cifrada en la carpeta que elijas (por defecto OneDrive, para que esté fuera del PC); se guardan las 10 últimas. Se restaura desde Ajustes o, en un PC nuevo, desde la primera pantalla, con la contraseña maestra que tenía la copia.
 - **Siempre lista**: SecretBroker arranca con Windows y se queda junto al reloj. Cerrar la ventana no lo cierra (usa «Salir» en ese icono). Cuando la IA pide algo, la ventana aparece sola.
 - **Windows Hello**: con tu PIN, huella o cara desbloqueas la bóveda, apruebas usos, ves o copias contraseñas y guardas cambios. En PCs sin Hello se usa la contraseña de Windows o la maestra.
 - **Recuperación**: si olvidas la contraseña maestra, entra con Windows Hello o con la contraseña de Windows y crea una nueva. Esto solo funciona en este PC.
@@ -69,7 +70,7 @@ Claude Code se conecta a la app por HTTP (`127.0.0.1`, con un token propio), as�
 | `ssh_exec` · `ssh_upload` · `ssh_download` | Comandos (también con sudo) y transferencia de archivos por SFTP |
 | `run_command` | Ejecuta un programa permitido (`gh`, `psql`, `aws`…) con la credencial en variables de entorno |
 | `request_access` | Pide al empezar una tarea todas las credenciales que necesitará, con el motivo: el usuario las aprueba con un solo clic |
-| `create_credential` | Prepara una credencial nueva con todo (plantilla, notas, URL, permisos, variables) menos la clave. El usuario solo la pega en la app; hasta entonces no se puede usar |
+| `create_credential` | Prepara una credencial nueva con todo (plantilla, notas, URL, permisos, variables) menos la clave. Con `provider` (openai, anthropic, github, stripe, cloudflare…) la URL, la autenticación y la variable de entorno salen solas. El usuario solo la pega en la app; hasta entonces no se puede usar |
 | `update_credential` | Cambia nombre, notas, campos o permisos. El nombre y las notas cambian al momento; lo que decide adónde puede ir una clave ya guardada espera la aprobación del usuario. Nunca toca valores secretos ni el modo de aprobación |
 | `push_github_secret` | Guarda una credencial como secret de GitHub Actions (del repositorio o de un entorno), cifrada con la clave del repositorio y sin que la IA vea el valor |
 
@@ -93,6 +94,10 @@ Tu código solo lee variables de entorno, así que en producción funciona igual
 - **Límite:** el programa recibe la clave en claro. Esto evita que la IA la vea por accidente (un `cat .env`, un log), pero no protege de código escrito a propósito para filtrarla.
 
 Si la bóveda está bloqueada o hace falta una aprobación, el MCP abre la app y espera.
+
+**¿Ya tienes un `.env`?** `sb import --delete` mete en la bóveda las variables que parecen claves (nombres con KEY, TOKEN, SECRET, PASSWORD… o URLs con contraseña), escribe el `.secretbroker` y las quita del `.env`; las demás (`PORT`, `NODE_ENV`…) se quedan. Antes, la app te enseña la lista de nombres (nunca los valores) para que la confirmes. Las claves de proveedores conocidos salen ya configuradas (URL, autenticación, variable). `sb import` no imprime nunca un valor, así que la IA puede ejecutarlo por ti.
+
+**`sb check`** dice si todas las credenciales del `.secretbroker` están listas: si falta alguna, si espera su clave o si no tiene variables de entorno.
 
 ## Modelo de seguridad
 
