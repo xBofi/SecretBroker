@@ -48,6 +48,7 @@ CHALLENGE_TTL_SECONDS = 180
 AGENT_ACTIONS = set(actions.ACTIONS)
 POLL_OPS = {"status", "pending_approvals", "audit", "update_status"}
 ALL_PROOFS = ("hello", "windows_password", "master_password")
+APPROVAL_HOURS = (0, 8, 24)  # how long "don't ask again" lasts; 0: until the vault is locked
 AUDIT_AAD = b"secretbroker/audit/v1"
 SCAN_SESSION_SECONDS = 12 * 3600
 CHECK_EVERY_SECONDS = 24 * 3600
@@ -84,7 +85,8 @@ class Service:
         self._lock = threading.RLock()
         self._challenges = {}
         self._approvals = {}
-        self._grants = set()
+        self._grants = {}      # secret id -> monotonic expiry of "don't ask again" (None: until locked)
+        self._presence = None  # (token, expiry): the app that unlocked may approve without a password
         self._last_activity = time.monotonic()
         self._gui_seen = 0.0
         self._failures = 0
@@ -158,6 +160,13 @@ class Service:
     def _verify_proof(self, op, params, allowed=ALL_PROOFS):
         proof = params.get("proof") or {}
         kind = proof.get("kind")
+        if kind == "presence" and op == "approve":
+            with self._lock:
+                presence = self._presence
+            if presence and presence[1] > time.monotonic() and hmac.compare_digest(
+                    str(proof.get("token", "")).encode(), presence[0].encode()):
+                return kind
+            raise ServiceError("La verificación ha caducado; inténtalo de nuevo", "proof_invalid")
         if kind not in allowed:
             raise ServiceError("Esta operación requiere verificar tu identidad", "proof_required")
         if kind == "hello":
@@ -221,7 +230,8 @@ class Service:
             "windows_password": winsec.IS_WINDOWS,
             "legacy_vault": state == "no_vault" and any(p.exists() for p in self.legacy_files),
             "auto_lock_minutes": settings.get("auto_lock_minutes"),
-            "session_grants": len(self._grants),
+            "approval_hours": settings.get("approval_hours"),
+            "session_grants": len(self._live_grants()),
             "gui_connected": time.monotonic() - self._gui_seen < GUI_SEEN_SECONDS,
             "pending": len(self._approvals),
             "protocol": PROTOCOL_VERSION,
@@ -270,20 +280,44 @@ class Service:
         self._last_activity = time.monotonic()
         self._seal_audit_log()
         self._audit("vault", "unlock", proof.get("kind", ""), "ok")
-        # Whoever unlocked may look for copies of the secrets without proving it again (see op_exposure_begin).
-        return {**self.op_status({}), "exposure_session": self._new_scan_session()}
+        # Whoever unlocked may look for copies of the secrets and approve the AI's requests without
+        # proving it again (see op_exposure_begin and _verify_proof), until the vault is locked.
+        return {**self.op_status({}), "exposure_session": self._new_scan_session(), "presence": self._new_presence()}
+
+    def _new_presence(self):
+        token = secrets.token_urlsafe(32)
+        with self._lock:
+            self._presence = (token, time.monotonic() + 24 * 3600)
+        return token
+
+    def _approval_seconds(self):
+        hours = self.vault.settings().get("approval_hours", 24)
+        return hours * 3600 if hours in APPROVAL_HOURS and hours else None
+
+    def _live_grants(self):
+        now = time.monotonic()
+        with self._lock:
+            self._grants = {k: v for k, v in self._grants.items() if v is None or v > now}
+            return dict(self._grants)
+
+    def _forget_grants(self, *secret_ids):
+        with self._lock:
+            self._grants = {k: v for k, v in self._grants.items() if k not in secret_ids}
 
     def op_lock(self, params):
-        self._lock_vault()
+        self._lock_vault(forget_approvals=True)
         self._audit("vault", "lock", "manual", "ok")
         return self.op_status({})
 
-    def _lock_vault(self):
+    def _lock_vault(self, forget_approvals=False):
+        """Locking by hand forgets every approval; locking after inactivity keeps the timed ones,
+        so the user is not asked again for each credential after unlocking."""
         with self._lock:
             for request in self._approvals.values():
                 request["answer"] = "deny"
                 request["event"].set()
-            self._grants.clear()
+            self._grants = {} if forget_approvals else {k: v for k, v in self._grants.items() if v is not None}
+            self._presence = None
             self._scan_sessions.clear()
         self.vault.lock()
 
@@ -329,7 +363,7 @@ class Service:
             self._update_exposure(rename)
             self._update_destinations(rename)
         with self._lock:
-            self._grants = {g for g in self._grants if g[0] not in (entry["id"], replaces)}
+            self._forget_grants(entry["id"], replaces)
         self._audit(entry["id"], "save", "creada" if not replaces else "modificada", "ok")
         return self._summary(self.vault.get(entry["id"]))
 
@@ -339,7 +373,7 @@ class Service:
         self._update_exposure(lambda data: data.get("entries", {}).pop(params["id"], None))
         self._update_destinations(lambda data: data.get("entries", {}).pop(params["id"], None))
         with self._lock:
-            self._grants = {g for g in self._grants if g[0] != params["id"]}
+            self._forget_grants(params["id"])
         self._audit(params["id"], "delete", "", "ok")
         return True
 
@@ -372,7 +406,7 @@ class Service:
         entry["fields"]["value"] = value
         self.vault.put(entry, replaces=entry["id"])
         with self._lock:
-            self._grants = {g for g in self._grants if g[0] != entry["id"]}
+            self._forget_grants(entry["id"])
         self._audit(entry["id"], "rotate", rotation.info(entry)["provider"], "ok")
 
         alive = exposure.check_alive(entry)
@@ -421,6 +455,8 @@ class Service:
         minutes = changes.get("auto_lock_minutes")
         if minutes is not None and (not isinstance(minutes, int) or not 0 <= minutes <= 24 * 60):
             raise ServiceError("Tiempo de bloqueo no válido", "invalid")
+        if "approval_hours" in changes and changes["approval_hours"] not in APPROVAL_HOURS:
+            raise ServiceError("Duración de las aprobaciones no válida", "invalid")
         self.vault.update_settings(changes)
         return self.vault.settings()
 
@@ -443,7 +479,7 @@ class Service:
 
     def op_revoke_sessions(self, params):
         with self._lock:
-            self._grants.clear()
+            self._grants = {}
         return True
 
     def op_audit(self, params):
@@ -639,7 +675,7 @@ class Service:
             return [{k: v for k, v in r.items() if k not in ("event", "answer")} for r in self._approvals.values()]
 
     def op_approve(self, params):
-        self._verify_proof("approve", params)
+        kind = self._verify_proof("approve", params)
         with self._lock:
             request = self._approvals.get(params.get("id"))
             if not request:
@@ -649,7 +685,8 @@ class Service:
                 raise ServiceError("Tipo de aprobación no válido", "invalid")
             request["answer"] = scope
             request["event"].set()
-        return True
+        # After proving it with a password or Hello, the next approvals are a single click.
+        return {"presence": self._new_presence()} if kind != "presence" else True
 
     def op_deny(self, params):
         with self._lock:
@@ -781,10 +818,8 @@ class Service:
         mode = entry.get("policy", {}).get("approval", "session")
         if mode == "never":
             return
-        grant = (entry["id"], action)
-        with self._lock:
-            if mode == "session" and grant in self._grants:
-                return
+        if mode == "session" and entry["id"] in self._live_grants():
+            return
         if time.monotonic() - self._gui_seen > GUI_SEEN_SECONDS:
             raise ServiceError("Esta acción necesita la aprobación del usuario y la app SecretBroker no está abierta.",
                                "gui_required")
@@ -802,8 +837,9 @@ class Service:
             with self._lock:
                 self._approvals.pop(request["id"], None)
         if request["answer"] == "session":
+            seconds = self._approval_seconds()
             with self._lock:
-                self._grants.add(grant)
+                self._grants[entry["id"]] = time.monotonic() + seconds if seconds else None
         elif request["answer"] != "once":
             reason = "El usuario ha denegado el uso de esta credencial" if request["answer"] == "deny" \
                 else "Nadie aprobó la solicitud a tiempo"

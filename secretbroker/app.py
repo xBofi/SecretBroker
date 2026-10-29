@@ -28,6 +28,7 @@ class Api:
     def __init__(self):
         self._window = None
         self._hwnd = None
+        self._presence = None  # lets this app approve the AI's requests without asking again
         # Handed out by the service on unlock: lets this app scan files and see where secrets were found.
         # Kept here, never given to the page.
         self._scan_session = None
@@ -73,6 +74,13 @@ class Api:
         set up; otherwise (or if cancelled) the UI is asked to collect a password proof."""
         params = dict(params or {})
         try:
+            if op == "approve" and proof is None and self._presence:
+                try:
+                    return {"ok": True, "result": client.request(op, {**params, "proof": {"kind": "presence", "token": self._presence}})}
+                except BrokerError as exc:
+                    if exc.code != "proof_invalid":
+                        raise
+                    self._presence = None
             if op in PROOF_OPS and proof is None:
                 status = client.request("status", timeout=10)
                 if not (status["hello_enrolled"] and hello.is_supported()):
@@ -83,6 +91,8 @@ class Api:
             result = client.request(op, params)
             if op in ("unlock", "exposure_begin") and isinstance(result, dict):
                 self._scan_session = result.pop("exposure_session", None) or result.get("session") or self._scan_session
+            if op in ("unlock", "approve") and isinstance(result, dict) and result.get("presence"):
+                self._presence = result.pop("presence")
             return {"ok": True, "result": result}
         except hello.HelloCancelled:
             return {"ok": False, "code": "hello_cancelled", "error": "Verificación cancelada"}

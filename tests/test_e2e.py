@@ -245,6 +245,40 @@ def main():
     result = client.request("http_request", {"secret_id": "echo-api", "url": base + "/again"})
     check(result["status"] == 200, "session grant: no second approval")
 
+    print("Agent: approvals without retyping the password")
+    service._lock_vault()  # what the inactivity timer does
+    unlocked = call("unlock", {}, "hello")
+    presence = unlocked.get("presence")
+    check(bool(presence), "unlocking hands the app a token to approve requests")
+    client.request("pending_approvals")
+    result = client.request("http_request", {"secret_id": "echo-api", "url": base + "/after-auto-lock"})
+    check(result["status"] == 200, "approvals survive the automatic lock")
+    client.request("lock")
+    call("unlock", {}, "hello")
+    expect_error(lambda: call("approve", {"id": "x", "scope": "once"}, {"kind": "presence", "token": presence}),
+                 "proof_invalid", "a token from before a lock is refused")
+    presence = client.request("lock") and call("unlock", {}, "hello")["presence"]
+    expect_error(lambda: call("reveal", {"id": "echo-api", "field": "value"}, {"kind": "presence", "token": presence}),
+                 "proof_required", "the token only approves, it cannot reveal")
+
+    def click_approve():
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            pending = client.request("pending_approvals")
+            if pending:
+                call("approve", {"id": pending[0]["id"], "scope": "session"}, {"kind": "presence", "token": presence})
+                return
+            time.sleep(0.1)
+
+    gui = threading.Thread(target=click_approve)
+    gui.start()
+    result = client.request("http_request", {"secret_id": "echo-api", "url": base + "/one-click"})
+    gui.join()
+    check(result["status"] == 200, "approving with the token: one click, no password")
+    check(client.request("run_command", {"secret_id": "echo-api", "argv": ["python", "-c", "print(1)"]})["exit_code"] == 0,
+          "one approval covers every use of that credential")
+    client.request("pending_approvals")
+
     print("Agent: commands")
     script = "import os;print(os.environ['DATABASE_URL']);print(os.environ['PGPASSWORD'])"
     result = client.request("run_command", {"secret_id": "shop-db", "argv": ["python", "-c", script]})
@@ -419,7 +453,7 @@ def main():
     asyncio.run(check_stdio())
 
     print("Audit")
-    events = client.request("audit", {"limit": 50})
+    events = client.request("audit", {"limit": 1000})
     check(any(e["action"] == "http_request" and e["status"] == "denied" for e in events), "audit log records denials")
     check(API_KEY not in json.dumps(events), "audit log has no secrets")
     check(any(e["action"] == "legacy-event" for e in events), "events written in clear by 0.3 are kept")

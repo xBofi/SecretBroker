@@ -1287,6 +1287,15 @@ function renderSettings(content) {
     if (result.ok) { toast('Guardado'); await refreshStatus(); } else { lockSelect.value = String(status.auto_lock_minutes || 0); if (result.code !== 'cancelled') toast(result.error, 'error'); }
   });
 
+  const approvalSelect = el('select', { class: 'input', style: 'width:auto' },
+    [[24, '24 horas'], [8, '8 horas'], [0, 'Hasta que bloquee']].map(([v, label]) => el('option', { value: v }, label)));
+  approvalSelect.value = String(status.approval_hours ?? 24);
+  approvalSelect.addEventListener('change', async () => {
+    const hours = Number(approvalSelect.value);
+    const result = await withProof((p) => api().call('set_settings', { settings: { approval_hours: hours } }, p), 'Para cambiar cuánto duran las aprobaciones.');
+    if (result.ok) { toast('Guardado'); await refreshStatus(); } else { approvalSelect.value = String(status.approval_hours ?? 24); if (result.code !== 'cancelled') toast(result.error, 'error'); }
+  });
+
   const autoScan = el('input', { type: 'checkbox', checked: state.info.prefs.auto_scan !== false });
   autoScan.addEventListener('change', async () => {
     state.info.prefs.auto_scan = autoScan.checked;
@@ -1337,7 +1346,8 @@ function renderSettings(content) {
         setting('Windows Hello', 'Desbloquea, aprueba y muestra contraseñas con tu PIN, huella o cara.', helloControl),
         setting('Contraseña maestra', 'Si la olvidas, puedes cambiarla aquí tras confirmar con Windows.',
           el('button', { class: 'btn', onclick: () => changeMasterPassword(false) }, 'Cambiar')),
-        setting('Bloqueo automático', 'Bloquea la bóveda tras un tiempo sin uso.', lockSelect),
+        setting('Bloqueo automático', 'Bloquea la bóveda tras un tiempo sin uso. Las aprobaciones de la IA siguen valiendo al desbloquear.', lockSelect),
+        setting('Recordar aprobaciones', 'Cuando permites una credencial, la IA puede usarla sin volver a preguntarte durante este tiempo. Bloquear a mano las olvida todas.', approvalSelect),
         setting('Aislamiento', status.isolated
           ? 'El servicio usa una cuenta de Windows propia: ningún programa puede leer su memoria ni sus archivos.'
           : 'El servicio usa tu cuenta de Windows. Instala SecretBroker para activar la protección completa.',
@@ -1460,6 +1470,13 @@ async function pollApprovals() {
   if (!state.approvalOpen && approvals.length) showApproval(approvals[0]);
 }
 
+function approvalLabel() {
+  const hours = (state.status || {}).approval_hours;
+  if (hours === 0) return 'Permitir hasta que bloquee';
+  if (hours === 8) return 'Permitir 8 horas';
+  return 'Permitir hoy';
+}
+
 function looksDestructive(detail) {
   return /\b(rm\s+-[a-z]*[rf]|rmdir|del\s|drop\s+(table|database|schema)|truncate|delete\s+from|shutdown|reboot|mkfs|dd\s+if=|chmod\s+-R|chown\s+-R|kill(all)?\s|systemctl\s+(stop|disable)|git\s+push\s+.*--force|^DELETE\s)/im.test(detail);
 }
@@ -1479,9 +1496,9 @@ function showApproval(request) {
     if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
     modal.close();
   };
-  const onceButton = el('button', { class: 'btn primary' }, icon('fingerprint', 'sm'), 'Permitir');
+  const onceButton = el('button', { class: request.allow_session ? 'btn' : 'btn primary' }, 'Solo esta vez');
   onceButton.addEventListener('click', () => decide('once', onceButton));
-  const sessionButton = request.allow_session ? el('button', { class: 'btn', title: 'No volver a preguntar por esta acción hasta que se bloquee la bóveda' }, 'Permitir en esta sesión') : null;
+  const sessionButton = request.allow_session ? el('button', { class: 'btn primary', title: `La IA podrá usar ${request.secret_name} sin volver a preguntarte` }, approvalLabel()) : null;
   if (sessionButton) sessionButton.addEventListener('click', () => decide('session', sessionButton));
   const destructive = looksDestructive(request.detail);
 

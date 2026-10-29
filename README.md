@@ -41,6 +41,7 @@ El resultado es `dist\SecretBroker-Setup-<versión>.exe`, de unos 26 MB, con Pyt
 - **Plantillas**: web o servicio, API key, servidor SSH, base de datos, AWS u otro secreto. Cada una muestra solo los campos que necesita.
 - **Notas para la IA**: texto que la IA sí lee, para explicarle qué es cada credencial y cómo usarla.
 - **Permisos de la IA**: se rellenan solos a partir de la plantilla (por ejemplo, el dominio sale de la URL). Incluyen las webs permitidas, la cabecera de autenticación, los programas locales permitidos y sus variables de entorno, y cuándo pedir aprobación.
+- **Aprobaciones**: la contraseña se escribe al desbloquear; después, aprobar lo que pide la IA es un clic. «Permitir hoy» deja a la IA usar esa credencial sin volver a preguntar durante 24 h (configurable: 8 h, 24 h o hasta bloquear), también tras el bloqueo automático. Bloquear a mano las olvida todas. Las credenciales con aprobación «Nunca» no preguntan nunca.
 - **Windows Hello**: con tu PIN, huella o cara desbloqueas la bóveda, apruebas usos, ves o copias contraseñas y guardas cambios. En PCs sin Hello se usa la contraseña de Windows o la maestra.
 - **Recuperación**: si olvidas la contraseña maestra, entra con Windows Hello o con la contraseña de Windows y crea una nueva. Esto solo funciona en este PC.
 - **Copiar**: el portapapeles se borra a los 30 s y la contraseña no pasa al historial del portapapeles.
