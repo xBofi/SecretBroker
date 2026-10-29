@@ -55,9 +55,22 @@ SCAN_SESSION_SECONDS = 12 * 3600
 CHECK_EVERY_SECONDS = 24 * 3600
 ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 SLUG_RE = re.compile(r"[^a-z0-9]+")
-PRESENCE_OPS = ("approve", "complete_draft", "resume_ai")  # what the app that unlocked may do with one click
+PRESENCE_OPS = ("approve", "complete_draft", "resume_ai", "set_ai_permissions")  # what the app that unlocked may do with one click
 # Everything the AI can ask for. "Pause the AI" refuses all of it without locking the vault.
-AI_OPS = AGENT_ACTIONS | {"list_secrets", "release_env", "push_github_secret", "create_draft", "update_credential"}
+AI_OPS = AGENT_ACTIONS | {"list_secrets", "release_env", "push_github_secret", "create_draft", "update_credential",
+                          "request_access"}
+# What the AI may do beyond using a credential, and how freely. The user sets each one in the app:
+#   free    follows each credential's own approval      notify  the same, and the user gets a notice
+#   ask     the user confirms every time                 off     refused
+AI_LEVELS = ("free", "notify", "ask", "off")
+AI_CAPABILITIES = {
+    "create": ("free", "Preparar credenciales nuevas"),
+    "edit_notes": ("free", "Cambiar el nombre y las notas"),
+    "edit_config": ("ask", "Cambiar adónde puede ir una clave guardada (webs, programas, variables)"),
+    "local_env": ("free", "Dar claves a tus programas locales (sb run)"),
+    "github": ("free", "Subir claves a los secrets de GitHub"),
+}
+NOTICE_EVERY_SECONDS = 600  # at most one "the AI used X" notice per credential in this time
 
 
 class ServiceError(Exception):
@@ -99,6 +112,9 @@ class Service:
         self._failures = 0
         self._pending_audit = []
         self._scan_sessions = {}
+        self._notices = collections.deque(maxlen=50)
+        self._notice_id = 0
+        self._noticed = {}
         self._server = None
         self.updates = update.Checker()
 
@@ -351,6 +367,71 @@ class Service:
         self.pause_file.unlink(missing_ok=True)
         self._audit("vault", "resume_ai", "", "ok")
         return self.op_status({})
+
+    def _ai_level(self, capability):
+        chosen = (self.vault.settings().get("ai_permissions") or {}).get(capability)
+        return chosen if chosen in AI_LEVELS else AI_CAPABILITIES[capability][0]
+
+    def op_ai_permissions(self, params):
+        settings = self.vault.settings()
+        return {"capabilities": [{"id": key, "label": label, "default": default, "level": self._ai_level(key)}
+                                 for key, (default, label) in AI_CAPABILITIES.items()],
+                "notify_uses": settings.get("notify_uses", True)}
+
+    def op_set_ai_permissions(self, params):
+        """Making the AI's permissions stricter needs nothing; loosening them needs the user (the app
+        that unlocked, or a proof)."""
+        changes = params.get("permissions") or {}
+        if any(key not in AI_CAPABILITIES or level not in AI_LEVELS for key, level in changes.items()):
+            raise ServiceError("Permiso no válido", "invalid")
+        looser = any(AI_LEVELS.index(level) < AI_LEVELS.index(self._ai_level(key)) for key, level in changes.items())
+        notify = params.get("notify_uses")
+        if looser or notify is False:
+            self._verify_proof("set_ai_permissions", params)
+        current = dict(self.vault.settings().get("ai_permissions") or {})
+        current.update(changes)
+        update = {"ai_permissions": current}
+        if notify is not None:
+            update["notify_uses"] = bool(notify)
+        self.vault.update_settings(update)
+        detail = ", ".join(f"{AI_CAPABILITIES[k][1]}: {v}" for k, v in changes.items())
+        self._audit("vault", "ai_permissions", detail, "ok")
+        return self.op_ai_permissions({})
+
+    def _gate(self, capability, entry, action, detail):
+        """Apply the user's choice for one of the AI's capabilities. Returns True if the user was
+        asked (and agreed), so the caller can skip the credential's own approval."""
+        level = self._ai_level(capability)
+        if level == "off":
+            raise ServiceError(f"El usuario no permite a la IA: {AI_CAPABILITIES[capability][1].lower()}. "
+                               "Pídele que lo haga en la app SecretBroker o que cambie el permiso en «Acceso de la IA».",
+                               "forbidden")
+        if level == "ask":
+            self._ask_user(entry, action, detail, allow_session=False)
+            return True
+        if level == "notify":
+            self._notify("La IA " + {"create": "ha preparado", "edit_notes": "ha editado", "edit_config": "ha cambiado",
+                                     "local_env": "ha dado a un programa", "github": "ha subido a GitHub"}[capability]
+                         + f" {entry.get('name', entry.get('id'))}", detail.splitlines()[0] if detail else "")
+        return False
+
+    # ------------------------------------------------------------------ notices for the user
+
+    def _notify(self, title, text="", key=None):
+        now = time.monotonic()
+        with self._lock:
+            if key is not None:
+                if now - self._noticed.get(key, -NOTICE_EVERY_SECONDS) < NOTICE_EVERY_SECONDS:
+                    return
+                self._noticed[key] = now
+            self._notice_id += 1
+            self._notices.append({"id": self._notice_id, "title": title, "text": text[:200],
+                                  "ts": datetime.now().isoformat(timespec="seconds")})
+
+    def op_notices(self, params):
+        after = int(params.get("after") or 0)
+        with self._lock:
+            return [n for n in self._notices if n["id"] > after]
 
     def op_grants(self, params):
         """What the AI may use right now without asking: approvals still running, and credentials
@@ -775,7 +856,8 @@ class Service:
             if not request:
                 raise ServiceError("La solicitud ya no está pendiente", "not_found")
             scope = params.get("scope")
-            if scope not in ("once", "session") or (scope == "session" and not request["allow_session"]):
+            if scope not in ("once", "session") or (scope == "session" and not request["allow_session"]) \
+                    or (scope == "once" and not request.get("allow_once", True)):
                 raise ServiceError("Tipo de aprobación no válido", "invalid")
             request["answer"] = scope
             request["event"].set()
@@ -867,6 +949,7 @@ class Service:
         if entry_id in {e["id"] for e in self.vault.entries()}:
             raise ServiceError(f"Ya existe una credencial '{entry_id}': usa update_credential para cambiarla", "invalid")
         entry = self._ai_changes({"id": entry_id, "name": name, "template": template, "fields": {}}, params)
+        self._gate("create", entry, "draft", f"Preparar «{name}» ({templates.TEMPLATES[template]['label']})")
         placeholder_secrets = {n: "x" for n in templates.secret_field_names(template)}
         default = templates.default_policy(template, {**entry["fields"], **placeholder_secrets})
         overrides = entry.pop("policy")
@@ -896,13 +979,14 @@ class Service:
             return {"credential": agent_view(entry), "changed": []}
         risky = [line for key, line in changes if key not in ("name", "description")]
         detail = "\n".join(line for _, line in changes)
-        if risky and not entry.get("draft"):
-            try:
-                self._ask_user(entry, "edit", detail, allow_session=False)
-            except ServiceError as exc:
-                self._audit(entry["id"], "edit", detail, "denied" if exc.code == "denied" else "error", str(exc))
-                raise
-            self._forget_grants(entry["id"])
+        capability = "create" if entry.get("draft") else "edit_config" if risky else "edit_notes"
+        try:
+            self._gate(capability, entry, "edit", detail)
+        except ServiceError as exc:
+            self._audit(entry["id"], "edit", detail, "denied" if exc.code == "denied" else "error", str(exc))
+            raise
+        if capability == "edit_config":
+            self._forget_grants(entry["id"])  # the user approved it going to the old places only
         self.vault.put(updated, replaces=entry["id"])
         self._audit(entry["id"], "edit", detail, "ok")
         return {"credential": agent_view(self.vault.get(entry["id"])), "changed": [line for _, line in changes]}
@@ -933,8 +1017,9 @@ class Service:
         try:
             actions.check_github_secret(params)
             actions._check_destination(token_entry, {"url": actions.GITHUB_API})
-            for item in used:
-                self._authorize(item, "push_github_secret", detail)
+            if not self._gate("github", entry, "push_github_secret", detail):
+                for item in used:
+                    self._authorize(item, "push_github_secret", detail)
             result = actions.push_github_secret(entry, token_entry, params)
         except ServiceError as exc:
             for item in used:
@@ -996,7 +1081,8 @@ class Service:
         for entry, templates_by_name in entries:
             detail = f"{command}\n(en {cwd})\nVariables: {', '.join(templates_by_name)}"
             try:
-                self._authorize(entry, "release_env", detail)
+                if not self._gate("local_env", entry, "release_env", detail):
+                    self._authorize(entry, "release_env", detail)
                 values = {name: substitute(template, entry) for name, template in templates_by_name.items()}
             except (ServiceError, ActionError) as exc:
                 denied = isinstance(exc, ServiceError) and exc.code == "denied"
@@ -1011,12 +1097,44 @@ class Service:
     def _authorize(self, entry, action, detail):
         mode = entry.get("policy", {}).get("approval", "session")
         if mode == "never":
+            if self.vault.settings().get("notify_uses", True):
+                self._notify(f"La IA ha usado {entry.get('name', entry['id'])}", detail.splitlines()[0] if detail else "",
+                             key=entry["id"])
             return
         if mode == "session" and entry["id"] in self._live_grants():
             return
         self._ask_user(entry, action, detail, allow_session=mode == "session")
 
-    def _ask_user(self, entry, action, detail, allow_session):
+    def op_request_access(self, params):
+        """The AI asks at the start of a task for every credential it will need: one approval for all."""
+        ids = params.get("secret_ids")
+        if not isinstance(ids, list) or not ids or len(ids) > 20:
+            raise ServiceError("Indica entre 1 y 20 credenciales en secret_ids", "invalid")
+        reason = str(params.get("reason") or "").strip()[:500]
+        entries = [self._get_secret(str(i)) for i in dict.fromkeys(ids)]
+        live = self._live_grants()
+        mode = lambda e: (e.get("policy") or {}).get("approval", "session")
+        needed = [e for e in entries if mode(e) == "session" and e["id"] not in live]
+        result = {"already_allowed": [e["id"] for e in entries if e not in needed and mode(e) != "always"],
+                  "asks_every_time": [e["id"] for e in entries if mode(e) == "always"], "granted": []}
+        if needed:
+            names = ", ".join(e.get("name", e["id"]) for e in needed)
+            detail = (reason + "\n\n" if reason else "") + "Credenciales: " + names
+            first = needed[0]
+            batch = {**first, "id": first["id"], "name": names if len(needed) == 1 else f"{len(needed)} credenciales"}
+            try:
+                self._ask_user(batch, "request_access", detail, allow_session=True,
+                               grant_ids=[e["id"] for e in needed], allow_once=False)
+            except ServiceError as exc:
+                for e in needed:
+                    self._audit(e["id"], "request_access", detail, "denied" if exc.code == "denied" else "error", str(exc))
+                raise
+            for e in needed:
+                self._audit(e["id"], "request_access", detail, "ok")
+            result["granted"] = [e["id"] for e in needed]
+        return result
+
+    def _ask_user(self, entry, action, detail, allow_session, grant_ids=None, allow_once=True):
         """Show the request in the app and wait for the user's answer."""
         if time.monotonic() - self._gui_seen > GUI_SEEN_SECONDS:
             raise ServiceError("Esta acción necesita la aprobación del usuario y la app SecretBroker no está abierta.",
@@ -1024,7 +1142,8 @@ class Service:
         request = {
             "id": uuid.uuid4().hex, "secret_id": entry["id"], "secret_name": entry.get("name", entry["id"]),
             "template": entry["template"], "action": action, "detail": detail,
-            "allow_session": allow_session, "created": datetime.now().isoformat(timespec="seconds"),
+            "allow_session": allow_session, "allow_once": allow_once, "secret_ids": grant_ids or [entry["id"]],
+            "created": datetime.now().isoformat(timespec="seconds"),
             "event": threading.Event(), "answer": None,
         }
         with self._lock:
@@ -1037,7 +1156,8 @@ class Service:
         if request["answer"] == "session":
             seconds = self._approval_seconds()
             with self._lock:
-                self._grants[entry["id"]] = time.monotonic() + seconds if seconds else None
+                for secret_id in grant_ids or [entry["id"]]:
+                    self._grants[secret_id] = time.monotonic() + seconds if seconds else None
         elif request["answer"] != "once":
             reason = "El usuario ha denegado el uso de esta credencial" if request["answer"] == "deny" \
                 else "Nadie aprobó la solicitud a tiempo"

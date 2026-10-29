@@ -147,6 +147,8 @@ const ACTION_LABELS = {
   draft: 'Preparada por la IA',
   edit: 'Cambiar la configuración',
   revoke: 'Aprobación retirada',
+  request_access: 'Acceso para una tarea',
+  ai_permissions: 'Permisos de la IA',
   pause_ai: 'IA en pausa',
   resume_ai: 'IA reanudada',
   session_unlock: 'Abrir con la sesión de Windows',
@@ -1296,7 +1298,7 @@ async function renderAccess(content) {
   const paused = state.status.ai_paused;
   const body = el('div', { class: 'content-body' }, el('div', { class: 'spinner' }));
   content.replaceChildren(el('div', { class: 'content-header' }, el('h1', {}, 'Acceso de la IA')), body);
-  const result = await api().call('grants');
+  const [result, permissions] = await Promise.all([api().call('grants'), api().call('ai_permissions')]);
   const grants = result.ok ? result.result : [];
   const approved = grants.filter((g) => g.kind === 'approved');
   const free = grants.filter((g) => g.kind === 'never');
@@ -1318,6 +1320,7 @@ async function renderAccess(content) {
           ? 'No puede usar, crear ni ver ninguna credencial. Tú sigues usando la bóveda con normalidad.'
           : 'Usa tus credenciales según sus permisos. Pausarla corta todo al instante, sin bloquear la bóveda.')),
       el('button', { class: `btn ${paused ? 'primary' : 'danger'}`, onclick: () => setPaused(!paused) }, icon('power', 'sm'), paused ? 'Reanudar' : 'Pausar la IA')),
+    permissions.ok ? permissionsGroup(permissions.result, () => renderAccess(content)) : null,
     el('div', { class: 'settings-group' },
       el('div', { class: 'group-head' }, el('h3', { class: 'muted' }, 'Aprobadas ahora'),
         approved.length > 1 ? el('button', { class: 'btn ghost', onclick: () => revoke(null) }, 'Retirar todas') : null),
@@ -1328,6 +1331,27 @@ async function renderAccess(content) {
       free.length
         ? free.map((g) => row(g, el('button', { class: 'btn', onclick: () => { state.view = 'credentials'; state.selected = g.secret_id; renderMain(); } }, 'Cambiar')))
         : el('p', { class: 'muted small' }, 'Todas las credenciales piden tu aprobación al menos una vez.'))));
+}
+
+const AI_LEVEL_LABELS = [['free', 'Libre'], ['notify', 'Avisarme'], ['ask', 'Preguntarme'], ['off', 'Nunca']];
+
+function permissionsGroup(data, rerender) {
+  const save = async (changes) => {
+    const result = await withProof((p) => api().call('set_ai_permissions', changes, p), 'Para dar más permisos a la IA.');
+    if (result.ok) toast('Guardado'); else if (result.code !== 'cancelled') toast(result.error, 'error');
+    rerender();
+  };
+  const notify = el('input', { type: 'checkbox', checked: data.notify_uses });
+  notify.addEventListener('change', () => save({ notify_uses: notify.checked }));
+  return el('div', { class: 'settings-group' },
+    el('h3', { class: 'muted' }, 'Qué puede hacer la IA'),
+    el('p', { class: 'muted small' }, 'Libre: lo hace siguiendo los permisos de cada credencial. Avisarme: igual, y te llega un aviso. Preguntarme: te lo pide cada vez. Nunca: se lo deniega.'),
+    data.capabilities.map((c) => setting(c.label, c.level === c.default ? 'Valor recomendado' : '',
+      el('div', { class: 'segmented small' }, AI_LEVEL_LABELS.map(([level, label]) => el('button', {
+        class: c.level === level ? 'active' : '',
+        onclick: () => c.level !== level && save({ permissions: { [c.id]: level } }),
+      }, label))))),
+    setting('Avisarme cuando use credenciales que no preguntan', 'Un aviso de Windows, como mucho uno cada 10 minutos por credencial.', notify));
 }
 
 // ----------------------------------------------------------------------- settings
@@ -1663,14 +1687,17 @@ function showApproval(request) {
     if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
     modal.close();
   };
-  const onceButton = el('button', { class: request.allow_session ? 'btn' : 'btn primary' }, request.action === 'edit' ? 'Aplicar el cambio' : 'Solo esta vez');
-  onceButton.addEventListener('click', () => decide('once', onceButton));
+  const allowOnce = request.allow_once !== false;
+  const onceLabel = request.action === 'edit' ? 'Aplicar el cambio' : request.action === 'draft' ? 'Permitir' : 'Solo esta vez';
+  const onceButton = allowOnce ? el('button', { class: request.allow_session ? 'btn' : 'btn primary' }, onceLabel) : null;
+  if (onceButton) onceButton.addEventListener('click', () => decide('once', onceButton));
   const sessionButton = request.allow_session ? el('button', { class: 'btn primary', title: `La IA podrá usar ${request.secret_name} sin volver a preguntarte` }, approvalLabel()) : null;
   if (sessionButton) sessionButton.addEventListener('click', () => decide('session', sessionButton));
   const destructive = looksDestructive(request.detail);
 
   const modal = openModal({
-    title: 'La IA quiere usar una credencial',
+    title: request.action === 'request_access' ? 'La IA pide acceso para una tarea'
+      : request.action === 'edit' || request.action === 'draft' ? 'La IA quiere cambiar una credencial' : 'La IA quiere usar una credencial',
     body: el('div', { class: 'request' },
       el('div', { class: 'request-who' }, glyph(request.template),
         el('div', {}, el('div', { style: 'font-weight:600' }, request.secret_name), el('div', { class: 'muted small' }, ACTION_LABELS[request.action] || request.action))),

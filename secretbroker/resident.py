@@ -107,6 +107,8 @@ class Watcher:
         self._locked = None
         self._pending = 0
         self._drafts = None
+        self._notice = None
+        self.notify = None  # set to show a Windows notification
 
     def start(self):
         threading.Thread(target=self._run, daemon=True, name="watcher").start()
@@ -118,6 +120,17 @@ class Watcher:
             except (BrokerError, BrokerUnavailable, OSError):
                 pass
             time.sleep(WATCH_SECONDS)
+
+    def _show_notices(self):
+        """Things the AI did without asking that the user wanted to hear about."""
+        notices = client.request("notices", {"after": self._notice or 0}, timeout=10)
+        if self._notice is not None and self.notify:
+            for notice in notices[-3:]:
+                self.notify(notice["title"], notice["text"])
+        if notices:
+            self._notice = notices[-1]["id"]
+        elif self._notice is None:
+            self._notice = 0
 
     def _step(self):
         status = client.request("status", {"gui": True}, timeout=10)
@@ -133,6 +146,8 @@ class Watcher:
         if (status["pending"] > self._pending or (self._drafts is not None and drafts > self._drafts)) and not locked:
             self.api.show()
         self._pending, self._drafts = status["pending"], drafts
+        if status["state"] == "unlocked":
+            self._show_notices()
         if self.on_status:
             self.on_status(status)
 

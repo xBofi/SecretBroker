@@ -97,6 +97,14 @@ def run_command(secret_id: str, argv: list[str], cwd: str | None = None, timeout
 
 
 @mcp.tool()
+def request_access(secret_ids: list[str], reason: str) -> dict:
+    """At the start of a task, ask once for every credential it will need (by id, from list_secrets),
+    explaining the task in `reason`. The user approves them all with one click instead of one prompt
+    per credential. Credentials set to ask every time still ask on each use."""
+    return _call("request_access", dict(secret_ids=secret_ids, reason=reason))
+
+
+@mcp.tool()
 def create_credential(
     template: str,
     name: str,

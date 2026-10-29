@@ -19,9 +19,11 @@ CLIPBOARD_CLEAR_SECONDS = 30
 AUTO_SCAN_HOURS = 12
 SESSION_FILE = integrations.PREFS_FILE.parent / "session.bin"
 SESSION_ENTROPY = b"SecretBroker/session-unlock/v1"
+# What the app that unlocked may do with one click (see service.PRESENCE_OPS).
+PRESENCE_OPS = ("approve", "complete_draft", "resume_ai", "set_ai_permissions")
 # Operations the service only accepts with a proof of identity.
 PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal", "rotate", "complete_draft",
-             "enable_session_unlock", "resume_ai",
+             "enable_session_unlock", "resume_ai", "set_ai_permissions",
              "change_master_password", "set_settings", "remove_hello", "exposure_begin"}
 
 
@@ -81,7 +83,7 @@ class Api:
         set up; otherwise (or if cancelled) the UI is asked to collect a password proof."""
         params = dict(params or {})
         try:
-            if op in ("approve", "complete_draft", "resume_ai") and proof is None and self._presence:
+            if op in PRESENCE_OPS and proof is None and self._presence:
                 try:
                     return {"ok": True, "result": client.request(op, {**params, "proof": {"kind": "presence", "token": self._presence}})}
                 except BrokerError as exc:
@@ -433,7 +435,9 @@ def _start_resident(api):
     resident.listen_for_show(api.show)
     api._tray = resident.Tray(api, ICON)
     api._tray.start()
-    resident.Watcher(api, on_status=api._tray.update).start()
+    watcher = resident.Watcher(api, on_status=api._tray.update)
+    watcher.notify = api._tray.notify
+    watcher.start()
     try:
         resident.serve_mcp(api.show)
     except Exception:

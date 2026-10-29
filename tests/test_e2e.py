@@ -319,6 +319,50 @@ def main():
     presence = call("unlock", {}, "hello")["presence"]
     client.request("pending_approvals")
 
+    print("What the AI may do")
+    perms = {c["id"]: c["level"] for c in client.request("ai_permissions")["capabilities"]}
+    check(perms["create"] == "free" and perms["edit_config"] == "ask", "sensible defaults")
+    client.request("set_ai_permissions", {"permissions": {"edit_notes": "off"}})
+    check({c["id"]: c["level"] for c in client.request("ai_permissions")["capabilities"]}["edit_notes"] == "off",
+          "making the AI stricter needs no password")
+    expect_error(lambda: client.request("update_credential", {"secret_id": "echo-api", "description": "x"}), "forbidden",
+                 "a forbidden capability is refused")
+    expect_error(lambda: client.request("set_ai_permissions", {"permissions": {"edit_notes": "notify"}}), "proof_required",
+                 "loosening it needs the user")
+    call("set_ai_permissions", {"permissions": {"edit_notes": "notify"}}, {"kind": "presence", "token": presence})
+    last = (client.request("notices") or [{"id": 0}])[-1]["id"]
+    client.request("update_credential", {"secret_id": "echo-api", "description": "API de prueba (avisada)"})
+    notices = client.request("notices", {"after": last})
+    check(len(notices) == 1 and "echo-api" not in notices[0]["text"] and "editado" in notices[0]["title"],
+          "'notify' tells the user what the AI did")
+    client.request("set_ai_permissions", {"permissions": {"create": "ask"}})
+    gui = threading.Thread(target=fake_gui, args=("deny",))
+    gui.start()
+    expect_error(lambda: client.request("create_draft", {"template": "api_key", "name": "Asked"}), "denied",
+                 "'ask' waits for the user")
+    gui.join()
+    call("set_ai_permissions", {"permissions": {"create": "free", "edit_notes": "free"}}, {"kind": "presence", "token": presence})
+
+    print("One approval for a whole task")
+    session_ids = [e["id"] for e in client.request("entries")
+                   if e["policy"].get("approval", "session") == "session" and not e.get("draft")][:2]
+    saved_grants = dict(service._grants)
+    client.request("revoke_sessions")
+    gui = threading.Thread(target=fake_gui, args=("session",))
+    gui.start()
+    granted = client.request("request_access", {"secret_ids": session_ids, "reason": "Desplegar el proyecto X"})
+    gui.join()
+    check(sorted(granted["granted"]) == sorted(session_ids) and decisions[-1][0] == "request_access"
+          and "Desplegar el proyecto X" in decisions[-1][1], f"one click grants {len(session_ids)} credentials")
+    live = {g["secret_id"] for g in client.request("grants")}
+    check(set(session_ids) <= live, "they are all usable without asking again")
+    check(client.request("request_access", {"secret_ids": session_ids, "reason": "otra vez"})["granted"] == [],
+          "asking again for approved credentials doesn't bother the user")
+    client.request("lock")  # approving with Hello above handed out a new one-click token
+    presence = call("unlock", {}, "hello")["presence"]
+    service._grants.update(saved_grants)
+    client.request("pending_approvals")
+
     print("Agent: credentials prepared and edited by the AI")
     draft = client.request("create_draft", {
         "template": "api_key", "name": "Mailer API", "description": "Envío de correos del proyecto X",
@@ -580,7 +624,7 @@ async def check_http():
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 tools = (await session.list_tools()).tools
-                check(len(tools) == 9, "Claude Code gets the same tools over HTTP")
+                check(len(tools) == 10, "Claude Code gets the same tools over HTTP")
                 result = await session.call_tool("list_secrets", {})
                 text = " ".join(getattr(c, "text", "") for c in result.content)
                 check("echo-api" in text and API_KEY not in text, "MCP over HTTP works through the service")
@@ -595,7 +639,7 @@ async def check_stdio():
         async with ClientSession(read, write) as session:
             await session.initialize()
             tools = sorted(t.name for t in (await session.list_tools()).tools)
-            check(tools == ["create_credential", "http_request", "list_secrets", "push_github_secret", "run_command", "ssh_download", "ssh_exec", "ssh_upload", "update_credential"], f"MCP tools: {tools}")
+            check(tools == ["create_credential", "http_request", "list_secrets", "push_github_secret", "request_access", "run_command", "ssh_download", "ssh_exec", "ssh_upload", "update_credential"], f"MCP tools: {tools}")
             result = await session.call_tool("list_secrets", {})
             text = " ".join(getattr(c, "text", "") for c in result.content)
             check("echo-api" in text and API_KEY not in text, "MCP list_secrets works through the service")
