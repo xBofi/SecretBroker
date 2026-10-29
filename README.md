@@ -127,8 +127,9 @@ Si la bóveda está bloqueada o hace falta una aprobación, el MCP abre la app y
 ## Desarrollo
 
 ```powershell
-python -m venv .venv; .venv\Scripts\python.exe -m pip install .
+python -m venv .venv; .venv\Scripts\python.exe -m pip install .[dev]
 .venv\Scripts\python.exe tests\test_e2e.py   # servicio, pruebas de identidad, aprobaciones, acciones, MCP
+.venv\Scripts\python.exe tests\test_gui.py   # la app de verdad (ventana, icono, aprobaciones, MCP por HTTP) con una bóveda de prueba aparte; guarda capturas
 .venv\Scripts\python.exe tests\test_ssh.py   # SSH contra un servidor de prueba local
 .venv\Scripts\python.exe tests\test_exposure.py   # análisis de exposición contra un perfil de usuario falso (necesita git)
 python tools\make_icon.py secretbroker\assets\icon.ico
