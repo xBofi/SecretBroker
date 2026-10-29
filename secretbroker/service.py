@@ -17,6 +17,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets
 import socketserver
 import sys
@@ -31,7 +32,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from . import actions, crypto, exposure, paths, winsec
-from .inject import ActionError, Redactor
+from .inject import ActionError, Redactor, substitute
 from .vault import (
     DEFAULT_SETTINGS, Vault, VaultLocked, ValidationError, WrongPassword, agent_view,
     check_master_password, convert_legacy_entry, entry_summary,
@@ -49,6 +50,7 @@ ALL_PROOFS = ("hello", "windows_password", "master_password")
 AUDIT_AAD = b"secretbroker/audit/v1"
 SCAN_SESSION_SECONDS = 12 * 3600
 CHECK_EVERY_SECONDS = 24 * 3600
+ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class ServiceError(Exception):
@@ -581,11 +583,7 @@ class Service:
         return [agent_view(e) for e in self.vault.entries()]
 
     def _run_action(self, action, params):
-        secret_id = params.get("secret_id")
-        try:
-            entry = self.vault.get(secret_id)
-        except KeyError:
-            raise ServiceError(f"No existe el secreto '{secret_id}'. Usa list_secrets para ver los disponibles.", "not_found") from None
+        entry = self._get_secret(params.get("secret_id"))
         detail = actions.describe(action, params, entry)
         redact = Redactor(entry)
         try:
@@ -604,6 +602,95 @@ class Service:
             raise ServiceError(message, "action_failed") from None
         self._audit(entry["id"], action, detail, "ok")
         return result
+
+    def _get_secret(self, secret_id):
+        try:
+            return self.vault.get(secret_id)
+        except KeyError:
+            raise ServiceError(f"No existe el secreto '{secret_id}'. Usa list_secrets para ver los disponibles.", "not_found") from None
+
+    def op_push_github_secret(self, params):
+        """Store a credential as a GitHub Actions secret. The value goes from the vault to GitHub only."""
+        entry = self._get_secret(params.get("secret_id"))
+        token_entry = self._get_secret(params.get("github_secret_id"))
+        target = f"GitHub {params.get('repo', '')}" + (f" ({params['environment']})" if params.get("environment") else "")
+        detail = f"Subir como secret {params.get('name', '')} a {target}"
+        redactors = [Redactor(entry), Redactor(token_entry)]
+        used = [entry] if entry["id"] == token_entry["id"] else [entry, token_entry]
+        try:
+            actions.check_github_secret(params)
+            actions._check_destination(token_entry, {"url": actions.GITHUB_API})
+            for item in used:
+                self._authorize(item, "push_github_secret", detail)
+            result = actions.push_github_secret(entry, token_entry, params)
+        except ServiceError as exc:
+            for item in used:
+                self._audit(item["id"], "push_github_secret", detail, "denied" if exc.code == "denied" else "error", str(exc))
+            raise
+        except Exception as exc:
+            message = str(exc) or type(exc).__name__
+            for redact in redactors:
+                message = redact(message)
+            if not isinstance(exc, ActionError):
+                message = f"{type(exc).__name__}: {message}"
+            for item in used:
+                self._audit(item["id"], "push_github_secret", detail, "error", message)
+            raise ServiceError(message, "action_failed") from None
+        for item in used:
+            self._audit(item["id"], "push_github_secret", detail, "ok")
+        return result
+
+    def op_release_env(self, params):
+        """Hand credentials to a local program started by `sb run`, as environment variables.
+
+        Only credentials with environment variables in their AI permissions can be released: that list
+        is the user's opt-in. Each item is {name, secret_id, field}; without a name, every variable of
+        the credential is released; without a field, the credential's own template for that variable
+        (or {{value}}) is used."""
+        command, cwd = str(params.get("command") or ""), str(params.get("cwd") or "")
+        grouped = {}
+        for item in params.get("vars") or []:
+            if not isinstance(item, dict):
+                raise ServiceError("Petición mal formada", "invalid")
+            if item.get("name") and not ENV_NAME_RE.match(str(item["name"])):
+                raise ServiceError(f"Nombre de variable no válido: {item['name']}", "invalid")
+            if item.get("field") and not ENV_NAME_RE.match(str(item["field"])):
+                raise ServiceError(f"Nombre de dato no válido: {item['field']}", "invalid")
+            grouped.setdefault(item.get("secret_id"), []).append(item)
+        if not grouped:
+            raise ServiceError("No se ha pedido ninguna variable", "invalid")
+
+        entries = []
+        for secret_id, items in grouped.items():
+            entry = self._get_secret(secret_id)
+            mapping = (entry["policy"].get("commands") or {}).get("env") or {}
+            if not mapping:
+                raise ServiceError(f"'{entry['id']}' no tiene variables de entorno en sus permisos, así que no se puede "
+                                   "entregar a programas locales. Añádelas en la app SecretBroker.", "invalid")
+            templates_by_name = {}
+            for item in items:
+                name, field = item.get("name"), item.get("field")
+                if not name:
+                    templates_by_name.update(mapping)
+                else:
+                    templates_by_name[name] = "{{%s}}" % field if field else mapping.get(name, "{{value}}")
+            entries.append((entry, templates_by_name))
+
+        env, redact = {}, {}
+        for entry, templates_by_name in entries:
+            detail = f"{command}\n(en {cwd})\nVariables: {', '.join(templates_by_name)}"
+            try:
+                self._authorize(entry, "release_env", detail)
+                values = {name: substitute(template, entry) for name, template in templates_by_name.items()}
+            except (ServiceError, ActionError) as exc:
+                denied = isinstance(exc, ServiceError) and exc.code == "denied"
+                self._audit(entry["id"], "release_env", detail, "denied" if denied else "error", str(exc))
+                raise
+            self._audit(entry["id"], "release_env", detail, "ok")
+            env.update(values)
+            released = list(values.values())
+            redact[entry["id"]] = released + [v for v in templates.secret_values(entry) if any(v in r for r in released)]
+        return {"env": env, "redact": redact}
 
     def _authorize(self, entry, action, detail):
         mode = entry.get("policy", {}).get("approval", "session")

@@ -43,12 +43,17 @@ def _variants(value):
             yield line.strip()
 
 
+def redaction_forms(secrets):
+    """Every form of these secrets worth removing from output, longest first."""
+    values = {v for secret in secrets for v in _variants(secret) if len(v) >= 3}
+    return sorted(values, key=len, reverse=True)
+
+
 class Redactor:
     """Removes any known encoding of the entry's secrets from text returned to the agent."""
 
     def __init__(self, entry):
-        values = {v for secret in secret_values(entry) for v in _variants(secret) if len(v) >= 3}
-        self._values = sorted(values, key=len, reverse=True)
+        self._values = redaction_forms(secret_values(entry))
         self._label = f"[REDACTED:{entry['id']}]"
 
     def __call__(self, text):

@@ -1,7 +1,7 @@
 ﻿; SecretBroker setup program. Build it with tools\build_installer.ps1 (stages Python first).
 
 #ifndef AppVersion
-  #define AppVersion "0.5.0"
+  #define AppVersion "0.6.0"
 #endif
 #define StageDir "..\build\stage"
 #define AppIcon "{app}\python\Lib\site-packages\secretbroker\assets\icon.ico"
@@ -32,6 +32,7 @@ WizardStyle=modern
 WizardSizePercent=100
 CloseApplications=yes
 RestartApplications=no
+ChangesEnvironment=yes
 
 [Languages]
 Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
@@ -50,6 +51,11 @@ Type: filesandordirs; Name: "{app}\python"
 Source: "{#StageDir}\python\*"; DestDir: "{app}\python"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "common.ps1"; DestDir: "{app}\setup"; Flags: ignoreversion
 Source: "configure.ps1"; DestDir: "{app}\setup"; Flags: ignoreversion
+Source: "sb.cmd"; DestDir: "{app}\bin"; Flags: ignoreversion
+
+[Registry]
+; `sb` (sb run -- npm run dev) from any terminal.
+Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}\bin"; Check: NeedsAddPath(ExpandConstant('{app}\bin'))
 
 [Icons]
 Name: "{autoprograms}\SecretBroker"; Filename: "{app}\python\pythonw.exe"; Parameters: "-I -m secretbroker.app"; WorkingDir: "{app}"; IconFilename: "{#AppIcon}"; Comment: "Bóveda de credenciales para tu IA"
@@ -128,6 +134,35 @@ begin
        '-I -c "from secretbroker import integrations; integrations.auto_connect()"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
+function NeedsAddPath(Dir: String): Boolean;
+var
+  Path: String;
+begin
+  if not RegQueryStringValue(HKLM, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', Path) then
+  begin
+    Result := True;
+    exit;
+  end;
+  Result := Pos(';' + Uppercase(Dir) + ';', ';' + Uppercase(Path) + ';') = 0;
+end;
+
+procedure RemoveFromPath(Dir: String);
+var
+  Path: String;
+  P: Integer;
+begin
+  if not RegQueryStringValue(HKLM, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', Path) then
+    exit;
+  P := Pos(';' + Uppercase(Dir) + ';', ';' + Uppercase(Path) + ';');
+  if P = 0 then
+    exit;
+  if P = 1 then
+    Delete(Path, 1, Length(Dir) + 1)
+  else
+    Delete(Path, P - 1, Length(Dir) + 1);
+  RegWriteExpandStringValue(HKLM, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', Path);
+end;
+
 { [UninstallRun] removes the service first; the vault is only deleted afterwards, and only if asked.
   Silent uninstalls keep it. }
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
@@ -140,6 +175,8 @@ begin
       'Si eliges «Sí», se perderán definitivamente y no se podrán recuperar.' + #13#10 +
       'Si eliges «No», se conservan en ' + DataRoot + ' y volverán a estar disponibles si reinstalas SecretBroker.',
       mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDNO) = IDYES;
+  if CurUninstallStep = usUninstall then
+    RemoveFromPath(ExpandConstant('{app}\bin'));
   if (CurUninstallStep = usPostUninstall) and RemoveVault then
     if not DelTree(DataRoot, True, True, True) then
       SuppressibleMsgBox('No se pudo borrar por completo ' + DataRoot + '. Puedes eliminar la carpeta a mano.', mbError, MB_OK, IDOK);

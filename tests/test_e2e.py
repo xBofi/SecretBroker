@@ -8,6 +8,7 @@ import asyncio
 import base64
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import threading
@@ -21,7 +22,9 @@ os.environ["SECRETBROKER_HOME"] = str(HOME)  # must be set before importing secr
 from cryptography.hazmat.primitives import hashes, serialization  # noqa: E402
 from cryptography.hazmat.primitives.asymmetric import padding, rsa  # noqa: E402
 
-from secretbroker import client, crypto  # noqa: E402
+from nacl.public import PrivateKey, SealedBox  # noqa: E402
+
+from secretbroker import actions, cli, client, crypto  # noqa: E402
 from secretbroker.client import BrokerError, BrokerUnavailable  # noqa: E402
 from secretbroker.service import Service  # noqa: E402
 
@@ -57,6 +60,33 @@ class EchoHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     do_GET = do_POST = _echo
+
+    def log_message(self, *args):
+        pass
+
+
+class FakeGitHub(BaseHTTPRequestHandler):
+    key = PrivateKey.generate()
+    received = []
+
+    def _reply(self, status, payload=None):
+        data = json.dumps(payload).encode() if payload is not None else b""
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        if self.path.endswith("/actions/secrets/public-key"):
+            self._reply(200, {"key_id": "k1", "key": base64.b64encode(bytes(self.key.public_key)).decode()})
+        else:
+            self._reply(404, {"message": "Not Found"})
+
+    def do_PUT(self):
+        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        self.received.append({"path": self.path, "auth": self.headers.get("Authorization"), **body})
+        self._reply(201 if len(self.received) == 1 else 204)
 
     def log_message(self, *args):
         pass
@@ -221,6 +251,65 @@ def main():
           f"database URL and password redacted: {result['stdout'].strip()!r}")
     expect_error(lambda: client.request("ssh_exec", {"secret_id": "echo-api", "command": "id"}), "action_failed", "SSH refused for non-SSH credential")
 
+    print("Local programs: sb run")
+    check(cli.parse_config("# app\nDATABASE_URL = shop-db\nPW=shop-db:password  # comment\naws-prod\n") == [
+        {"secret_id": "shop-db", "name": "DATABASE_URL"}, {"secret_id": "shop-db", "name": "PW", "field": "password"},
+        {"secret_id": "aws-prod"}], "parses .secretbroker lines")
+    try:
+        cli.parse_config("OPENAI_API_KEY = sk-123 456")
+        check(False, "rejects a line that is not a credential reference")
+    except cli.ConfigError:
+        check(True, "rejects a line that is not a credential reference")
+    released = client.request("release_env", {"vars": [{"secret_id": "shop-db"}], "command": "x", "cwd": "."})
+    check(set(released["env"]) == {"DATABASE_URL", "PGPASSWORD"} and released["env"]["PGPASSWORD"] == DB_PASSWORD,
+          "a bare credential releases all its variables")
+    expect_error(lambda: client.request("release_env", {"vars": [{"secret_id": "old-ssh"}]}), "invalid",
+                 "credentials without environment variables are never released")
+    expect_error(lambda: client.request("release_env", {"vars": [{"secret_id": "shop-db", "name": "A B"}]}), "invalid",
+                 "invalid variable names refused")
+
+    project = HOME / "project" / "sub"
+    project.mkdir(parents=True)
+    (HOME / "project" / ".secretbroker").write_text("DATABASE_URL = shop-db\nPW = shop-db:password\n")
+    script = "import os;print(os.environ['PW']);print(os.environ['DATABASE_URL']);print(os.environ['PW'] == os.environ['EXPECTED'])"
+    completed = subprocess.run([sys.executable, "-m", "secretbroker.cli", "run", "--", "python", "-c", script],
+                               cwd=project, capture_output=True, text=True, env={**os.environ, "EXPECTED": DB_PASSWORD})
+    lines = completed.stdout.splitlines()
+    check(completed.returncode == 0 and lines[2] == "True", f"the program receives the real values ({completed.stderr.strip()})")
+    check(DB_PASSWORD not in completed.stdout and lines[0] == "[REDACTED:shop-db]" and "[REDACTED:shop-db]" in lines[1],
+          f"piped output is redacted: {lines[:2]}")
+    completed = subprocess.run([sys.executable, "-m", "secretbroker.cli", "run", "--", "python", "-c", "raise SystemExit(7)"],
+                               cwd=project, capture_output=True, text=True)
+    check(completed.returncode == 7, "sb run returns the program's exit code")
+    check(any(e["action"] == "release_env" and "python -c" in e["detail"] for e in client.request("audit", {"limit": 20})),
+          "releases are audited with the command")
+
+    print("GitHub secrets")
+    github = HTTPServer(("127.0.0.1", 0), FakeGitHub)
+    threading.Thread(target=github.serve_forever, daemon=True).start()
+    actions.GITHUB_API = f"http://127.0.0.1:{github.server_address[1]}"
+    token = {"id": "gh-token", "name": "GitHub", "template": "api_key", "description": "",
+             "fields": {"value": "ghp_FAKE_TOKEN_1234567890", "base_url": actions.GITHUB_API, "auth_style": "bearer"},
+             "policy": {"approval": "never", "http": {"allowed_hosts": ["127.0.0.1"], "auth": {
+                 "kind": "header", "name": "Authorization", "template": "Bearer {{value}}"}}}}
+    call("save_entry", {"entry": token}, "hello")
+    push = {"secret_id": "shop-db", "github_secret_id": "gh-token", "repo": "me/app", "name": "DB_PASSWORD", "value": "{{password}}"}
+    result = client.request("push_github_secret", push)
+    sent = FakeGitHub.received[-1]
+    check(result["status"] == "created" and DB_PASSWORD not in json.dumps(result), "push returns no value")
+    check(sent["path"] == "/repos/me/app/actions/secrets/DB_PASSWORD" and sent["key_id"] == "k1"
+          and sent["auth"] == "Bearer ghp_FAKE_TOKEN_1234567890", "uploads with the repository key and the stored token")
+    check(SealedBox(FakeGitHub.key).decrypt(base64.b64decode(sent["encrypted_value"])).decode() == DB_PASSWORD,
+          "GitHub receives the value encrypted for the repository")
+    result = client.request("push_github_secret", dict(push, environment="prod"))
+    check(result["status"] == "updated" and FakeGitHub.received[-1]["path"] == "/repos/me/app/environments/prod/actions/secrets/DB_PASSWORD",
+          "environment secrets")
+    expect_error(lambda: client.request("push_github_secret", dict(push, name="GITHUB_TOKEN")), "action_failed", "reserved names refused")
+    expect_error(lambda: client.request("push_github_secret", dict(push, repo="../x")), "action_failed", "malformed repo refused")
+    expect_error(lambda: client.request("push_github_secret", dict(push, github_secret_id="old-ssh")), "action_failed",
+                 "token credential must allow the GitHub API host")
+    github.shutdown()
+
     print("Service authenticity")
     info_file = HOME / "public" / "broker.json"
     original = info_file.read_text()
@@ -266,7 +355,7 @@ async def check_stdio():
         async with ClientSession(read, write) as session:
             await session.initialize()
             tools = sorted(t.name for t in (await session.list_tools()).tools)
-            check(tools == ["http_request", "list_secrets", "run_command", "ssh_download", "ssh_exec", "ssh_upload"], f"MCP tools: {tools}")
+            check(tools == ["http_request", "list_secrets", "push_github_secret", "run_command", "ssh_download", "ssh_exec", "ssh_upload"], f"MCP tools: {tools}")
             result = await session.call_tool("list_secrets", {})
             text = " ".join(getattr(c, "text", "") for c in result.content)
             check("echo-api" in text and API_KEY not in text, "MCP list_secrets works through the service")

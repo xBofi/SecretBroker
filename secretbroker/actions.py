@@ -1,8 +1,10 @@
 """Actions the broker performs on behalf of the agent. None of them return secret values."""
 
+import base64
 import io
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -12,6 +14,7 @@ from urllib.parse import quote
 
 import httpx
 import paramiko
+from nacl.public import PublicKey, SealedBox
 
 from .inject import ActionError, Redactor, substitute
 
@@ -330,6 +333,54 @@ def run_command(entry, params):
         "stdout": _truncate(redact(completed.stdout.decode("utf-8", errors="replace"))),
         "stderr": _truncate(redact(completed.stderr.decode("utf-8", errors="replace"))),
     }
+
+
+# --------------------------------------------------------------------------- GitHub
+
+GITHUB_API = "https://api.github.com"
+GITHUB_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+SECRET_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def check_github_secret(params):
+    _require(params, "repo", "name")
+    repo = str(params["repo"])
+    if not GITHUB_REPO_RE.match(repo) or any(part.strip(".") == "" for part in repo.split("/")):
+        raise ActionError("repo debe tener la forma propietario/repositorio")
+    name = str(params["name"])
+    if not SECRET_NAME_RE.match(name) or name.upper().startswith("GITHUB_"):
+        raise ActionError("Nombre de secret no válido: solo letras, números y _, sin empezar por número ni por GITHUB_")
+
+
+def _github_secrets_url(params):
+    base = f"{GITHUB_API}/repos/{params['repo']}"
+    if params.get("environment"):
+        base += f"/environments/{quote(str(params['environment']), safe='')}"
+    return base + "/actions/secrets"
+
+
+def _github(token_entry, method, url, json_body=None):
+    params = {"method": method, "url": url, "headers": {
+        "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}}
+    if json_body is not None:
+        params["json_body"] = json_body
+    response = http_request(token_entry, params)
+    if response["status"] >= 300:
+        raise ActionError(f"GitHub respondió {response['status']}: {response['body'][:500]}")
+    return response
+
+
+def push_github_secret(value_entry, token_entry, params):
+    """Store a value from the vault as a GitHub Actions secret, encrypted with the repository's public key."""
+    check_github_secret(params)
+    value = substitute(params.get("value") or "{{value}}", value_entry)
+    base = _github_secrets_url(params)
+    key = json.loads(_github(token_entry, "GET", base + "/public-key")["body"])
+    sealed = SealedBox(PublicKey(base64.b64decode(key["key"]))).encrypt(value.encode("utf-8"))
+    response = _github(token_entry, "PUT", f"{base}/{params['name']}",
+                       {"encrypted_value": base64.b64encode(sealed).decode(), "key_id": key["key_id"]})
+    return {"repo": params["repo"], "environment": params.get("environment"), "name": params["name"],
+            "status": "created" if response["status"] == 201 else "updated"}
 
 
 # --------------------------------------------------------------------------- registry

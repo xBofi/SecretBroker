@@ -1,6 +1,5 @@
 ﻿"""MCP server for AI agents: a thin client of the SecretBroker service. It never holds secrets."""
 
-import time
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
@@ -8,9 +7,6 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from . import client
 from .client import BrokerError, BrokerUnavailable
-
-UNLOCK_WAIT_SECONDS = 120
-APP_START_WAIT_SECONDS = 20
 
 mcp = MCPServer(
     "secret-broker",
@@ -25,37 +21,11 @@ mcp = MCPServer(
 )
 
 
-def _wait(condition, seconds):
-    deadline = time.monotonic() + seconds
-    while time.monotonic() < deadline:
-        try:
-            if condition(client.request("status", timeout=10)):
-                return True
-        except (BrokerError, BrokerUnavailable):
-            pass
-        time.sleep(1)
-    return False
-
-
 def _call(op, params=None):
-    """Call the service; if the vault is locked or an approval needs the app, open it and retry once."""
-    if not client.ensure_service():
-        raise ToolError("El servicio SecretBroker no está en marcha. Pide al usuario que lo revise.")
-    for attempt in (1, 2):
-        try:
-            return client.request(op, params or {})
-        except BrokerUnavailable as exc:
-            raise ToolError(str(exc)) from None
-        except BrokerError as exc:
-            if attempt == 2 or exc.code not in ("locked", "gui_required"):
-                raise ToolError(str(exc)) from None
-            client.launch_app()
-            if exc.code == "locked":
-                if not _wait(lambda s: s["state"] == "unlocked", UNLOCK_WAIT_SECONDS):
-                    raise ToolError("La bóveda sigue bloqueada. Se ha abierto SecretBroker para que el usuario la desbloquee; "
-                                    "reintenta cuando lo haya hecho.") from None
-            elif not _wait(lambda s: s.get("gui_connected"), APP_START_WAIT_SECONDS):
-                raise ToolError("Hace falta la aprobación del usuario, pero la app SecretBroker no se ha abierto.") from None
+    try:
+        return client.call(op, params)
+    except (BrokerError, BrokerUnavailable) as exc:
+        raise ToolError(str(exc)) from None
 
 
 def _drop_none(**params):
@@ -120,6 +90,28 @@ def run_command(secret_id: str, argv: list[str], cwd: str | None = None, timeout
     argv[0] must be one of the credential's allowed commands (a bare name, resolved on PATH).
     No shell is used. Output is returned with any secret redacted."""
     return _call("run_command", _drop_none(secret_id=secret_id, argv=argv, cwd=cwd, timeout=timeout))
+
+
+@mcp.tool()
+def push_github_secret(
+    secret_id: str,
+    github_secret_id: str,
+    repo: str,
+    name: str,
+    value: str = "{{value}}",
+    environment: str | None = None,
+) -> dict:
+    """Store a credential as a GitHub Actions secret (repository secret, or environment secret if
+    `environment` is given) without seeing it. The broker reads the value from the vault, encrypts it
+    with the repository's public key and uploads it using the GitHub token stored as `github_secret_id`.
+
+    `value` is a placeholder template for what to store, e.g. "{{value}}" for an API key or
+    "{{connection_url}}" for a database. Creating or updating works the same way, so use it again
+    after the user rotates a key."""
+    return _call("push_github_secret", _drop_none(
+        secret_id=secret_id, github_secret_id=github_secret_id, repo=repo, name=name,
+        value=value, environment=environment,
+    ))
 
 
 def main():

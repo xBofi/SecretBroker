@@ -14,6 +14,10 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from . import crypto, paths
 
 
+UNLOCK_WAIT_SECONDS = 120
+APP_START_WAIT_SECONDS = 20
+
+
 class BrokerUnavailable(Exception):
     pass
 
@@ -98,3 +102,35 @@ def ensure_service(wait_seconds=15):
 
 def launch_app():
     _spawn("secretbroker.app")
+
+
+def _wait(condition, seconds):
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        try:
+            if condition(request("status", timeout=10)):
+                return True
+        except (BrokerError, BrokerUnavailable):
+            pass
+        time.sleep(1)
+    return False
+
+
+def call(op, params=None):
+    """Like request(), but if the vault is locked or an approval needs the app, open it, wait and retry once."""
+    if not ensure_service():
+        raise BrokerUnavailable("El servicio SecretBroker no está en marcha. Pide al usuario que lo revise.")
+    for attempt in (1, 2):
+        try:
+            return request(op, params or {})
+        except BrokerError as exc:
+            if attempt == 2 or exc.code not in ("locked", "gui_required"):
+                raise
+            launch_app()
+            if exc.code == "locked":
+                if not _wait(lambda s: s["state"] == "unlocked", UNLOCK_WAIT_SECONDS):
+                    raise BrokerError("La bóveda sigue bloqueada. Se ha abierto SecretBroker para que el usuario la desbloquee; "
+                                      "reintenta cuando lo haya hecho.", "locked") from None
+            elif not _wait(lambda s: s.get("gui_connected"), APP_START_WAIT_SECONDS):
+                raise BrokerError("Hace falta la aprobación del usuario, pero la app SecretBroker no se ha abierto.",
+                                  "gui_required") from None

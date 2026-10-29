@@ -142,6 +142,8 @@ const ACTION_LABELS = {
   ssh_upload: 'Subir archivo al servidor',
   ssh_download: 'Descargar archivo del servidor',
   run_command: 'Programa en este PC',
+  release_env: 'Entregada a una app local',
+  push_github_secret: 'Subida a GitHub',
   unlock: 'Desbloqueo', lock: 'Bloqueo', save: 'Guardada', delete: 'Eliminada',
   reveal: 'Secreto mostrado', create: 'Bóveda creada', enroll_hello: 'Windows Hello activado',
   remove_hello: 'Windows Hello desactivado', change_master_password: 'Contraseña maestra cambiada',

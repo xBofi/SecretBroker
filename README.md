@@ -54,6 +54,26 @@ El resultado es `dist\SecretBroker-Setup-<versión>.exe`, de unos 26 MB, con Pyt
 | `http_request` | Petición HTTPS a un dominio permitido; admite autenticación automática o marcadores `{{value}}`, `{{username}}` y `{{password}}` |
 | `ssh_exec` · `ssh_upload` · `ssh_download` | Comandos (también con sudo) y transferencia de archivos por SFTP |
 | `run_command` | Ejecuta un programa permitido (`gh`, `psql`, `aws`…) con la credencial en variables de entorno |
+| `push_github_secret` | Guarda una credencial como secret de GitHub Actions (del repositorio o de un entorno), cifrada con la clave del repositorio y sin que la IA vea el valor |
+
+### Tus apps en local: `sb run`
+
+Para que tus programas usen las credenciales sin guardar un `.env` con valores en el proyecto:
+
+1. Crea un `.secretbroker` en la raíz del proyecto. Solo dice de qué credencial sale cada variable, así que se puede subir a git:
+   ```
+   OPENAI_API_KEY = openai                  # la plantilla de esa variable en la credencial, o {{value}}
+   DATABASE_URL   = tienda-db:connection_url # un dato concreto de la credencial
+   aws-prod                                 # todas las variables de entorno de la credencial
+   ```
+2. Arranca la app con `sb run -- npm run dev` (o `python app.py`, `dotnet run`…). Las variables llegan de la bóveda al proceso directamente, sin pasar por ningún archivo.
+
+Tu código solo lee variables de entorno, así que en producción funciona igual con las que ponga la plataforma: por ejemplo, `env: OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}` en GitHub Actions. La IA puede subir esos secrets con `push_github_secret`, y tras rotar una clave basta con volver a subirla.
+
+- Solo se entregan credenciales que tengan variables de entorno en sus *Permisos de la IA*. Es tu forma de decir que esa credencial se puede usar en programas locales.
+- La aprobación sigue la de cada credencial, igual que el resto de usos, y cada entrega queda en el historial con el comando y la carpeta.
+- Si la salida no va a una terminal (por ejemplo, cuando la app la arranca una IA), `sb` censura las claves línea a línea.
+- **Límite:** el programa recibe la clave en claro. Esto evita que la IA la vea por accidente (un `cat .env`, un log), pero no protege de código escrito a propósito para filtrarla.
 
 Si la bóveda está bloqueada o hace falta una aprobación, el MCP abre la app y espera.
 
