@@ -693,6 +693,56 @@ def main():
     print("MCP over HTTP (served by the desktop app)")
     asyncio.run(check_http())
 
+    print("Following the Windows session (Win+L simulated)")
+    from secretbroker import resident
+    session_token = call("enable_session_unlock", {}, "hello")["token"]
+
+    class FakeApp:
+        presence = None
+        shown = 0
+
+        def has_session_unlock(self):
+            return True
+
+        def has_presence(self):
+            return self.presence is not None
+
+        def session_unlock(self):
+            self.presence = call("unlock", {}, {"kind": "session", "token": session_token})["presence"]
+            return True
+
+        def show(self):
+            self.shown += 1
+
+        def backup_due(self):
+            return False
+
+    fake = FakeApp()
+    watcher = resident.Watcher(fake)
+    screen = {"locked": False}
+    original_locked = resident.workstation_locked
+    resident.workstation_locked = lambda: screen["locked"]
+    try:
+        watcher._step()
+        check(fake.presence, "an app opened while the vault is already open gets its one-click token from the session")
+        screen["locked"] = True
+        watcher._step()
+        check(client.request("status")["state"] == "locked", "Win+L locks the vault")
+        fake.presence = None
+        screen["locked"] = False
+        watcher._step()
+        check(client.request("status")["state"] == "unlocked" and fake.presence, "unlocking Windows opens it again, no password")
+        client.request("lock")
+        watcher._step()
+        check(client.request("status")["state"] == "locked", "after locking by hand it stays locked")
+    finally:
+        resident.workstation_locked = original_locked
+        client.request("disable_session_unlock")
+    call("unlock", {}, "hello")
+    expect_error(lambda: call("unlock", {}, {"kind": "master_password", "value": "wrong wrong wrong"}), "proof_invalid",
+                 "an open vault still checks the password before handing out a token")
+    check(not client.request("unlock").get("presence"), "and without proof it hands out nothing")
+
     print("Audit")
     events = client.request("audit", {"limit": 1000})
     check(any(e["action"] == "http_request" and e["status"] == "denied" for e in events), "audit log records denials")

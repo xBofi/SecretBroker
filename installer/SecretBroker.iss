@@ -1,7 +1,7 @@
 ﻿; SecretBroker setup program. Build it with tools\build_installer.ps1 (stages Python first).
 
 #ifndef AppVersion
-  #define AppVersion "0.13.0"
+  #define AppVersion "0.13.1"
 #endif
 #define StageDir "..\build\stage"
 #define AppIcon "{app}\python\Lib\site-packages\secretbroker\assets\icon.ico"

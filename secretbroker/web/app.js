@@ -217,7 +217,7 @@ async function refreshStatus() {
     state.screen = target;
     closeAllModals();
     if (target === 'setup') renderSetup();
-    else if (target === 'lock') renderLock();
+    else if (target === 'lock') { state.info.session_unlock_here = await api().has_session_unlock(); renderLock(); }
     else await enterMain();
   } else if (target === 'main') {
     updateSidebarState();

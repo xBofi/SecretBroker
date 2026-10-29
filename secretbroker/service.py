@@ -284,7 +284,7 @@ class Service:
         self.vault.create(password, entries)
         self._seal_audit_log()
         self._audit("vault", "create", f"{len(entries)} credenciales", "ok")
-        return self.op_status({})
+        return self._unlocked_result()  # whoever created it is the user
 
     def _read_legacy(self, password):
         for path in self.legacy_files:
@@ -297,9 +297,19 @@ class Service:
         raise ServiceError("No se encontró la bóveda anterior", "not_found")
 
     def op_unlock(self, params):
-        if self.vault.is_unlocked:
-            return self.op_status({})
         proof = params.get("proof") or {}
+        if self.vault.is_unlocked:
+            # An app opened while the vault was already unlocked (e.g. after "Salir" and opening it
+            # again) proves it is the user's to get its one-click token; without proof, just the state.
+            if not proof:
+                return self.op_status({})
+            if proof.get("kind") == "session":
+                self._check_session_token(proof.get("token"))
+            elif proof.get("kind") == "master_password":
+                self._verify_proof("unlock", params, ("master_password",))
+            else:
+                self._verify_proof("unlock", params, ("hello", "windows_password"))
+            return self._unlocked_result()
         if proof.get("kind") == "session":
             self._check_session_token(proof.get("token"))
             self.vault.unlock_with_device()
@@ -321,6 +331,9 @@ class Service:
         self._last_activity = time.monotonic()
         self._seal_audit_log()
         self._audit("vault", "unlock", proof.get("kind", ""), "ok")
+        return self._unlocked_result()
+
+    def _unlocked_result(self):
         # Whoever unlocked may look for copies of the secrets and approve the AI's requests without
         # proving it again (see op_exposure_begin and _verify_proof), until the vault is locked.
         return {**self.op_status({}), "exposure_session": self._new_scan_session(), "presence": self._new_presence()}

@@ -2,6 +2,8 @@
 
 import base64
 import ctypes
+import logging
+import logging.handlers
 import os
 import subprocess
 import sys
@@ -20,6 +22,8 @@ CLIPBOARD_CLEAR_SECONDS = 30
 AUTO_SCAN_HOURS = 12
 SESSION_FILE = integrations.PREFS_FILE.parent / "session.bin"
 SESSION_ENTROPY = b"SecretBroker/session-unlock/v1"
+LOG_FILE = integrations.PREFS_FILE.parent / "app.log"
+log = logging.getLogger("secretbroker.app")
 BACKUP_EVERY_HOURS = 24
 BACKUPS_KEPT = 10
 # What the app that unlocked may do with one click (see service.PRESENCE_OPS).
@@ -102,9 +106,9 @@ class Api:
             if proof is not None:
                 params["proof"] = proof
             result = client.request(op, params)
-            if op in ("unlock", "exposure_begin", "restore") and isinstance(result, dict):
+            if op in ("unlock", "exposure_begin", "restore", "create_vault") and isinstance(result, dict):
                 self._scan_session = result.pop("exposure_session", None) or result.get("session") or self._scan_session
-            if op in ("unlock", "approve", "restore") and isinstance(result, dict) and result.get("presence"):
+            if op in ("unlock", "approve", "restore", "create_vault") and isinstance(result, dict) and result.get("presence"):
                 self._presence = result.pop("presence")
             return {"ok": True, "result": result}
         except hello.HelloCancelled:
@@ -376,6 +380,9 @@ class Api:
     def has_session_unlock(self):
         return SESSION_FILE.exists()
 
+    def has_presence(self):
+        return self._presence is not None
+
     def session_unlock(self):
         """Unlock with the token kept under the user's Windows login. Returns True if it worked."""
         try:
@@ -469,7 +476,7 @@ def _copy_to_clipboard(text, auto_clear=True):
 def _single_instance():
     if sys.platform != "win32":
         return True
-    ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\SecretBrokerApp")
+    ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\SecretBrokerApp" + paths.instance_suffix())
     return ctypes.windll.kernel32.GetLastError() != 183  # ERROR_ALREADY_EXISTS
 
 
@@ -479,6 +486,7 @@ def main():
     if not _single_instance():
         resident.signal_running_instance()
         return
+    _start_logging()
     background = "--background" in sys.argv
     # Keep the page running at full speed while hidden: it answers the AI's requests.
     os.environ.setdefault("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
@@ -499,40 +507,55 @@ def main():
     # Closing the window keeps the app next to the clock, where it can answer the AI; "Salir" quits.
     window.events.closing += lambda: True if api._quitting else (api.hide() or False)
     # WebView2 would otherwise try to write next to python.exe (read-only under Program Files).
-    storage = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SecretBroker" / "webview"
+    storage = paths.user_dir() / "webview"
     webview.start(private_mode=True, storage_path=str(storage))
+
+
+def _start_logging():
+    """What the app did and what failed, for diagnosing problems. Never secrets: the app has none,
+    and requests to the service are not logged."""
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    handler = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=512 * 1024, backupCount=2, encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    for name in ("secretbroker", "pywebview"):
+        logger = logging.getLogger(name)
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+    log.info("SecretBroker %s started (%s)", __version__, " ".join(sys.argv[1:]) or "window")
+
+
+def _step(name, action):
+    try:
+        action()
+        log.info("%s: ok", name)
+    except Exception:
+        log.exception("%s failed", name)
 
 
 def _start_resident(api):
     if sys.platform != "win32" or api._tray:
         return
-    resident.listen_for_show(api.show)
     api._tray = resident.Tray(api, ICON)
-    api._tray.start()
-    watcher = resident.Watcher(api, on_status=api._tray.update)
-    watcher.notify = api._tray.notify
-    watcher.start()
-    try:
-        resident.serve_mcp(api.show)
-    except Exception:
-        pass
+    _step("show event", lambda: resident.listen_for_show(api.show))
+    _step("tray icon", api._tray.start)
+
+    def watch():
+        watcher = resident.Watcher(api, on_status=api._tray.update)
+        watcher.notify = api._tray.notify
+        watcher.start()
+
+    _step("watcher", watch)
+    _step("MCP over HTTP", lambda: resident.serve_mcp(api.show))
     if paths.is_installed():
-        resident.set_start_with_windows(resident.start_with_windows())
-
-    def migrate():
-        try:
-            integrations.upgrade_claude_code()
-        except Exception:
-            pass
-
-    threading.Thread(target=migrate, daemon=True).start()
+        _step("start with Windows", lambda: resident.set_start_with_windows(resident.start_with_windows()))
+    threading.Thread(target=lambda: _step("Claude Code connection", integrations.upgrade_claude_code), daemon=True).start()
 
 
 def _let_windows_close(api, args):
     """Hiding instead of closing must not block signing out or shutting down Windows. Runs after
     pywebview's own handler, which may have cancelled the close."""
     from System.Windows.Forms import CloseReason
-    if args.CloseReason != CloseReason.UserClosing:
+    if args.CloseReason in (CloseReason.WindowsShutDown, CloseReason.TaskManagerClosing):
         api._quitting = True
         args.Cancel = False
 
@@ -555,7 +578,7 @@ def _on_shown(window, api, background=False):
 
         form.Invoke(Action(apply))
     except Exception:
-        pass
+        log.exception("window setup failed")
     _start_resident(api)  # here: pywebview has loaded WinForms by now
 
 

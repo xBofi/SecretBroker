@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "secretbroker"
-version = "0.13.0"
+version = "0.13.1"
 description = "Local secret broker: lets AI agents use credentials without ever reading them"
 requires-python = ">=3.11"
 dependencies = [
@@ -21,6 +21,9 @@ dependencies = [
     "winrt-Windows.Security.Cryptography.Core>=3; sys_platform == 'win32'",
     "winrt-Windows.Storage.Streams>=3; sys_platform == 'win32'",
 ]
+
+[project.optional-dependencies]
+dev = ["websocket-client>=1.7"]  # tests/test_gui.py drives the app's page
 
 [project.scripts]
 sb = "secretbroker.cli:main"

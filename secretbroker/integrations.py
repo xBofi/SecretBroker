@@ -8,10 +8,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+from . import paths
+
 SERVER_NAME = "secret-broker"
-PREFS_FILE = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SecretBroker" / "prefs.json"
+PREFS_FILE = paths.user_dir() / "prefs.json"
 CREATE_NO_WINDOW = 0x08000000
-MCP_PORT = 47821  # the desktop app serves the tools here for Claude Code (see resident.serve_mcp)
+# the desktop app serves the tools here for Claude Code (see resident.serve_mcp)
+MCP_PORT = int(os.environ.get("SECRETBROKER_MCP_PORT") or 47821)
 
 
 def mcp_command():
@@ -88,6 +91,8 @@ def connect_claude_code():
 
 def upgrade_claude_code():
     """Move a Claude Code connection made by an older version (stdio) to the app's HTTP server."""
+    if paths.instance_suffix():
+        return  # a test instance must not repoint the user's Claude Code
     if _claude_cli() and _claude_code_entry() and claude_code_status() == "disconnected":
         connect_claude_code()
 

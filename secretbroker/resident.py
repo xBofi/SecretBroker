@@ -9,6 +9,7 @@ dropped HTTP server, while a stdio server that was killed stays dead until the u
 import asyncio
 import ctypes
 import hmac
+import logging
 import os
 import sys
 import threading
@@ -18,9 +19,10 @@ from pathlib import Path
 from . import client, integrations, paths
 from .client import BrokerError, BrokerUnavailable
 
+log = logging.getLogger("secretbroker.resident")
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 RUN_VALUE = "SecretBroker"
-SHOW_EVENT = "Local\\SecretBrokerShow"
+SHOW_EVENT = "Local\\SecretBrokerShow" + paths.instance_suffix()
 WATCH_SECONDS = 2
 
 
@@ -119,7 +121,9 @@ class Watcher:
             try:
                 self._step()
             except (BrokerError, BrokerUnavailable, OSError):
-                pass
+                pass  # the service is restarting, or the vault locked meanwhile
+            except Exception:
+                log.exception("watcher")
             time.sleep(WATCH_SECONDS)
 
     def _show_notices(self):
@@ -142,6 +146,9 @@ class Watcher:
             elif not locked and self._locked in (None, True) and status["state"] == "locked" and self.api.has_session_unlock():
                 if self.api.session_unlock():
                     status = client.request("status", {"gui": True}, timeout=10)
+        if status["state"] == "unlocked" and not locked and not self.api.has_presence() \
+                and status["session_unlock"] and self.api.has_session_unlock():
+            self.api.session_unlock()
         self._locked = locked
         drafts = status.get("drafts", 0)
         if (status["pending"] > self._pending or (self._drafts is not None and drafts > self._drafts)) and not locked:
@@ -307,7 +314,7 @@ def serve_mcp(show):
         try:
             asyncio.run(server.serve())
         except (OSError, SystemExit):
-            pass  # port taken: Claude Code will report the server as failed
+            log.exception("MCP over HTTP: port %s not available", port)
 
     threading.Thread(target=run, daemon=True, name="mcp-http").start()
     return server
