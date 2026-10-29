@@ -151,6 +151,7 @@ const ACTION_LABELS = {
   ai_permissions: 'Permisos de la IA',
   import_env: 'Importada de un .env',
   restore: 'Copia restaurada',
+  check: 'Comprobada',
   pause_ai: 'IA en pausa',
   resume_ai: 'IA reanudada',
   session_unlock: 'Abrir con la sesión de Windows',
@@ -542,8 +543,9 @@ async function enterMain() {
 }
 
 async function loadEntries() {
-  const result = await api().call('entries');
+  const [result, reminders] = await Promise.all([api().call('entries'), api().call('reminders')]);
   state.entries = result.ok ? result.result : [];
+  state.reminders = Object.fromEntries((reminders.ok ? reminders.result : []).map((r) => [r.id, r]));
   if (state.selected && !state.entries.some((e) => e.id === state.selected)) state.selected = null;
   await loadExposure();
 }
@@ -645,22 +647,41 @@ function renderCredentials(content) {
 
   const list = el('div', { class: 'list' });
   const detail = el('div', { class: 'detail' });
+  const allTags = [...new Set(state.entries.flatMap((e) => e.tags || []))].sort();
+  if (state.tag && !allTags.includes(state.tag)) state.tag = null;
+  const tagBar = allTags.length ? el('div', { class: 'tag-bar' }) : null;
+  const renderTags = () => tagBar && tagBar.replaceChildren(
+    el('button', { class: `tag ${state.tag ? '' : 'active'}`, onclick: () => { state.tag = null; renderTags(); renderList(); } }, 'Todas'),
+    allTags.map((t) => el('button', { class: `tag ${state.tag === t ? 'active' : ''}`, onclick: () => { state.tag = state.tag === t ? null : t; renderTags(); renderList(); } }, t)));
   const renderList = () => {
     const query = state.search.trim().toLowerCase();
-    const items = state.entries.filter((e) => !query
-      || [e.name, e.id, e.description, subtitleOf(e), TEMPLATES[e.template].label].join(' ').toLowerCase().includes(query));
+    const items = state.entries.filter((e) => (!state.tag || (e.tags || []).includes(state.tag)) && (!query
+      || [e.name, e.id, e.description, subtitleOf(e), TEMPLATES[e.template].label, ...(e.tags || [])].join(' ').toLowerCase().includes(query)));
     list.replaceChildren(items.map((entry) => el('div', {
       class: `row ${state.selected === entry.id ? 'selected' : ''}`,
       onclick: () => { state.selected = entry.id; renderList(); renderDetail(detail); },
     }, glyph(entry.template), el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name), el('div', { class: 'subtitle' }, subtitleOf(entry))),
-    entry.draft ? el('span', { class: 'draft-badge' }, 'Falta la clave') : levelDot(entry.id))));
+    entry.draft ? el('span', { class: 'draft-badge' }, 'Falta la clave')
+      : state.reminders && state.reminders[entry.id] ? el('span', { class: 'draft-badge', title: reminderText(state.reminders[entry.id]) }, reminderShort(state.reminders[entry.id]))
+        : levelDot(entry.id))));
     if (!items.length) list.append(el('p', { class: 'muted', style: 'padding:12px 10px' }, 'Ninguna coincide.'));
   };
 
   if (!state.selected) state.selected = state.entries[0].id;
-  content.replaceChildren(header, el('div', { class: 'split', style: 'flex:1;min-height:0' }, list, el('div', { class: 'rule' }), detail));
+  content.replaceChildren(header, tagBar, el('div', { class: 'split', style: 'flex:1;min-height:0' }, list, el('div', { class: 'rule' }), detail));
+  renderTags();
   renderList();
   renderDetail(detail);
+}
+
+function reminderShort(r) {
+  return { expired: 'Caducada', expiring: `Caduca en ${r.days} d`, old: 'Clave antigua' }[r.kind];
+}
+
+function reminderText(r) {
+  if (r.kind === 'expired') return `Caducó hace ${r.days} día(s). Crea una clave nueva o rótala.`;
+  if (r.kind === 'expiring') return `Caduca en ${r.days} día(s). Rótala antes de que deje de funcionar.`;
+  return `La clave tiene ${r.days} días. Conviene rotarla de vez en cuando.`;
 }
 
 function activeSpecs(templateId, fields) {
@@ -731,6 +752,10 @@ function renderDetail(panel) {
       el('button', { class: 'btn', onclick: () => openEditor(entry) }, 'Editar'),
       el('button', { class: 'btn icon-only', title: 'Eliminar', onclick: () => deleteEntry(entry) }, icon('trash', 'sm'))),
     entry.draft ? draftSection(entry, () => renderMain()) : null,
+    state.reminders && state.reminders[entry.id] ? el('div', { class: 'warning' }, icon('clock', 'sm'), reminderText(state.reminders[entry.id])) : null,
+    (entry.tags || []).length || entry.expires ? el('div', { class: 'tag-line' },
+      (entry.tags || []).map((t) => el('span', { class: 'tag static' }, t)),
+      entry.expires ? el('span', { class: 'muted small' }, `Caduca el ${entry.expires}`) : null) : null,
     el('div', { class: 'section' }, props),
     entry.description ? el('div', { class: 'section' }, el('h3', {}, 'Notas para la IA'), el('p', { class: 'notes selectable muted' }, entry.description)) : null,
     providerSection(entry),
@@ -941,6 +966,8 @@ function showForm(templateId, entry) {
   };
 
   const notes = el('textarea', { class: 'input', rows: 3, placeholder: 'Ej.: cuenta de producción. Úsala solo para consultar pedidos, nunca para borrar.' }, isNew ? '' : entry.description);
+  const tagsInput = el('input', { class: 'input', placeholder: 'tienda, produccion', value: isNew ? '' : (entry.tags || []).join(', ') });
+  const expiresInput = el('input', { class: 'input', type: 'date', value: isNew ? '' : (entry.expires || '') });
 
   const approval = el('div', { class: 'segmented' });
   const renderApproval = () => approval.replaceChildren(Object.entries(APPROVAL_LABELS).map(([k, label]) => el('button', {
@@ -1055,6 +1082,8 @@ function showForm(templateId, entry) {
     return {
       id: idInput.value.trim() || slugify(nameInput.value), name: nameInput.value.trim(), template: templateId,
       description: notes.value.trim(), fields, policy: newPolicy,
+      tags: [...new Set(tagsInput.value.split(',').map((t) => slugify(t.trim())).filter(Boolean))],
+      ...(expiresInput.value ? { expires: expiresInput.value } : {}),
     };
   };
 
@@ -1086,6 +1115,10 @@ function showForm(templateId, entry) {
       fieldsBox,
       el('div', { class: 'field' }, el('label', {}, 'Notas para la IA', el('span', { class: 'req' }, ' · opcional')), notes,
         el('div', { class: 'help' }, 'La IA lee estas notas, nunca las contraseñas. Explica qué es y cómo debe usarla.')),
+      el('div', { style: 'display:flex;gap:12px' },
+        el('div', { class: 'field', style: 'flex:2' }, el('label', {}, 'Etiquetas', el('span', { class: 'req' }, ' · opcional')), tagsInput,
+          el('div', { class: 'help' }, 'Para agruparlas, por ejemplo por proyecto.')),
+        el('div', { class: 'field', style: 'flex:1' }, el('label', {}, 'Caduca', el('span', { class: 'req' }, ' · opcional')), expiresInput)),
       advanced,
       errorText,
     ],
@@ -1421,6 +1454,18 @@ function renderSettings(content) {
     if (result.ok) { toast('Guardado'); await refreshStatus(); } else { approvalSelect.value = String(status.approval_hours ?? 24); if (result.code !== 'cancelled') toast(result.error, 'error'); }
   });
 
+  const settingSelect = (key, options, fallback, reason) => {
+    const select = el('select', { class: 'input', style: 'width:auto' }, options.map(([v, label]) => el('option', { value: v }, label)));
+    select.value = String(status[key] ?? fallback);
+    select.addEventListener('change', async () => {
+      const result = await withProof((p) => api().call('set_settings', { settings: { [key]: Number(select.value) } }, p), reason);
+      if (result.ok) { toast('Guardado'); await refreshStatus(); } else { select.value = String(status[key] ?? fallback); if (result.code !== 'cancelled') toast(result.error, 'error'); }
+    });
+    return select;
+  };
+  const usesSelect = settingSelect('max_uses_per_hour', [[50, '50 usos en una hora'], [100, '100 usos en una hora'], [500, '500 usos en una hora'], [0, 'Nunca']], 100, 'Para cambiar el límite de usos.');
+  const reminderSelect = settingSelect('rotate_reminder_days', [[90, '3 meses'], [180, '6 meses'], [365, '1 año'], [0, 'Nunca']], 365, 'Para cambiar el recordatorio.');
+
   const autoScan = el('input', { type: 'checkbox', checked: state.info.prefs.auto_scan !== false });
   autoScan.addEventListener('change', async () => {
     state.info.prefs.auto_scan = autoScan.checked;
@@ -1473,6 +1518,8 @@ function renderSettings(content) {
           el('button', { class: 'btn', onclick: () => changeMasterPassword(false) }, 'Cambiar')),
         setting('Abrir con mi sesión de Windows', 'La bóveda se abre sola al entrar en Windows y se cierra al bloquearlo (Win+L), sin escribir contraseñas. Protege de errores de la IA, no de alguien que use tu sesión.', sessionToggle),
         status.session_unlock ? null : setting('Bloqueo automático', 'Bloquea la bóveda tras un tiempo sin uso. Las aprobaciones de la IA siguen valiendo al desbloquear.', lockSelect),
+        setting('Volver a preguntar si se usa mucho', 'Aunque hayas aprobado una credencial, si la IA la usa más de estas veces en una hora te vuelve a preguntar. Frena bucles y sustos.', usesSelect),
+        setting('Recordar rotar las claves', 'Marca las claves con más antigüedad que esta y te avisa una vez al día. Las fechas de caducidad avisan 14 días antes.', reminderSelect),
         setting('Recordar aprobaciones', 'Cuando permites una credencial, la IA puede usarla sin volver a preguntarte durante este tiempo. Bloquear a mano las olvida todas.', approvalSelect),
         setting('Aislamiento', status.isolated
           ? 'El servicio usa una cuenta de Windows propia: ningún programa puede leer su memoria ni sus archivos.'
@@ -1750,7 +1797,7 @@ function showApproval(request) {
     modal.close();
   };
   const allowOnce = request.allow_once !== false;
-  const onceLabel = request.action === 'edit' ? 'Aplicar el cambio' : request.action === 'draft' ? 'Permitir' : 'Solo esta vez';
+  const onceLabel = { edit: 'Aplicar el cambio', draft: 'Permitir', rotate: 'Rotar ahora', delete: 'Borrar', import_env: 'Importar' }[request.action] || 'Solo esta vez';
   const onceButton = allowOnce ? el('button', { class: request.allow_session ? 'btn' : 'btn primary' }, onceLabel) : null;
   if (onceButton) onceButton.addEventListener('click', () => decide('once', onceButton));
   const sessionButton = request.allow_session ? el('button', { class: 'btn primary', title: `La IA podrá usar ${request.secret_name} sin volver a preguntarte` }, approvalLabel()) : null;
@@ -1759,7 +1806,10 @@ function showApproval(request) {
 
   const modal = openModal({
     title: request.action === 'request_access' ? 'La IA pide acceso para una tarea'
-      : request.action === 'edit' || request.action === 'draft' ? 'La IA quiere cambiar una credencial' : 'La IA quiere usar una credencial',
+      : request.action === 'delete' ? 'La IA propone borrar una credencial'
+        : request.action === 'rotate' ? 'La IA quiere rotar una clave'
+          : request.action === 'import_env' ? 'Importar claves de un .env'
+            : request.action === 'edit' || request.action === 'draft' ? 'La IA quiere cambiar una credencial' : 'La IA quiere usar una credencial',
     body: el('div', { class: 'request' },
       el('div', { class: 'request-who' }, glyph(request.template),
         el('div', {}, el('div', { style: 'font-weight:600' }, request.secret_name), el('div', { class: 'muted small' }, ACTION_LABELS[request.action] || request.action))),

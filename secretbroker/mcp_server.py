@@ -120,6 +120,8 @@ def create_credential(
     allowed_hosts: list[str] | None = None,
     env_vars: dict[str, str] | None = None,
     commands: list[str] | None = None,
+    tags: list[str] | None = None,
+    expires: str | None = None,
 ) -> dict:
     """Prepare a new credential with everything except its secret; the user then only pastes the
     key in the SecretBroker app (it can't be used until then). Never ask for the secret in the chat.
@@ -137,10 +139,11 @@ def create_credential(
     description: what it is, which project uses it and how to use it (you'll read it later).
     Permissions are derived from the fields; override them with allowed_hosts, env_vars
     ({"OPENAI_API_KEY": "{{value}}"}, used by `sb run` and run_command) and commands (CLIs allowed in
-    run_command). The id defaults to a slug of the name."""
+    run_command). tags group credentials (e.g. the project name); expires is YYYY-MM-DD if the key
+    has an expiry date. The id defaults to a slug of the name."""
     return _call("create_draft", _drop_none(
         template=template, provider=provider, name=name, description=description, fields=fields, id=id,
-        allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands,
+        allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands, tags=tags, expires=expires,
     ))
 
 
@@ -153,15 +156,45 @@ def update_credential(
     allowed_hosts: list[str] | None = None,
     env_vars: dict[str, str] | None = None,
     commands: list[str] | None = None,
+    tags: list[str] | None = None,
+    expires: str | None = None,
 ) -> dict:
-    """Change a credential's name, notes, non-secret fields or permissions (only what you pass;
+    """Change a credential's name, notes, tags, expiry date (YYYY-MM-DD), non-secret fields or permissions (only what you pass;
     an empty string clears a field). Name and description change at once. Changes that affect where
     its secret can go (fields, allowed_hosts, env_vars, commands) wait for the user's OK in the app
     when the credential already has its secret. Secret values and the approval mode can't be changed."""
     return _call("update_credential", _drop_none(
         secret_id=secret_id, name=name, description=description, fields=fields,
-        allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands,
+        allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands, tags=tags, expires=expires,
     ))
+
+
+@mcp.tool()
+def check_credential(secret_id: str) -> dict:
+    """Test whether a credential still works (a harmless read-only call to its provider, or an SSH
+    login), and see its key's age, expiry date and whether it can be rotated by API."""
+    return _call("ai_check", dict(secret_id=secret_id))
+
+
+@mcp.tool()
+def rotate_credential(secret_id: str, reason: str) -> dict:
+    """Replace an API key with a new one issued by its provider (only providers that allow it, see
+    check_credential). The old key stops working at once; GitHub secrets it was pushed to are updated.
+    The user usually confirms it in the app. You never see the new key."""
+    return _call("ai_rotate", dict(secret_id=secret_id, reason=reason))
+
+
+@mcp.tool()
+def credential_activity(secret_id: str | None = None, limit: int = 50) -> list[dict]:
+    """Recent activity (uses, approvals, denials, errors, edits), newest first, optionally of one
+    credential. No secret values."""
+    return _call("ai_activity", _drop_none(secret_id=secret_id, limit=limit))
+
+
+@mcp.tool()
+def delete_credential(secret_id: str, reason: str) -> dict:
+    """Propose deleting a credential that is no longer needed. The user always confirms it in the app."""
+    return _call("ai_delete", dict(secret_id=secret_id, reason=reason))
 
 
 @mcp.tool()

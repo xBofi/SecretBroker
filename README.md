@@ -46,6 +46,8 @@ El resultado es `dist\SecretBroker-Setup-<versión>.exe`, de unos 26 MB, con Pyt
 - **Acceso de la IA**: una página muestra qué credenciales puede usar la IA ahora mismo sin preguntar (y hasta cuándo), con un botón para retirar cada aprobación. **Pausar la IA** corta todo su acceso al instante (no puede ni listar las credenciales) sin bloquear la bóveda; también desde el icono junto al reloj. Reanudarla es un clic.
 - **Qué puede hacer la IA**: en «Acceso de la IA» eliges, para cada cosa que la IA puede hacer además de usar credenciales (preparar credenciales, cambiar nombre y notas, cambiar adónde puede ir una clave, dar claves a programas locales, subir a GitHub), si es *Libre*, *Avisarme*, *Preguntarme* o *Nunca*. Endurecer un permiso no pide nada; relajarlo es un clic en la app que desbloqueaste. También puedes recibir un aviso de Windows cuando la IA use credenciales que no preguntan (como mucho uno cada 10 min por credencial).
 - **Una aprobación por tarea**: la IA puede pedir al empezar todas las credenciales que va a necesitar, explicando para qué; las apruebas de una vez.
+- **Uso inusual**: aunque hayas aprobado una credencial para todo el día, si la IA la usa más de 100 veces en una hora (configurable: 50, 100, 500 o sin límite) te vuelve a preguntar.
+- **Etiquetas y caducidad**: agrupa las credenciales con etiquetas (por ejemplo, por proyecto) y fíltralas en la lista. Si una clave tiene fecha de caducidad, te avisa 14 días antes; las claves con más de un año (configurable) se marcan para rotarlas. Un aviso de Windows al día resume las que necesitan atención.
 - **Copia de seguridad**: una copia diaria de la bóveda cifrada en la carpeta que elijas (por defecto OneDrive, para que esté fuera del PC); se guardan las 10 últimas. Se restaura desde Ajustes o, en un PC nuevo, desde la primera pantalla, con la contraseña maestra que tenía la copia.
 - **Siempre lista**: SecretBroker arranca con Windows y se queda junto al reloj. Cerrar la ventana no lo cierra (usa «Salir» en ese icono). Cuando la IA pide algo, la ventana aparece sola.
 - **Windows Hello**: con tu PIN, huella o cara desbloqueas la bóveda, apruebas usos, ves o copias contraseñas y guardas cambios. En PCs sin Hello se usa la contraseña de Windows o la maestra.
@@ -72,6 +74,10 @@ Claude Code se conecta a la app por HTTP (`127.0.0.1`, con un token propio), as�
 | `request_access` | Pide al empezar una tarea todas las credenciales que necesitará, con el motivo: el usuario las aprueba con un solo clic |
 | `create_credential` | Prepara una credencial nueva con todo (plantilla, notas, URL, permisos, variables) menos la clave. Con `provider` (openai, anthropic, github, stripe, cloudflare…) la URL, la autenticación y la variable de entorno salen solas. El usuario solo la pega en la app; hasta entonces no se puede usar |
 | `update_credential` | Cambia nombre, notas, campos o permisos. El nombre y las notas cambian al momento; lo que decide adónde puede ir una clave ya guardada espera la aprobación del usuario. Nunca toca valores secretos ni el modo de aprobación |
+| `check_credential` | Comprueba si una clave sigue funcionando y dice su antigüedad, su caducidad y si se puede rotar por API |
+| `rotate_credential` | Pide al proveedor una clave nueva y actualiza los secrets de GitHub donde estaba. Por defecto te pide confirmación |
+| `credential_activity` | El historial reciente (usos, aprobaciones, errores, cambios), sin valores |
+| `delete_credential` | Propone borrar una credencial que ya no se usa; siempre lo confirmas tú |
 | `push_github_secret` | Guarda una credencial como secret de GitHub Actions (del repositorio o de un entorno), cifrada con la clave del repositorio y sin que la IA vea el valor |
 
 ### Tus apps en local: `sb run`

@@ -499,6 +499,64 @@ def main():
     presence = restored["presence"]
     client.request("pending_approvals")
 
+    print("More for the AI: check, rotate, activity, delete")
+    checked = client.request("ai_check", {"secret_id": "echo-api"})
+    check(checked["check"]["status"] in ("ok", "invalid", "unknown") and isinstance(checked["key_age_days"], int),
+          "the AI can check a key and see its age")
+    expect_error(lambda: client.request("ai_rotate", {"secret_id": "echo-api", "reason": "x"}), "invalid",
+                 "keys of providers without rotation API are refused with the reason")
+    activity = client.request("ai_activity", {"limit": 20})
+    check(len(activity) == 20 and API_KEY not in json.dumps(activity), "the AI sees recent activity, without values")
+    check(all(e["secret"] == "echo-api" for e in client.request("ai_activity", {"secret_id": "echo-api"})),
+          "activity of one credential")
+    gui = threading.Thread(target=fake_gui, args=("deny",))
+    gui.start()
+    expect_error(lambda: client.request("ai_delete", {"secret_id": "shop-app-payments-secret", "reason": "no se usa"}),
+                 "denied", "deleting needs the user's OK")
+    gui.join()
+    check(decisions[-1][0] == "delete" and "no se usa" in decisions[-1][1], "the request says why")
+    gui = threading.Thread(target=fake_gui, args=("once",))
+    gui.start()
+    client.request("ai_delete", {"secret_id": "shop-app-payments-secret", "reason": "no se usa"})
+    gui.join()
+    check("shop-app-payments-secret" not in {e["id"] for e in client.request("entries")}, "deleted once the user agrees")
+
+    print("Tags, expiry and reminders")
+    client.request("update_credential", {"secret_id": "echo-api", "tags": ["Tienda", "pruebas"], "expires": "2020-01-31"})
+    view = next(v for v in client.request("list_secrets") if v["id"] == "echo-api")
+    check(view["tags"] == ["pruebas", "tienda"] and view["expires"] == "2020-01-31", "the AI can tag a credential and set its expiry")
+    reminders = {r["id"]: r for r in client.request("reminders")}
+    check(reminders.get("echo-api", {}).get("kind") == "expired" and client.request("status")["reminders"] >= 1,
+          "expired keys are flagged")
+    expect_error(lambda: client.request("update_credential", {"secret_id": "echo-api", "expires": "31/01/2020"}), "invalid",
+                 "dates are checked")
+    client.request("update_credential", {"secret_id": "echo-api", "expires": ""})
+    check("echo-api" not in {r["id"] for r in client.request("reminders")}, "removing the date clears the reminder")
+    check("shop-app" in next(e for e in client.request("entries") if e["id"] == "shop-app-openai-api-key")["tags"],
+          "imported keys are tagged with their project")
+
+    print("Unusual use asks again")
+    call("set_settings", {"settings": {"max_uses_per_hour": 50}}, "hello")
+    gui = threading.Thread(target=fake_gui, args=("session",))
+    gui.start()
+    client.request("http_request", {"secret_id": "echo-api", "url": base + "/grant"})
+    gui.join()
+    service._uses.clear()  # earlier sections used echo-api in this same hour
+    for i in range(50):
+        client.request("http_request", {"secret_id": "echo-api", "url": base + f"/n{i}"})
+    asked = len(decisions)
+    client.request("pending_approvals")  # the app announces itself
+    gui = threading.Thread(target=fake_gui, args=("session",))
+    gui.start()
+    result = client.request("http_request", {"secret_id": "echo-api", "url": base + "/one-too-many"})
+    gui.join()
+    check(result["status"] == 200 and len(decisions) == asked + 1 and decisions[-1][1].startswith("Uso inusual"),
+          "past the hourly limit, an approved credential asks again")
+    client.request("http_request", {"secret_id": "echo-api", "url": base + "/after"})
+    check(len(decisions) == asked + 1, "and then the count starts again")
+    call("set_settings", {"settings": {"max_uses_per_hour": 0}}, "hello")
+    presence = fresh_presence[-1]
+
     print("GitHub secrets")
     github = HTTPServer(("127.0.0.1", 0), FakeGitHub)
     threading.Thread(target=github.serve_forever, daemon=True).start()
@@ -681,7 +739,7 @@ async def check_http():
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 tools = (await session.list_tools()).tools
-                check(len(tools) == 10, "Claude Code gets the same tools over HTTP")
+                check(len(tools) == 14, "Claude Code gets the same tools over HTTP")
                 result = await session.call_tool("list_secrets", {})
                 text = " ".join(getattr(c, "text", "") for c in result.content)
                 check("echo-api" in text and API_KEY not in text, "MCP over HTTP works through the service")
@@ -696,7 +754,7 @@ async def check_stdio():
         async with ClientSession(read, write) as session:
             await session.initialize()
             tools = sorted(t.name for t in (await session.list_tools()).tools)
-            check(tools == ["create_credential", "http_request", "list_secrets", "push_github_secret", "request_access", "run_command", "ssh_download", "ssh_exec", "ssh_upload", "update_credential"], f"MCP tools: {tools}")
+            check(tools == ["check_credential", "create_credential", "credential_activity", "delete_credential", "http_request", "list_secrets", "push_github_secret", "request_access", "rotate_credential", "run_command", "ssh_download", "ssh_exec", "ssh_upload", "update_credential"], f"MCP tools: {tools}")
             result = await session.call_tool("list_secrets", {})
             text = " ".join(getattr(c, "text", "") for c in result.content)
             check("echo-api" in text and API_KEY not in text, "MCP list_secrets works through the service")

@@ -189,7 +189,7 @@ def import_env(env_path, project=None, everything=False, delete=False):
         return 0
     items = [{"var": name, "value": value, "id": slug(f"{project}-{name}")} for _, name, value in chosen]
     print(f"Confirma la importación en la app SecretBroker ({len(items)} clave(s))...", flush=True)
-    result = client.call("import_env", {"source": str(env_path), "items": items})
+    result = client.call("import_env", {"source": str(env_path), "project": slug(project)[:30], "items": items})
     mapped = {i["var"]: i["id"] for i in result["created"] + result["skipped"]}
     for item in result["created"]:
         print(f"  importada   {item['var']}  ->  {item['id']}")

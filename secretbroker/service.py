@@ -36,7 +36,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from . import actions, crypto, exposure, links, paths, presets, rotation, update, winsec
 from .inject import ActionError, Redactor, substitute
 from .vault import (
-    DEFAULT_SETTINGS, ID_RE, Vault, VaultLocked, ValidationError, WrongPassword, agent_view,
+    DEFAULT_SETTINGS, ID_RE, TAG_RE, Vault, VaultLocked, ValidationError, WrongPassword, agent_view, secret_age_days,
     check_master_password, convert_legacy_entry, entry_summary,
 )
 from . import templates
@@ -58,7 +58,8 @@ SLUG_RE = re.compile(r"[^a-z0-9]+")
 PRESENCE_OPS = ("approve", "complete_draft", "resume_ai", "set_ai_permissions", "backup", "restore")  # what the app that unlocked may do with one click
 # Everything the AI can ask for. "Pause the AI" refuses all of it without locking the vault.
 AI_OPS = AGENT_ACTIONS | {"list_secrets", "release_env", "push_github_secret", "create_draft", "update_credential",
-                          "request_access", "check_env", "import_env"}
+                          "request_access", "check_env", "import_env", "ai_check", "ai_rotate", "ai_activity",
+                          "ai_delete"}
 # What the AI may do beyond using a credential, and how freely. The user sets each one in the app:
 #   free    follows each credential's own approval      notify  the same, and the user gets a notice
 #   ask     the user confirms every time                 off     refused
@@ -69,7 +70,11 @@ AI_CAPABILITIES = {
     "edit_config": ("ask", "Cambiar adónde puede ir una clave guardada (webs, programas, variables)"),
     "local_env": ("free", "Dar claves a tus programas locales (sb run)"),
     "github": ("free", "Subir claves a los secrets de GitHub"),
+    "rotate": ("ask", "Rotar claves con su proveedor"),
 }
+MAX_USES = (0, 50, 100, 500)  # uses per hour of one credential before asking again (0: no limit)
+REMINDER_DAYS = (0, 90, 180, 365)
+EXPIRY_WARNING_DAYS = 14
 NOTICE_EVERY_SECONDS = 600  # at most one "the AI used X" notice per credential in this time
 
 
@@ -115,6 +120,7 @@ class Service:
         self._notices = collections.deque(maxlen=50)
         self._notice_id = 0
         self._noticed = {}
+        self._uses = collections.defaultdict(collections.deque)  # secret id -> monotonic times of recent uses
         self._server = None
         self.updates = update.Checker()
 
@@ -257,6 +263,9 @@ class Service:
             "legacy_vault": state == "no_vault" and any(p.exists() for p in self.legacy_files),
             "auto_lock_minutes": settings.get("auto_lock_minutes"),
             "approval_hours": settings.get("approval_hours"),
+            "max_uses_per_hour": settings.get("max_uses_per_hour", 100),
+            "rotate_reminder_days": settings.get("rotate_reminder_days", 365),
+            "reminders": len(self._reminders()) if self.vault.is_unlocked else 0,
             "session_grants": len(self._live_grants()),
             "gui_connected": time.monotonic() - self._gui_seen < GUI_SEEN_SECONDS,
             "pending": len(self._approvals),
@@ -568,7 +577,9 @@ class Service:
     def op_rotate(self, params):
         """Replace a key with a new one issued by its provider, then upload it again wherever it was."""
         self._verify_proof("rotate", params)
-        entry = self.vault.get(params["id"])
+        return self._rotate(self.vault.get(params["id"]))
+
+    def _rotate(self, entry):
         redact = Redactor(entry)
         try:
             value = rotation.rotate(entry)
@@ -630,6 +641,11 @@ class Service:
             raise ServiceError("Tiempo de bloqueo no válido", "invalid")
         if "approval_hours" in changes and changes["approval_hours"] not in APPROVAL_HOURS:
             raise ServiceError("Duración de las aprobaciones no válida", "invalid")
+        if "max_uses_per_hour" in changes and changes["max_uses_per_hour"] not in MAX_USES:
+            raise ServiceError("Límite de usos no válido", "invalid")
+        if "rotate_reminder_days" in changes and changes["rotate_reminder_days"] not in REMINDER_DAYS:
+            raise ServiceError("Recordatorio no válido", "invalid")
+        changes = {k: v for k, v in changes.items() if k not in ("ai_permissions", "notify_uses")}  # see set_ai_permissions
         self.vault.update_settings(changes)
         return self.vault.settings()
 
@@ -929,6 +945,12 @@ class Service:
         for key in ("name", "description"):
             if params.get(key) is not None:
                 entry[key] = str(params[key]).strip()
+        if params.get("tags") is not None:
+            entry["tags"] = sorted({str(t).strip().lower() for t in params["tags"] if str(t).strip()})
+        if params.get("expires") is not None:
+            entry["expires"] = str(params["expires"]).strip() or None
+            if not entry["expires"]:
+                entry.pop("expires")
         policy = entry.setdefault("policy", {})
         if params.get("allowed_hosts") is not None:
             policy.setdefault("http", {"auth": {"kind": "none"}})["allowed_hosts"] = \
@@ -987,7 +1009,7 @@ class Service:
         changes = _describe_changes(entry, updated)
         if not changes:
             return {"credential": agent_view(entry), "changed": []}
-        risky = [line for key, line in changes if key not in ("name", "description")]
+        risky = [line for key, line in changes if key not in CONTEXT_KEYS]
         detail = "\n".join(line for _, line in changes)
         capability = "create" if entry.get("draft") else "edit_config" if risky else "edit_notes"
         try:
@@ -1046,8 +1068,12 @@ class Service:
         except ServiceError as exc:
             self._audit("vault", "import_env", detail, "denied" if exc.code == "denied" else "error", str(exc))
             raise
+        project = str(params.get("project") or "")
         for item in new:
-            self.vault.put(self._imported_entry(item, source))
+            entry = self._imported_entry(item, source)
+            if TAG_RE.match(project):
+                entry["tags"] = [project]
+            self.vault.put(entry)
             self._audit(item["id"], "import_env", f"{item['var']} desde {source}", "ok")
         return {"created": [{"var": n["var"], "id": n["id"]} for n in new], "skipped": skipped}
 
@@ -1067,6 +1093,82 @@ class Service:
         policy["approval"] = "session"
         return {"id": item["id"], "name": name, "template": template, "description": description,
                 "fields": fields, "policy": policy}
+
+    # ------------------------------------------------------------------ more for the AI
+
+    def op_ai_check(self, params):
+        """Does the key still work? Plus what the AI may want to know before rotating it."""
+        entry = self._get_secret(params.get("secret_id"))
+        alive = exposure.check_alive(entry) or {"status": "unknown", "message": "Este tipo de credencial no se puede comprobar"}
+        alive = {**alive, "message": Redactor(entry)(str(alive.get("message") or ""))}
+        self._audit(entry["id"], "check", alive.get("status", ""), "ok")
+        return {"check": alive, "rotation": rotation.info(entry), "key_age_days": secret_age_days(entry),
+                "expires": entry.get("expires")}
+
+    def op_ai_rotate(self, params):
+        entry = self._get_secret(params.get("secret_id"))
+        info = rotation.info(entry) or {"supported": False, "reason": "solo se rotan API keys"}
+        if not info.get("supported"):
+            raise ServiceError(f"No se puede rotar por API: {(info.get('reason') or 'proveedor no compatible').rstrip('.')}. "
+                               "El usuario debe crear una clave nueva en la web del proveedor.", "invalid")
+        detail = f"Rotar la clave con {info.get('provider')}" + (f"\nMotivo: {params['reason']}" if params.get("reason") else "")
+        try:
+            self._gate("rotate", entry, "rotate", detail)
+        except ServiceError as exc:
+            self._audit(entry["id"], "rotate", detail, "denied" if exc.code == "denied" else "error", str(exc))
+            raise
+        result = self._rotate(entry)
+        return {"check": result["check"], "uploads": [{k: v for k, v in u.items() if k != "token"} for u in result["uploads"]]}
+
+    def op_ai_activity(self, params):
+        """What was done with the credentials (by the AI or the user): no values, only what and when."""
+        events = self.op_audit({"limit": 1000})
+        secret_id = params.get("secret_id")
+        if secret_id:
+            events = [e for e in events if e.get("secret") == secret_id]
+        return events[:min(int(params.get("limit") or 50), 200)]
+
+    def op_ai_delete(self, params):
+        """The AI proposes deleting a credential; the user always confirms (it can't be undone, except
+        from a backup)."""
+        try:
+            entry = self.vault.get(params.get("secret_id"))
+        except KeyError:
+            raise ServiceError(f"No existe el secreto '{params.get('secret_id')}'", "not_found") from None
+        detail = "Borrar esta credencial para siempre" + (f"\nMotivo: {params['reason']}" if params.get("reason") else "")
+        try:
+            self._ask_user(entry, "delete", detail, allow_session=False)
+        except ServiceError as exc:
+            self._audit(entry["id"], "delete", detail, "denied" if exc.code == "denied" else "error", str(exc))
+            raise
+        self.vault.delete(entry["id"])
+        self._forget_grants(entry["id"])
+        self._audit(entry["id"], "delete", "propuesto por la IA", "ok")
+        return {"deleted": entry["id"]}
+
+    def _reminders(self):
+        """Credentials that need attention: expired, expiring soon, or with a key older than the user's limit."""
+        today = datetime.now().date()
+        old_after = self.vault.settings().get("rotate_reminder_days", 365)
+        found = []
+        for entry in self.vault.entries():
+            if entry.get("draft"):
+                continue
+            if entry.get("expires"):
+                days = (datetime.strptime(entry["expires"], "%Y-%m-%d").date() - today).days
+                if days < 0:
+                    found.append({"id": entry["id"], "name": entry.get("name"), "kind": "expired", "days": -days})
+                    continue
+                if days <= EXPIRY_WARNING_DAYS:
+                    found.append({"id": entry["id"], "name": entry.get("name"), "kind": "expiring", "days": days})
+                    continue
+            age = secret_age_days(entry)
+            if old_after and age is not None and age >= old_after:
+                found.append({"id": entry["id"], "name": entry.get("name"), "kind": "old", "days": age})
+        return found
+
+    def op_reminders(self, params):
+        return self._reminders()
 
     # ------------------------------------------------------------------ backups
 
@@ -1203,6 +1305,12 @@ class Service:
 
     def _authorize(self, entry, action, detail):
         mode = entry.get("policy", {}).get("approval", "session")
+        if mode != "always" and self._unusual_use(entry):
+            limit = self.vault.settings().get("max_uses_per_hour", 100)
+            self._ask_user(entry, action, f"Uso inusual: más de {limit} usos en la última hora.\n\n{detail}",
+                           allow_session=mode == "session")
+            self._uses.pop(entry["id"], None)
+            return
         if mode == "never":
             if self.vault.settings().get("notify_uses", True):
                 self._notify(f"La IA ha usado {entry.get('name', entry['id'])}", detail.splitlines()[0] if detail else "",
@@ -1240,6 +1348,18 @@ class Service:
                 self._audit(e["id"], "request_access", detail, "ok")
             result["granted"] = [e["id"] for e in needed]
         return result
+
+    def _unusual_use(self, entry):
+        """Count this use; True when one credential is used more than the user's hourly limit, even if
+        it was approved for the day (a loop gone wrong, or something the user would want to see)."""
+        limit = self.vault.settings().get("max_uses_per_hour", 100)
+        now = time.monotonic()
+        with self._lock:
+            uses = self._uses[entry["id"]]
+            while uses and now - uses[0] > 3600:
+                uses.popleft()
+            uses.append(now)
+            return bool(limit) and len(uses) > limit
 
     def _ask_user(self, entry, action, detail, allow_session, grant_ids=None, allow_once=True):
         """Show the request in the app and wait for the user's answer."""
@@ -1317,15 +1437,17 @@ class Service:
             os.replace(tmp, self.audit_file)
 
 
-CHANGE_LABELS = {"name": "Nombre", "description": "Notas para la IA"}
+CHANGE_LABELS = {"name": "Nombre", "description": "Notas para la IA", "tags": "Etiquetas", "expires": "Caduca"}
+CONTEXT_KEYS = ("name", "description", "tags", "expires")  # changes that don't affect where a key can go
 
 
 def _describe_changes(old, new):
     """[(key, human-readable line)] of what differs between two versions of an entry (no secrets)."""
     changes = []
-    for key in ("name", "description"):
-        if old.get(key, "") != new.get(key, ""):
-            changes.append((key, f"{CHANGE_LABELS[key]}: «{new.get(key, '')[:200]}»"))
+    for key in CONTEXT_KEYS:
+        if (old.get(key) or "") != (new.get(key) or ""):
+            value = ", ".join(new[key]) if key == "tags" and new.get(key) else str(new.get(key) or "—")
+            changes.append((key, f"{CHANGE_LABELS[key]}: «{value[:200]}»"))
     labels = {s["name"]: s["label"] for s in templates.field_specs(old["template"])}
     for name in sorted(set(old["fields"]) | set(new["fields"])):
         if name in templates.SECRET_FIELDS or old["fields"].get(name) == new["fields"].get(name):

@@ -108,6 +108,7 @@ class Watcher:
         self._pending = 0
         self._drafts = None
         self._notice = None
+        self._reminded = None
         self.notify = None  # set to show a Windows notification
 
     def start(self):
@@ -148,6 +149,11 @@ class Watcher:
         self._pending, self._drafts = status["pending"], drafts
         if status["state"] == "unlocked":
             self._show_notices()
+            today = time.strftime("%Y-%m-%d")
+            if status.get("reminders") and self._reminded != today and self.notify:
+                self._reminded = today
+                self.notify(f"{status['reminders']} clave(s) necesitan atención",
+                            "Caducadas, a punto de caducar o muy antiguas. Ábrelas en SecretBroker para rotarlas.")
             if self.api.backup_due():
                 self.api.backup_now()
         if self.on_status:

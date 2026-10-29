@@ -28,7 +28,10 @@ AUDIT_KEY_INFO = b"secretbroker/audit-key/v1"
 MAC_KEY_INFO = b"secretbroker/mac-key/v1"
 APPROVAL_MODES = ("session", "always", "never")
 AUTH_KINDS = ("none", "header", "query", "basic")
-DEFAULT_SETTINGS = {"auto_lock_minutes": 60, "approval_hours": 24, "ai_permissions": {}, "notify_uses": True}
+DEFAULT_SETTINGS = {"auto_lock_minutes": 60, "approval_hours": 24, "ai_permissions": {}, "notify_uses": True,
+                    "max_uses_per_hour": 100, "rotate_reminder_days": 365}
+TAG_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,29}$")
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,63}$")
 ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 MIN_PASSWORD_LEN = 12
@@ -61,6 +64,14 @@ def validate_entry(entry):
     template_id = entry.get("template")
     if template_id not in templates.TEMPLATES:
         raise ValidationError(f"Plantilla desconocida: {template_id}")
+    tags = entry.get("tags") or []
+    if not isinstance(tags, list) or len(tags) > 10 or not all(isinstance(t, str) and TAG_RE.match(t) for t in tags):
+        raise ValidationError("Etiquetas no válidas: hasta 10, en minúsculas, sin espacios (p. ej. tienda, produccion)")
+    if entry.get("expires"):
+        try:
+            datetime.strptime(str(entry["expires"]), "%Y-%m-%d")
+        except ValueError:
+            raise ValidationError("La fecha de caducidad debe ser AAAA-MM-DD") from None
     fields = entry.get("fields", {})
     draft = bool(entry.get("draft"))  # prepared by the AI: everything but the secret, which the user adds
     for spec in templates.active_specs(template_id, fields):
@@ -105,6 +116,14 @@ def validate_entry(entry):
             raise ValidationError(f"Nombre de comando no válido (sin rutas): {command}")
 
 
+def secret_age_days(entry):
+    try:
+        since = datetime.fromisoformat(entry["secret_since"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return (datetime.now(timezone.utc) - since).days
+
+
 def entry_summary(entry):
     """Everything about an entry except secret values (for the GUI)."""
     secret_names = set(templates.secret_field_names(entry["template"]))
@@ -119,6 +138,8 @@ def entry_summary(entry):
         "updated": entry.get("updated"),
         "secret_since": entry.get("secret_since"),
         "draft": bool(entry.get("draft")),
+        "tags": entry.get("tags") or [],
+        "expires": entry.get("expires"),
     }
 
 
@@ -137,6 +158,12 @@ def agent_view(entry):
         "actions": templates.available_actions(entry),
         "approval": policy.get("approval", "session"),
     }
+    if summary["tags"]:
+        view["tags"] = summary["tags"]
+    if summary["expires"]:
+        view["expires"] = summary["expires"]
+    if entry.get("secret_since"):
+        view["key_age_days"] = secret_age_days(entry)
     if entry.get("draft"):
         view["draft"] = True
         view["missing"] = [s["name"] for s in templates.active_specs(entry["template"], entry["fields"])
