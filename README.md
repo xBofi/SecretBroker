@@ -83,6 +83,8 @@ python -m venv .venv; .venv\Scripts\python.exe -m pip install .
 .venv\Scripts\python.exe tests\test_ssh.py   # SSH contra un servidor de prueba local
 .venv\Scripts\python.exe tests\test_exposure.py   # análisis de exposición contra un perfil de usuario falso (necesita git)
 python tools\make_icon.py secretbroker\assets\icon.ico
+.\tools\update_installed.ps1         # pasa el código a la versión instalada y reinicia el servicio (pide UAC)
+.\tools\update_installed.ps1 -Full   # igual, pero con el instalador completo (si cambian dependencias o installer\)
 ```
 
 La interfaz sigue el sistema de diseño documentado al principio de `secretbroker/web/styles.css`: un único color de acento por paleta (Salvia, Cobalto, Terracota, Grafito), los colores de categoría solo en los iconos y la jerarquía marcada con el peso del texto, no con cajas.
