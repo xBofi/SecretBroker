@@ -143,6 +143,7 @@ const ACTION_LABELS = {
   ssh_download: 'Descargar archivo del servidor',
   run_command: 'Programa en este PC',
   release_env: 'Entregada a una app local',
+  rotate: 'Rotada con el proveedor',
   push_github_secret: 'Subida a GitHub',
   unlock: 'Desbloqueo', lock: 'Bloqueo', save: 'Guardada', delete: 'Eliminada',
   reveal: 'Secreto mostrado', create: 'Bóveda creada', enroll_hello: 'Windows Hello activado',
@@ -693,7 +694,9 @@ function renderDetail(panel) {
       el('button', { class: 'btn icon-only', title: 'Eliminar', onclick: () => deleteEntry(entry) }, icon('trash', 'sm'))),
     el('div', { class: 'section' }, props),
     entry.description ? el('div', { class: 'section' }, el('h3', {}, 'Notas para la IA'), el('p', { class: 'notes selectable muted' }, entry.description)) : null,
+    providerSection(entry),
     exposureSection(entry),
+    rotationSection(entry),
     el('div', { class: 'section' },
       el('h3', {}, 'Qué puede hacer la IA'),
       perms.length ? perms : el('p', { class: 'muted' }, 'Nada todavía. Edita la credencial y abre «Permisos de la IA».'),
@@ -712,6 +715,71 @@ function describePermissions(entry) {
   const approval = policy.approval || 'session';
   items.push(['fingerprint', { session: 'Te pregunta una vez por sesión', always: 'Te pregunta cada vez', never: 'No te pregunta' }[approval]]);
   return items.map(([i, text]) => el('div', { class: 'perm' }, icon(i, 'sm'), el('span', {}, text)));
+}
+
+// ----------------------------------------------------------------------- provider links
+
+function providerSection(entry) {
+  const provider = entry.provider;
+  if (!provider) return null;
+  return el('div', { class: 'section' },
+    el('h3', {}, provider.provider),
+    provider.kind ? el('div', { class: 'provider-kind' },
+      el('div', { style: 'font-weight:600' }, provider.kind.label),
+      el('p', { class: 'help' }, provider.kind.help)) : null,
+    el('div', { class: 'link-list' }, provider.links.map((link) => el('button', {
+      class: 'link-row', title: link.url, onclick: () => api().open_link(link.url),
+    }, el('div', { style: 'min-width:0' }, el('div', { class: 'link-label' }, link.label),
+      link.hint ? el('div', { class: 'help' }, link.hint) : null), icon('external', 'sm')))));
+}
+
+// ----------------------------------------------------------------------- rotation
+
+function destinationLabel(d) {
+  return `GitHub ${d.repo}${d.environment ? ` (${d.environment})` : ''} · ${d.name}`;
+}
+
+function rotationSection(entry) {
+  const rotation = entry.rotation;
+  if (!rotation) return null;
+  const button = el('button', { class: 'btn', disabled: !rotation.supported, title: rotation.supported ? '' : rotation.reason,
+    onclick: () => rotateEntry(entry) }, icon('rotate', 'sm'), 'Rotar clave');
+  const destinations = entry.destinations || [];
+  return el('div', { class: 'section' },
+    el('h3', {}, 'Rotación'),
+    el('p', { class: 'help' }, rotation.supported
+      ? `Pide a ${rotation.provider} una clave nueva y anula la actual, sin que nadie la vea.`
+      : rotation.reason),
+    rotation.supported && destinations.length
+      ? el('p', { class: 'help' }, 'Después se vuelve a subir a: ', destinations.map(destinationLabel).join(', '))
+      : null,
+    el('div', { style: 'margin-top:8px' }, button));
+}
+
+async function rotateEntry(entry) {
+  const destinations = entry.destinations || [];
+  const modal = openModal({
+    title: `¿Rotar ${entry.name}?`,
+    body: el('div', {},
+      el('p', { class: 'muted' }, `${entry.rotation.provider} creará una clave nueva y la actual dejará de funcionar al momento. `,
+        'Las apps que ya estén en marcha con la clave vieja fallarán hasta que las reinicies.'),
+      destinations.length ? el('p', { class: 'muted' }, 'La nueva se subirá también a: ', destinations.map(destinationLabel).join(', '), '.') : null),
+    footer: [
+      el('button', { class: 'btn', onclick: () => modal.close() }, 'Cancelar'),
+      el('button', { class: 'btn primary', onclick: async () => {
+        modal.close();
+        const result = await withProof((p) => api().call('rotate', { id: entry.id }, p), `Para rotar ${entry.name}.`);
+        if (!result.ok) { if (result.code !== 'cancelled') toast(result.error, 'error'); return; }
+        await loadEntries();
+        renderMain();
+        const failed = result.result.uploads.filter((u) => !u.ok);
+        const check = result.result.check;
+        if (failed.length) toast(`Rotada, pero no se pudo subir a ${failed.map((u) => u.label).join(', ')}: ${failed[0].error}`, 'error');
+        else if (check && check.status === 'invalid') toast(`Rotada, pero ${check.message}`, 'error');
+        else toast(destinations.length ? 'Rotada y subida de nuevo' : 'Rotada');
+      } }, 'Rotar'),
+    ],
+  });
 }
 
 async function deleteEntry(entry) {

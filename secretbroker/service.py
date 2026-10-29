@@ -28,10 +28,11 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
+import httpx
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from . import actions, crypto, exposure, paths, winsec
+from . import actions, crypto, exposure, links, paths, rotation, winsec
 from .inject import ActionError, Redactor, substitute
 from .vault import (
     DEFAULT_SETTINGS, Vault, VaultLocked, ValidationError, WrongPassword, agent_view,
@@ -297,8 +298,14 @@ class Service:
 
     # ------------------------------------------------------------------ management (GUI)
 
+    def _summary(self, entry, destinations=None):
+        destinations = self.vault.destinations() if destinations is None else destinations
+        return {**entry_summary(entry), "rotation": rotation.info(entry), "provider": links.for_entry(entry),
+                "destinations": destinations.get("entries", {}).get(entry["id"], [])}
+
     def op_entries(self, params):
-        return [entry_summary(e) for e in self.vault.entries()]
+        destinations = self.vault.destinations()
+        return [self._summary(e, destinations) for e in self.vault.entries()]
 
     def op_save_entry(self, params):
         self._verify_proof("save_entry", params)
@@ -319,15 +326,17 @@ class Service:
                 if replaces in records:
                     records[entry["id"]] = records.pop(replaces)
             self._update_exposure(rename)
+            self._update_destinations(rename)
         with self._lock:
             self._grants = {g for g in self._grants if g[0] not in (entry["id"], replaces)}
         self._audit(entry["id"], "save", "creada" if not replaces else "modificada", "ok")
-        return entry_summary(self.vault.get(entry["id"]))
+        return self._summary(self.vault.get(entry["id"]))
 
     def op_delete_entry(self, params):
         self._verify_proof("delete_entry", params)
         self.vault.delete(params["id"])
         self._update_exposure(lambda data: data.get("entries", {}).pop(params["id"], None))
+        self._update_destinations(lambda data: data.get("entries", {}).pop(params["id"], None))
         with self._lock:
             self._grants = {g for g in self._grants if g[0] != params["id"]}
         self._audit(params["id"], "delete", "", "ok")
@@ -347,6 +356,56 @@ class Service:
             record["revealed"] = record.get("revealed", 0) + 1
         self._update_exposure(count)
         return entry["fields"][field]
+
+    def op_rotate(self, params):
+        """Replace a key with a new one issued by its provider, then upload it again wherever it was."""
+        self._verify_proof("rotate", params)
+        entry = self.vault.get(params["id"])
+        redact = Redactor(entry)
+        try:
+            value = rotation.rotate(entry)
+        except ActionError as exc:
+            self._audit(entry["id"], "rotate", "", "error", redact(str(exc)))
+            raise
+        # The old key may already be dead: store the new one before anything else can fail.
+        entry["fields"]["value"] = value
+        self.vault.put(entry, replaces=entry["id"])
+        with self._lock:
+            self._grants = {g for g in self._grants if g[0] != entry["id"]}
+        self._audit(entry["id"], "rotate", rotation.info(entry)["provider"], "ok")
+
+        alive = exposure.check_alive(entry)
+        uploads = []
+        for destination in self.vault.destinations().get("entries", {}).get(entry["id"], []):
+            uploads.append(self._push_again(entry, destination))
+        return {"entry": self._summary(self.vault.get(entry["id"])), "check": alive, "uploads": uploads}
+
+    def _push_again(self, entry, destination):
+        label = f"GitHub {destination['repo']}" + (f" ({destination['environment']})" if destination.get("environment") else "")
+        detail = f"Subir como secret {destination['name']} a {label} tras rotarla"
+        result = {**destination, "label": label, "ok": True}
+        try:
+            token_entry = self.vault.get(destination["token"])
+            actions._check_destination(token_entry, {"url": actions.GITHUB_API})
+            actions.push_github_secret(entry, token_entry, destination)
+            self._audit(entry["id"], "push_github_secret", detail, "ok")
+        except (KeyError, ActionError, httpx.HTTPError) as exc:
+            message = Redactor(entry)(str(exc) or type(exc).__name__)
+            self._audit(entry["id"], "push_github_secret", detail, "error", message)
+            result.update(ok=False, error=message)
+        return result
+
+    def _update_destinations(self, change):
+        data = {"entries": self.vault.destinations().get("entries", {})}
+        change(data)
+        self.vault.set_destinations(data)
+
+    def _remember_destination(self, secret_id, destination):
+        def add(data):
+            items = data["entries"].setdefault(secret_id, [])
+            key = (destination["repo"], destination.get("environment"), destination["name"])
+            items[:] = [d for d in items if (d["repo"], d.get("environment"), d["name"]) != key] + [destination]
+        self._update_destinations(add)
 
     def op_change_master_password(self, params):
         # Any proof works: this is also how a forgotten master password is reset (via Windows).
@@ -638,6 +697,9 @@ class Service:
             raise ServiceError(message, "action_failed") from None
         for item in used:
             self._audit(item["id"], "push_github_secret", detail, "ok")
+        self._remember_destination(entry["id"], {
+            "kind": "github", "repo": params["repo"], "environment": params.get("environment") or None,
+            "name": params["name"], "value": params.get("value") or "{{value}}", "token": token_entry["id"]})
         return result
 
     def op_release_env(self, params):

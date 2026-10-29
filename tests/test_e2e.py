@@ -24,7 +24,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa  # noqa: E402
 
 from nacl.public import PrivateKey, SealedBox  # noqa: E402
 
-from secretbroker import actions, cli, client, crypto  # noqa: E402
+from secretbroker import actions, cli, client, crypto, exposure, rotation  # noqa: E402
 from secretbroker.client import BrokerError, BrokerUnavailable  # noqa: E402
 from secretbroker.service import Service  # noqa: E402
 
@@ -308,6 +308,60 @@ def main():
     expect_error(lambda: client.request("push_github_secret", dict(push, repo="../x")), "action_failed", "malformed repo refused")
     expect_error(lambda: client.request("push_github_secret", dict(push, github_secret_id="old-ssh")), "action_failed",
                  "token credential must allow the GitHub API host")
+
+    print("Rotation")
+    rotated = []
+    rotation.ROTATORS["Cloudflare"] = lambda entry: rotated.append(entry["fields"]["value"]) or "cf-NEW-TOKEN-0987654321"
+    exposure.check_alive = lambda entry: {"status": "ok", "provider": "Cloudflare"}
+    cf = {"id": "cloudflare", "name": "Cloudflare", "template": "api_key", "description": "",
+          "fields": {"value": "cf-OLD-TOKEN-1234567890", "base_url": "https://api.cloudflare.com/client/v4", "auth_style": "bearer",
+                     "env_var": "CLOUDFLARE_API_TOKEN"},
+          "policy": {"approval": "never", "http": {"allowed_hosts": ["api.cloudflare.com"], "auth": {"kind": "none"}},
+                     "commands": {"allowed": [], "env": {"CLOUDFLARE_API_TOKEN": "{{value}}"}}}}
+    anthropic = {"id": "claude", "name": "Claude", "template": "api_key", "description": "",
+                 "fields": {"value": "sk-ant-api03-FAKEFAKEFAKE"}, "policy": {"approval": "never"}}
+    call("save_entry", {"entry": cf}, "hello")
+    call("save_entry", {"entry": anthropic}, "hello")
+    listed = {e["id"]: e for e in client.request("entries")}
+    check(listed["cloudflare"]["rotation"] == {"provider": "Cloudflare", "supported": True, "reason": ""}, "Cloudflare keys are rotatable")
+    check(listed["claude"]["rotation"]["provider"] == "Anthropic" and not listed["claude"]["rotation"]["supported"]
+          and "Console" in listed["claude"]["rotation"]["reason"], "Anthropic keys are not, with the reason")
+    check(not listed["echo-api"]["rotation"]["supported"] and listed["shop-db"]["rotation"] is None,
+          "unknown providers are not rotatable; non-API credentials have no rotation")
+    check(listed["shop-db"]["destinations"][0]["repo"] == "me/app", "uploads to GitHub are remembered")
+    expect_error(lambda: call("rotate", {"id": "claude"}, "hello"), "invalid", "rotating an unsupported provider is refused")
+    expect_error(lambda: client.request("rotate", {"id": "cloudflare"}), "proof_required", "rotation needs a proof")
+
+    client.request("push_github_secret", {"secret_id": "cloudflare", "github_secret_id": "gh-token", "repo": "me/app", "name": "CF_TOKEN"})
+    uploads_before = len(FakeGitHub.received)
+    result = call("rotate", {"id": "cloudflare"}, "hello")
+    check(rotated == ["cf-OLD-TOKEN-1234567890"], "the provider is asked with the old key")
+    check(call("reveal", {"id": "cloudflare", "field": "value"}, "hello") == "cf-NEW-TOKEN-0987654321", "the new key is stored")
+    check("cf-NEW-TOKEN" not in json.dumps(result), "rotation returns no value")
+    check(len(FakeGitHub.received) == uploads_before + 1 and result["uploads"][0]["ok"]
+          and SealedBox(FakeGitHub.key).decrypt(base64.b64decode(FakeGitHub.received[-1]["encrypted_value"])).decode() == "cf-NEW-TOKEN-0987654321",
+          "the new key is uploaded again to GitHub")
+
+    print("Provider links")
+    gateway = {"id": "aig", "name": "Gateway", "template": "api_key", "description": "",
+               "fields": {"value": "cfat_" + "A" * 40, "auth_style": "bearer",
+                          "base_url": "https://gateway.ai.cloudflare.com/v1/" + "0123456789abcdef" * 2 + "/team-gw/openai"},
+               "policy": {"approval": "never"}}
+    call("save_entry", {"entry": gateway}, "hello")
+    listed = {e["id"]: e for e in client.request("entries")}
+    aig = listed["aig"]["provider"]
+    check(aig["provider"] == "Cloudflare" and "«team-gw»" in aig["kind"]["label"] and "todos los gateways" in aig["kind"]["help"],
+          "AI Gateway tokens are identified, with their gateway and reach")
+    check(aig["links"][0]["url"] == "https://dash.cloudflare.com/" + "0123456789abcdef" * 2 + "/ai/ai-gateway",
+          "the first link opens AI Gateway in that account")
+    check(not listed["aig"]["rotation"]["supported"] and "cuenta" in listed["aig"]["rotation"]["reason"],
+          "account tokens are not rotatable yet")
+    check(listed["cloudflare"]["provider"]["links"][0]["url"] == "https://dash.cloudflare.com/profile/api-tokens/"
+          and listed["cloudflare"]["provider"]["links"][-1]["label"] == "Facturación", "Cloudflare API tokens link to their page and billing")
+    check(listed["claude"]["provider"]["links"][0]["url"] == "https://platform.claude.com/settings/keys", "Anthropic keys page")
+    check(listed["echo-api"]["provider"] is None and listed["shop-db"]["provider"] is None, "no links for unknown providers")
+    check(all(link["url"].startswith("https://") for e in listed.values() if e["provider"] for link in e["provider"]["links"]),
+          "every link is HTTPS")
     github.shutdown()
 
     print("Service authenticity")

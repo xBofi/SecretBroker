@@ -260,6 +260,19 @@ class Vault:
             self._payload["exposure"] = copy.deepcopy(data)
             self._save()
 
+    # ----- destinations: where each secret was uploaded, to upload it again after a rotation
+
+    def destinations(self):
+        with self._lock:
+            self._require_unlocked()
+            return copy.deepcopy(self._payload.get("destinations") or {})
+
+    def set_destinations(self, data):
+        with self._lock:
+            self._require_unlocked()
+            self._payload["destinations"] = copy.deepcopy(data)
+            self._save()
+
     # ----- settings
 
     def settings(self):

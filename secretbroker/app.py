@@ -7,6 +7,7 @@ import subprocess
 import sys
 import threading
 import time
+import webbrowser
 from pathlib import Path
 
 from . import __version__, client, hello, integrations, paths, scanner, templates
@@ -17,7 +18,7 @@ ICON = Path(__file__).with_name("assets") / "icon.ico"
 CLIPBOARD_CLEAR_SECONDS = 30
 AUTO_SCAN_HOURS = 12
 # Operations the service only accepts with a proof of identity.
-PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal",
+PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal", "rotate",
              "change_master_password", "set_settings", "remove_hello", "exposure_begin"}
 
 
@@ -177,6 +178,12 @@ class Api:
         else:
             subprocess.Popen(["explorer", "/select,", str(path)])
         return True
+
+    def open_link(self, url):
+        """Open a provider page (API keys, billing...) in the default browser."""
+        if not isinstance(url, str) or not url.startswith("https://"):
+            return False
+        return webbrowser.open(url)
 
     # ----- Windows Hello
 
