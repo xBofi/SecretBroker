@@ -3,20 +3,22 @@
 import base64
 import ctypes
 import os
+import subprocess
 import sys
 import threading
 import time
 from pathlib import Path
 
-from . import __version__, client, hello, integrations, paths, templates
+from . import __version__, client, hello, integrations, paths, scanner, templates
 from .client import BrokerError, BrokerUnavailable
 
 WEB_DIR = Path(__file__).with_name("web")
 ICON = Path(__file__).with_name("assets") / "icon.ico"
 CLIPBOARD_CLEAR_SECONDS = 30
+AUTO_SCAN_HOURS = 12
 # Operations the service only accepts with a proof of identity.
 PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal",
-             "change_master_password", "set_settings", "remove_hello"}
+             "change_master_password", "set_settings", "remove_hello", "exposure_begin"}
 
 
 class Api:
@@ -24,6 +26,10 @@ class Api:
 
     def __init__(self):
         self._window = None
+        # Handed out by the service on unlock: lets this app scan files and see where secrets were found.
+        # Kept here, never given to the page.
+        self._scan_session = None
+        self._scan = None
 
     # ----- generic bridge
 
@@ -33,7 +39,7 @@ class Api:
                 "prefs": integrations.load_prefs(), "integrations": integrations.status()}
 
     def set_pref(self, key, value):
-        if key in ("palette",):
+        if key in ("palette", "auto_scan", "scan_folders"):
             integrations.set_pref(key, value)
         return True
 
@@ -72,7 +78,10 @@ class Api:
                 proof = self._hello_proof(op, params)
             if proof is not None:
                 params["proof"] = proof
-            return {"ok": True, "result": client.request(op, params)}
+            result = client.request(op, params)
+            if op in ("unlock", "exposure_begin") and isinstance(result, dict):
+                self._scan_session = result.pop("exposure_session", None) or result.get("session") or self._scan_session
+            return {"ok": True, "result": result}
         except hello.HelloCancelled:
             return {"ok": False, "code": "hello_cancelled", "error": "Verificación cancelada"}
         except hello.HelloError as exc:
@@ -87,6 +96,87 @@ class Api:
         self._bring_to_front()
         signature = hello.sign(base64.b64decode(challenge["message"]))
         return {"kind": "hello", "nonce": challenge["nonce"], "signature": base64.b64encode(signature).decode()}
+
+    # ----- exposure
+
+    def exposure_report(self):
+        result = self.call("exposure_report", {"session": self._scan_session})
+        if result["ok"] and not result["result"]["details"]:
+            self._scan_session = None
+        return result
+
+    def open_exposure_session(self, proof=None):
+        """Prove identity to see where secrets were found (the session from unlocking expired)."""
+        result = self.call("exposure_begin", {}, proof)
+        if result["ok"]:
+            result["result"] = True
+        return result
+
+    def check_exposure(self, entry_id=None):
+        return self.call("exposure_check", {"id": entry_id, "session": self._scan_session}, None)
+
+    def start_scan(self, proof=None):
+        if self._scan and self._scan.progress["running"]:
+            return {"ok": True}
+        if not self._scan_session or proof is not None:
+            opened = self.open_exposure_session(proof)
+            if not opened["ok"]:
+                return opened
+        scan = scanner.Scan(self._scan_session, integrations.load_prefs().get("scan_folders") or [],
+                            on_session=lambda token: setattr(self, "_scan_session", token))
+        self._scan = scan
+
+        def run():
+            scan.run()
+            if scan.progress.get("code") == "session_expired":
+                self._scan_session = None
+
+        threading.Thread(target=run, daemon=True, name="scan").start()
+        return {"ok": True}
+
+    def auto_scan(self):
+        """Scan in the background after unlocking, at most every few hours."""
+        if integrations.load_prefs().get("auto_scan") is False or not self._scan_session:
+            return False
+        last = scanner.last_finished()
+        if last and time.time() - last < AUTO_SCAN_HOURS * 3600:
+            return False
+        return self.start_scan()["ok"]
+
+    def scan_status(self):
+        return dict(self._scan.progress) if self._scan else None
+
+    def cancel_scan(self):
+        if self._scan:
+            self._scan.cancelled = True
+        return True
+
+    def scan_folders(self):
+        extra = integrations.load_prefs().get("scan_folders") or []
+        detected = [str(f) for f in scanner.project_folders()]
+        return {"extra": extra, "detected": detected}
+
+    def add_scan_folder(self):
+        import webview
+        chosen = self._window.create_file_dialog(webview.FOLDER_DIALOG) if self._window else None
+        if not chosen:
+            return None
+        folder = str(chosen[0] if isinstance(chosen, (list, tuple)) else chosen)
+        folders = integrations.load_prefs().get("scan_folders") or []
+        if folder not in folders:
+            integrations.set_pref("scan_folders", folders + [folder])
+        return folder
+
+    def show_location(self, location):
+        """Show a file where a secret was found in Explorer."""
+        path = Path(location[4:] if location.startswith("git:") else location)
+        if location.startswith("env:") or not path.exists():
+            return False
+        if path.is_dir():
+            subprocess.Popen(["explorer", str(path)])
+        else:
+            subprocess.Popen(["explorer", "/select,", str(path)])
+        return True
 
     # ----- Windows Hello
 

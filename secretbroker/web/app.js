@@ -123,6 +123,8 @@ const state = {
   afterUnlock: null,
   approvalOpen: null,
   revealed: {},
+  exposure: null,
+  scan: null,
 };
 let TEMPLATES = {};
 let DB_ENGINES = {};
@@ -143,6 +145,7 @@ const ACTION_LABELS = {
   unlock: 'Desbloqueo', lock: 'Bloqueo', save: 'Guardada', delete: 'Eliminada',
   reveal: 'Secreto mostrado', create: 'Bóveda creada', enroll_hello: 'Windows Hello activado',
   remove_hello: 'Windows Hello desactivado', change_master_password: 'Contraseña maestra cambiada',
+  exposure: 'Encontrada en claro', check: 'Comprobada con el proveedor',
 };
 const APPROVAL_LABELS = { session: 'Una vez por sesión', always: 'Siempre', never: 'Nunca' };
 const AUTH_LABELS = { none: 'No añadir', header: 'En una cabecera', query: 'Como parámetro de la URL', basic: 'HTTP Basic (usuario y contraseña)' };
@@ -182,7 +185,10 @@ function onShortcut(event) {
 
 async function tick() {
   await refreshStatus();
-  if (state.status && state.status.state === 'unlocked') await pollApprovals();
+  if (state.status && state.status.state === 'unlocked') {
+    await pollApprovals();
+    await pollScan();
+  }
 }
 
 async function refreshStatus() {
@@ -496,6 +502,7 @@ function renderLock() {
 async function enterMain() {
   await loadEntries();
   renderMain();
+  if (await api().auto_scan()) { state.scan = { running: true }; renderMain(); }
   if (state.afterUnlock === 'change_master') {
     state.afterUnlock = null;
     state.view = 'settings';
@@ -508,6 +515,12 @@ async function loadEntries() {
   const result = await api().call('entries');
   state.entries = result.ok ? result.result : [];
   if (state.selected && !state.entries.some((e) => e.id === state.selected)) state.selected = null;
+  await loadExposure();
+}
+
+async function loadExposure() {
+  const result = await api().exposure_report();
+  state.exposure = result.ok ? result.result : null;
 }
 
 function renderMain() {
@@ -515,6 +528,7 @@ function renderMain() {
     brand(),
     el('nav', { class: 'nav' },
       navButton('credentials', 'key', 'Credenciales', state.entries.length),
+      navButton('exposure', 'shield', 'Exposición', exposedCount(), 'danger'),
       navButton('activity', 'activity', 'Actividad'),
       navButton('settings', 'settings', 'Ajustes')),
     el('div', { class: 'sidebar-footer' },
@@ -525,11 +539,11 @@ function renderMain() {
   renderView();
 }
 
-function navButton(view, iconName, label, count) {
+function navButton(view, iconName, label, count, countClass = '') {
   return el('button', {
     class: state.view === view ? 'active' : '',
     onclick: () => { state.view = view; renderMain(); },
-  }, icon(iconName), label, count ? el('span', { class: 'count' }, count) : null);
+  }, icon(iconName), label, count ? el('span', { class: `count ${countClass}` }, count) : null);
 }
 
 function updateSidebarState() {
@@ -545,6 +559,7 @@ function updateSidebarState() {
 async function lockNow() {
   await api().call('lock');
   state.revealed = {};
+  state.exposure = null;
   refreshStatus();
 }
 
@@ -552,6 +567,7 @@ function renderView() {
   const content = document.getElementById('content');
   if (!content) return;
   if (state.view === 'credentials') renderCredentials(content);
+  else if (state.view === 'exposure') renderExposure(content);
   else if (state.view === 'activity') renderActivity(content);
   else renderSettings(content);
 }
@@ -595,7 +611,8 @@ function renderCredentials(content) {
     list.replaceChildren(items.map((entry) => el('div', {
       class: `row ${state.selected === entry.id ? 'selected' : ''}`,
       onclick: () => { state.selected = entry.id; renderList(); renderDetail(detail); },
-    }, glyph(entry.template), el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name), el('div', { class: 'subtitle' }, subtitleOf(entry))))));
+    }, glyph(entry.template), el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name), el('div', { class: 'subtitle' }, subtitleOf(entry))),
+    levelDot(entry.id))));
     if (!items.length) list.append(el('p', { class: 'muted', style: 'padding:12px 10px' }, 'Ninguna coincide.'));
   };
 
@@ -674,6 +691,7 @@ function renderDetail(panel) {
       el('button', { class: 'btn icon-only', title: 'Eliminar', onclick: () => deleteEntry(entry) }, icon('trash', 'sm'))),
     el('div', { class: 'section' }, props),
     entry.description ? el('div', { class: 'section' }, el('h3', {}, 'Notas para la IA'), el('p', { class: 'notes selectable muted' }, entry.description)) : null,
+    exposureSection(entry),
     el('div', { class: 'section' },
       el('h3', {}, 'Qué puede hacer la IA'),
       perms.length ? perms : el('p', { class: 'muted' }, 'Nada todavía. Edita la credencial y abre «Permisos de la IA».'),
@@ -952,6 +970,174 @@ function showForm(templateId, entry) {
   setTimeout(() => nameInput.focus(), 50);
 }
 
+// ----------------------------------------------------------------------- exposure
+
+const LEVELS = {
+  exposed: { label: 'Expuesta', order: 0 },
+  warning: { label: 'Revisar', order: 1 },
+  unknown: { label: 'Sin comprobar', order: 2 },
+  ok: { label: 'Sin copias conocidas', order: 3 },
+};
+const SOURCE_LABELS = {
+  ai: 'Conversación con IA', history: 'Historial de terminal', config: 'Configuración', env: 'Variable de entorno',
+  project: 'Archivo de proyecto', git: 'Historial de git',
+};
+
+function exposureOf(id) {
+  return state.exposure ? state.exposure.entries.find((item) => item.id === id) : null;
+}
+
+function exposedCount() {
+  return state.exposure ? state.exposure.entries.filter((item) => item.level === 'exposed').length : 0;
+}
+
+function levelBadge(level) {
+  return el('span', { class: `level is-${level}` }, el('span', { class: 'level-dot' }), LEVELS[level].label);
+}
+
+function levelDot(id) {
+  const item = exposureOf(id);
+  if (!item || !['exposed', 'warning'].includes(item.level)) return null;
+  return el('span', { class: `level-dot is-${item.level}`, title: LEVELS[item.level].label });
+}
+
+function ageText(days) {
+  if (days < 1) return 'hoy';
+  if (days < 45) return `hace ${days} ${days === 1 ? 'día' : 'días'}`;
+  if (days < 365) return `hace ${Math.round(days / 30)} meses`;
+  const years = Math.floor(days / 365);
+  return `hace ${years} ${years === 1 ? 'año' : 'años'}`;
+}
+
+function exposureFacts(item) {
+  const facts = [];
+  const alive = item.alive;
+  if (alive && alive.status === 'ok') facts.push(`Funciona en ${alive.provider} (${formatTime(alive.checked)})`);
+  if (alive && alive.status === 'unknown') facts.push(`${alive.provider}: ${alive.message}`);
+  if (item.pwned && !item.pwned.count) facts.push('No aparece en filtraciones conocidas');
+  facts.push(item.age_days !== null ? `Valor puesto ${ageText(item.age_days)}` : 'Antigüedad desconocida');
+  if (item.revealed) facts.push(`Mostrada o copiada ${item.revealed} ${item.revealed === 1 ? 'vez' : 'veces'}`);
+  return el('div', { class: 'facts faint small' }, facts.join(' · '));
+}
+
+function exposureSection(entry) {
+  const item = exposureOf(entry.id);
+  if (!item) return null;
+  return el('div', { class: 'section' },
+    el('h3', {}, 'Exposición'),
+    el('div', {}, levelBadge(item.level)),
+    item.reasons.map((r) => el('p', { class: `reason is-${r.level}` }, r.text)),
+    exposureFacts(item),
+    el('div', {}, el('button', { class: 'link small', onclick: () => { state.view = 'exposure'; renderMain(); } }, 'Ver detalles')));
+}
+
+function scanProgress() {
+  const scan = state.scan || {};
+  const read = `${scan.files || 0} archivos leídos · ${Math.round((scan.bytes || 0) / 1e6)} MB`;
+  return el('div', { class: 'scan-progress' }, el('div', { class: 'spinner' }),
+    el('div', { class: 'meta' }, el('div', {}, scan.phase || 'Preparando'),
+      el('div', { class: 'muted small' }, read, scan.skipped ? ` · ${scan.skipped} sin cambios` : '')),
+    el('button', { class: 'btn ghost', onclick: () => api().cancel_scan() }, 'Cancelar'));
+}
+
+async function pollScan() {
+  if (!state.scan || !state.scan.running) return;
+  const progress = await api().scan_status();
+  if (!progress) return;
+  state.scan = progress;
+  if (progress.running) {
+    const node = document.querySelector('.scan-progress');
+    if (node) node.replaceWith(scanProgress());
+    return;
+  }
+  if (progress.error) toast(progress.error, 'error');
+  if (progress.report) {
+    state.exposure = progress.report;
+    const exposed = exposedCount();
+    if (exposed) toast(`Análisis terminado: ${exposed} ${exposed === 1 ? 'credencial expuesta' : 'credenciales expuestas'}`, 'error');
+    else toast('Análisis terminado: no hay copias de tus claves');
+  }
+  if (state.screen === 'main') renderMain();
+}
+
+async function startScan(button) {
+  busy(button, true);
+  const result = await withProof((p) => api().start_scan(p), 'Para buscar tus claves en los archivos de este equipo.');
+  busy(button, false);
+  if (!result.ok) { if (result.code !== 'cancelled') toast(result.error, 'error'); return; }
+  state.scan = { running: true };
+  renderMain();
+}
+
+async function checkKeys(button) {
+  busy(button, true);
+  const result = await api().check_exposure();
+  busy(button, false);
+  if (!result.ok) { toast(result.error, 'error'); return; }
+  state.exposure = result.result;
+  renderMain();
+  toast('Comprobación terminada');
+}
+
+async function showWhere() {
+  const result = await withProof((p) => api().open_exposure_session(p), 'Para ver en qué archivos están tus claves.');
+  if (!result.ok) { if (result.code !== 'cancelled') toast(result.error, 'error'); return; }
+  await loadExposure();
+  renderMain();
+}
+
+function renderExposure(content) {
+  const report = state.exposure;
+  const scanning = !!(state.scan && state.scan.running);
+  const scanButton = el('button', { class: 'btn primary', disabled: scanning }, icon('search', 'sm'), 'Buscar copias');
+  scanButton.addEventListener('click', () => startScan(scanButton));
+  const checkButton = el('button', { class: 'btn', title: 'Prueba cada clave con su proveedor y las contraseñas contra filtraciones conocidas' }, 'Comprobar claves');
+  checkButton.addEventListener('click', () => checkKeys(checkButton));
+  const header = el('div', { class: 'content-header' }, el('h1', {}, 'Exposición'), checkButton, scanButton);
+  if (!report) {
+    content.replaceChildren(header, el('div', { class: 'content-body' }, el('div', { class: 'empty' }, el('p', {}, 'No se pudo cargar el estado.'))));
+    return;
+  }
+
+  const entries = Object.fromEntries(state.entries.map((e) => [e.id, e]));
+  const items = report.entries.filter((item) => entries[item.id])
+    .sort((a, b) => LEVELS[a.level].order - LEVELS[b.level].order || entries[a.id].name.localeCompare(entries[b.id].name));
+  const hidden = !report.details && items.some((item) => item.found || item.found_before);
+  content.replaceChildren(header, el('div', { class: 'content-body' },
+    scanning ? scanProgress() : null,
+    el('div', { class: 'exposure-summary' },
+      el('p', { class: 'muted' }, 'Busca tus claves en las conversaciones con IA, los historiales de la terminal, la configuración de tus programas, las variables de entorno, tus proyectos y su historial de git. Todo ocurre en este equipo.'),
+      el('div', { class: 'faint small' },
+        report.last_scan ? `Último análisis: ${formatTime(report.last_scan.ts)} · ${report.last_scan.files} archivos` : 'Aún no se ha hecho ningún análisis',
+        ' · ',
+        report.last_check ? `Última comprobación con los proveedores: ${formatTime(report.last_check)}` : 'Claves sin comprobar con sus proveedores'),
+      hidden ? el('div', { class: 'small' }, el('span', { class: 'muted' }, 'Las rutas solo se muestran tras verificar tu identidad. '),
+        el('button', { class: 'link small', onclick: showWhere }, 'Ver en qué archivos')) : null),
+    el('div', { class: 'exposure-list' }, items.map((item) => exposureCard(item, entries[item.id])))));
+}
+
+function exposureCard(item, entry) {
+  const findings = item.findings || [];
+  const place = (location) => location.replace(/^(env|git):/, '');
+  return el('div', { class: `exposure-card is-${item.level}` },
+    el('div', { class: 'exposure-head' },
+      glyph(entry.template),
+      el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name), el('div', { class: 'subtitle' }, subtitleOf(entry))),
+      levelBadge(item.level),
+      el('button', { class: 'btn ghost', onclick: () => { state.selected = entry.id; state.view = 'credentials'; renderMain(); } }, 'Abrir')),
+    item.reasons.length ? el('ul', { class: 'reasons' }, item.reasons.map((r) => el('li', { class: `is-${r.level}` }, r.text))) : null,
+    exposureFacts(item),
+    findings.length ? el('details', { class: 'findings', open: item.level === 'exposed' },
+      el('summary', {}, `${findings.length} ${findings.length === 1 ? 'sitio' : 'sitios'}`),
+      findings.map((f) => el('div', { class: `finding ${f.present ? '' : 'gone'}` },
+        el('span', { class: 'source' }, SOURCE_LABELS[f.source] || f.source),
+        el('span', { class: 'path selectable', title: place(f.location) }, place(f.location)),
+        el('span', { class: 'faint' }, f.present ? `desde ${formatTime(f.first_seen)}` : 'ya no está'),
+        f.present && !f.location.startsWith('env:')
+          ? el('button', { class: 'btn icon-only', title: 'Mostrar en el Explorador', onclick: () => api().show_location(f.location) }, icon('search', 'sm'))
+          : el('span')))) : null);
+}
+
 // ----------------------------------------------------------------------- activity
 
 async function renderActivity(content) {
@@ -1007,6 +1193,26 @@ function renderSettings(content) {
     if (result.ok) { toast('Guardado'); await refreshStatus(); } else { lockSelect.value = String(status.auto_lock_minutes || 0); if (result.code !== 'cancelled') toast(result.error, 'error'); }
   });
 
+  const autoScan = el('input', { type: 'checkbox', checked: state.info.prefs.auto_scan !== false });
+  autoScan.addEventListener('change', async () => {
+    state.info.prefs.auto_scan = autoScan.checked;
+    await api().set_pref('auto_scan', autoScan.checked);
+    toast('Guardado');
+  });
+  const folderList = el('div', { class: 'folder-list' });
+  const renderFolders = async () => {
+    const folders = await api().scan_folders();
+    folderList.replaceChildren(
+      folders.detected.map((f) => el('div', { class: 'folder' }, el('span', { class: 'path', title: f }, f), el('span', { class: 'faint' }, 'Claude Code'))),
+      folders.extra.map((f) => el('div', { class: 'folder' }, el('span', { class: 'path', title: f }, f),
+        el('button', { class: 'btn icon-only', title: 'Quitar', onclick: async () => {
+          await api().set_pref('scan_folders', folders.extra.filter((x) => x !== f));
+          renderFolders();
+        } }, icon('x', 'sm')))));
+  };
+  renderFolders();
+  const addFolder = el('button', { class: 'btn', onclick: async () => { if (await api().add_scan_folder()) renderFolders(); } }, 'Añadir carpeta');
+
   const palettes = el('div', { class: 'segmented' }, PALETTES.map(([id, label, color]) => el('button', {
     class: (state.info.prefs.palette || DEFAULT_PALETTE) === id ? 'active' : '',
     onclick: async () => { state.info.prefs.palette = id; applyPalette(id); await api().set_pref('palette', id); renderView(); },
@@ -1051,6 +1257,10 @@ function renderSettings(content) {
         el('button', { class: 'btn', disabled: !status.session_grants, onclick: async () => {
           await api().call('revoke_sessions'); toast('Permisos revocados'); await refreshStatus(); renderView();
         } }, 'Revocar'))),
+      el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Exposición'),
+        setting('Analizar al desbloquear', 'Busca copias de tus claves en este equipo al desbloquear, como mucho cada 12 horas.', autoScan),
+        setting('Carpetas de proyectos', 'Se revisan junto con sus historiales de git. Las carpetas donde has usado Claude Code se añaden solas.', addFolder),
+        folderList),
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Apariencia'),
         setting('Color', 'El tema claro u oscuro sigue al de Windows.', palettes)),
       el('p', { class: 'faint small' }, `SecretBroker ${state.info.version} · ${status.owner}`))));

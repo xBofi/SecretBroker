@@ -23,13 +23,14 @@ import sys
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from . import actions, crypto, paths, winsec
+from . import actions, crypto, exposure, paths, winsec
 from .inject import ActionError, Redactor
 from .vault import (
     DEFAULT_SETTINGS, Vault, VaultLocked, ValidationError, WrongPassword, agent_view,
@@ -46,6 +47,8 @@ AGENT_ACTIONS = set(actions.ACTIONS)
 POLL_OPS = {"status", "pending_approvals", "audit"}
 ALL_PROOFS = ("hello", "windows_password", "master_password")
 AUDIT_AAD = b"secretbroker/audit/v1"
+SCAN_SESSION_SECONDS = 12 * 3600
+CHECK_EVERY_SECONDS = 24 * 3600
 
 
 class ServiceError(Exception):
@@ -83,6 +86,7 @@ class Service:
         self._gui_seen = 0.0
         self._failures = 0
         self._pending_audit = []
+        self._scan_sessions = {}
         self._server = None
 
     # ------------------------------------------------------------------ server
@@ -94,6 +98,7 @@ class Service:
         self._server.service = self
         threading.Thread(target=self._server.serve_forever, daemon=True, name="server").start()
         threading.Thread(target=self._auto_lock_loop, daemon=True, name="auto-lock").start()
+        threading.Thread(target=self._check_loop, daemon=True, name="exposure-check").start()
         public_key = self.signing_key.public_key().public_bytes(
             serialization.Encoding.Raw, serialization.PublicFormat.Raw)
         info = {"port": self._server.server_address[1], "token": self.token, "pid": os.getpid(),
@@ -261,7 +266,8 @@ class Service:
         self._last_activity = time.monotonic()
         self._seal_audit_log()
         self._audit("vault", "unlock", proof.get("kind", ""), "ok")
-        return self.op_status({})
+        # Whoever unlocked may look for copies of the secrets without proving it again (see op_exposure_begin).
+        return {**self.op_status({}), "exposure_session": self._new_scan_session()}
 
     def op_lock(self, params):
         self._lock_vault()
@@ -274,6 +280,7 @@ class Service:
                 request["answer"] = "deny"
                 request["event"].set()
             self._grants.clear()
+            self._scan_sessions.clear()
         self.vault.lock()
 
     def _auto_lock_loop(self):
@@ -304,6 +311,12 @@ class Service:
                     fields[name] = old["fields"][name]
         entry["fields"] = {k: v for k, v in fields.items() if v not in (None, "")}
         self.vault.put(entry, replaces=replaces)
+        if replaces and replaces != entry["id"]:
+            def rename(data):
+                records = data.get("entries", {})
+                if replaces in records:
+                    records[entry["id"]] = records.pop(replaces)
+            self._update_exposure(rename)
         with self._lock:
             self._grants = {g for g in self._grants if g[0] not in (entry["id"], replaces)}
         self._audit(entry["id"], "save", "creada" if not replaces else "modificada", "ok")
@@ -312,6 +325,7 @@ class Service:
     def op_delete_entry(self, params):
         self._verify_proof("delete_entry", params)
         self.vault.delete(params["id"])
+        self._update_exposure(lambda data: data.get("entries", {}).pop(params["id"], None))
         with self._lock:
             self._grants = {g for g in self._grants if g[0] != params["id"]}
         self._audit(params["id"], "delete", "", "ok")
@@ -324,6 +338,12 @@ class Service:
         if field not in templates.secret_field_names(entry["template"]) or not entry["fields"].get(field):
             raise ServiceError("Ese campo no existe", "not_found")
         self._audit(entry["id"], "reveal", field, "ok")
+        fingerprint = exposure.secret_fingerprint(self.vault, entry)
+
+        def count(data):
+            record = exposure.record_for(data, entry["id"], fingerprint)
+            record["revealed"] = record.get("revealed", 0) + 1
+        self._update_exposure(count)
         return entry["fields"][field]
 
     def op_change_master_password(self, params):
@@ -380,6 +400,152 @@ class Service:
                 events.append({"ts": "", "secret": "", "action": "audit", "detail": "",
                                "status": "error", "message": "Entrada del historial ilegible"})
         return events
+
+    # ------------------------------------------------------------------ exposure (GUI)
+    #
+    # The desktop app reads the user's files (the service account cannot) and streams them here;
+    # the service, which alone knows the secrets, looks for them. Answering "is any secret in this
+    # text?" would let any local program guess weak passwords, so it is only done inside a scan
+    # session, handed out on unlock or after a proof of identity. The same session unlocks the
+    # report's file paths, which would otherwise tell an agent where to read a secret in clear.
+
+    def _new_scan_session(self):
+        entries = self.vault.entries()
+        needles = sorted((needle, entry["id"]) for entry in entries for needle in exposure.needles(entry))
+        fingerprints = {entry["id"]: exposure.secret_fingerprint(self.vault, entry) for entry in entries}
+        token = secrets.token_urlsafe(32)
+        with self._lock:
+            now = time.monotonic()
+            self._scan_sessions = {k: v for k, v in self._scan_sessions.items() if v["expires"] > now}
+            self._scan_sessions[token] = {
+                "expires": now + SCAN_SESSION_SECONDS, "needles": needles, "fingerprints": fingerprints,
+                # Changes whenever a secret is added, changed or removed: the app then rescans everything.
+                "fingerprint": self.vault.mac(json.dumps(sorted(fingerprints.items())).encode("utf-8")),
+                "matches": {}, "scanned": set(),
+            }
+        return token
+
+    def _scan_session(self, params):
+        with self._lock:
+            session = self._scan_sessions.get(str(params.get("session") or ""))
+            if session and session["expires"] > time.monotonic():
+                return session
+        return None
+
+    def op_exposure_begin(self, params):
+        """Start a scan: in the session given, or in a new one after a proof of identity."""
+        token = params.get("session")
+        if self._scan_session(params):
+            # Secrets may have changed since the session was opened.
+            with self._lock:
+                self._scan_sessions.pop(token, None)
+        else:
+            self._verify_proof("exposure_begin", params)
+        token = self._new_scan_session()
+        session = self._scan_session({"session": token})
+        return {"session": token, "fingerprint": session["fingerprint"], "max_needle": exposure.MAX_NEEDLE}
+
+    def op_exposure_scan(self, params):
+        session = self._scan_session(params)
+        if not session:
+            raise ServiceError("La sesión de análisis ha caducado", "session_expired")
+        found = 0
+        for item in params.get("items") or []:
+            location, source = str(item.get("location", "")), str(item.get("source", ""))
+            if not location or source not in exposure.SOURCE_LABELS:
+                raise ServiceError("Elemento de análisis no válido", "invalid")
+            data = base64.b64decode(item.get("data") or "")
+            hits = {entry_id for needle, entry_id in session["needles"] if needle in data}
+            with self._lock:
+                session["scanned"].add(location)
+                for entry_id in hits:
+                    session["matches"].setdefault(entry_id, {})[location] = source
+            found += bool(hits)
+        return {"found": found}
+
+    def op_exposure_finish(self, params):
+        session = self._scan_session(params)
+        if not session:
+            raise ServiceError("La sesión de análisis ha caducado", "session_expired")
+        unchanged = {str(location) for location in params.get("unchanged") or []}
+        timestamp = exposure.now_iso()
+        current = {e["id"]: e for e in self.vault.entries()}
+        new_findings = {}
+
+        def merge(data):
+            for entry_id, fingerprint in session["fingerprints"].items():
+                entry = current.get(entry_id)
+                if not entry or exposure.secret_fingerprint(self.vault, entry) != fingerprint:
+                    continue  # changed during the scan: the results are for the old value
+                record = exposure.record_for(data, entry_id, fingerprint)
+                matches = session["matches"].get(entry_id, {})
+                new = exposure.merge_scan(record, matches, session["scanned"], unchanged, timestamp)
+                if new:
+                    new_findings[entry_id] = new
+            data["last_scan"] = {"ts": timestamp, "files": len(session["scanned"] | unchanged)}
+        self._update_exposure(merge)
+        for entry_id, count in new_findings.items():
+            self._audit(entry_id, "exposure", f"Encontrada en claro en {count} sitio(s) nuevo(s)", "error")
+        return self.op_exposure_report(params)
+
+    def op_exposure_report(self, params):
+        details = self._scan_session(params) is not None
+        data = self.vault.exposure()
+        timestamp = exposure.now_iso()
+        items = []
+        for entry in self.vault.entries():
+            record = (data.get("entries") or {}).get(entry["id"])
+            if record and record.get("fp") != exposure.secret_fingerprint(self.vault, entry):
+                record = None
+            items.append(exposure.assess(entry, record, timestamp, details))
+        return {"entries": items, "last_scan": data.get("last_scan"), "last_check": data.get("last_check"),
+                "details": details}
+
+    def op_exposure_check(self, params):
+        """Test the keys with their providers and the passwords against known breaches."""
+        entries = [e for e in self.vault.entries()
+                   if exposure.check_alive_possible(e) and (not params.get("id") or e["id"] == params["id"])]
+        timestamp = exposure.now_iso()
+        stored = self.vault.exposure()
+        records = {e["id"]: exposure.record_for(stored, e["id"], exposure.secret_fingerprint(self.vault, e)) for e in entries}
+
+        def run(entry):
+            alive = exposure.check_entry(entry, records[entry["id"]], timestamp)
+            if alive:
+                self._audit(entry["id"], "check", alive["provider"], "ok" if alive["status"] == "ok" else "error",
+                            alive.get("message", ""))
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(run, entries))
+
+        def store(data):
+            for entry_id, checked in records.items():
+                record = exposure.record_for(data, entry_id, checked["fp"])
+                record.update({k: checked[k] for k in ("alive", "pwned") if k in checked})
+            if not params.get("id"):
+                data["last_check"] = timestamp
+        self._update_exposure(store)
+        return self.op_exposure_report(params)
+
+    def _update_exposure(self, change):
+        with self._lock:
+            data = self.vault.exposure()
+            change(data)
+            self.vault.set_exposure(data)
+
+    def _check_loop(self):
+        """Check the keys once a day while the vault is unlocked."""
+        while True:
+            time.sleep(600)
+            try:
+                if not self.vault.is_unlocked:
+                    continue
+                last = self.vault.exposure().get("last_check")
+                if last and (datetime.fromisoformat(exposure.now_iso()) - datetime.fromisoformat(last)).total_seconds() < CHECK_EVERY_SECONDS:
+                    continue
+                self.op_exposure_check({})
+            except (VaultLocked, OSError, ValueError) as exc:  # e.g. locked halfway: try again later
+                print(f"exposure check: {type(exc).__name__}: {exc}", file=sys.stderr)
 
     # ------------------------------------------------------------------ approvals (GUI)
 

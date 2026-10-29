@@ -40,6 +40,11 @@ El resultado es `dist\SecretBroker-Setup-<versión>.exe`, de unos 26 MB, con Pyt
 - **Windows Hello**: con tu PIN, huella o cara desbloqueas la bóveda, apruebas usos, ves o copias contraseñas y guardas cambios. En PCs sin Hello se usa la contraseña de Windows o la maestra.
 - **Recuperación**: si olvidas la contraseña maestra, entra con Windows Hello o con la contraseña de Windows y crea una nueva. Esto solo funciona en este PC.
 - **Copiar**: el portapapeles se borra a los 30 s y la contraseña no pasa al historial del portapapeles.
+- **Exposición**: cada credencial tiene un semáforo que dice si sigue estando solo en la bóveda.
+  - *Copias en claro*: al desbloquear (como mucho cada 12 h) o a mano, la app busca tus claves en las conversaciones de Claude Code y Codex, los historiales de PowerShell y bash, la configuración de programas (`.claude.json`, Claude Desktop, `.npmrc`, `.aws`, `.ssh`…), las variables de entorno, las carpetas de proyectos (las de Claude Code y las que añadas) y su historial de git. Busca también las formas en JSON, URL y base64. Después de la primera vez solo lee lo que ha cambiado.
+  - *¿Sigue funcionando?*: una vez al día prueba cada clave con una llamada de solo lectura a su proveedor (OpenAI, Anthropic, AssemblyAI, GitHub, Stripe, ElevenLabs, Cloudflare…) y los servidores SSH. Si una clave que funcionaba deja de hacerlo, avisa: lo normal es que el proveedor la haya revocado al encontrarla filtrada. Una clave solo se envía al proveedor de su URL o de un prefijo inequívoco (`sk-ant-`, `ghp_`…).
+  - *Filtraciones*: las contraseñas se comprueban en Have I Been Pwned por k-anonimato (solo salen 5 caracteres de su hash SHA-1).
+  - Además muestra la antigüedad del valor actual y cuántas veces se ha mostrado o copiado. Al cambiar el valor (rotarla), su historial empieza de cero.
 
 ### Herramientas MCP
 
@@ -66,6 +71,7 @@ Si la bóveda está bloqueada o hace falta una aprobación, el MCP abre la app y
 | Robo del disco | scrypt (128 MiB) + AES-256-GCM; la clave del equipo además va protegida con DPAPI. |
 | Leer el historial de actividad | Cada entrada se cifra con una clave pública (X25519 + AES-256-GCM) derivada de la bóveda: se puede escribir con la bóveda bloqueada, pero solo se lee desbloqueada. |
 | Fuerza bruta de contraseñas | Retardo creciente tras cada fallo. |
+| Usar el análisis de exposición para adivinar contraseñas («¿está este texto en la bóveda?») | El servicio solo busca dentro de una sesión de análisis, que se entrega al desbloquear o tras verificar la identidad y caduca al bloquear. Sin ella, el informe dice qué credenciales están expuestas, pero no en qué archivos. |
 
 **Límites conocidos.** Todo lo que pasa por tu escritorio es visible para los programas de tu sesión: un programa malicioso podría ver el portapapeles cuando copias una clave para pegarla en la app, capturar teclas o superponer ventanas falsas. Esto le ocurre igual a cualquier gestor de contraseñas. Aprueba solo solicitudes que esperes, y **nunca ejecutes Claude Code como administrador**. Los programas permitidos en `run_command` reciben la credencial, así que permite solo los necesarios.
 
@@ -75,6 +81,7 @@ Si la bóveda está bloqueada o hace falta una aprobación, el MCP abre la app y
 python -m venv .venv; .venv\Scripts\python.exe -m pip install .
 .venv\Scripts\python.exe tests\test_e2e.py   # servicio, pruebas de identidad, aprobaciones, acciones, MCP
 .venv\Scripts\python.exe tests\test_ssh.py   # SSH contra un servidor de prueba local
+.venv\Scripts\python.exe tests\test_exposure.py   # análisis de exposición contra un perfil de usuario falso (necesita git)
 python tools\make_icon.py secretbroker\assets\icon.ico
 ```
 

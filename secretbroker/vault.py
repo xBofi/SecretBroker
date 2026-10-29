@@ -9,6 +9,8 @@ clear in vault.json, so events can be written while the vault is locked but only
 """
 
 import copy
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -23,6 +25,7 @@ FORMAT_VERSION = 2
 VAULT_AAD = b"secretbroker/vault/v2"
 DEVICE_ENTROPY = b"secretbroker/device-key/v1"
 AUDIT_KEY_INFO = b"secretbroker/audit-key/v1"
+MAC_KEY_INFO = b"secretbroker/mac-key/v1"
 APPROVAL_MODES = ("session", "always", "never")
 AUTH_KINDS = ("none", "header", "query", "basic")
 DEFAULT_SETTINGS = {"auto_lock_minutes": 60}
@@ -109,6 +112,7 @@ def entry_summary(entry):
         "secrets_set": [k for k in entry["fields"] if k in secret_names and entry["fields"][k]],
         "policy": entry.get("policy", {}),
         "updated": entry.get("updated"),
+        "secret_since": entry.get("secret_since"),
     }
 
 
@@ -236,6 +240,26 @@ class Vault:
             self._require_unlocked()
             return crypto.derive_x25519(self._key, AUDIT_KEY_INFO)
 
+    def mac(self, data):
+        """Keyed fingerprint of some data: stable for this vault, meaningless without its key."""
+        with self._lock:
+            self._require_unlocked()
+            key = hmac.new(self._key, MAC_KEY_INFO, hashlib.sha256).digest()
+        return hmac.new(key, data, hashlib.sha256).hexdigest()[:32]
+
+    # ----- exposure (see exposure.py)
+
+    def exposure(self):
+        with self._lock:
+            self._require_unlocked()
+            return copy.deepcopy(self._payload.get("exposure") or {})
+
+    def set_exposure(self, data):
+        with self._lock:
+            self._require_unlocked()
+            self._payload["exposure"] = copy.deepcopy(data)
+            self._save()
+
     # ----- settings
 
     def settings(self):
@@ -271,10 +295,14 @@ class Vault:
             entries = self._payload["entries"]
             if entry["id"] != replaces and entry["id"] in entries:
                 raise ValidationError(f"Ya existe una credencial con el identificador '{entry['id']}'")
-            if replaces:
-                entries.pop(replaces, None)
+            old = entries.pop(replaces, None) if replaces else None
             entry = copy.deepcopy(entry)
             entry["updated"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            entry.pop("secret_since", None)
+            if old is None or secret_fields(old) != secret_fields(entry):
+                entry["secret_since"] = entry["updated"]
+            elif old.get("secret_since"):
+                entry["secret_since"] = old["secret_since"]  # unknown for entries saved before 0.5
             entries[entry["id"]] = entry
             self._save()
 
@@ -326,6 +354,11 @@ class Vault:
             _atomic_write(self.device_file, winsec.dpapi_protect(self._key, DEVICE_ENTROPY))
         except OSError:
             pass  # unlock with Windows simply stays unavailable
+
+
+def secret_fields(entry):
+    """What identifies the secret values of an entry (a change means the secret was replaced)."""
+    return entry["template"], {name: entry["fields"].get(name) for name in templates.secret_field_names(entry["template"])}
 
 
 def _atomic_write(path, data):

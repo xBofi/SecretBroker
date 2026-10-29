@@ -24,7 +24,8 @@ def substitute(text, entry, escape=None):
     return PLACEHOLDER_RE.sub(replace, text)
 
 
-def _variants(value):
+def encodings(value):
+    """The forms a value usually takes once embedded in text: raw, JSON, URL and base64."""
     yield value
     json_escaped = json.dumps(value)[1:-1]
     yield json_escaped
@@ -33,6 +34,10 @@ def _variants(value):
     yield base64.b64encode(value.encode()).decode().rstrip("=")
     yield quote(value, safe="")
     yield quote_plus(value)
+
+
+def _variants(value):
+    yield from encodings(value)
     for line in value.splitlines():
         if len(line.strip()) >= 16:  # individual lines of a private key
             yield line.strip()
