@@ -163,6 +163,8 @@ async function boot() {
   document.addEventListener('keydown', onShortcut);
   await refreshStatus();
   setInterval(tick, 1500);
+  checkUpdate(false);
+  setInterval(() => checkUpdate(false), 3 * 3600 * 1000);
 }
 
 if (window.pywebview && window.pywebview.api) boot();
@@ -534,11 +536,13 @@ function renderMain() {
       navButton('exposure', 'shield', 'Exposición', exposedCount(), 'danger'),
       navButton('activity', 'activity', 'Actividad'),
       navButton('settings', 'settings', 'Ajustes')),
+    el('div', { id: 'update-slot' }),
     el('div', { class: 'sidebar-footer' },
       el('div', { class: 'state', id: 'sidebar-state' }),
       el('button', { class: 'btn icon-only', title: 'Bloquear (Ctrl+L)', onclick: lockNow }, icon('lock', 'sm'))));
   $app().replaceChildren(el('div', { class: 'layout' }, sidebar, el('main', { class: 'content', id: 'content' })));
   updateSidebarState();
+  renderUpdateSlot();
   renderView();
 }
 
@@ -1353,7 +1357,69 @@ function renderSettings(content) {
         folderList),
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Apariencia'),
         setting('Color', 'El tema claro u oscuro sigue al de Windows.', palettes)),
+      el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Actualizaciones'),
+        setting(`Versión ${state.info.version}`, updateSummary(), el('button', { class: 'btn', onclick: async (event) => {
+          busy(event.currentTarget, true);
+          await checkUpdate(true);
+          renderView();
+          if (state.update && state.update.available) openUpdate();
+          else if (state.update && !state.update.error) toast('Ya tienes la última versión');
+        } }, 'Buscar ahora'))),
       el('p', { class: 'faint small' }, `SecretBroker ${state.info.version} · ${status.owner}`))));
+}
+
+// ----------------------------------------------------------------------- updates
+
+async function checkUpdate(force) {
+  const result = await api().update_status(force);
+  if (result.ok) state.update = result.result;
+  else if (force) toast(result.error, 'error');
+  renderUpdateSlot();
+}
+
+function updateSummary() {
+  const u = state.update;
+  if (!u) return 'La app busca versiones nuevas en GitHub cada pocas horas.';
+  if (u.error) return `No se pudo comprobar: ${u.error}`;
+  if (u.available) return `Hay una versión nueva: ${u.latest}.`;
+  return 'Tienes la última versión.';
+}
+
+function renderUpdateSlot() {
+  const slot = document.getElementById('update-slot');
+  if (!slot) return;
+  const u = state.update;
+  slot.replaceChildren(u && u.available
+    ? el('button', { class: 'update-pill', onclick: openUpdate }, icon('sparkles', 'sm'), `Actualizar a ${u.latest}`)
+    : '');
+}
+
+function openUpdate() {
+  const u = state.update;
+  const install = el('button', { class: 'btn primary' }, 'Actualizar');
+  const errorText = el('div', { class: 'error-text' });
+  const modal = openModal({
+    title: `SecretBroker ${u.latest}`,
+    body: el('div', {},
+      u.notes ? el('p', { class: 'notes selectable muted' }, u.notes) : null,
+      el('p', { class: 'help' }, 'Se descarga de GitHub y solo se instala si está firmada por el autor. ',
+        'Windows te pedirá permiso de administrador; la bóveda y tus ajustes se conservan y la app se reabre sola.'),
+      errorText),
+    footer: [
+      el('button', { class: 'btn', onclick: () => api().open_link(u.url) }, 'Ver en GitHub'),
+      el('button', { class: 'btn', onclick: () => modal.close() }, 'Más tarde'),
+      install,
+    ],
+  });
+  install.addEventListener('click', async () => {
+    errorText.textContent = '';
+    busy(install, true);
+    const result = await api().install_update();
+    busy(install, false);
+    if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
+    modal.close();
+    toast('Instalando la actualización… la app se reabrirá sola');
+  });
 }
 
 function changeMasterPassword(recovering) {

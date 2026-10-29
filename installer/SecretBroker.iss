@@ -63,6 +63,8 @@ Name: "{autodesktop}\SecretBroker"; Filename: "{app}\python\pythonw.exe"; Parame
 
 [Run]
 Filename: "{app}\python\pythonw.exe"; Parameters: "-I -m secretbroker.app"; Description: "Abrir SecretBroker"; Flags: postinstall nowait skipifsilent runasoriginaluser
+; Updates started from the app run silently: reopen it when they finish.
+Filename: "{app}\python\pythonw.exe"; Parameters: "-I -m secretbroker.app"; Flags: nowait runasoriginaluser; Check: WizardSilent
 
 [UninstallRun]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\setup\configure.ps1"" -Uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"

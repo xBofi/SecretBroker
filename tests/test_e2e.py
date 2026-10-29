@@ -21,10 +21,11 @@ os.environ["SECRETBROKER_HOME"] = str(HOME)  # must be set before importing secr
 
 from cryptography.hazmat.primitives import hashes, serialization  # noqa: E402
 from cryptography.hazmat.primitives.asymmetric import padding, rsa  # noqa: E402
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey  # noqa: E402
 
 from nacl.public import PrivateKey, SealedBox  # noqa: E402
 
-from secretbroker import actions, cli, client, crypto, exposure, links, rotation  # noqa: E402
+from secretbroker import actions, cli, client, crypto, exposure, links, rotation, update  # noqa: E402
 from secretbroker.client import BrokerError, BrokerUnavailable  # noqa: E402
 from secretbroker.service import Service  # noqa: E402
 
@@ -367,6 +368,39 @@ def main():
           and all(link["url"].startswith("https://") for p in catalog.values() for link in p["links"]),
           "the new-key form lists every provider, AI Gateway first for gateways")
     github.shutdown()
+
+    print("Updates")
+    signing = Ed25519PrivateKey.generate()
+    private_b64 = base64.b64encode(signing.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw,
+                                                         serialization.NoEncryption())).decode()
+    update.PUBLIC_KEY = base64.b64encode(signing.public_key().public_bytes(serialization.Encoding.Raw,
+                                                                           serialization.PublicFormat.Raw)).decode()
+    installer = b"MZ fake installer " * 1000
+    signature = update.sign(private_b64, "99.0.0", installer)
+    update.verify("99.0.0", installer, signature)
+    check(True, "a signed installer verifies")
+    for label, args in [("another version's signature is refused", ("99.0.1", installer, signature)),
+                        ("a modified installer is refused", ("99.0.0", installer + b"x", signature)),
+                        ("a signature from another key is refused", ("99.0.0", installer, update.sign(
+                            base64.b64encode(os.urandom(32)).decode(), "99.0.0", installer)))]:
+        try:
+            update.verify(*args)
+            check(False, label)
+        except update.UpdateError:
+            check(True, label)
+    served = {"https://github.com/x/sig": signature.encode(), "https://github.com/x/exe": installer}
+    update._download = lambda client, url: served[url]
+    latest = {"version": "99.0.0", "notes": "", "url": "", "signature": "https://github.com/x/sig",
+              "installer": {"name": "SecretBroker-Setup-99.0.0.exe", "url": "https://github.com/x/exe"}}
+    service.updates._latest = latest
+    service.updates._checked = time.monotonic()
+    status = client.request("update_status")
+    check(status["available"] and status["latest"] == "99.0.0", "a newer signed release is offered")
+    path = Path(client.request("update_download")["path"])
+    check(path.read_bytes() == installer and path.parent == HOME / "public" / "updates", "the service downloads it into its public folder")
+    served["https://github.com/x/exe"] = installer + b"tampered"
+    expect_error(lambda: client.request("update_download"), "update_failed", "a tampered download is not installed")
+    check(not update._allowed_download("https://evil.example.com/SecretBroker-Setup-99.0.0.exe"), "downloads only from GitHub")
 
     print("Service authenticity")
     info_file = HOME / "public" / "broker.json"

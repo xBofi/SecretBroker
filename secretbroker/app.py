@@ -179,6 +179,23 @@ class Api:
             subprocess.Popen(["explorer", "/select,", str(path)])
         return True
 
+    def update_status(self, force=False):
+        return self.call("update_status", {"force": bool(force)})
+
+    def install_update(self):
+        """Download and verify the new version (in the service), then run its installer.
+        Windows asks for administrator consent; the installer closes this app and reopens it."""
+        result = self.call("update_download", {})
+        if not result["ok"]:
+            return result
+        try:
+            os.startfile(result["result"]["path"], "open", "/SILENT /SUPPRESSMSGBOXES /NORESTART")
+        except OSError as exc:
+            if getattr(exc, "winerror", None) == 1223:  # the user said no to UAC
+                return {"ok": False, "code": "cancelled", "error": "Cancelado"}
+            return {"ok": False, "code": "error", "error": f"No se pudo abrir el instalador: {exc}"}
+        return {"ok": True, "result": result["result"]["version"]}
+
     def open_link(self, url):
         """Open a provider page (API keys, billing...) in the default browser."""
         if not isinstance(url, str) or not url.startswith("https://"):

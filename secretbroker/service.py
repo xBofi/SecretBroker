@@ -32,7 +32,7 @@ import httpx
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from . import actions, crypto, exposure, links, paths, rotation, winsec
+from . import actions, crypto, exposure, links, paths, rotation, update, winsec
 from .inject import ActionError, Redactor, substitute
 from .vault import (
     DEFAULT_SETTINGS, Vault, VaultLocked, ValidationError, WrongPassword, agent_view,
@@ -46,7 +46,7 @@ APPROVAL_TIMEOUT_SECONDS = 120
 GUI_SEEN_SECONDS = 6
 CHALLENGE_TTL_SECONDS = 180
 AGENT_ACTIONS = set(actions.ACTIONS)
-POLL_OPS = {"status", "pending_approvals", "audit"}
+POLL_OPS = {"status", "pending_approvals", "audit", "update_status"}
 ALL_PROOFS = ("hello", "windows_password", "master_password")
 AUDIT_AAD = b"secretbroker/audit/v1"
 SCAN_SESSION_SECONDS = 12 * 3600
@@ -91,6 +91,7 @@ class Service:
         self._pending_audit = []
         self._scan_sessions = {}
         self._server = None
+        self.updates = update.Checker()
 
     # ------------------------------------------------------------------ server
 
@@ -607,6 +608,28 @@ class Service:
                 self.op_exposure_check({})
             except (VaultLocked, OSError, ValueError) as exc:  # e.g. locked halfway: try again later
                 print(f"exposure check: {type(exc).__name__}: {exc}", file=sys.stderr)
+
+    # ------------------------------------------------------------------ updates
+
+    def op_update_status(self, params):
+        return self.updates.status(force=bool(params.get("force")))
+
+    def op_update_download(self, params):
+        """Download the newest release into the public folder and verify its signature.
+        Installing it is up to the desktop app, which needs the user's consent (UAC)."""
+        latest = self.updates.latest()
+        if not latest:
+            self.updates.status(force=True)
+            latest = self.updates.latest()
+        if not latest:
+            raise ServiceError("No hay ninguna versión nueva", "not_found")
+        try:
+            path = update.download(latest, self.public_dir / "updates")
+        except (update.UpdateError, httpx.HTTPError) as exc:
+            self._audit("vault", "update", latest["version"], "error", str(exc) or type(exc).__name__)
+            raise ServiceError(str(exc) or type(exc).__name__, "update_failed") from None
+        self._audit("vault", "update", latest["version"], "ok")
+        return {"path": str(path), "version": latest["version"]}
 
     # ------------------------------------------------------------------ approvals (GUI)
 

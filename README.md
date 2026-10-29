@@ -12,16 +12,20 @@ Bóveda de credenciales para Windows que permite a un agente de IA (Claude Code 
 
 ## Instalación
 
-Ejecuta `SecretBroker-Setup-<versión>.exe` y acepta el aviso de administrador. No hace falta internet ni escribir nada. El instalador:
+Descarga `SecretBroker-Setup-<versión>.exe` de la [página de versiones](https://github.com/xBofi/SecretBroker/releases/latest), ejecútalo y acepta el aviso de administrador. No hace falta internet ni escribir nada. El instalador:
 1. Instala la app y su propio Python en `C:\Program Files\SecretBroker`, donde solo pueden escribir los administradores.
 2. Crea la cuenta oculta `SecretBroker`, que no puede iniciar sesión ni usarse por red.
 3. Crea `C:\ProgramData\SecretBroker\data`, que **solo esa cuenta** puede leer.
 4. Importa una bóveda anterior si la hay, registra el servicio para que arranque con Windows y lo inicia.
 5. Crea los accesos directos y conecta Claude Code y Claude Desktop si están instalados (también se puede hacer luego desde Ajustes → IA).
 
-Para actualizar, ejecuta el instalador nuevo encima: se conservan la bóveda, la cuenta y el desbloqueo con Windows. Para desinstalar, usa «Aplicaciones instaladas» de Windows. El desinstalador quita el servicio y su cuenta, desconecta Claude Code y Claude Desktop y borra tus preferencias. Después pregunta si quieres borrar también la bóveda. Por defecto la respuesta es «No», y entonces se conserva en `C:\ProgramData\SecretBroker\data`.
+**Actualizaciones.** La app comprueba cada pocas horas si hay una versión nueva en GitHub y lo indica en la barra lateral. Al pulsar «Actualizar», el servicio descarga el instalador y comprueba su firma, Windows pide permiso de administrador y la app se reabre actualizada. Se conservan la bóveda, la cuenta y el desbloqueo con Windows. Solo se instalan versiones firmadas con la clave de publicación (Ed25519; la clave pública va en `secretbroker/update.py`, dentro de Program Files). También se puede ejecutar el instalador nuevo encima a mano. Para desinstalar, usa «Aplicaciones instaladas» de Windows. El desinstalador quita el servicio y su cuenta, desconecta Claude Code y Claude Desktop y borra tus preferencias. Después pregunta si quieres borrar también la bóveda. Por defecto la respuesta es «No», y entonces se conserva en `C:\ProgramData\SecretBroker\data`.
 
 Sin instalar, la app funciona en **modo de desarrollo** (`.venv\Scripts\secretbroker.exe`): es la misma app, pero sin aislamiento.
+
+### Publicar una versión
+
+Sube la versión en `pyproject.toml`, `secretbroker/__init__.py` e `installer/SecretBroker.iss`, y empuja una etiqueta `v<versión>`. GitHub Actions (`.github/workflows/release.yml`) pasa las pruebas, compila el instalador, lo firma con el secret `UPDATE_SIGNING_KEY` y lo publica en Releases. Las apps instaladas lo verán solas. La clave de firma se creó con `tools/new_signing_key.py`, que solo imprime la clave pública y la privada ya cifrada para GitHub.
 
 ### Generar el instalador
 

@@ -1,0 +1,54 @@
+# Builds, signs and publishes the installer when a version tag (v0.8.0) is pushed.
+# The installed app finds it through the GitHub Releases API and verifies the signature.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Tag and version must match
+        shell: pwsh
+        run: |
+          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "La etiqueta $env:GITHUB_REF_NAME no coincide con la versión $version" }
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Install SecretBroker
+        run: |
+          python -m venv .venv
+          .venv\Scripts\python.exe -m pip install --disable-pip-version-check --quiet .
+
+      - name: Tests
+        run: .venv\Scripts\python.exe tests\test_e2e.py
+
+      - name: Build installer
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tools\build_installer.ps1
+
+      - name: Sign
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: .venv\Scripts\python.exe tools\sign_release.py
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $exe = "dist\SecretBroker-Setup-$env:VERSION.exe"
+          gh release create $env:GITHUB_REF_NAME $exe "$exe.sig" --title "SecretBroker $env:VERSION" --generate-notes
