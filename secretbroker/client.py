@@ -116,8 +116,9 @@ def _wait(condition, seconds):
     return False
 
 
-def call(op, params=None):
-    """Like request(), but if the vault is locked or an approval needs the app, open it, wait and retry once."""
+def call(op, params=None, open_app=None):
+    """Like request(), but if the vault is locked or an approval needs the app, open it, wait and retry once.
+    open_app shows the app; by default it is started (or, if it is already running, brought forward)."""
     if not ensure_service():
         raise BrokerUnavailable("El servicio SecretBroker no está en marcha. Pide al usuario que lo revise.")
     for attempt in (1, 2):
@@ -126,7 +127,7 @@ def call(op, params=None):
         except BrokerError as exc:
             if attempt == 2 or exc.code not in ("locked", "gui_required"):
                 raise
-            launch_app()
+            (open_app or launch_app)()
             if exc.code == "locked":
                 if not _wait(lambda s: s["state"] == "unlocked", UNLOCK_WAIT_SECONDS):
                     raise BrokerError("La bóveda sigue bloqueada. Se ha abierto SecretBroker para que el usuario la desbloquee; "

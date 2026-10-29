@@ -2,6 +2,7 @@
 
 import json
 import os
+import secrets
 import shutil
 import subprocess
 import sys
@@ -10,6 +11,7 @@ from pathlib import Path
 SERVER_NAME = "secret-broker"
 PREFS_FILE = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SecretBroker" / "prefs.json"
 CREATE_NO_WINDOW = 0x08000000
+MCP_PORT = 47821  # the desktop app serves the tools here for Claude Code (see resident.serve_mcp)
 
 
 def mcp_command():
@@ -34,34 +36,60 @@ def set_pref(key, value):
     PREFS_FILE.write_text(json.dumps(prefs), encoding="utf-8")
 
 
+def mcp_endpoint():
+    """(url, token) of the MCP server the desktop app serves. The token keeps other local programs
+    (and web pages, which can reach 127.0.0.1) out; Claude Code sends it as a header."""
+    token = load_prefs().get("mcp_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        set_pref("mcp_token", token)
+    return f"http://127.0.0.1:{MCP_PORT}/mcp", token
+
+
 # ----------------------------------------------------------------- Claude Code
+#
+# Claude Code connects to the app over HTTP: after an update it reconnects by itself, while a stdio
+# server killed by the installer stayed dead until the user ran /mcp. Claude Desktop only supports stdio.
 
 
 def _claude_cli():
     return shutil.which("claude")
 
 
+def _claude_code_entry():
+    try:
+        config = json.loads((Path.home() / ".claude.json").read_text(encoding="utf-8"))
+        return config.get("mcpServers", {}).get(SERVER_NAME)
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
 def claude_code_status():
     if not _claude_cli():
         return "missing"
-    try:
-        config = json.loads((Path.home() / ".claude.json").read_text(encoding="utf-8"))
-        command = config.get("mcpServers", {}).get(SERVER_NAME, {}).get("command", "")
-    except (OSError, ValueError):
-        command = ""
-    return "connected" if command and Path(command) == Path(mcp_command()[0]) else "disconnected"
+    entry = _claude_code_entry() or {}
+    url, token = mcp_endpoint()
+    connected = entry.get("url") == url and (entry.get("headers") or {}).get("Authorization") == f"Bearer {token}"
+    return "connected" if connected else "disconnected"
 
 
 def connect_claude_code():
     cli = _claude_cli()
     if not cli:
         raise RuntimeError("Claude Code no está instalado en este usuario")
-    python, args = mcp_command()
+    url, token = mcp_endpoint()
     run = lambda *a: subprocess.run([cli, "mcp", *a], capture_output=True, text=True, timeout=60, creationflags=CREATE_NO_WINDOW)
     run("remove", SERVER_NAME, "--scope", "user")
-    result = run("add", "--scope", "user", SERVER_NAME, "--", python, *args)
+    result = run("add", "--transport", "http", "--scope", "user", SERVER_NAME, url,
+                 "--header", f"Authorization: Bearer {token}")
     if result.returncode != 0:
         raise RuntimeError((result.stderr or result.stdout or "No se pudo registrar en Claude Code").strip())
+
+
+def upgrade_claude_code():
+    """Move a Claude Code connection made by an older version (stdio) to the app's HTTP server."""
+    if _claude_cli() and _claude_code_entry() and claude_code_status() == "disconnected":
+        connect_claude_code()
 
 
 # ----------------------------------------------------------------- Claude Desktop
@@ -134,6 +162,14 @@ def remove_all():
         except OSError as exc:
             print(f"No se pudo modificar {file}: {exc}", file=sys.stderr)
     shutil.rmtree(PREFS_FILE.parent, ignore_errors=True)
+    if sys.platform == "win32":
+        import winreg
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
+                                winreg.KEY_SET_VALUE) as key:
+                winreg.DeleteValue(key, "SecretBroker")  # start with Windows (see resident.set_start_with_windows)
+        except OSError:
+            pass
 
 
 def status():

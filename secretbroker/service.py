@@ -26,7 +26,7 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -55,7 +55,9 @@ SCAN_SESSION_SECONDS = 12 * 3600
 CHECK_EVERY_SECONDS = 24 * 3600
 ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 SLUG_RE = re.compile(r"[^a-z0-9]+")
-PRESENCE_OPS = ("approve", "complete_draft")  # what the app that unlocked may do with one click
+PRESENCE_OPS = ("approve", "complete_draft", "resume_ai")  # what the app that unlocked may do with one click
+# Everything the AI can ask for. "Pause the AI" refuses all of it without locking the vault.
+AI_OPS = AGENT_ACTIONS | {"list_secrets", "release_env", "push_github_secret", "create_draft", "update_credential"}
 
 
 class ServiceError(Exception):
@@ -79,6 +81,8 @@ class Service:
         self.isolated = isolated
         self.vault = Vault(self.data_dir)
         self.hello_file = self.data_dir / "hello.json"
+        self.session_file = self.data_dir / "session_unlock.json"  # "open with my Windows session" is on
+        self.pause_file = self.data_dir / "ai_paused"
         self.audit_file = self.data_dir / "audit.log"
         self.legacy_files = [self.data_dir / "legacy_vault.json", self.root / "vault.json"]
         actions.configure(self.data_dir / "known_hosts")
@@ -132,6 +136,9 @@ class Service:
         if op not in POLL_OPS:
             self._last_activity = time.monotonic()
         try:
+            if op in AI_OPS and self.pause_file.exists():
+                raise ServiceError("El usuario ha pausado el acceso de la IA en SecretBroker. "
+                                   "No reintentes: espera a que lo reanude.", "paused")
             if op in AGENT_ACTIONS:
                 return {"ok": True, "result": self._run_action(op, params)}
             handler = getattr(self, "op_" + str(op), None)
@@ -237,6 +244,8 @@ class Service:
             "session_grants": len(self._live_grants()),
             "gui_connected": time.monotonic() - self._gui_seen < GUI_SEEN_SECONDS,
             "pending": len(self._approvals),
+            "session_unlock": self.session_file.exists(),
+            "ai_paused": self.pause_file.exists(),
             "drafts": sum(1 for e in self.vault.entries() if e.get("draft")) if self.vault.is_unlocked else 0,
             "protocol": PROTOCOL_VERSION,
         }
@@ -266,7 +275,10 @@ class Service:
         if self.vault.is_unlocked:
             return self.op_status({})
         proof = params.get("proof") or {}
-        if proof.get("kind") == "master_password":
+        if proof.get("kind") == "session":
+            self._check_session_token(proof.get("token"))
+            self.vault.unlock_with_device()
+        elif proof.get("kind") == "master_password":
             self._throttle()
             try:
                 self.vault.unlock_with_master(proof.get("value") or "")
@@ -287,6 +299,76 @@ class Service:
         # Whoever unlocked may look for copies of the secrets and approve the AI's requests without
         # proving it again (see op_exposure_begin and _verify_proof), until the vault is locked.
         return {**self.op_status({}), "exposure_session": self._new_scan_session(), "presence": self._new_presence()}
+
+    def _check_session_token(self, token):
+        """The app keeps this token protected with the user's Windows login (DPAPI): whoever is
+        signed in to Windows as the user can open the vault without typing anything."""
+        self._throttle()
+        try:
+            stored = json.loads(self.session_file.read_text())["hash"]
+        except (OSError, ValueError, KeyError):
+            raise ServiceError("El desbloqueo con la sesión de Windows no está activado", "proof_invalid") from None
+        digest = hashlib.sha256(str(token or "").encode()).hexdigest()
+        if not (self.vault.device_unlock_available() and hmac.compare_digest(digest, stored)):
+            self._failures += 1
+            raise ServiceError("La sesión de Windows no puede desbloquear la bóveda; usa la contraseña", "proof_invalid")
+        self._failures = 0
+
+    def op_enable_session_unlock(self, params):
+        self._verify_proof("enable_session_unlock", params)
+        if not self.vault.is_unlocked:
+            raise VaultLocked()
+        if not self.vault.device_unlock_available():
+            raise ServiceError("Desbloquea una vez con la contraseña maestra en este equipo y vuelve a intentarlo", "invalid")
+        token = secrets.token_urlsafe(32)
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.session_file.write_text(json.dumps({"hash": hashlib.sha256(token.encode()).hexdigest(),
+                                                 "created": datetime.now().isoformat(timespec="seconds")}))
+        self._audit("vault", "session_unlock", "activado", "ok")
+        return {"token": token}
+
+    def op_disable_session_unlock(self, params):
+        if self.session_file.exists():
+            self.session_file.unlink()
+            self._audit("vault", "session_unlock", "desactivado", "ok")
+        return True
+
+    # ------------------------------------------------------------------ the AI's access
+
+    def op_pause_ai(self, params):
+        """Anyone may pause the AI (it only takes access away); resuming needs the user."""
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.pause_file.write_text(datetime.now().isoformat(timespec="seconds"))
+        with self._lock:
+            for request in self._approvals.values():
+                request["answer"] = "deny"
+                request["event"].set()
+        self._audit("vault", "pause_ai", "", "ok")
+        return self.op_status({})
+
+    def op_resume_ai(self, params):
+        self._verify_proof("resume_ai", params)
+        self.pause_file.unlink(missing_ok=True)
+        self._audit("vault", "resume_ai", "", "ok")
+        return self.op_status({})
+
+    def op_grants(self, params):
+        """What the AI may use right now without asking: approvals still running, and credentials
+        set to never ask."""
+        now_wall, now = datetime.now(), time.monotonic()
+        live = self._live_grants()
+        result = []
+        for entry in self.vault.entries():
+            mode = (entry.get("policy") or {}).get("approval", "session")
+            if mode == "never":
+                result.append({"secret_id": entry["id"], "name": entry.get("name", entry["id"]),
+                               "template": entry["template"], "kind": "never"})
+            elif mode == "session" and entry["id"] in live:
+                expiry = live[entry["id"]]
+                until = None if expiry is None else (now_wall + timedelta(seconds=expiry - now)).isoformat(timespec="minutes")
+                result.append({"secret_id": entry["id"], "name": entry.get("name", entry["id"]),
+                               "template": entry["template"], "kind": "approved", "until": until})
+        return result
 
     def _new_presence(self):
         token = secrets.token_urlsafe(32)
@@ -309,8 +391,10 @@ class Service:
             self._grants = {k: v for k, v in self._grants.items() if k not in secret_ids}
 
     def op_lock(self, params):
-        self._lock_vault(forget_approvals=True)
-        self._audit("vault", "lock", "manual", "ok")
+        # Locking Windows keeps the timed approvals, like the inactivity lock: it happens many times a day.
+        windows = params.get("reason") == "windows"
+        self._lock_vault(forget_approvals=not windows)
+        self._audit("vault", "lock", "Windows bloqueado" if windows else "manual", "ok")
         return self.op_status({})
 
     def _lock_vault(self, forget_approvals=False):
@@ -328,8 +412,8 @@ class Service:
     def _auto_lock_loop(self):
         while True:
             time.sleep(10)
-            if not self.vault.is_unlocked or self._approvals:
-                continue
+            if not self.vault.is_unlocked or self._approvals or self.session_file.exists():
+                continue  # with the Windows session unlock, the vault locks when Windows does
             minutes = self.vault.settings().get("auto_lock_minutes") if self.vault.is_unlocked else None
             if minutes and time.monotonic() - self._last_activity > minutes * 60:
                 self._lock_vault()
@@ -486,8 +570,10 @@ class Service:
         return True
 
     def op_revoke_sessions(self, params):
+        secret_id = params.get("secret_id")
         with self._lock:
-            self._grants = {}
+            self._grants = {k: v for k, v in self._grants.items() if secret_id and k != secret_id}
+        self._audit(secret_id or "vault", "revoke", "aprobación retirada", "ok")
         return True
 
     def op_audit(self, params):

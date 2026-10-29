@@ -7,6 +7,7 @@ Run with:  .venv\\Scripts\\python.exe tests\\test_e2e.py
 import asyncio
 import base64
 import json
+import socket
 import os
 import subprocess
 import sys
@@ -279,6 +280,45 @@ def main():
           "one approval covers every use of that credential")
     client.request("pending_approvals")
 
+    print("The AI's access: approvals, withdrawing them, pausing")
+    grants = client.request("grants")
+    check(any(g["secret_id"] == "echo-api" and g["kind"] == "approved" and g["until"] for g in grants),
+          "running approvals are listed with their expiry")
+    saved_grants = dict(service._grants)
+    client.request("revoke_sessions", {"secret_id": "echo-api"})
+    check(not any(g["secret_id"] == "echo-api" for g in client.request("grants")), "one approval can be withdrawn")
+    service._grants.update(saved_grants)
+    client.request("pause_ai")
+    check(client.request("status")["ai_paused"], "the AI can be paused")
+    expect_error(lambda: client.request("list_secrets"), "paused", "a paused AI can't even list the credentials")
+    expect_error(lambda: client.request("http_request", {"secret_id": "echo-api", "url": base + "/x"}), "paused",
+                 "a paused AI can't use an approved credential")
+    expect_error(lambda: client.request("create_draft", {"template": "api_key", "name": "Paused"}), "paused",
+                 "a paused AI can't create credentials")
+    check(len(client.request("entries")) > 0, "the user keeps using the vault")
+    expect_error(lambda: call("resume_ai", {}), "proof_required", "resuming needs the user")
+    call("resume_ai", {}, {"kind": "presence", "token": presence})
+    check(not client.request("status")["ai_paused"], "the app resumes the AI with one click")
+
+    print("Open with the Windows session")
+    expect_error(lambda: call("enable_session_unlock", {}), "proof_required", "turning it on needs the user")
+    token = call("enable_session_unlock", {}, "hello")["token"]
+    check(client.request("status")["session_unlock"], "session unlock turned on")
+    client.request("lock", {"reason": "windows"})
+    check(client.request("status")["state"] == "locked", "locking Windows locks the vault")
+    expect_error(lambda: call("unlock", {}, {"kind": "session", "token": "not the token"}), "proof_invalid",
+                 "a wrong session token is refused")
+    unlocked = call("unlock", {}, {"kind": "session", "token": token})
+    check(unlocked["state"] == "unlocked" and unlocked.get("presence"), "the Windows session opens the vault, no password")
+    presence = unlocked["presence"]
+    check(any(g["secret_id"] == "echo-api" for g in client.request("grants")), "approvals survive locking Windows")
+    client.request("disable_session_unlock")
+    client.request("lock")
+    expect_error(lambda: call("unlock", {}, {"kind": "session", "token": token}), "proof_invalid",
+                 "once turned off the token is useless")
+    presence = call("unlock", {}, "hello")["presence"]
+    client.request("pending_approvals")
+
     print("Agent: credentials prepared and edited by the AI")
     draft = client.request("create_draft", {
         "template": "api_key", "name": "Mailer API", "description": "Envío de correos del proyecto X",
@@ -491,6 +531,9 @@ def main():
     print("MCP over stdio")
     asyncio.run(check_stdio())
 
+    print("MCP over HTTP (served by the desktop app)")
+    asyncio.run(check_http())
+
     print("Audit")
     events = client.request("audit", {"limit": 1000})
     check(any(e["action"] == "http_request" and e["status"] == "denied" for e in events), "audit log records denials")
@@ -510,6 +553,38 @@ def main():
     server.shutdown()
     print(f"\n{'ALL PASSED' if not failures else f'{failures} FAILED'}  (home: {HOME})")
     sys.exit(1 if failures else 0)
+
+
+async def check_http():
+    import httpx
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamable_http_client
+    from secretbroker import integrations, resident
+
+    integrations.PREFS_FILE = HOME / "prefs.json"
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        integrations.MCP_PORT = probe.getsockname()[1]
+    shown = []
+    server = resident.serve_mcp(lambda: shown.append(1))
+    url, token = integrations.mcp_endpoint()
+    for _ in range(50):
+        if server.started:
+            break
+        await asyncio.sleep(0.1)
+    async with httpx.AsyncClient() as plain:
+        response = await plain.post(url, json={})
+        check(response.status_code == 401, "the HTTP endpoint refuses callers without the token")
+    async with httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"}) as http:
+        async with streamable_http_client(url, http_client=http) as (read, write, *_):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                tools = (await session.list_tools()).tools
+                check(len(tools) == 9, "Claude Code gets the same tools over HTTP")
+                result = await session.call_tool("list_secrets", {})
+                text = " ".join(getattr(c, "text", "") for c in result.content)
+                check("echo-api" in text and API_KEY not in text, "MCP over HTTP works through the service")
+    server.should_exit = True
 
 
 async def check_stdio():

@@ -146,6 +146,10 @@ const ACTION_LABELS = {
   rotate: 'Rotada con el proveedor',
   draft: 'Preparada por la IA',
   edit: 'Cambiar la configuración',
+  revoke: 'Aprobación retirada',
+  pause_ai: 'IA en pausa',
+  resume_ai: 'IA reanudada',
+  session_unlock: 'Abrir con la sesión de Windows',
   push_github_secret: 'Subida a GitHub',
   unlock: 'Desbloqueo', lock: 'Bloqueo', save: 'Guardada', delete: 'Eliminada',
   reveal: 'Secreto mostrado', create: 'Bóveda creada', enroll_hello: 'Windows Hello activado',
@@ -453,7 +457,18 @@ function renderLock() {
   masterButton.addEventListener('click', unlockMaster);
   master.input.addEventListener('keydown', (e) => { if (e.key === 'Enter') unlockMaster(); });
 
-  const helloButton = el('button', { class: 'btn primary lg block' }, icon('fingerprint', 'sm'), 'Desbloquear con Windows Hello');
+  const sessionAvailable = status.session_unlock && state.info.session_unlock_here;
+  const sessionButton = el('button', { class: 'btn primary lg block' }, icon('unlock', 'sm'), 'Abrir con mi sesión de Windows');
+  sessionButton.addEventListener('click', async () => {
+    errorText.textContent = '';
+    busy(sessionButton, true);
+    const ok = await api().session_unlock();
+    busy(sessionButton, false);
+    if (!ok) { errorText.textContent = 'No se ha podido abrir con la sesión de Windows. Usa la contraseña.'; state.info.session_unlock_here = false; return; }
+    refreshStatus();
+  });
+
+  const helloButton = el('button', { class: `btn ${sessionAvailable ? '' : 'primary'} lg block` }, icon('fingerprint', 'sm'), 'Desbloquear con Windows Hello');
   const unlockHello = async () => {
     errorText.textContent = '';
     busy(helloButton, true);
@@ -494,6 +509,7 @@ function renderLock() {
   $app().replaceChildren(el('div', { class: 'center-screen' },
     el('div', { class: 'auth' },
       el('div', { class: 'auth-head center' }, brand(true), el('h2', { style: 'margin-top:10px' }, 'SecretBroker está bloqueado')),
+      sessionAvailable ? sessionButton : null,
       helloAvailable ? helloButton : null,
       canDevice && status.windows_password ? el('div', { style: 'text-align:center' },
         el('button', { class: 'link muted-link', onclick: unlockWindows }, 'Usar la contraseña de Windows')) : null,
@@ -502,7 +518,7 @@ function renderLock() {
       errorText,
       el('div', { style: 'text-align:center' }, el('button', { class: 'link small', onclick: forgot }, '¿Has olvidado la contraseña maestra?')),
       el('p', { class: 'footnote', style: 'margin-top:24px' }, 'Desbloquea solo en esta ventana. SecretBroker nunca te pedirá la contraseña en otra.'))));
-  if (!helloAvailable) setTimeout(() => master.input.focus(), 50);
+  if (!helloAvailable && !sessionAvailable) setTimeout(() => master.input.focus(), 50);
 }
 
 // ======================================================================= main
@@ -537,6 +553,7 @@ function renderMain() {
     el('nav', { class: 'nav' },
       navButton('credentials', 'key', 'Credenciales', state.entries.length),
       navButton('exposure', 'shield', 'Exposición', exposedCount(), 'danger'),
+      navButton('access', 'bot', 'Acceso de la IA', state.status.ai_paused ? '‖' : null, 'danger'),
       navButton('activity', 'activity', 'Actividad'),
       navButton('settings', 'settings', 'Ajustes')),
     el('div', { id: 'update-slot' }),
@@ -560,9 +577,16 @@ function updateSidebarState() {
   const node = document.getElementById('sidebar-state');
   if (!node || !state.status) return;
   const minutes = state.status.auto_lock_minutes;
+  const until = state.status.session_unlock ? 'Desbloqueada · sigue a Windows'
+    : minutes ? `Desbloqueada · ${minutes >= 60 ? `${minutes / 60} h` : `${minutes} min`}` : 'Desbloqueada';
   node.replaceChildren(
-    el('span', { class: `dot ${state.status.isolated ? '' : 'warn'}` }),
-    el('span', {}, minutes ? `Desbloqueada · ${minutes >= 60 ? `${minutes / 60} h` : `${minutes} min`}` : 'Desbloqueada'));
+    el('span', { class: `dot ${state.status.ai_paused || !state.status.isolated ? 'warn' : ''}` }),
+    el('span', {}, state.status.ai_paused ? 'IA en pausa' : until));
+  if (state.paused !== state.status.ai_paused) {  // paused or resumed from the icon next to the clock
+    const first = state.paused === undefined;
+    state.paused = state.status.ai_paused;
+    if (!first) renderMain();
+  }
   node.title = state.status.isolated ? 'Servicio aislado' : 'Modo sin aislamiento';
 }
 
@@ -579,6 +603,7 @@ function renderView() {
   if (state.view === 'credentials') renderCredentials(content);
   else if (state.view === 'exposure') renderExposure(content);
   else if (state.view === 'activity') renderActivity(content);
+  else if (state.view === 'access') renderAccess(content);
   else renderSettings(content);
 }
 
@@ -1257,6 +1282,54 @@ async function renderActivity(content) {
       el('td', { class: 'detail-cell selectable', title: [e.detail, e.message].filter(Boolean).join(' — ') }, e.message || e.detail))))));
 }
 
+// ----------------------------------------------------------------------- the AI's access
+
+async function setPaused(paused) {
+  const result = paused ? await api().call('pause_ai') : await withProof((p) => api().call('resume_ai', {}, p), 'Para reanudar la IA.');
+  if (!result.ok) { if (result.code !== 'cancelled') toast(result.error, 'error'); return; }
+  toast(paused ? 'IA en pausa' : 'IA reanudada');
+  await refreshStatus();
+  renderMain();
+}
+
+async function renderAccess(content) {
+  const paused = state.status.ai_paused;
+  const body = el('div', { class: 'content-body' }, el('div', { class: 'spinner' }));
+  content.replaceChildren(el('div', { class: 'content-header' }, el('h1', {}, 'Acceso de la IA')), body);
+  const result = await api().call('grants');
+  const grants = result.ok ? result.result : [];
+  const approved = grants.filter((g) => g.kind === 'approved');
+  const free = grants.filter((g) => g.kind === 'never');
+  const revoke = async (secretId) => {
+    await api().call('revoke_sessions', secretId ? { secret_id: secretId } : {});
+    toast(secretId ? 'Aprobación retirada' : 'Aprobaciones retiradas');
+    await refreshStatus();
+    renderAccess(content);
+  };
+  const row = (g, control) => el('div', { class: 'access-row' }, glyph(g.template),
+    el('div', { class: 'meta' }, el('div', { class: 'title' }, g.name),
+      el('div', { class: 'subtitle' }, g.kind === 'never' ? 'Nunca pregunta' : g.until ? `Hasta ${formatTime(g.until)}` : 'Hasta que bloquees')),
+    control);
+  body.replaceChildren(el('div', { class: 'settings' },
+    el('div', { class: `pause-card ${paused ? 'paused' : ''}` },
+      el('div', { class: 'meta' },
+        el('h3', {}, paused ? 'La IA está en pausa' : 'La IA puede trabajar'),
+        el('p', {}, paused
+          ? 'No puede usar, crear ni ver ninguna credencial. Tú sigues usando la bóveda con normalidad.'
+          : 'Usa tus credenciales según sus permisos. Pausarla corta todo al instante, sin bloquear la bóveda.')),
+      el('button', { class: `btn ${paused ? 'primary' : 'danger'}`, onclick: () => setPaused(!paused) }, icon('power', 'sm'), paused ? 'Reanudar' : 'Pausar la IA')),
+    el('div', { class: 'settings-group' },
+      el('div', { class: 'group-head' }, el('h3', { class: 'muted' }, 'Aprobadas ahora'),
+        approved.length > 1 ? el('button', { class: 'btn ghost', onclick: () => revoke(null) }, 'Retirar todas') : null),
+      approved.length
+        ? approved.map((g) => row(g, el('button', { class: 'btn', onclick: () => revoke(g.secret_id) }, 'Retirar')))
+        : el('p', { class: 'muted small' }, 'Ninguna. La próxima vez que la IA use una credencial te preguntará.')),
+    el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Nunca preguntan'),
+      free.length
+        ? free.map((g) => row(g, el('button', { class: 'btn', onclick: () => { state.view = 'credentials'; state.selected = g.secret_id; renderMain(); } }, 'Cambiar')))
+        : el('p', { class: 'muted small' }, 'Todas las credenciales piden tu aprobación al menos una vez.'))));
+}
+
 // ----------------------------------------------------------------------- settings
 
 function setting(title, description, control) {
@@ -1289,6 +1362,24 @@ function renderSettings(content) {
     const minutes = Number(lockSelect.value);
     const result = await withProof((p) => api().call('set_settings', { settings: { auto_lock_minutes: minutes } }, p), 'Para cambiar el bloqueo automático.');
     if (result.ok) { toast('Guardado'); await refreshStatus(); } else { lockSelect.value = String(status.auto_lock_minutes || 0); if (result.code !== 'cancelled') toast(result.error, 'error'); }
+  });
+
+  const sessionToggle = el('input', { type: 'checkbox', checked: !!(status.session_unlock && state.info.session_unlock_here) });
+  sessionToggle.addEventListener('change', async () => {
+    const result = sessionToggle.checked
+      ? await withProof((p) => api().enable_session_unlock(p), 'Para abrir la bóveda con tu sesión de Windows.')
+      : await api().disable_session_unlock();
+    if (result.ok) {
+      state.info.session_unlock_here = sessionToggle.checked;
+      toast(sessionToggle.checked ? 'Se abrirá al iniciar sesión en Windows' : 'Desactivado');
+      await refreshStatus(); renderView();
+    } else { sessionToggle.checked = !sessionToggle.checked; if (result.code !== 'cancelled') toast(result.error, 'error'); }
+  });
+  const startToggle = el('input', { type: 'checkbox', checked: !!state.info.start_with_windows });
+  startToggle.addEventListener('change', async () => {
+    await api().set_start_with_windows(startToggle.checked);
+    state.info.start_with_windows = startToggle.checked;
+    toast('Guardado');
   });
 
   const approvalSelect = el('select', { class: 'input', style: 'width:auto' },
@@ -1350,7 +1441,8 @@ function renderSettings(content) {
         setting('Windows Hello', 'Desbloquea, aprueba y muestra contraseñas con tu PIN, huella o cara.', helloControl),
         setting('Contraseña maestra', 'Si la olvidas, puedes cambiarla aquí tras confirmar con Windows.',
           el('button', { class: 'btn', onclick: () => changeMasterPassword(false) }, 'Cambiar')),
-        setting('Bloqueo automático', 'Bloquea la bóveda tras un tiempo sin uso. Las aprobaciones de la IA siguen valiendo al desbloquear.', lockSelect),
+        setting('Abrir con mi sesión de Windows', 'La bóveda se abre sola al entrar en Windows y se cierra al bloquearlo (Win+L), sin escribir contraseñas. Protege de errores de la IA, no de alguien que use tu sesión.', sessionToggle),
+        status.session_unlock ? null : setting('Bloqueo automático', 'Bloquea la bóveda tras un tiempo sin uso. Las aprobaciones de la IA siguen valiendo al desbloquear.', lockSelect),
         setting('Recordar aprobaciones', 'Cuando permites una credencial, la IA puede usarla sin volver a preguntarte durante este tiempo. Bloquear a mano las olvida todas.', approvalSelect),
         setting('Aislamiento', status.isolated
           ? 'El servicio usa una cuenta de Windows propia: ningún programa puede leer su memoria ni sus archivos.'
@@ -1359,12 +1451,12 @@ function renderSettings(content) {
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'IA'),
         setting('Claude Code', 'Permite que Claude Code use tus credenciales a través de SecretBroker.', claudeControl),
         setting('Claude Desktop', 'Permite que la app de escritorio de Claude use tus credenciales.', desktopControl),
-        setting('Permisos de esta sesión', status.session_grants
-          ? `${status.session_grants} permiso(s) aprobados hasta que se bloquee la bóveda.`
-          : 'No hay permisos de sesión activos.',
-        el('button', { class: 'btn', disabled: !status.session_grants, onclick: async () => {
-          await api().call('revoke_sessions'); toast('Permisos revocados'); await refreshStatus(); renderView();
-        } }, 'Revocar'))),
+        setting('Acceso de la IA', status.session_grants
+          ? `${status.session_grants} credencial(es) aprobadas ahora mismo.`
+          : 'Qué puede usar la IA sin preguntarte, y pausarla.',
+        el('button', { class: 'btn', onclick: () => { state.view = 'access'; renderMain(); } }, 'Ver'))),
+      el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Aplicación'),
+        setting('Arrancar con Windows', 'SecretBroker se queda junto al reloj, listo para la IA. Cerrar la ventana no lo cierra: usa «Salir» en ese icono.', startToggle)),
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Exposición'),
         setting('Analizar al desbloquear', 'Busca copias de tus claves en este equipo al desbloquear, como mucho cada 12 horas.', autoScan),
         setting('Carpetas de proyectos', 'Se revisan junto con sus historiales de git. Las carpetas donde has usado Claude Code se añaden solas.', addFolder),

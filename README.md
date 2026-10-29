@@ -42,6 +42,9 @@ El resultado es `dist\SecretBroker-Setup-<versión>.exe`, de unos 26 MB, con Pyt
 - **Notas para la IA**: texto que la IA sí lee, para explicarle qué es cada credencial y cómo usarla.
 - **Permisos de la IA**: se rellenan solos a partir de la plantilla (por ejemplo, el dominio sale de la URL). Incluyen las webs permitidas, la cabecera de autenticación, los programas locales permitidos y sus variables de entorno, y cuándo pedir aprobación.
 - **Aprobaciones**: la contraseña se escribe al desbloquear; después, aprobar lo que pide la IA es un clic. «Permitir hoy» deja a la IA usar esa credencial sin volver a preguntar durante 24 h (configurable: 8 h, 24 h o hasta bloquear), también tras el bloqueo automático. Bloquear a mano las olvida todas. Las credenciales con aprobación «Nunca» no preguntan nunca.
+- **Abrir con mi sesión de Windows** (opcional): la bóveda se abre sola al entrar en Windows y se cierra al bloquearlo (Win+L), sin escribir contraseñas. Las aprobaciones de la IA sobreviven a esos bloqueos. Protege de errores de la IA, no de alguien que use tu sesión de Windows.
+- **Acceso de la IA**: una página muestra qué credenciales puede usar la IA ahora mismo sin preguntar (y hasta cuándo), con un botón para retirar cada aprobación. **Pausar la IA** corta todo su acceso al instante (no puede ni listar las credenciales) sin bloquear la bóveda; también desde el icono junto al reloj. Reanudarla es un clic.
+- **Siempre lista**: SecretBroker arranca con Windows y se queda junto al reloj. Cerrar la ventana no lo cierra (usa «Salir» en ese icono). Cuando la IA pide algo, la ventana aparece sola.
 - **Windows Hello**: con tu PIN, huella o cara desbloqueas la bóveda, apruebas usos, ves o copias contraseñas y guardas cambios. En PCs sin Hello se usa la contraseña de Windows o la maestra.
 - **Recuperación**: si olvidas la contraseña maestra, entra con Windows Hello o con la contraseña de Windows y crea una nueva. Esto solo funciona en este PC.
 - **Copiar**: el portapapeles se borra a los 30 s y la contraseña no pasa al historial del portapapeles.
@@ -54,6 +57,8 @@ El resultado es `dist\SecretBroker-Setup-<versión>.exe`, de unos 26 MB, con Pyt
   - Además muestra la antigüedad del valor actual y cuántas veces se ha mostrado o copiado. Al cambiar el valor (rotarla), su historial empieza de cero.
 
 ### Herramientas MCP
+
+Claude Code se conecta a la app por HTTP (`127.0.0.1`, con un token propio), así que vuelve a conectarse solo después de cada actualización. Claude Desktop usa la conexión clásica por stdio.
 
 | Herramienta | Qué hace |
 |---|---|
@@ -99,6 +104,7 @@ Si la bóveda está bloqueada o hace falta una aprobación, el MCP abre la app y
 | Enviar la clave a otro sitio | Lista blanca de dominios por credencial, solo HTTPS, sin seguir redirecciones; el host SSH sale de la bóveda. |
 | Robo del disco | scrypt (128 MiB) + AES-256-GCM; la clave del equipo además va protegida con DPAPI. |
 | Leer el historial de actividad | Cada entrada se cifra con una clave pública (X25519 + AES-256-GCM) derivada de la bóveda: se puede escribir con la bóveda bloqueada, pero solo se lee desbloqueada. |
+| Otro programa o una web usa las herramientas de la IA | El servidor MCP solo escucha en `127.0.0.1`, exige un token y comprueba las cabeceras `Host` y `Origin`. |
 | Fuerza bruta de contraseñas | Retardo creciente tras cada fallo. |
 | Usar el análisis de exposición para adivinar contraseñas («¿está este texto en la bóveda?») | El servicio solo busca dentro de una sesión de análisis, que se entrega al desbloquear o tras verificar la identidad y caduca al bloquear. Sin ella, el informe dice qué credenciales están expuestas, pero no en qué archivos. |
 

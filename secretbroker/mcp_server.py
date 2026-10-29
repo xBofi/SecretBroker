@@ -21,9 +21,13 @@ mcp = MCPServer(
 )
 
 
+# Replaced by the desktop app when it serves the tools itself: it shows its own window instead.
+open_app = client.launch_app
+
+
 def _call(op, params=None):
     try:
-        return client.call(op, params)
+        return client.call(op, params, open_app=open_app)
     except (BrokerError, BrokerUnavailable) as exc:
         raise ToolError(str(exc)) from None
 

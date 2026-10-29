@@ -10,15 +10,18 @@ import time
 import webbrowser
 from pathlib import Path
 
-from . import __version__, client, hello, integrations, links, paths, scanner, templates
+from . import __version__, client, hello, integrations, links, paths, resident, scanner, templates, winsec
 from .client import BrokerError, BrokerUnavailable
 
 WEB_DIR = Path(__file__).with_name("web")
 ICON = Path(__file__).with_name("assets") / "icon.ico"
 CLIPBOARD_CLEAR_SECONDS = 30
 AUTO_SCAN_HOURS = 12
+SESSION_FILE = integrations.PREFS_FILE.parent / "session.bin"
+SESSION_ENTROPY = b"SecretBroker/session-unlock/v1"
 # Operations the service only accepts with a proof of identity.
 PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal", "rotate", "complete_draft",
+             "enable_session_unlock", "resume_ai",
              "change_master_password", "set_settings", "remove_hello", "exposure_begin"}
 
 
@@ -33,13 +36,17 @@ class Api:
         # Kept here, never given to the page.
         self._scan_session = None
         self._scan = None
+        self._tray = None
+        self._quitting = False
+        self._hidden_once = False
 
     # ----- generic bridge
 
     def info(self):
         return {"version": __version__, "installed": paths.is_installed(),
                 "hello_supported": hello.is_supported(), "templates": templates.export(), "providers": links.catalog(),
-                "prefs": integrations.load_prefs(), "integrations": integrations.status()}
+                "prefs": integrations.load_prefs(), "integrations": integrations.status(),
+                "start_with_windows": resident.start_with_windows(), "session_unlock_here": self.has_session_unlock()}
 
     def set_pref(self, key, value):
         if key in ("palette", "auto_scan", "scan_folders"):
@@ -74,7 +81,7 @@ class Api:
         set up; otherwise (or if cancelled) the UI is asked to collect a password proof."""
         params = dict(params or {})
         try:
-            if op in ("approve", "complete_draft") and proof is None and self._presence:
+            if op in ("approve", "complete_draft", "resume_ai") and proof is None and self._presence:
                 try:
                     return {"ok": True, "result": client.request(op, {**params, "proof": {"kind": "presence", "token": self._presence}})}
                 except BrokerError as exc:
@@ -247,8 +254,8 @@ class Api:
         _copy_to_clipboard(str(text), auto_clear=False)
         return True
 
-    def _bring_to_front(self):
-        """Restore the window, raise it and flash it in the taskbar.
+    def _bring_to_front(self, activate=False):
+        """Show the window (it may be hidden next to the clock), raise it and flash it in the taskbar.
 
         Only asynchronous Win32 calls: pywebview's restore()/on_top wait for the UI thread, which
         can be waiting for this very call to return (a JS API call), and the window froze."""
@@ -258,7 +265,9 @@ class Api:
         hwnd = ctypes.c_void_p(self._hwnd)
         flags = 0x0001 | 0x0002 | 0x0010 | 0x4000  # NOSIZE | NOMOVE | NOACTIVATE | ASYNCWINDOWPOS
         try:
-            user32.ShowWindowAsync(hwnd, 9)  # SW_RESTORE
+            user32.ShowWindowAsync(hwnd, 9 if user32.IsIconic(hwnd) else 5)  # SW_RESTORE / SW_SHOW
+            if activate:
+                user32.SetForegroundWindow(hwnd)
             user32.SetWindowPos(hwnd, ctypes.c_void_p(-1), 0, 0, 0, 0, flags)  # HWND_TOPMOST
             user32.SetWindowPos(hwnd, ctypes.c_void_p(-2), 0, 0, 0, 0, flags)  # HWND_NOTOPMOST
             user32.FlashWindow(hwnd, True)
@@ -268,6 +277,60 @@ class Api:
     def focus(self):
         self._bring_to_front()
         return True
+
+    # ----- living in the background
+
+    def show(self):
+        self._bring_to_front(activate=True)
+
+    def hide(self):
+        if self._hwnd and sys.platform == "win32":
+            ctypes.windll.user32.ShowWindowAsync(ctypes.c_void_p(self._hwnd), 0)  # SW_HIDE
+            if not self._hidden_once and self._tray:
+                self._hidden_once = True
+                self._tray.notify("SecretBroker sigue activo", "Está junto al reloj para atender a la IA. Ciérralo desde ese icono.")
+
+    def quit(self):
+        self._quitting = True
+        if self._tray:
+            self._tray.close()
+        if self._window:
+            self._window.destroy()
+
+    def set_start_with_windows(self, enabled):
+        integrations.set_pref("start_with_windows", bool(enabled))
+        resident.set_start_with_windows(bool(enabled))
+        return True
+
+    # ----- open the vault with the Windows session
+
+    def has_session_unlock(self):
+        return SESSION_FILE.exists()
+
+    def session_unlock(self):
+        """Unlock with the token kept under the user's Windows login. Returns True if it worked."""
+        try:
+            token = winsec.dpapi_unprotect(SESSION_FILE.read_bytes(), SESSION_ENTROPY).decode()
+        except OSError:
+            return False
+        result = self.call("unlock", {}, {"kind": "session", "token": token})
+        if not result["ok"] and result.get("code") == "proof_invalid":
+            SESSION_FILE.unlink(missing_ok=True)  # the service forgot it (turned off elsewhere)
+        return result["ok"]
+
+    def enable_session_unlock(self, proof=None):
+        result = self.call("enable_session_unlock", {}, proof)
+        if result["ok"]:
+            SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+            SESSION_FILE.write_bytes(winsec.dpapi_protect(result.pop("result")["token"].encode(), SESSION_ENTROPY))
+        return result
+
+    def disable_session_unlock(self):
+        SESSION_FILE.unlink(missing_ok=True)
+        return self.call("disable_session_unlock")
+
+    def resume_ai(self):
+        return self._presence is not None and self.call("resume_ai")["ok"]
 
 
 # ----------------------------------------------------------------- clipboard (Windows)
@@ -338,7 +401,13 @@ def main():
     import webview
 
     if not _single_instance():
+        resident.signal_running_instance()
         return
+    background = "--background" in sys.argv
+    # Keep the page running at full speed while hidden: it answers the AI's requests.
+    os.environ.setdefault("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+                          "--disable-background-timer-throttling --disable-renderer-backgrounding "
+                          "--disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion")
     if sys.platform == "win32":
         try:
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("SecretBroker.App")
@@ -347,16 +416,50 @@ def main():
     api = Api()
     window = webview.create_window(
         "SecretBroker", url=str(WEB_DIR / "index.html"), js_api=api,
-        width=1120, height=740, min_size=(880, 600), background_color="#0f1115",
+        width=1120, height=740, min_size=(880, 600), background_color="#0f1115", minimized=background,
     )
     api._window = window
-    window.events.shown += lambda: _on_shown(window, api)
+    window.events.shown += lambda: _on_shown(window, api, background)
+    # Closing the window keeps the app next to the clock, where it can answer the AI; "Salir" quits.
+    window.events.closing += lambda: True if api._quitting else (api.hide() or False)
     # WebView2 would otherwise try to write next to python.exe (read-only under Program Files).
     storage = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SecretBroker" / "webview"
     webview.start(private_mode=True, storage_path=str(storage))
 
 
-def _on_shown(window, api):
+def _start_resident(api):
+    if sys.platform != "win32" or api._tray:
+        return
+    resident.listen_for_show(api.show)
+    api._tray = resident.Tray(api, ICON)
+    api._tray.start()
+    resident.Watcher(api, on_status=api._tray.update).start()
+    try:
+        resident.serve_mcp(api.show)
+    except Exception:
+        pass
+    if paths.is_installed():
+        resident.set_start_with_windows(resident.start_with_windows())
+
+    def migrate():
+        try:
+            integrations.upgrade_claude_code()
+        except Exception:
+            pass
+
+    threading.Thread(target=migrate, daemon=True).start()
+
+
+def _let_windows_close(api, args):
+    """Hiding instead of closing must not block signing out or shutting down Windows. Runs after
+    pywebview's own handler, which may have cancelled the close."""
+    from System.Windows.Forms import CloseReason
+    if args.CloseReason != CloseReason.UserClosing:
+        api._quitting = True
+        args.Cancel = False
+
+
+def _on_shown(window, api, background=False):
     """pywebview has no icon option on Windows: set it on the underlying WinForms form. Also keep
     the window handle, to raise the window later without going through the UI thread."""
     try:
@@ -367,10 +470,15 @@ def _on_shown(window, api):
         def apply():
             form.Icon = Icon(str(ICON))
             api._hwnd = int(form.Handle.ToInt64())
+            form.FormClosing += lambda sender, args: _let_windows_close(api, args)
+            if background:
+                api._hidden_once = True
+                api.hide()
 
         form.Invoke(Action(apply))
     except Exception:
         pass
+    _start_resident(api)  # here: pywebview has loaded WinForms by now
 
 
 if __name__ == "__main__":
