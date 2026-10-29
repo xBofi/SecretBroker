@@ -24,7 +24,7 @@ from . import __version__
 REPO = "xBofi/SecretBroker"
 RELEASES_URL = f"https://github.com/{REPO}/releases"
 LATEST_API = f"https://api.github.com/repos/{REPO}/releases/latest"
-PUBLIC_KEY = ""  # base64 of the raw Ed25519 public key; see tools/sign_release.py
+PUBLIC_KEY = "Y54EWQu13b79ilylP/cAvqFDvzxjkwiYkEq/puedHos="  # base64 raw Ed25519; the private half is the UPDATE_SIGNING_KEY secret
 SIGNED_PREFIX = b"SecretBroker release\0"
 INSTALLER_RE = re.compile(r"^SecretBroker-Setup-(\d+\.\d+\.\d+)\.exe$")
 CHECK_EVERY_SECONDS = 6 * 3600

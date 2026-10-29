@@ -1,4 +1,4 @@
-"""Create the release signing key without anybody seeing it.
+r"""Create the release signing key without anybody seeing it.
 
     python tools/new_signing_key.py <repo public key id> <repo public key (base64)>
 
