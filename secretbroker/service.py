@@ -13,6 +13,7 @@ Sensitive operations need a *proof* the service verifies by itself:
 import argparse
 import base64
 import collections
+import copy
 import hashlib
 import hmac
 import json
@@ -53,6 +54,8 @@ AUDIT_AAD = b"secretbroker/audit/v1"
 SCAN_SESSION_SECONDS = 12 * 3600
 CHECK_EVERY_SECONDS = 24 * 3600
 ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+SLUG_RE = re.compile(r"[^a-z0-9]+")
+PRESENCE_OPS = ("approve", "complete_draft")  # what the app that unlocked may do with one click
 
 
 class ServiceError(Exception):
@@ -160,7 +163,7 @@ class Service:
     def _verify_proof(self, op, params, allowed=ALL_PROOFS):
         proof = params.get("proof") or {}
         kind = proof.get("kind")
-        if kind == "presence" and op == "approve":
+        if kind == "presence" and op in PRESENCE_OPS:
             with self._lock:
                 presence = self._presence
             if presence and presence[1] > time.monotonic() and hmac.compare_digest(
@@ -234,6 +237,7 @@ class Service:
             "session_grants": len(self._live_grants()),
             "gui_connected": time.monotonic() - self._gui_seen < GUI_SEEN_SECONDS,
             "pending": len(self._approvals),
+            "drafts": sum(1 for e in self.vault.entries() if e.get("draft")) if self.vault.is_unlocked else 0,
             "protocol": PROTOCOL_VERSION,
         }
 
@@ -354,6 +358,10 @@ class Service:
                 if name in fields and fields[name] is None and old["fields"].get(name):
                     fields[name] = old["fields"][name]
         entry["fields"] = {k: v for k, v in fields.items() if v not in (None, "")}
+        if replaces and old.get("draft") and not all(
+                entry["fields"].get(s["name"]) for s in templates.active_specs(entry.get("template", ""), entry["fields"])
+                if s["secret"] and s["required"]):
+            entry["draft"] = True
         self.vault.put(entry, replaces=replaces)
         if replaces and replaces != entry["id"]:
             def rename(data):
@@ -724,9 +732,109 @@ class Service:
 
     def _get_secret(self, secret_id):
         try:
-            return self.vault.get(secret_id)
+            entry = self.vault.get(secret_id)
         except KeyError:
             raise ServiceError(f"No existe el secreto '{secret_id}'. Usa list_secrets para ver los disponibles.", "not_found") from None
+        if entry.get("draft"):
+            raise ServiceError(f"'{secret_id}' aún no tiene la clave. Pide al usuario que la pegue en la app SecretBroker.", "draft")
+        return entry
+
+    # ------------------------------------------------------------------ credentials prepared by the AI
+
+    def _ai_changes(self, entry, params):
+        """Apply the AI's changes to a copy of `entry`. The AI never writes secret values or the
+        approval mode: those are the user's."""
+        entry = copy.deepcopy(entry)
+        template = entry["template"]
+        secret_names = templates.secret_field_names(template)
+        known = {s["name"] for s in templates.field_specs(template)}
+        for name, value in (params.get("fields") or {}).items():
+            if name in secret_names:
+                raise ServiceError(f"El valor de «{name}» solo lo puede escribir el usuario en la app", "invalid")
+            if name not in known:
+                raise ServiceError(f"La plantilla '{template}' no tiene el campo '{name}'. Campos: "
+                                   + ", ".join(sorted(known - set(secret_names))), "invalid")
+            if value in (None, ""):
+                entry["fields"].pop(name, None)
+            else:
+                entry["fields"][name] = str(value)
+        for key in ("name", "description"):
+            if params.get(key) is not None:
+                entry[key] = str(params[key]).strip()
+        policy = entry.setdefault("policy", {})
+        if params.get("allowed_hosts") is not None:
+            policy.setdefault("http", {"auth": {"kind": "none"}})["allowed_hosts"] = \
+                [str(h).strip().lower() for h in params["allowed_hosts"] if str(h).strip()]
+        if params.get("commands") is not None:
+            policy.setdefault("commands", {"allowed": [], "env": {}})["allowed"] = [str(c).strip() for c in params["commands"]]
+        if params.get("env_vars") is not None:
+            policy.setdefault("commands", {"allowed": [], "env": {}})["env"] = {str(k): str(v) for k, v in params["env_vars"].items()}
+        return entry
+
+    def op_create_draft(self, params):
+        """A credential prepared by the AI with everything but its secret, which the user pastes in the app."""
+        template = params.get("template")
+        if template not in templates.TEMPLATES:
+            raise ServiceError(f"Plantilla desconocida: {template}. Usa una de: {', '.join(templates.TEMPLATES)}", "invalid")
+        name = str(params.get("name") or "").strip()
+        entry_id = params.get("id") or SLUG_RE.sub("-", name.lower()).strip("-")[:64]
+        if entry_id in {e["id"] for e in self.vault.entries()}:
+            raise ServiceError(f"Ya existe una credencial '{entry_id}': usa update_credential para cambiarla", "invalid")
+        entry = self._ai_changes({"id": entry_id, "name": name, "template": template, "fields": {}}, params)
+        placeholder_secrets = {n: "x" for n in templates.secret_field_names(template)}
+        default = templates.default_policy(template, {**entry["fields"], **placeholder_secrets})
+        overrides = entry.pop("policy")
+        policy = copy.deepcopy(default)
+        if "http" in overrides:
+            policy.setdefault("http", {"auth": {"kind": "none"}})["allowed_hosts"] = overrides["http"]["allowed_hosts"]
+        if "commands" in overrides:
+            commands = policy.setdefault("commands", {"allowed": [], "env": {}})
+            commands.update({k: v for k, v in overrides["commands"].items() if v or k not in commands})
+        policy["approval"] = "session"
+        entry.update(policy=policy, draft=True, description=entry.get("description", ""))
+        self.vault.put(entry)
+        self._audit(entry_id, "draft", "preparada por la IA", "ok")
+        return {"credential": agent_view(self.vault.get(entry_id)),
+                "next": "El usuario debe pegar la clave en la app SecretBroker; hasta entonces no se puede usar."}
+
+    def op_update_credential(self, params):
+        """Change a credential's context or configuration. Name and notes change at once; anything that
+        decides where its secret can go needs the user's OK in the app once it has a secret."""
+        try:
+            entry = self.vault.get(params.get("secret_id"))
+        except KeyError:
+            raise ServiceError(f"No existe el secreto '{params.get('secret_id')}'", "not_found") from None
+        updated = self._ai_changes(entry, params)
+        changes = _describe_changes(entry, updated)
+        if not changes:
+            return {"credential": agent_view(entry), "changed": []}
+        risky = [line for key, line in changes if key not in ("name", "description")]
+        detail = "\n".join(line for _, line in changes)
+        if risky and not entry.get("draft"):
+            try:
+                self._ask_user(entry, "edit", detail, allow_session=False)
+            except ServiceError as exc:
+                self._audit(entry["id"], "edit", detail, "denied" if exc.code == "denied" else "error", str(exc))
+                raise
+            self._forget_grants(entry["id"])
+        self.vault.put(updated, replaces=entry["id"])
+        self._audit(entry["id"], "edit", detail, "ok")
+        return {"credential": agent_view(self.vault.get(entry["id"])), "changed": [line for _, line in changes]}
+
+    def op_complete_draft(self, params):
+        """The user pastes the secret of a credential the AI prepared."""
+        self._verify_proof("complete_draft", params, ALL_PROOFS)
+        entry = self.vault.get(params["id"])
+        if not entry.get("draft"):
+            raise ServiceError("Esta credencial ya tiene su clave", "invalid")
+        secret_names = templates.secret_field_names(entry["template"])
+        for name, value in (params.get("fields") or {}).items():
+            if name in secret_names and value:
+                entry["fields"][name] = value
+        entry.pop("draft", None)
+        self.vault.put(entry, replaces=entry["id"])
+        self._audit(entry["id"], "save", "clave añadida", "ok")
+        return self._summary(self.vault.get(entry["id"]))
 
     def op_push_github_secret(self, params):
         """Store a credential as a GitHub Actions secret. The value goes from the vault to GitHub only."""
@@ -820,13 +928,17 @@ class Service:
             return
         if mode == "session" and entry["id"] in self._live_grants():
             return
+        self._ask_user(entry, action, detail, allow_session=mode == "session")
+
+    def _ask_user(self, entry, action, detail, allow_session):
+        """Show the request in the app and wait for the user's answer."""
         if time.monotonic() - self._gui_seen > GUI_SEEN_SECONDS:
             raise ServiceError("Esta acción necesita la aprobación del usuario y la app SecretBroker no está abierta.",
                                "gui_required")
         request = {
             "id": uuid.uuid4().hex, "secret_id": entry["id"], "secret_name": entry.get("name", entry["id"]),
             "template": entry["template"], "action": action, "detail": detail,
-            "allow_session": mode == "session", "created": datetime.now().isoformat(timespec="seconds"),
+            "allow_session": allow_session, "created": datetime.now().isoformat(timespec="seconds"),
             "event": threading.Event(), "answer": None,
         }
         with self._lock:
@@ -890,6 +1002,33 @@ class Service:
             tmp = self.audit_file.with_suffix(".tmp")
             tmp.write_text("".join(line + "\n" for line in sealed), encoding="utf-8")
             os.replace(tmp, self.audit_file)
+
+
+CHANGE_LABELS = {"name": "Nombre", "description": "Notas para la IA"}
+
+
+def _describe_changes(old, new):
+    """[(key, human-readable line)] of what differs between two versions of an entry (no secrets)."""
+    changes = []
+    for key in ("name", "description"):
+        if old.get(key, "") != new.get(key, ""):
+            changes.append((key, f"{CHANGE_LABELS[key]}: «{new.get(key, '')[:200]}»"))
+    labels = {s["name"]: s["label"] for s in templates.field_specs(old["template"])}
+    for name in sorted(set(old["fields"]) | set(new["fields"])):
+        if name in templates.SECRET_FIELDS or old["fields"].get(name) == new["fields"].get(name):
+            continue
+        changes.append((name, f"{labels.get(name, name)}: {old['fields'].get(name) or '—'} → {new['fields'].get(name) or '—'}"))
+    old_policy, new_policy = old.get("policy") or {}, new.get("policy") or {}
+    hosts = lambda p: (p.get("http") or {}).get("allowed_hosts") or []
+    if hosts(old_policy) != hosts(new_policy):
+        changes.append(("hosts", f"Webs permitidas: {', '.join(hosts(new_policy)) or '—'}"))
+    commands = lambda p: p.get("commands") or {}
+    if commands(old_policy).get("allowed", []) != commands(new_policy).get("allowed", []):
+        changes.append(("commands", f"Programas: {', '.join(commands(new_policy).get('allowed', [])) or '—'}"))
+    if commands(old_policy).get("env", {}) != commands(new_policy).get("env", {}):
+        env = commands(new_policy).get("env", {})
+        changes.append(("env", "Variables: " + (", ".join(f"{k}={v}" for k, v in env.items()) or "—")))
+    return changes
 
 
 def _plain_audit_event(line):

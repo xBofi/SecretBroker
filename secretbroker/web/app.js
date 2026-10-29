@@ -144,6 +144,8 @@ const ACTION_LABELS = {
   run_command: 'Programa en este PC',
   release_env: 'Entregada a una app local',
   rotate: 'Rotada con el proveedor',
+  draft: 'Preparada por la IA',
+  edit: 'Cambiar la configuración',
   push_github_secret: 'Subida a GitHub',
   unlock: 'Desbloqueo', lock: 'Bloqueo', save: 'Guardada', delete: 'Eliminada',
   reveal: 'Secreto mostrado', create: 'Bóveda creada', enroll_hello: 'Windows Hello activado',
@@ -191,6 +193,7 @@ function onShortcut(event) {
 async function tick() {
   await refreshStatus();
   if (state.status && state.status.state === 'unlocked') {
+    await pollDrafts();
     await pollApprovals();
     await pollScan();
   }
@@ -619,7 +622,7 @@ function renderCredentials(content) {
       class: `row ${state.selected === entry.id ? 'selected' : ''}`,
       onclick: () => { state.selected = entry.id; renderList(); renderDetail(detail); },
     }, glyph(entry.template), el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name), el('div', { class: 'subtitle' }, subtitleOf(entry))),
-    levelDot(entry.id))));
+    entry.draft ? el('span', { class: 'draft-badge' }, 'Falta la clave') : levelDot(entry.id))));
     if (!items.length) list.append(el('p', { class: 'muted', style: 'padding:12px 10px' }, 'Ninguna coincide.'));
   };
 
@@ -696,6 +699,7 @@ function renderDetail(panel) {
       el('div', { class: 'meta' }, el('h2', {}, entry.name), el('div', { class: 'muted small' }, template.label)),
       el('button', { class: 'btn', onclick: () => openEditor(entry) }, 'Editar'),
       el('button', { class: 'btn icon-only', title: 'Eliminar', onclick: () => deleteEntry(entry) }, icon('trash', 'sm'))),
+    entry.draft ? draftSection(entry, () => renderMain()) : null,
     el('div', { class: 'section' }, props),
     entry.description ? el('div', { class: 'section' }, el('h3', {}, 'Notas para la IA'), el('p', { class: 'notes selectable muted' }, entry.description)) : null,
     providerSection(entry),
@@ -1460,6 +1464,77 @@ function changeMasterPassword(recovering) {
   setTimeout(() => pw.input.focus(), 50);
 }
 
+// ======================================================================= drafts (prepared by the AI)
+
+// The secret fields still missing in a draft: the only thing the user has to add.
+function draftInputs(entry) {
+  return activeSpecs(entry.template, entry.fields).filter((s) => s.secret && s.required).map((spec) => {
+    const group = spec.kind === 'multiline'
+      ? { input: el('textarea', { class: 'input mono', rows: 5, spellcheck: 'false' }) }
+      : passwordInput({ placeholder: 'Pega aquí la clave' });
+    return { spec, input: group.input, node: el('div', { class: 'field' }, el('label', {}, spec.label), group.input.tagName === 'TEXTAREA' ? group.input : group) };
+  });
+}
+
+async function saveDraftSecret(entry, inputs, button, errorText) {
+  const fields = Object.fromEntries(inputs.map(({ spec, input }) => [spec.name, input.value.trim()]));
+  if (Object.values(fields).some((v) => !v)) { errorText.textContent = 'Pega la clave.'; return false; }
+  busy(button, true);
+  const result = await withProof((p) => api().call('complete_draft', { id: entry.id, fields }, p), `Para guardar la clave de ${entry.name}.`);
+  busy(button, false);
+  if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return false; }
+  await loadEntries();
+  toast('Clave guardada');
+  return true;
+}
+
+function draftSection(entry, onSaved) {
+  const inputs = draftInputs(entry);
+  const errorText = el('div', { class: 'error-text' });
+  const save = el('button', { class: 'btn primary' }, 'Guardar clave');
+  save.addEventListener('click', async () => { if (await saveDraftSecret(entry, inputs, save, errorText)) onSaved(); });
+  return el('div', { class: 'section draft-box' },
+    el('h3', {}, 'Falta la clave'),
+    el('p', { class: 'help' }, 'La IA ha preparado esta credencial. Pega la clave y ya se podrá usar.'),
+    inputs.map((i) => i.node), errorText, el('div', { style: 'margin-top:8px' }, save));
+}
+
+async function pollDrafts() {
+  const count = state.status.drafts || 0;
+  const known = state.knownDrafts;
+  state.knownDrafts = count;
+  if (known === undefined || count <= known) return;
+  await loadEntries();
+  if (state.screen === 'main') renderMain();
+  const drafts = state.entries.filter((e) => e.draft);
+  const newest = drafts.sort((a, b) => String(b.updated).localeCompare(String(a.updated)))[0];
+  if (newest && !state.approvalOpen && !document.getElementById('modal-root').lastElementChild) showDraft(newest);
+}
+
+function showDraft(entry) {
+  const inputs = draftInputs(entry);
+  const errorText = el('div', { class: 'error-text' });
+  const save = el('button', { class: 'btn primary' }, 'Guardar clave');
+  const provider = entry.provider;
+  const modal = openModal({
+    title: 'La IA ha preparado una credencial',
+    body: el('div', { class: 'request' },
+      el('div', { class: 'request-who' }, glyph(entry.template),
+        el('div', {}, el('div', { style: 'font-weight:600' }, entry.name), el('div', { class: 'muted small' }, TEMPLATES[entry.template].label))),
+      entry.description ? el('p', { class: 'notes muted' }, entry.description) : null,
+      el('div', { class: 'section' }, el('h3', {}, 'La IA podrá'), describePermissions(entry)),
+      inputs.map((i) => i.node),
+      provider && provider.links.length ? el('div', { class: 'section' }, el('h3', {}, `¿Dónde consigo la clave? · ${provider.provider}`), linkList(provider.links)) : null,
+      errorText),
+    footer: [el('button', { class: 'btn', onclick: () => modal.close() }, 'Más tarde'), save],
+  });
+  save.addEventListener('click', async () => {
+    if (await saveDraftSecret(entry, inputs, save, errorText)) { modal.close(); state.selected = entry.id; renderMain(); }
+  });
+  api().focus();
+  setTimeout(() => inputs[0] && inputs[0].input.focus(), 50);
+}
+
 // ======================================================================= approvals
 
 async function pollApprovals() {
@@ -1496,7 +1571,7 @@ function showApproval(request) {
     if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
     modal.close();
   };
-  const onceButton = el('button', { class: request.allow_session ? 'btn' : 'btn primary' }, 'Solo esta vez');
+  const onceButton = el('button', { class: request.allow_session ? 'btn' : 'btn primary' }, request.action === 'edit' ? 'Aplicar el cambio' : 'Solo esta vez');
   onceButton.addEventListener('click', () => decide('once', onceButton));
   const sessionButton = request.allow_session ? el('button', { class: 'btn primary', title: `La IA podrá usar ${request.secret_name} sin volver a preguntarte` }, approvalLabel()) : null;
   if (sessionButton) sessionButton.addEventListener('click', () => decide('session', sessionButton));

@@ -93,6 +93,58 @@ def run_command(secret_id: str, argv: list[str], cwd: str | None = None, timeout
 
 
 @mcp.tool()
+def create_credential(
+    template: str,
+    name: str,
+    description: str,
+    fields: dict[str, str] | None = None,
+    id: str | None = None,
+    allowed_hosts: list[str] | None = None,
+    env_vars: dict[str, str] | None = None,
+    commands: list[str] | None = None,
+) -> dict:
+    """Prepare a new credential with everything except its secret; the user then only pastes the
+    key in the SecretBroker app (it can't be used until then). Never ask for the secret in the chat.
+
+    template and its non-secret fields:
+      api_key   base_url (API URL; its host becomes the only allowed host), auth_style
+                (bearer | x_api_key | query | none), env_var (e.g. OPENAI_API_KEY)
+      web_login url, username
+      ssh       host, port, username, auth_method (password | key)
+      database  engine (postgresql | mysql | sqlserver | mongodb | redis | other), host, port, database, username
+      aws       access_key_id, region
+      generic   username, url
+    description: what it is, which project uses it and how to use it (you'll read it later).
+    Permissions are derived from the fields; override them with allowed_hosts, env_vars
+    ({"OPENAI_API_KEY": "{{value}}"}, used by `sb run` and run_command) and commands (CLIs allowed in
+    run_command). The id defaults to a slug of the name."""
+    return _call("create_draft", _drop_none(
+        template=template, name=name, description=description, fields=fields, id=id,
+        allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands,
+    ))
+
+
+@mcp.tool()
+def update_credential(
+    secret_id: str,
+    name: str | None = None,
+    description: str | None = None,
+    fields: dict[str, str] | None = None,
+    allowed_hosts: list[str] | None = None,
+    env_vars: dict[str, str] | None = None,
+    commands: list[str] | None = None,
+) -> dict:
+    """Change a credential's name, notes, non-secret fields or permissions (only what you pass;
+    an empty string clears a field). Name and description change at once. Changes that affect where
+    its secret can go (fields, allowed_hosts, env_vars, commands) wait for the user's OK in the app
+    when the credential already has its secret. Secret values and the approval mode can't be changed."""
+    return _call("update_credential", _drop_none(
+        secret_id=secret_id, name=name, description=description, fields=fields,
+        allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands,
+    ))
+
+
+@mcp.tool()
 def push_github_secret(
     secret_id: str,
     github_secret_id: str,

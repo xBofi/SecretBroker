@@ -18,7 +18,7 @@ ICON = Path(__file__).with_name("assets") / "icon.ico"
 CLIPBOARD_CLEAR_SECONDS = 30
 AUTO_SCAN_HOURS = 12
 # Operations the service only accepts with a proof of identity.
-PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal", "rotate",
+PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal", "rotate", "complete_draft",
              "change_master_password", "set_settings", "remove_hello", "exposure_begin"}
 
 
@@ -74,7 +74,7 @@ class Api:
         set up; otherwise (or if cancelled) the UI is asked to collect a password proof."""
         params = dict(params or {})
         try:
-            if op == "approve" and proof is None and self._presence:
+            if op in ("approve", "complete_draft") and proof is None and self._presence:
                 try:
                     return {"ok": True, "result": client.request(op, {**params, "proof": {"kind": "presence", "token": self._presence}})}
                 except BrokerError as exc:

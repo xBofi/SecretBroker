@@ -62,14 +62,19 @@ def validate_entry(entry):
     if template_id not in templates.TEMPLATES:
         raise ValidationError(f"Plantilla desconocida: {template_id}")
     fields = entry.get("fields", {})
+    draft = bool(entry.get("draft"))  # prepared by the AI: everything but the secret, which the user adds
     for spec in templates.active_specs(template_id, fields):
-        if spec["required"] and not fields.get(spec["name"]):
+        if spec["required"] and not fields.get(spec["name"]) and not (draft and spec["secret"]):
             raise ValidationError(f"Falta el campo «{spec['label']}»")
         if spec["kind"] == "number" and fields.get(spec["name"]):
             value = str(fields[spec["name"]])
             if not value.isdigit() or not 0 < int(value) < 65536:
                 raise ValidationError(f"«{spec['label']}» debe ser un número de puerto válido")
 
+    if draft:
+        entry = {**entry, "fields": {**fields, **{n: "x" for n in templates.secret_field_names(template_id)
+                                                   if not fields.get(n)}}}
+        fields = entry["fields"]
     available = templates.placeholder_values(entry)
     policy = entry.get("policy", {})
     if policy.get("approval", "session") not in APPROVAL_MODES:
@@ -113,6 +118,7 @@ def entry_summary(entry):
         "policy": entry.get("policy", {}),
         "updated": entry.get("updated"),
         "secret_since": entry.get("secret_since"),
+        "draft": bool(entry.get("draft")),
     }
 
 
@@ -131,6 +137,10 @@ def agent_view(entry):
         "actions": templates.available_actions(entry),
         "approval": policy.get("approval", "session"),
     }
+    if entry.get("draft"):
+        view["draft"] = True
+        view["missing"] = [s["name"] for s in templates.active_specs(entry["template"], entry["fields"])
+                           if s["secret"] and s["required"] and not entry["fields"].get(s["name"])]
     http = policy.get("http") or {}
     if http.get("allowed_hosts"):
         view["http"] = {"allowed_hosts": http["allowed_hosts"], "auto_auth": (http.get("auth") or {}).get("kind", "none")}

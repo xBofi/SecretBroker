@@ -61,6 +61,8 @@ El resultado es `dist\SecretBroker-Setup-<versión>.exe`, de unos 26 MB, con Pyt
 | `http_request` | Petición HTTPS a un dominio permitido; admite autenticación automática o marcadores `{{value}}`, `{{username}}` y `{{password}}` |
 | `ssh_exec` · `ssh_upload` · `ssh_download` | Comandos (también con sudo) y transferencia de archivos por SFTP |
 | `run_command` | Ejecuta un programa permitido (`gh`, `psql`, `aws`…) con la credencial en variables de entorno |
+| `create_credential` | Prepara una credencial nueva con todo (plantilla, notas, URL, permisos, variables) menos la clave. El usuario solo la pega en la app; hasta entonces no se puede usar |
+| `update_credential` | Cambia nombre, notas, campos o permisos. El nombre y las notas cambian al momento; lo que decide adónde puede ir una clave ya guardada espera la aprobación del usuario. Nunca toca valores secretos ni el modo de aprobación |
 | `push_github_secret` | Guarda una credencial como secret de GitHub Actions (del repositorio o de un entorno), cifrada con la clave del repositorio y sin que la IA vea el valor |
 
 ### Tus apps en local: `sb run`

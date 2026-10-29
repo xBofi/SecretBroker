@@ -279,6 +279,45 @@ def main():
           "one approval covers every use of that credential")
     client.request("pending_approvals")
 
+    print("Agent: credentials prepared and edited by the AI")
+    draft = client.request("create_draft", {
+        "template": "api_key", "name": "Mailer API", "description": "Envío de correos del proyecto X",
+        "fields": {"base_url": base + "/mail", "env_var": "MAILER_KEY"}})
+    view = draft["credential"]
+    check(view["id"] == "mailer-api" and view["draft"] and view["missing"] == ["value"], "the AI prepares a credential without its key")
+    check(view["http"]["allowed_hosts"] == ["127.0.0.1"] and view["approval"] == "session", "permissions derived from its fields")
+    listed = {e["id"]: e for e in client.request("entries")}
+    check(listed["mailer-api"]["draft"] and client.request("status")["drafts"] == 1, "the app sees it as waiting for its key")
+    expect_error(lambda: client.request("http_request", {"secret_id": "mailer-api", "url": base + "/mail"}), "draft",
+                 "a credential without its key can't be used")
+    expect_error(lambda: client.request("create_draft", {"template": "api_key", "name": "X", "fields": {"value": "sk-123"}}),
+                 "invalid", "the AI can't write secret values")
+    expect_error(lambda: client.request("create_draft", {"template": "api_key", "name": "Mailer API"}), "invalid",
+                 "it can't overwrite an existing credential")
+    result = client.request("update_credential", {"secret_id": "mailer-api", "allowed_hosts": ["127.0.0.1", "api.mailer.test"]})
+    check(result["credential"]["http"]["allowed_hosts"] == ["127.0.0.1", "api.mailer.test"], "drafts are edited without asking")
+    expect_error(lambda: call("complete_draft", {"id": "mailer-api", "fields": {"value": "mk-1"}}), "proof_required",
+                 "adding the key needs the app")
+    summary = call("complete_draft", {"id": "mailer-api", "fields": {"value": "mk-SECRET-123456"}}, {"kind": "presence", "token": presence})
+    check(not summary["draft"] and summary["secrets_set"] == ["value"], "the user pastes the key with one click")
+    check(call("reveal", {"id": "mailer-api", "field": "value"}, "hello") == "mk-SECRET-123456", "the key is stored")
+
+    result = client.request("update_credential", {"secret_id": "echo-api", "description": "API de prueba, revisada por la IA"})
+    check(result["changed"] and next(e for e in client.request("entries") if e["id"] == "echo-api")["description"].endswith("por la IA"),
+          "notes change at once")
+    decisions.clear()
+    gui = threading.Thread(target=fake_gui, args=("deny",))
+    gui.start()
+    expect_error(lambda: client.request("update_credential", {"secret_id": "echo-api", "allowed_hosts": ["evil.example.com"]}),
+                 "denied", "widening where a stored key may go needs the user's OK")
+    gui.join()
+    check(decisions and decisions[-1][0] == "edit" and "evil.example.com" in decisions[-1][1], "the request shows the change")
+    check(next(e for e in client.request("entries") if e["id"] == "echo-api")["policy"]["http"]["allowed_hosts"] == ["127.0.0.1"],
+          "a denied change is not applied")
+    expect_error(lambda: client.request("update_credential", {"secret_id": "echo-api", "fields": {"value": "x"}}), "invalid",
+                 "secret values can't be edited by the AI")
+    client.request("pending_approvals")
+
     print("Agent: commands")
     script = "import os;print(os.environ['DATABASE_URL']);print(os.environ['PGPASSWORD'])"
     result = client.request("run_command", {"secret_id": "shop-db", "argv": ["python", "-c", script]})
@@ -481,7 +520,7 @@ async def check_stdio():
         async with ClientSession(read, write) as session:
             await session.initialize()
             tools = sorted(t.name for t in (await session.list_tools()).tools)
-            check(tools == ["http_request", "list_secrets", "push_github_secret", "run_command", "ssh_download", "ssh_exec", "ssh_upload"], f"MCP tools: {tools}")
+            check(tools == ["create_credential", "http_request", "list_secrets", "push_github_secret", "run_command", "ssh_download", "ssh_exec", "ssh_upload", "update_credential"], f"MCP tools: {tools}")
             result = await session.call_tool("list_secrets", {})
             text = " ".join(getattr(c, "text", "") for c in result.content)
             check("echo-api" in text and API_KEY not in text, "MCP list_secrets works through the service")
