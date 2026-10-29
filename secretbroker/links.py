@@ -167,3 +167,12 @@ def for_entry(entry):
     if not provider or provider[0] not in LINKS:
         return None
     return {"provider": provider[0], "kind": None, "links": LINKS[provider[0]]}
+
+
+def catalog():
+    """Every provider with its links, for the "where do I get the key?" list of the new-key form."""
+    providers = [{"provider": name, "links": items} for name, items in LINKS.items()]
+    providers.append({"provider": "Cloudflare", "links": _cloudflare_links(None, None, None)})
+    providers.append({"provider": "Cloudflare AI Gateway", "links": _cloudflare_links("ai_gateway", None, None),
+                      "help": CF_KINDS["ai_gateway"][1]})
+    return sorted(providers, key=lambda p: p["provider"].lower())

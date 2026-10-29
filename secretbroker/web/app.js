@@ -727,10 +727,29 @@ function providerSection(entry) {
     provider.kind ? el('div', { class: 'provider-kind' },
       el('div', { style: 'font-weight:600' }, provider.kind.label),
       el('p', { class: 'help' }, provider.kind.help)) : null,
-    el('div', { class: 'link-list' }, provider.links.map((link) => el('button', {
-      class: 'link-row', title: link.url, onclick: () => api().open_link(link.url),
-    }, el('div', { style: 'min-width:0' }, el('div', { class: 'link-label' }, link.label),
-      link.hint ? el('div', { class: 'help' }, link.hint) : null), icon('external', 'sm')))));
+    linkList(provider.links));
+}
+
+function linkList(links) {
+  return el('div', { class: 'link-list' }, links.map((link) => el('button', {
+    class: 'link-row', type: 'button', title: link.url, onclick: () => api().open_link(link.url),
+  }, el('div', { style: 'min-width:0' }, el('div', { class: 'link-label' }, link.label),
+    link.hint ? el('div', { class: 'help' }, link.hint) : null), icon('external', 'sm'))));
+}
+
+// "Where do I get the key?": the provider's key pages, from the new-key form.
+function keySourcePicker() {
+  const providers = state.info.providers || [];
+  const select = el('select', { class: 'input' }, el('option', { value: '' }, 'Elige el proveedor…'),
+    providers.map((p, i) => el('option', { value: String(i) }, p.provider)));
+  const details = el('div', {});
+  select.addEventListener('change', () => {
+    const provider = providers[Number(select.value)];
+    details.replaceChildren(provider ? el('div', { style: 'margin-top:6px' },
+      provider.help ? el('p', { class: 'help' }, provider.help) : null, linkList(provider.links)) : '');
+  });
+  return el('div', { class: 'field' }, el('label', {}, '¿Dónde consigo la clave?', el('span', { class: 'req' }, ' · opcional')),
+    select, details);
 }
 
 // ----------------------------------------------------------------------- rotation
@@ -1024,6 +1043,7 @@ function showForm(templateId, entry) {
     lead: glyph(templateId),
     body: [
       el('div', { class: 'field' }, el('label', {}, 'Nombre'), nameInput),
+      isNew && ['api_key', 'generic'].includes(templateId) ? keySourcePicker() : null,
       fieldsBox,
       el('div', { class: 'field' }, el('label', {}, 'Notas para la IA', el('span', { class: 'req' }, ' · opcional')), notes,
         el('div', { class: 'help' }, 'La IA lee estas notas, nunca las contraseñas. Explica qué es y cómo debe usarla.')),

@@ -10,7 +10,7 @@ import time
 import webbrowser
 from pathlib import Path
 
-from . import __version__, client, hello, integrations, paths, scanner, templates
+from . import __version__, client, hello, integrations, links, paths, scanner, templates
 from .client import BrokerError, BrokerUnavailable
 
 WEB_DIR = Path(__file__).with_name("web")
@@ -36,7 +36,7 @@ class Api:
 
     def info(self):
         return {"version": __version__, "installed": paths.is_installed(),
-                "hello_supported": hello.is_supported(), "templates": templates.export(),
+                "hello_supported": hello.is_supported(), "templates": templates.export(), "providers": links.catalog(),
                 "prefs": integrations.load_prefs(), "integrations": integrations.status()}
 
     def set_pref(self, key, value):

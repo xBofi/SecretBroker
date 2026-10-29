@@ -24,7 +24,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa  # noqa: E402
 
 from nacl.public import PrivateKey, SealedBox  # noqa: E402
 
-from secretbroker import actions, cli, client, crypto, exposure, rotation  # noqa: E402
+from secretbroker import actions, cli, client, crypto, exposure, links, rotation  # noqa: E402
 from secretbroker.client import BrokerError, BrokerUnavailable  # noqa: E402
 from secretbroker.service import Service  # noqa: E402
 
@@ -362,6 +362,10 @@ def main():
     check(listed["echo-api"]["provider"] is None and listed["shop-db"]["provider"] is None, "no links for unknown providers")
     check(all(link["url"].startswith("https://") for e in listed.values() if e["provider"] for link in e["provider"]["links"]),
           "every link is HTTPS")
+    catalog = {p["provider"]: p for p in links.catalog()}
+    check(catalog["Cloudflare AI Gateway"]["links"][0]["label"] == "AI Gateway" and "OpenAI" in catalog
+          and all(link["url"].startswith("https://") for p in catalog.values() for link in p["links"]),
+          "the new-key form lists every provider, AI Gateway first for gateways")
     github.shutdown()
 
     print("Service authenticity")
