@@ -27,6 +27,7 @@ class Api:
 
     def __init__(self):
         self._window = None
+        self._hwnd = None
         # Handed out by the service on unlock: lets this app scan files and see where secrets were found.
         # Kept here, never given to the page.
         self._scan_session = None
@@ -237,13 +238,22 @@ class Api:
         return True
 
     def _bring_to_front(self):
-        if self._window:
-            try:
-                self._window.restore()
-                self._window.on_top = True
-                self._window.on_top = False
-            except Exception:
-                pass
+        """Restore the window, raise it and flash it in the taskbar.
+
+        Only asynchronous Win32 calls: pywebview's restore()/on_top wait for the UI thread, which
+        can be waiting for this very call to return (a JS API call), and the window froze."""
+        if not self._hwnd or sys.platform != "win32":
+            return
+        user32 = ctypes.windll.user32
+        hwnd = ctypes.c_void_p(self._hwnd)
+        flags = 0x0001 | 0x0002 | 0x0010 | 0x4000  # NOSIZE | NOMOVE | NOACTIVATE | ASYNCWINDOWPOS
+        try:
+            user32.ShowWindowAsync(hwnd, 9)  # SW_RESTORE
+            user32.SetWindowPos(hwnd, ctypes.c_void_p(-1), 0, 0, 0, 0, flags)  # HWND_TOPMOST
+            user32.SetWindowPos(hwnd, ctypes.c_void_p(-2), 0, 0, 0, 0, flags)  # HWND_NOTOPMOST
+            user32.FlashWindow(hwnd, True)
+        except OSError:
+            pass
 
     def focus(self):
         self._bring_to_front()
@@ -330,14 +340,15 @@ def main():
         width=1120, height=740, min_size=(880, 600), background_color="#0f1115",
     )
     api._window = window
-    window.events.shown += lambda: _set_window_icon(window)
+    window.events.shown += lambda: _on_shown(window, api)
     # WebView2 would otherwise try to write next to python.exe (read-only under Program Files).
     storage = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SecretBroker" / "webview"
     webview.start(private_mode=True, storage_path=str(storage))
 
 
-def _set_window_icon(window):
-    """pywebview has no icon option on Windows; set it on the underlying WinForms form."""
+def _on_shown(window, api):
+    """pywebview has no icon option on Windows: set it on the underlying WinForms form. Also keep
+    the window handle, to raise the window later without going through the UI thread."""
     try:
         from System import Action
         from System.Drawing import Icon
@@ -345,6 +356,7 @@ def _set_window_icon(window):
 
         def apply():
             form.Icon = Icon(str(ICON))
+            api._hwnd = int(form.Handle.ToInt64())
 
         form.Invoke(Action(apply))
     except Exception:
