@@ -160,7 +160,35 @@ notes, tags and secret values (a teammate rotated the key) apply immediately. Th
 | `GET /orgs/{oid}/events?before=` | → `[{time, actor, action, target}]` (admin) |
 
 Errors: `{"error": "<message>", "code": "<code>"}` with proper HTTP status (400 invalid, 401 auth, 403 forbidden,
-404 not found, 409 conflict, 429 rate limited).
+404 not found, 409 conflict, 413 too large, 429 rate limited).
+
+Implementation notes (`server/`, binding for clients):
+
+* **Formats.** Every id (user, org, invite, collection, item, device) is a UUID; a malformed id in a URL is `404`.
+  Opaque blobs are the dicts produced by `secretbroker/crypto.py`: `private_blob`, `encrypted_name` and item
+  `ciphertext` are `{nonce, ciphertext}` (`seal`), `grant.sealed` is `{epk, nonce, ciphertext}` (`seal_to`); all
+  values base64. `kdf` must be scrypt with `n` a power of two in 2^14..2^20. `auth_hash`, `public_key`,
+  `signing_public_key` are 32 bytes, `signature` 64 bytes, base64. Unknown body fields are `400`. Item ciphertext ≤ 256 KiB.
+* **Grants** must have `granted_by` = the caller. A grant (adding or replacing a member) while `needs_rekey` is `409`
+  with code `needs_rekey`. Member removal from a collection, by a manager or by the member leaving, sets `needs_rekey`;
+  the last `manage` member cannot leave or be downgraded (`400 last_manager`); the last owner likewise (`400 last_owner`).
+* **Revisions.** New items use `base_revision: 0`. Conflicts are `409 {error, code: "conflict", revision}`; a write
+  with a stale `key_version` is `409 {code: "key_version", key_version}`. `rotate` must send `key_version` = current + 1
+  (else `409 key_version`), grants for exactly the current members and ciphertext for exactly the live items (else
+  `400 incomplete`); all rotated items get the one new revision.
+* **Extra response fields** (additive): `GET /orgs` items carry `status`; invited rows of `GET /orgs/{oid}/members`
+  carry `invite_id` (and `user_id` null if not registered yet); `GET /invites` adds `invited_by_email`,
+  `invited_by_name`; `user` objects add `admin` (server admin); events add `id` (newest first, 100 per page,
+  `before=<id>`); the 429 answer has `retry_after` and a `Retry-After` header.
+* **Extra endpoints.** `DELETE /invites/{id}` → `{}` (the invitee declines, or an org admin withdraws it).
+  `POST /admin/invites` `{days?}` → `{token, expires}` (server admin: a single-use signup token).
+* **Signups.** `open`: anyone; the first account becomes server admin. `invite`: `invite_token` must be a signup
+  token (`POST /admin/invites` or `secretbroker-server create-invite`) or the id of a pending org invite for that
+  same e-mail. `closed`: nobody. E-mails in `SB_ADMIN_EMAILS` can always register and are server admins.
+* **Limits.** Login failures are throttled per e-mail (5 free) and per client address (20 free), then each failure
+  doubles the wait (max 15 min) and attempts during the wait get `429`, even with the right password. Registrations
+  are throttled per address. More settings: `SB_ALLOW_HTTP`, `SB_TRUST_PROXY` (use `X-Forwarded-For`, only behind the
+  bundled Caddy), `SB_MAX_BODY`, `SB_SERVER_NAME`.
 
 ## 5. Desktop service operations for teams
 

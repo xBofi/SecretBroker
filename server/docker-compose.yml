@@ -1,0 +1,39 @@
+# SecretBroker Server behind Caddy, which gets and renews the TLS certificate automatically.
+# Usage: put SB_DOMAIN (and optionally the other SB_* values) in a .env file next to this one, then
+#   docker compose up -d
+services:
+  server:
+    build: .
+    restart: unless-stopped
+    environment:
+      SB_PUBLIC_URL: "https://${SB_DOMAIN:?Set SB_DOMAIN in .env}"
+      SB_SIGNUPS: "${SB_SIGNUPS:-invite}"
+      SB_ADMIN_EMAILS: "${SB_ADMIN_EMAILS:-}"
+      SB_SESSION_DAYS: "${SB_SESSION_DAYS:-30}"
+      SB_SERVER_NAME: "${SB_SERVER_NAME:-SecretBroker}"
+      SB_TRUST_PROXY: "1"  # only Caddy can reach the server, so its X-Forwarded-For is trustworthy
+    volumes:
+      - sb-data:/data
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SB_DOMAIN: "${SB_DOMAIN}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  sb-data:
+  caddy-data:
+  caddy-config:
