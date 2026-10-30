@@ -455,7 +455,7 @@ def main():
     app_dir.mkdir()
     env_file = app_dir / ".env"
     env_file.write_text("# keys\nexport OPENAI_API_KEY=\"sk-proj-IMPORTED-1234567890\"\nPORT=3000\n"
-                        "STRIPE_SECRET_KEY=sk_test_IMPORTED_abcdef\nPAYMENTS_SECRET='whsec-IMPORTED-zzz'\n")
+                        "STRIPE_SECRET_KEY=sk_test_IMPORTED_abcdef\nPAYMENTS_SECRET='whsec-IMPORTED-zzz'\nPAYMENTS_ID=pay_app_42\n")
     gui = threading.Thread(target=fake_gui, args=("once",))
     gui.start()
     completed = subprocess.run([sys.executable, "-m", "secretbroker.cli", "import", "--delete"], cwd=app_dir,
@@ -470,7 +470,10 @@ def main():
           "known keys get their provider's settings")
     check(call("reveal", {"id": "shop-app-payments-secret", "field": "value"}, "hello") == "whsec-IMPORTED-zzz",
           "values are stored as they were (quotes removed)")
-    check(env_file.read_text().strip().splitlines() == ["# keys", "PORT=3000"], "--delete leaves only what isn't a key")
+    check(env_file.read_text().strip().splitlines() == ["# keys", "PORT=3000", "PAYMENTS_ID=pay_app_42"], "--delete leaves only what isn't a key")
+    payments = next(e for e in client.request("entries") if e["id"] == "shop-app-payments-secret")
+    check(payments["fields"].get("username") == "pay_app_42" and "con PAYMENTS_ID" in decisions[-1][1]
+          and "con su ID, PAYMENTS_ID" in out, "a secret's id from the same .env is stored with it")
     config = (app_dir / ".secretbroker").read_text()
     check("OPENAI_API_KEY = shop-app-openai-api-key" in config and "STRIPE_SECRET_KEY = shop-app-stripe-secret-key" in config,
           ".secretbroker is written for sb run")
@@ -693,6 +696,41 @@ def main():
     check(listed["unknown-api"]["guide"]["source"] == "generic" and "api.unknown.example" in first("unknown-api"),
           "an unknown provider gets at least a web search")
     check("BEGIN PRIVATE" not in json.dumps(listed) and "GOCSPX" not in json.dumps(listed), "no secret leaks into the links")
+
+    print("Secrets that go with an id")
+    old_client = "619577974052-r6av55onin7fvn11.apps.googleusercontent.com"
+    new_client = "619577974052-newclient42.apps.googleusercontent.com"
+    call("save_entry", {"entry": {"id": "g-client-id", "name": "GOOGLE_CLIENT_ID", "template": "generic", "description": "",
+                                  "fields": {"value": old_client}, "policy": {"approval": "never"}}}, "hello")
+    g = listed["g-oauth"]["guide"]
+    check(g["paired"] == {"label": "ID de cliente", "value": old_client, "hint": "123456789-abc.apps.googleusercontent.com"}
+          and "No borres el cliente" in g["warning"] and "API key" in g["warning"], "the Google guide warns not to delete the client")
+    check("No borres la app" in listed["ms-oauth"]["guide"]["warning"], "and the Microsoft one, the app")
+    check(listed["own"]["guide"]["paired"] is None and listed["eu-stt"]["guide"]["paired"] is None, "keys without an id don't ask")
+    check(listed["eu-stt"]["guide"]["testable"] and not g["testable"], "the wizard only promises a test when the key can be tested")
+    expect_error(lambda: call("replace_key", {"id": "g-oauth", "value": "GOCSPX-new-654321"}, "hello"), "id_unconfirmed",
+                 "rotating it without saying whether the client id changed is refused")
+    expect_error(lambda: call("replace_key", {"id": "g-oauth", "value": "GOCSPX-new-654321", "paired_id": "not an id"}, "hello"),
+                 "invalid", "a new client id must look like one")
+    check(call("reveal", {"id": "g-oauth", "field": "value"}, "hello") == "GOCSPX-secret-123456", "and nothing changed")
+    result = call("replace_key", {"id": "g-oauth", "value": "GOCSPX-new-654321", "paired_id": new_client}, "hello")
+    check(result["id_changed"] and result["entry"]["fields"]["username"] == new_client
+          and call("reveal", {"id": "g-oauth", "field": "value"}, "hello") == "GOCSPX-new-654321", "a new client: secret and id change together")
+    check([o["id"] for o in result["also_updated"]] == ["g-client-id"]
+          and call("reveal", {"id": "g-client-id", "field": "value"}, "hello") == new_client, "the id stored on its own is updated too")
+    check(service.vault.retired()["entries"]["g-oauth"]["old_id"] == old_client
+          and any(new_client in e["detail"] for e in client.request("audit", {"limit": 10})), "the old id is kept to delete that client, and audited")
+    result = call("replace_key", {"id": "ms-oauth", "value": "ms~secret~NEW0987654", "paired_id": "f86bf497-4993-46b9-bccd-628b3721b715"}, "hello")
+    check(not result["id_changed"] and result["entry"]["fields"]["username"] == "f86bf497-4993-46b9-bccd-628b3721b715",
+          "same app: only the secret changes")
+    check(not call("replace_key", {"id": "own", "value": "my-new-session-secret-456"}, "hello")["id_changed"], "a secret without an id rotates as before")
+    check(client.request("ai_check", {"secret_id": "unknown-api"})["question"].startswith("¿Este secreto va emparejado")
+          and client.request("ai_check", {"secret_id": "g-oauth"})["paired_id"]["value"] == new_client,
+          "the AI is told the id, or asked to find out")
+    drafted = client.request("create_draft", {"template": "generic", "name": "Webhook X", "description": ""})
+    check(drafted["paired_id"] is None and "fields.username" in drafted["question"], "a new secret of unknown origin asks the AI about its id")
+    call("delete_entry", {"id": "g-client-id"}, "hello")
+    call("delete_entry", {"id": "webhook-x"}, "hello")
     for item in consoles:
         call("delete_entry", {"id": item["id"]}, "hello")
 

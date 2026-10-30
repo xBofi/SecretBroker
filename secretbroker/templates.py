@@ -66,6 +66,8 @@ TEMPLATES = {
         "summary": "Clave de API de un servicio (OpenAI, Stripe, GitHub…)",
         "fields": [
             _field("value", "API key o token", "secret", required=True, secret=True),
+            _field("username", "ID asociado (opcional)", hint="client id, app id, account id…",
+                   help="Si la clave va emparejada con un identificador. Al rotarla se pregunta si ha cambiado."),
             _field("base_url", "URL de la API", hint="https://api.ejemplo.com",
                    help="La IA solo podrá enviar la clave a este dominio."),
             _field("auth_style", "Cómo se envía la clave", "select", default="bearer", substitutable=False,

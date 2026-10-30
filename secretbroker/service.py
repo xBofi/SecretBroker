@@ -652,6 +652,19 @@ class Service:
             raise ServiceError("Es la misma clave que ya está guardada: crea una nueva en el proveedor", "invalid")
         candidate = copy.deepcopy(entry)
         candidate["fields"]["value"] = value
+        # A secret paired with an id (OAuth client, app…): the user says whether it was made in the same
+        # client (same id) or in a new one (new id). Never guessed: a new secret with a stale id fails.
+        paired = rotation.paired_id(entry)
+        new_id = params.get("paired_id")
+        if paired and new_id is None:
+            raise ServiceError(f"Indica si el {paired['label']} sigue siendo el mismo o ha cambiado", "id_unconfirmed")
+        old_id = (entry["fields"].get("username") or "").strip()
+        if new_id is not None and str(new_id).strip() != old_id:
+            try:
+                candidate["fields"]["username"] = rotation.clean_paired_id(entry, new_id)
+            except ValueError as exc:
+                raise ServiceError(str(exc), "invalid") from None
+        id_changed = candidate["fields"].get("username", "") != entry["fields"].get("username", "")
         alive = exposure.check_alive(candidate)
         if alive and alive["status"] == "invalid":
             message = Redactor(candidate)(str(alive.get("message") or ""))
@@ -661,13 +674,36 @@ class Service:
         with self._lock:
             self._forget_grants(entry["id"])
         provider = (rotation.info(entry) or {}).get("provider")
-        retired = {"fields": {"value": entry["fields"].get("value")}, "since": exposure.now_iso(), "provider": provider,
-                   "checkable": exposure.provider_for(entry) is not None, "status": "pending"}
+        label = paired["label"] if paired else "ID asociado"
+        retired = {"fields": {"value": entry["fields"].get("value"), **({"username": old_id} if id_changed else {})},
+                   "since": exposure.now_iso(), "provider": provider,
+                   "checkable": exposure.provider_for(entry) is not None, "status": "pending",
+                   **({"old_id": old_id, "id_label": label} if id_changed else {})}
         self._update_retired(lambda data: data["entries"].__setitem__(entry["id"], retired))
-        self._audit(entry["id"], "rotate", "a mano" + (f" ({provider})" if provider else ""), "ok")
-        stored = self.vault.get(entry["id"])
-        uploads = [self._push_again(stored, d) for d in self.vault.destinations().get("entries", {}).get(entry["id"], [])]
-        return {"entry": self._summary(stored), "check": alive, "uploads": uploads}
+        self._audit(entry["id"], "rotate", "a mano" + (f" ({provider})" if provider else "")
+                    + (f"; {label} nuevo: {candidate['fields']['username']}" if id_changed else ""), "ok")
+        also = self._replace_id_elsewhere(entry["id"], old_id, candidate["fields"]["username"]) if id_changed and old_id else []
+        uploads = []
+        for secret_id in [entry["id"], *also]:
+            stored = self.vault.get(secret_id)
+            uploads += [self._push_again(stored, d) for d in self.vault.destinations().get("entries", {}).get(secret_id, [])]
+        return {"entry": self._summary(self.vault.get(entry["id"])), "check": alive, "uploads": uploads,
+                "id_changed": id_changed, "also_updated": [{"id": o, "name": self.vault.get(o)["name"]} for o in also]}
+
+    def _replace_id_elsewhere(self, source_id, old_id, new_id):
+        """Credentials that store the same id on its own (a GOOGLE_CLIENT_ID imported from a .env)
+        get the new one too, so nothing is left with the new secret and the old id."""
+        updated = []
+        for other in self.vault.entries():
+            names = [n for n in ("value", "username") if (other["fields"].get(n) or "").strip() == old_id]
+            if other["id"] == source_id or not names:
+                continue
+            for name in names:
+                other["fields"][name] = new_id
+            self.vault.put(other, replaces=other["id"])
+            self._audit(other["id"], "edit", f"ID actualizado al rotar {source_id}", "ok")
+            updated.append(other["id"])
+        return updated
 
     def op_check_retired(self, params):
         """Does the previous key of a credential rotated by hand still work? Once it doesn't, it is forgotten."""
@@ -1139,7 +1175,7 @@ class Service:
         entry.update(policy=policy, draft=True, description=entry.get("description", ""))
         self.vault.put(entry)
         self._audit(entry_id, "draft", "preparada por la IA", "ok")
-        return {"credential": agent_view(self.vault.get(entry_id)),
+        return {"credential": agent_view(self.vault.get(entry_id)), **_paired_question(entry),
                 "next": "El usuario debe pegar la clave en la app SecretBroker; hasta entonces no se puede usar."}
 
     def op_update_credential(self, params):
@@ -1199,13 +1235,18 @@ class Service:
             var, value, entry_id = str(item.get("var") or ""), item.get("value"), str(item.get("id") or "")
             if not ENV_NAME_RE.match(var) or not isinstance(value, str) or not value or not ID_RE.match(entry_id):
                 raise ServiceError(f"Variable no válida: {var}", "invalid")
+            paired = str(item.get("paired_id") or "").strip()
+            if paired and (len(paired) > rotation.PAIRED_ID_MAX or not rotation.PAIRED_ID_RE.match(paired)):
+                raise ServiceError(f"ID asociado no válido para {var}", "invalid")
             if entry_id in existing or entry_id in {n["id"] for n in new}:
                 skipped.append({"var": var, "id": entry_id, "reason": "ya existe"})
             else:
-                new.append({"var": var, "value": value, "id": entry_id})
+                new.append({"var": var, "value": value, "id": entry_id, "paired_id": paired,
+                            "paired_var": str(item.get("paired_var") or "")[:100]})
         if not new:
             return {"created": [], "skipped": skipped}
-        detail = f"Desde {source}\n" + "\n".join(f"{n['var']}  →  {n['id']}" for n in new)
+        detail = f"Desde {source}\n" + "\n".join(f"{n['var']}  →  {n['id']}" + (f"  (con {n['paired_var'] or 'su ID'})" if n["paired_id"] else "")
+                                                   for n in new)
         request = {"id": "vault", "name": f"Importar {len(new)} clave(s)", "template": "generic"}
         try:
             self._ask_user(request, "import_env", detail, allow_session=False)
@@ -1231,6 +1272,9 @@ class Service:
         else:
             fields, template, name = {}, "generic", var
         fields["value"] = item["value"]
+        if item.get("paired_id"):
+            fields["username"] = item["paired_id"]
+            description += f" Va con el ID de {item.get('paired_var') or 'la misma app'}."
         policy = templates.default_policy(template, fields)
         commands = policy.setdefault("commands", {"allowed": [], "env": {}})
         commands["env"] = {**(commands.get("env") or {}), var: "{{value}}"}
@@ -1249,7 +1293,7 @@ class Service:
         guide = rotation.guide(entry)
         return {"check": alive, "rotation": rotation.info(entry), "key_age_days": secret_age_days(entry),
                 "expires": entry.get("expires"), "rotate_every_days": entry.get("rotate_every_days"),
-                "rotation_guide": guide and guide["source"]}
+                "rotation_guide": guide and guide["source"], **_paired_question(entry)}
 
     def op_ai_rotate(self, params):
         entry = self._get_secret(params.get("secret_id"))
@@ -1593,6 +1637,19 @@ class Service:
 CHANGE_LABELS = {"name": "Nombre", "description": "Notas para la IA", "tags": "Etiquetas", "expires": "Caduca",
                  "rotate_every_days": "Rotar cada (días)", "rotation_guide": "Guía de rotación",
                  "check_every_hours": "Comprobar cada (horas)"}
+def _paired_question(entry):
+    """For the AI: the id a secret goes with, or a question to settle it when nobody knows."""
+    paired = rotation.paired_id(entry)
+    if paired and paired["value"]:
+        return {"paired_id": {"label": paired["label"], "value": paired["value"]}}
+    unknown = entry["template"] in ("api_key", "generic") and (rotation.info(entry) or {}).get("provider") in (None, links.OWN_SECRET)
+    if not paired and not unknown:
+        return {}
+    what = f"un {paired['label']}" if paired else "un identificador (client id, app id, account id, key id…)"
+    return {"paired_id": None, "question": f"¿Este secreto va emparejado con {what}? Si es así, guárdalo en fields.username "
+            "con update_credential (pregúntaselo al usuario si no lo sabes): al rotarlo, la app preguntará si ha cambiado."}
+
+
 CONTEXT_KEYS = ("name", "description", "tags", "expires", "rotate_every_days", "rotation_guide", "check_every_hours")  # changes that don't affect where a key can go
 
 

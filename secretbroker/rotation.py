@@ -12,6 +12,7 @@ one. The guides of known providers come from their own documentation; for other 
 can research one and store it with the credential (marked as written by the AI).
 """
 
+import re
 from datetime import date, timedelta
 
 import httpx
@@ -116,12 +117,17 @@ GUIDES = {
         "link": None,
     },
     "Google OAuth": {
+        "warning": "No borres el cliente OAuth ni crees otro: el secreto se rota dentro del mismo cliente. "
+                   "Si creas otro, cambia el ID de cliente y tendrás que cambiarlo también en tu app. "
+                   "Tampoco hace falta crear una «API key»: es otra cosa.",
         "create": ["Abre el cliente OAuth y pulsa «Add secret»: Google permite tener dos secretos a la vez, así que no se corta nada.",
                    "Copia el secreto nuevo."],
         "revoke": "Cuando tu app ya use el nuevo, en el mismo cliente desactiva el secreto anterior («Disable») y luego bórralo.",
         "link": None,
     },
     "Microsoft Entra": {
+        "warning": "No borres la app ni registres otra: el secreto se rota dentro de la misma app. "
+                   "Si registras otra, cambia el Application (client) ID y tendrás que cambiarlo también en tu app.",
         "create": ["Abre los secretos de la app (Certificates & secrets) y pulsa «New client secret».",
                    "Elige la caducidad y copia el «Value» (no el «Secret ID»): solo se muestra una vez."],
         "revoke": "Cuando tu app ya use el nuevo, borra el secreto anterior en la misma página.",
@@ -148,6 +154,15 @@ GENERIC_GUIDE = {
 }
 GUIDE_STEPS_MAX = 8
 GUIDE_TEXT_MAX = 300
+
+# The identifier a secret goes with (an OAuth client id, an app id…). Rotating the secret inside the
+# same client keeps it; creating a new client changes it, and a new secret with the old id fails.
+PAIRED_IDS = {
+    "Google OAuth": ("ID de cliente", links.GOOGLE_CLIENT_RE, "123456789-abc.apps.googleusercontent.com"),
+    "Microsoft Entra": ("Application (client) ID", links.UUID_RE, "00000000-0000-0000-0000-000000000000"),
+}
+PAIRED_ID_MAX = 300
+PAIRED_ID_RE = re.compile(r"^\S+$")
 
 
 def _key(entry):
@@ -218,6 +233,31 @@ def info(entry):
             "reason": NOT_ROTATABLE.get(name, f"{name} no permite rotar claves por API.")}
 
 
+def paired_id(entry):
+    """{"label", "value", "hint"} of the identifier this secret goes with, or None if it has none.
+    Credentials that are not API keys keep their user apart (a password changes alone)."""
+    if entry["template"] not in ("api_key", "generic"):
+        return None
+    provider = (info(entry) or {}).get("provider")
+    current = (entry["fields"].get("username") or "").strip()
+    if provider in PAIRED_IDS:
+        label, _, hint = PAIRED_IDS[provider]
+        return {"label": label, "value": current, "hint": hint}
+    if current:
+        return {"label": "ID asociado", "value": current, "hint": ""}
+    return None
+
+
+def clean_paired_id(entry, value):
+    """A new paired id, checked against the provider's format; raises ValueError."""
+    value = str(value or "").strip()
+    provider = (info(entry) or {}).get("provider")
+    label, pattern, hint = PAIRED_IDS.get(provider, ("ID asociado", PAIRED_ID_RE, ""))
+    if not value or len(value) > PAIRED_ID_MAX or not pattern.match(value):
+        raise ValueError(f"El {label} nuevo no es válido" + (f" (tiene esta forma: {hint})" if hint else ""))
+    return value
+
+
 def guide(entry):
     """How to rotate an API key by hand: {"provider", "source": builtin | ai | generic, "create": [steps],
     "revoke", "links", "sources"}, or None for credentials that are not API keys."""
@@ -225,19 +265,22 @@ def guide(entry):
         return None
     details = info(entry) or {}
     provider = details.get("provider")
+    testable = exposure.provider_for(entry) is not None
     if provider in GUIDES:
         known = GUIDES[provider]
         provider_links = (links.for_entry(entry) or {}).get("links") or []
         first = [link for link in provider_links if link["label"] == known["link"]] or provider_links[:1]
         return {"provider": provider, "source": "builtin", "create": known["create"], "revoke": known["revoke"],
-                "links": first + [link for link in provider_links if link not in first], "sources": [],
-                "generate": provider == links.OWN_SECRET}
+                "warning": known.get("warning", ""), "links": first + [link for link in provider_links if link not in first],
+                "sources": [], "generate": provider == links.OWN_SECRET, "paired": paired_id(entry), "testable": testable}
     written = entry.get("rotation_guide")
     if written:
         return {"provider": provider, "source": "ai", "create": written.get("create") or [],
-                "revoke": written.get("revoke") or "", "links": written.get("links") or [],
-                "sources": written.get("sources") or [], "written": written.get("written")}
-    return {"provider": provider, "source": "generic", **GENERIC_GUIDE, "links": [links.search_link(entry)], "sources": []}
+                "revoke": written.get("revoke") or "", "warning": written.get("warning") or "",
+                "links": written.get("links") or [], "sources": written.get("sources") or [],
+                "written": written.get("written"), "paired": paired_id(entry), "testable": testable}
+    return {"provider": provider, "source": "generic", **GENERIC_GUIDE, "warning": "",
+            "links": [links.search_link(entry)], "sources": [], "paired": paired_id(entry), "testable": testable}
 
 
 def clean_guide(guide):
@@ -266,7 +309,8 @@ def clean_guide(guide):
         sources.append(url)
     if not sources:
         raise ValueError("rotation_guide.sources: indica las páginas de documentación donde lo has comprobado")
-    return {"create": steps, "revoke": str(guide.get("revoke") or "").strip()[:GUIDE_TEXT_MAX], "links": found, "sources": sources}
+    return {"create": steps, "revoke": str(guide.get("revoke") or "").strip()[:GUIDE_TEXT_MAX],
+            "warning": str(guide.get("warning") or "").strip()[:GUIDE_TEXT_MAX], "links": found, "sources": sources}
 
 
 def rotate(entry):

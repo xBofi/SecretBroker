@@ -199,12 +199,20 @@ function onShortcut(event) {
   else if (key === 'l') { event.preventDefault(); lockNow(); }
 }
 
+// One tick at a time: an older, slower one answering last would close an approval that just opened.
+let ticking = false;
 async function tick() {
-  await refreshStatus();
-  if (state.status && state.status.state === 'unlocked') {
-    await pollDrafts();
-    await pollApprovals();
-    await pollScan();
+  if (ticking) return;
+  ticking = true;
+  try {
+    await refreshStatus();
+    if (state.status && state.status.state === 'unlocked') {
+      await pollDrafts();
+      await pollApprovals();
+      await pollScan();
+    }
+  } finally {
+    ticking = false;
   }
 }
 
@@ -969,9 +977,13 @@ function rotateGuided(entry) {
     foot.replaceChildren(el('div', { class: 'spacer' }), ...buttons.filter(Boolean));
   };
 
+  const paired = guide.paired;
+  let idChoice = null;  // 'same' | 'new': the user must say it, never assumed
+  let oldId = paired ? paired.value : '';
   const create = () => show(1, [
     el('h3', {}, '1 · Crea la clave nueva'),
     el('p', { class: 'muted' }, `Créala en ${site}. La actual sigue funcionando hasta que la borres, así que no se corta nada.`),
+    guide.warning ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, guide.warning)) : null,
     guideSteps(guide.create || []),
     el('div', { class: 'prop' }, el('div', { style: 'min-width:0' }, el('div', { class: 'k' }, 'Nombre sugerido para la clave'),
       el('div', { class: 'v selectable' }, suggested)), el('div', { class: 'actions' }, copyButton(suggested))),
@@ -989,14 +1001,36 @@ function rotateGuided(entry) {
       errorText.textContent = '';
       const value = group.input.value.trim();
       if (!value) { errorText.textContent = 'Pega la clave nueva.'; return; }
+      const params = { id: entry.id, value };
+      if (paired) {
+        if (!idChoice) { errorText.textContent = `Indica si el ${paired.label} es el mismo o ha cambiado.`; return; }
+        params.paired_id = idChoice === 'same' ? oldId : idInput.value.trim();
+        if (idChoice === 'new' && (!params.paired_id || params.paired_id === oldId)) {
+          errorText.textContent = `Pega el ${paired.label} nuevo.`; idInput.focus(); return;
+        }
+      }
       busy(save, true);
-      const result = await withProof((p) => api().call('replace_key', { id: entry.id, value }, p), `Para guardar la clave nueva de ${entry.name}.`);
+      const result = await withProof((p) => api().call('replace_key', params, p), `Para guardar la clave nueva de ${entry.name}.`);
       busy(save, false);
       if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
       changed = true;
       done(result.result);
     });
     group.input.addEventListener('keydown', (event) => { if (event.key === 'Enter') save.click(); });
+    const idInput = el('input', { class: 'input mono', placeholder: paired && paired.hint ? paired.hint : '', spellcheck: 'false' });
+    const idField = el('div', { class: 'field hidden' }, el('label', {}, `${paired ? paired.label : ''} nuevo`), idInput);
+    const choice = (value, text) => el('label', { class: 'perm', style: 'cursor:pointer' },
+      el('input', { type: 'radio', name: 'id-choice', value, checked: idChoice === value, onchange: () => {
+        idChoice = value;
+        errorText.textContent = '';
+        idField.classList.toggle('hidden', value !== 'new');
+        if (value === 'new') idInput.focus();
+      } }), el('span', {}, text));
+    const idQuestion = paired ? el('div', { class: 'field' },
+      el('label', {}, `¿Y el ${paired.label}?`),
+      choice('same', paired.value ? `Es el mismo (${paired.value}): solo he creado un secreto nuevo.` : 'Es el mismo: solo he creado un secreto nuevo.'),
+      choice('new', `Ha cambiado: he creado ${guide.provider === 'Microsoft Entra' ? 'otra app' : 'otro cliente'} nuevo.`),
+      idField) : null;
     const generate = guide.generate ? el('button', { class: 'btn', onclick: () => {
       const bytes = crypto.getRandomValues(new Uint8Array(48));
       group.input.value = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -1005,10 +1039,11 @@ function rotateGuided(entry) {
     show(2, [
       el('h3', {}, guide.generate ? '2 · El secreto nuevo' : '2 · Pega la clave nueva'),
       el('div', { class: 'field' }, el('label', {}, 'Clave nueva'), group,
-        el('div', { class: 'help' }, known
+        el('div', { class: 'help' }, guide.testable
           ? `Se prueba con ${known} antes de sustituir la actual: si no funciona, no se cambia nada. La IA no la ve.`
           : 'Esta clave no se puede probar desde aquí: comprueba que la has copiado entera. La IA no la ve.')),
       generate,
+      idQuestion,
       errorText,
     ], [el('button', { class: 'btn', onclick: create }, 'Atrás'), save]);
     setTimeout(() => group.input.focus(), 50);
@@ -1021,16 +1056,20 @@ function rotateGuided(entry) {
     show(3, [
       el('h3', {}, '3 · Ya se usa la nueva'),
       check && check.status === 'ok' ? line(true, `Funciona: ${check.provider} la acepta.`)
+        : !guide.testable ? line(false, 'Esta clave no se puede probar desde aquí: comprueba en tu app que funciona.')
         : line(false, `No se pudo probar con ${provider}${check && check.message ? ` (${check.message})` : ''}; se ha guardado igualmente.`),
       line(true, 'La IA ya usa la nueva. Sus aprobaciones de esta credencial se han reiniciado.'),
+      result.id_changed ? line(true, `${paired.label} nuevo guardado: ${result.entry.fields.username}.`) : null,
+      (result.also_updated || []).map((o) => line(true, `También se ha cambiado el ID en «${o.name}».`)),
+      result.id_changed ? line(false, `Cambia también el ${paired.label} en tu app (su .env o su configuración) si lo tiene escrito.`) : null,
       result.uploads.map((u) => line(u.ok, u.ok ? `Subida a ${u.label} como ${u.name}.` : `No se pudo subir a ${u.label}: ${u.error}`)),
       env.length ? line(true, `Tus programas con sb run (${env.join(', ')}) la usarán al reiniciarlos.`) : null,
       exposureBefore && exposureBefore.found ? line(false, `La clave anterior estaba en claro en ${exposureBefore.found} sitio(s). En cuanto la borres, esas copias dejan de ser un riesgo.`) : null,
       el('p', { class: 'help', style: 'margin-top:8px' }, 'Si la tienes puesta en otros sitios (un servidor, Vercel, otra app…), cámbiala allí también antes de borrar la anterior.'),
-    ], [el('button', { class: 'btn primary', onclick: () => revoke(result.entry.retired) }, 'Siguiente')]);
+    ], [el('button', { class: 'btn primary', onclick: () => revoke(result.entry.retired, result.id_changed) }, 'Siguiente')]);
   }
 
-  function revoke(retired) {
+  function revoke(retired, idChanged) {
     const status = el('div', {});
     const checkable = retired && retired.checkable;
     const checkButton = el('button', { class: 'btn primary' }, 'Comprobar que ya no funciona');
@@ -1057,7 +1096,9 @@ function rotateGuided(entry) {
     } }, 'Ya la he borrado');
     show(4, [
       el('h3', {}, '4 · Borra la clave anterior'),
-      el('p', { class: 'muted' }, guide.revoke || `Borra o revoca la clave anterior en ${provider}.`),
+      el('p', { class: 'muted' }, idChanged
+        ? `Como has creado ${guide.provider === 'Microsoft Entra' ? 'otra app' : 'otro cliente'}, cuando tu app ya use el nuevo borra el anterior (${oldId}) en ${provider}.`
+        : guide.revoke || `Borra o revoca la clave anterior en ${provider}.`),
       guide.links && guide.links.length ? linkList(guide.links.slice(0, 1)) : null,
       el('p', { class: 'help' }, checkable
         ? 'Después, la app comprueba con el proveedor que ya no funciona. Si lo dejas para luego, te lo recordará.'

@@ -23,7 +23,10 @@ mcp = MCPServer(
         "(it never prints values; the user confirms in the app), check with `sb check`, run the app with "
         "`sb run -- <command>`, and store production secrets with push_github_secret. When you prepare a "
         "credential for a provider that is not a known preset, look up in its official documentation how "
-        "its keys are rotated and pass rotation_guide, so the app can guide the user when it is time."
+        "its keys are rotated and pass rotation_guide, so the app can guide the user when it is time. If a "
+        "secret goes with an identifier (OAuth client id, app id, account id, key id), store that id in "
+        "fields.username; when create_credential or check_credential returns a question about it and you "
+        "don't know the answer, ask the user."
     ),
 )
 
@@ -141,6 +144,8 @@ def create_credential(
       database  engine (postgresql | mysql | sqlserver | mongodb | redis | other), host, port, database, username
       aws       access_key_id, region
       generic   username, url
+    api_key and generic: if the secret goes with an identifier (an OAuth client id, app id, account id,
+    key id), put it in username, so rotating it asks whether that id changed too.
     description: what it is, which project uses it and how to use it (you'll read it later).
     Permissions are derived from the fields; override them with allowed_hosts, env_vars
     ({"OPENAI_API_KEY": "{{value}}"}, used by `sb run` and run_command) and commands (CLIs allowed in
@@ -149,7 +154,8 @@ def create_credential(
     rotation_guide is for providers without a preset: how the user replaces the key by hand, found in
     the provider's official documentation (search the web; never guess URLs). {"create": ["step", ...]
     (where to click to create the new key), "revoke": "how to delete the old one", "links": [{"label",
-    "url"}] (the exact https pages), "sources": ["https://..."] (the docs you read)}. The app shows it
+    "url"}] (the exact https pages), "sources": ["https://..."] (the docs you read), optional "warning":
+    "what not to do" (e.g. deleting the app changes its client id)}. The app shows it
     as written by the AI. rotate_every_days (30, 60, 90, 180, 365, or 0 for never) sets how often the
     app reminds the user to rotate this key; check_every_hours how often it tests that the key still
     works (hours; -1 once per key, 0 never; leave it unset to follow the user's general setting)."""
@@ -182,7 +188,8 @@ def update_credential(
     rotation_guide is for providers without a preset: how the user replaces the key by hand, found in
     the provider's official documentation (search the web; never guess URLs). {"create": ["step", ...]
     (where to click to create the new key), "revoke": "how to delete the old one", "links": [{"label",
-    "url"}] (the exact https pages), "sources": ["https://..."] (the docs you read)}. The app shows it
+    "url"}] (the exact https pages), "sources": ["https://..."] (the docs you read), optional "warning":
+    "what not to do" (e.g. deleting the app changes its client id)}. The app shows it
     as written by the AI. rotate_every_days (30, 60, 90, 180, 365, or 0 for never) sets how often the
     app reminds the user to rotate this key; check_every_hours how often it tests that the key still
     works (hours; -1 once per key, 0 never; leave it unset to follow the user's general setting).

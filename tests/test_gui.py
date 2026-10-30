@@ -245,6 +245,32 @@ def run(app, env, devtools, api_port, client, integrations):
     page.click("Ya la he borrado")
     check(wait_for(lambda: "Falta borrar la clave anterior" not in page.text(), 10), "and it is done when the user says so")
 
+    print("Rotation of a secret that goes with an id")
+    oauth = {"id": "g-oauth", "name": "Google OAuth", "template": "generic", "description": "",
+             "fields": {"value": "GOCSPX-old-123456", "username": "619577974052-oldclient.apps.googleusercontent.com",
+                        "url": "https://oauth2.googleapis.com"}, "policy": {"approval": "session"}}
+    page.js(f"api().call('save_entry', {{ entry: {json.dumps(oauth)} }}, {{ kind: 'master_password', value: {json.dumps(MASTER)} }})")
+    page.js("state.view = 'credentials'; state.selected = 'g-oauth'; loadEntries().then(renderMain)")
+    check(wait_for(lambda: "Rotar con ayuda" in page.text(), 10), "an OAuth client secret offers the guided rotation")
+    page.click("Rotar con ayuda")
+    check(wait_for(lambda: "No borres el cliente OAuth" in page.text(), 10), "step 1 warns not to delete the client")
+    page.click("Ya la tengo")
+    check(wait_for(lambda: "¿Y el ID de cliente?" in page.text(), 10), "step 2 asks whether the client id changed")
+    page.js("""(() => { const i = document.querySelector('.modal input[type=password]'); i.value = 'GOCSPX-new-654321'; })()""")
+    page.click("Probar y guardar")
+    check(wait_for(lambda: "Indica si el ID de cliente es el mismo o ha cambiado" in page.text(), 10), "it can't be saved without answering")
+    page.js("document.querySelector('.modal input[type=radio][value=new]').click()")
+    page.js("""(() => { const i = document.querySelector('.modal input.mono'); i.value = '619577974052-newclient.apps.googleusercontent.com'; })()""")
+    page.shot("10-rotate-new-client")
+    page.click("Probar y guardar")
+    check(wait_for(lambda: "ID de cliente nuevo guardado" in page.text(), 15), "a new client: the new id is saved with the secret")
+    page.click("Siguiente")
+    check(wait_for(lambda: "borra el anterior (619577974052-oldclient" in page.text(), 10), "step 4 says to delete the old client")
+    page.click("Ya la he borrado")
+    page.js("loadEntries()")
+    check(wait_for(lambda: page.js("(state.entries.find((e) => e.id === 'g-oauth') || {fields: {}}).fields.username")
+                   == "619577974052-newclient.apps.googleusercontent.com", 10), "the credential has the new client id")
+
     print("How often keys are tested")
     page.js("state.view = 'settings'; renderMain()")
     check(wait_for(lambda: "Comprobar que las claves funcionan" in page.text(), 10), "the general setting is in Ajustes")
@@ -254,7 +280,7 @@ def run(app, env, devtools, api_port, client, integrations):
     page.js("""(() => { const s = [...document.querySelectorAll('.modal select')].find((x) => [...x.options].some((o) => o.value === 'custom'));
       s.value = 'custom'; s.dispatchEvent(new Event('change'));
       const n = document.querySelector('.modal input[type=number]'); n.value = '48'; })()""")
-    page.shot("10-check-every")
+    page.shot("11-check-every")
     page.click("Guardar")
     if wait_for(lambda: "Confirma que eres tú" in page.text(), 5):  # saving a credential asks who you are
         page.click("Contraseña maestra")
@@ -297,7 +323,7 @@ def run(app, env, devtools, api_port, client, integrations):
     check("Confirma que eres tú" not in page.text(), "no password asked")
     check(result.get("tools") == 14, f"Claude Code sees the tools ({result.get('tools')})")
     check("Bearer [REDACTED:echo-api]" in result.get("text", "") and "SECRET" not in result.get("text", ""),
-          "the request carried the key and the AI saw it redacted")
+          f"the request carried the key and the AI saw it redacted ({result.get('text', '')[:200]!r})")
 
     print("Pause the AI")
     page.js("state.view = 'access'; renderMain()")

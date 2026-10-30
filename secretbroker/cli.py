@@ -170,6 +170,24 @@ def parse_env(text):
     return found
 
 
+# GOOGLE_CLIENT_SECRET goes with GOOGLE_CLIENT_ID, AWS_SECRET_ACCESS_KEY with AWS_ACCESS_KEY_ID…
+PAIRED_SECRET_RE = re.compile(r"^(?P<prefix>.*?)_?(?:CLIENT_SECRET|APP_SECRET|API_SECRET|SECRET_ACCESS_KEY|SECRET_KEY|SECRET)$")
+PAIRED_ID_SUFFIXES = ("CLIENT_ID", "APP_ID", "APPLICATION_ID", "ACCESS_KEY_ID", "API_KEY_ID", "KEY_ID", "ID")
+
+
+def paired_var(name, values):
+    """The variable holding the id a secret goes with, if the .env has one."""
+    match = PAIRED_SECRET_RE.match(name)
+    if not match:
+        return None
+    prefix = match["prefix"]
+    for suffix in PAIRED_ID_SUFFIXES:
+        candidate = f"{prefix}_{suffix}" if prefix else suffix
+        if candidate != name and values.get(candidate):
+            return candidate
+    return None
+
+
 def looks_secret(name, value):
     return bool(value) and (bool(SECRET_NAME_RE.search(name)) or bool(URL_WITH_PASSWORD_RE.match(value)))
 
@@ -187,12 +205,19 @@ def import_env(env_path, project=None, everything=False, delete=False):
     if not chosen:
         print(f"No hay nada que parezca una clave en {env_path}" + (f". Variables: {', '.join(left)}" if left else ""))
         return 0
+    values = {name: value for _, name, value in entries}
     items = [{"var": name, "value": value, "id": slug(f"{project}-{name}")} for _, name, value in chosen]
+    for item in items:
+        paired = paired_var(item["var"], values)
+        if paired:
+            item.update(paired_var=paired, paired_id=values[paired])
     print(f"Confirma la importación en la app SecretBroker ({len(items)} clave(s))...", flush=True)
     result = client.call("import_env", {"source": str(env_path), "project": slug(project)[:30], "items": items})
     mapped = {i["var"]: i["id"] for i in result["created"] + result["skipped"]}
+    paired = {i["var"]: i["paired_var"] for i in items if i.get("paired_var")}
     for item in result["created"]:
-        print(f"  importada   {item['var']}  ->  {item['id']}")
+        print(f"  importada   {item['var']}  ->  {item['id']}"
+              + (f"  (con su ID, {paired[item['var']]})" if item["var"] in paired else ""))
     for item in result["skipped"]:
         print(f"  ya existía  {item['var']}  ->  {item['id']}")
     if left:
