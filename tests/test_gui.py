@@ -284,6 +284,29 @@ def run(app, env, devtools, api_port, client, integrations):
     check(wait_for(lambda: page.js("!document.querySelector('.modal')"), 5), "and it is done")
     check(wait_for(lambda: any(e["secret"] == "shop-db" and e["action"] == "rotate" for e in client.request("audit", {"limit": 10})), 5),
           "the rotation is in the activity")
+    page.click("Rotar con ayuda")
+    wait_for(lambda: "1 · Dónde se usa" in page.text(), 10)
+    page.click("Siguiente")
+    wait_for(lambda: "Generar una" in page.text(), 10)
+    page.click("Generar una")
+    page.click("Guardar y que la aplique la IA")
+    check(wait_for(lambda: "la base de datos aún tiene la anterior" in page.text()
+                   and "Aplica en la base de datos la contraseña nueva de «BD tienda» (shop-db)" in page.text(), 15),
+          "or it is saved first, with a request for the AI to apply it")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+
+    print("Suggesting a database password in the editor")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+    page.click("Editar")
+    check(wait_for(lambda: "Generar" in page.text(), 10), "the password field has «Generar»")
+    page.click("Generar")
+    generated = page.js("[...document.querySelectorAll('.modal input[type=password]')].pop().value")
+    check(isinstance(generated, str) and len(generated) == 32 and generated.isalnum(),
+          "it fills in 32 random letters and digits (nothing to escape in a connection URL)")
+    check("no cambia la contraseña en el servidor" in page.text(), "and says that saving it doesn't change it on the server")
+    page.shot("10-editor-generate")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
 
     print("Rotation of a secret that goes with an id")
     oauth = {"id": "g-oauth", "name": "Google OAuth", "template": "generic", "description": "",

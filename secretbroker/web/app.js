@@ -964,6 +964,19 @@ function usedInList(entry) {
     : 'No está apuntado dónde se usa. Añádelo al editarla (o pídeselo a la IA): al rotarla, la app te pedirá cambiarla en cada sitio.');
 }
 
+// A random password with nothing to escape in a connection URL, SQL or a shell: letters and digits
+// from the browser's CSPRNG, without modulo bias (32 of 62 characters ≈ 190 bits).
+function randomPassword(length = 32) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let out = '';
+  while (out.length < length) {
+    for (const byte of crypto.getRandomValues(new Uint8Array(length * 2))) {
+      if (byte < 248 && out.length < length) out += alphabet[byte % 62];
+    }
+  }
+  return out;
+}
+
 function guideSteps(steps) {
   return el('ol', { class: 'guide-steps' }, steps.map((text) => el('li', {}, text)));
 }
@@ -1000,7 +1013,8 @@ function rotateGuided(entry) {
   };
   const line = (ok, text) => el('div', { class: 'perm' }, icon(ok ? 'check' : 'alert', 'sm'), el('span', {}, text));
   const generated = () => {
-    const bytes = crypto.getRandomValues(new Uint8Array(database ? 24 : 48));
+    if (database) return randomPassword();
+    const bytes = crypto.getRandomValues(new Uint8Array(48));
     return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   };
 
@@ -1034,14 +1048,14 @@ function rotateGuided(entry) {
     setTimeout(() => input.focus(), 50);
   }
 
-  const save = async (button, errorText, params) => {
+  const save = async (button, errorText, params, aiApplies = false) => {
     busy(button, true);
     const result = await withProof((p) => api().call('replace_key', { id: entry.id, used_in: places, ...params }, p),
       `Para guardar la ${database ? 'contraseña' : 'clave'} nueva de ${entry.name}.`);
     busy(button, false);
     if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
     changed = true;
-    update(result.result);
+    update(result.result, aiApplies);
   };
 
   // 2 · Databases: a new password and the exact command (or the panel). Nothing connects from here.
@@ -1063,14 +1077,17 @@ function rotateGuided(entry) {
     const generate = guide.generate ? el('button', { class: 'btn', onclick: () => {
       group.input.value = generated();
       renderCommand();
-      toast('Generada: 32 caracteres aleatorios');
+      toast('Generada: 32 letras y números aleatorios');
     } }, 'Generar una') : null;
     const saveButton = el('button', { class: 'btn primary' }, 'Ya la he cambiado: guardar');
-    saveButton.addEventListener('click', () => {
+    const aiButton = guide.command ? el('button', { class: 'btn', title: 'Se guarda ya y la IA la aplica con sb run, sin verla' }, 'Guardar y que la aplique la IA') : null;
+    const submit = (button, ai) => {
       errorText.textContent = '';
       if (!group.input.value.trim()) { errorText.textContent = 'Primero genera o escribe la contraseña nueva.'; return; }
-      save(saveButton, errorText, { value: group.input.value });
-    });
+      save(button, errorText, { value: group.input.value }, ai);
+    };
+    saveButton.addEventListener('click', () => submit(saveButton, false));
+    if (aiButton) aiButton.addEventListener('click', () => submit(aiButton, true));
     renderCommand();
     show(2, [
       guide.warning ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, guide.warning)) : null,
@@ -1081,7 +1098,7 @@ function rotateGuided(entry) {
       commandBox,
       guide.links && guide.links.length ? linkList(guide.links) : null,
       errorText,
-    ], [el('button', { class: 'btn', onclick: where }, 'Atrás'), saveButton]);
+    ], [el('button', { class: 'btn', onclick: where }, 'Atrás'), aiButton, saveButton]);
   }
 
   // 2 · API keys: where to create the new one.
@@ -1151,8 +1168,11 @@ function rotateGuided(entry) {
   }
 
   // Put it in every place: each one ticked before the old one is deleted (or, for a database, before finishing).
-  function update(result) {
+  function update(result, aiApplies = false) {
     const check = result.check;
+    const applyPrompt = `Aplica en la base de datos la contraseña nueva de «${entry.name}» (${entry.id}), que ya está guardada en SecretBroker: `
+      + `${(guide.command || '').replace("'{password}'", '<la nueva>').replace('"{password}"', '<la nueva>').replace('{password}', '<la nueva>')} `
+      + `Usa sb run o run_command con {{password}}, sin verla, y comprueba después que se conecta con ella.`;
     const step = database ? 3 : 4;
     const next = el('button', { class: 'btn primary', onclick: () => {
       if (database) { modal.close(); toast('Rotación completa'); } else revoke(result.entry.retired, result.id_changed);
@@ -1167,6 +1187,11 @@ function rotateGuided(entry) {
     boxes.forEach((box) => box.addEventListener('change', sync));
     sync();
     show(step, [
+      aiApplies ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {},
+        'Guardada aquí, pero la base de datos aún tiene la anterior. Pídele a la IA que la aplique (puede hacerlo con sb run sin verla; '
+        + 'en un contenedor Docker no necesita la anterior):')) : null,
+      aiApplies ? el('div', { class: 'prop' }, el('div', { class: 'v selectable', style: 'white-space:normal' }, applyPrompt),
+        el('div', { class: 'actions' }, copyButton(applyPrompt))) : null,
       database ? line(true, 'Guardada. La URL de conexión ya lleva la nueva.')
         : check && check.status === 'ok' ? line(true, `Funciona: ${check.provider} la acepta.`)
           : !guide.testable ? line(false, 'Esta clave no se puede probar desde aquí: comprueba en tu app que funciona.')
@@ -1330,7 +1355,22 @@ function showForm(templateId, entry) {
       control = group.input;
       control.addEventListener('input', onFieldChange);
       const wide = ['value', 'secret_access_key'].includes(spec.name) || (templateId === 'ssh' && spec.name === 'password');
-      node = el('div', { class: `field ${wide ? 'full' : ''}` }, labelFor(spec, existingSecret), group, spec.help ? el('div', { class: 'help' }, spec.help) : null);
+      if (templateId === 'database' && spec.name === 'password') {
+        const note = el('div', { class: 'warning hidden' }, icon('alert', 'sm'), el('span', {}, existingSecret
+          ? 'Guardarla aquí no cambia la contraseña en el servidor: después hay que aplicarla en la base de datos (ALTER ROLE…), o pedírselo a la IA, que puede hacerlo con sb run sin verla. «Rotar con ayuda» te guía en todo.'
+          : 'Si el usuario aún no existe, créalo en la base de datos con esta contraseña (o pídeselo a la IA).'));
+        const input = control;
+        input.addEventListener('input', () => note.classList.toggle('hidden', !input.value));
+        const suggest = el('button', { class: 'btn', type: 'button', onclick: () => {
+          input.value = randomPassword();
+          input.dispatchEvent(new Event('input'));
+          toast('Generada: 32 letras y números aleatorios');
+        } }, 'Generar');
+        node = el('div', { class: 'field full' }, labelFor(spec, existingSecret),
+          el('div', { style: 'display:flex;gap:8px' }, el('div', { style: 'flex:1' }, group), suggest), note);
+      } else {
+        node = el('div', { class: `field ${wide ? 'full' : ''}` }, labelFor(spec, existingSecret), group, spec.help ? el('div', { class: 'help' }, spec.help) : null);
+      }
     } else {
       const dbPort = spec.name === 'port' && templateId === 'database' ? (DB_ENGINES[(inputs.engine || {}).value || 'postgresql'] || {}).port : null;
       control = el('input', { class: 'input', value: values[spec.name] || '', placeholder: dbPort || spec.hint || spec.default, spellcheck: 'false', inputmode: spec.kind === 'number' ? 'numeric' : null });
