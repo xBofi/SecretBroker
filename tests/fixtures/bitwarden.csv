@@ -1,0 +1,3 @@
+folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp
+Personal,,login,Correo,,,0,https://mail.example.com,ana,fake-Mail-pass-02,
+,,note,Nota segura,fake secret note text,,0,,,,

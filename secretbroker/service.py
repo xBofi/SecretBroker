@@ -40,6 +40,7 @@ from .vault import (
     check_master_password, convert_legacy_entry, entry_summary,
 )
 from . import templates
+from . import __version__, exports, health, importers
 
 PROTOCOL_VERSION = 2
 MAX_REQUEST_BYTES = 4 * 1024 * 1024
@@ -55,7 +56,8 @@ SCAN_SESSION_SECONDS = 12 * 3600
 RETIRED_CHECK_SECONDS = 24 * 3600  # old keys of a rotation by hand still waiting to be deleted
 ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 SLUG_RE = re.compile(r"[^a-z0-9]+")
-PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore")  # what the app that unlocked may do with one click
+PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
+                "import_file", "export_vault")  # what the app that unlocked may do with one click
 # Everything the AI can ask for. "Pause the AI" refuses all of it without locking the vault.
 AI_OPS = AGENT_ACTIONS | {"list_secrets", "release_env", "push_github_secret", "create_draft", "update_credential",
                           "request_access", "check_env", "import_env", "ai_check", "ai_rotate", "ai_activity",
@@ -643,9 +645,11 @@ class Service:
     def op_replace_key(self, params):
         self._verify_proof("replace_key", params, ALL_PROOFS)
         entry = self._get_secret(params.get("id"))
-        if entry["template"] not in ("api_key", "generic", "database"):
-            raise ServiceError("Solo se rotan así las API keys y las contraseñas de bases de datos", "invalid")
-        database = entry["template"] == "database"
+        if entry["template"] not in ("api_key", "generic", "database", "web_login", "ssh") or \
+                (entry["template"] == "ssh" and entry["fields"].get("auth_method") == "key"):
+            raise ServiceError("Solo se rotan así las API keys y las contraseñas", "invalid")
+        # A password (database, web, SSH) was already changed where it is used: same path as a database.
+        database = entry["template"] in ("database", "web_login", "ssh")
         field = "password" if database else "value"
         value = str(params.get("value") or "") if database else str(params.get("value") or "").strip()
         if not value.strip():
@@ -1385,6 +1389,57 @@ class Service:
     def op_reminders(self, params):
         return self._reminders()
 
+    # ------------------------------------------------------------------ health, import and export (GUI only)
+
+    def op_health(self, params):
+        """Weak, reused, old and exposed secrets, with a score. Names and reasons only, never values."""
+        report = self.op_exposure_report({})
+        return health.report(self.vault.entries(), self.vault.mac, self._reminders(), report["entries"])
+
+    def op_import_file(self, params):
+        """Credentials from another manager's export. The app reads the file and sends its text; without
+        `selected` the answer is what would happen to each one (names only), with it they are imported."""
+        self._verify_proof("import_file", params)
+        source = str(params.get("source") or "")[:300]
+        try:
+            fmt, candidates, skipped = importers.parse(str(params.get("content") or ""), params.get("format") or "auto",
+                                                       params.get("password"), source)
+        except importers.ImportFileError as exc:
+            raise ServiceError(str(exc), exc.code) from None
+        planned = importers.plan(candidates, self.vault.entries())
+        result = {"format": fmt, "label": importers.FORMATS[fmt], "skipped": skipped}
+        if params.get("selected") is None:
+            return {**result, "items": [importers.preview(item) for item in planned]}
+        selected = {int(k) for k in params["selected"] if str(k).isdigit()}
+        created, failed = [], []
+        for item in planned:
+            if item["key"] not in selected:
+                continue
+            entry = item["entry"]
+            entry.setdefault("description", f"Importada de {importers.FORMATS[fmt]}.")
+            entry.setdefault("policy", templates.default_policy(entry["template"], entry["fields"]))
+            try:
+                self.vault.put(entry)
+            except ValidationError as exc:
+                failed.append({"name": entry["name"], "reason": str(exc)})
+                continue
+            created.append({"id": entry["id"], "name": entry["name"]})
+        if created:
+            self._audit("vault", "import_file", f"{len(created)} credencial(es) de {importers.FORMATS[fmt]} ({source})", "ok")
+        return {**result, "created": created, "failed": failed}
+
+    def op_export_vault(self, params):
+        """The whole vault as a file for another SecretBroker (encrypted) or another manager (plain)."""
+        self._verify_proof("export_vault", params)
+        fmt = params.get("format")
+        entries = self.vault.entries()
+        try:
+            content = exports.build(entries, fmt, params.get("password"), __version__)
+        except exports.ExportError as exc:
+            raise ServiceError(str(exc), exc.code) from None
+        self._audit("vault", "export", f"{len(entries)} credenciales ({'cifrada' if fmt == 'encrypted' else 'sin cifrar, ' + fmt})", "ok")
+        return {"content": content, "entries": len(entries), "format": fmt}
+
     # ------------------------------------------------------------------ backups
 
     def op_backup(self, params):
@@ -1690,7 +1745,8 @@ def _describe_changes(old, new):
             changes.append((key, f"{CHANGE_LABELS[key]}: «{value[:200]}»"))
     labels = {s["name"]: s["label"] for s in templates.field_specs(old["template"])}
     for name in sorted(set(old["fields"]) | set(new["fields"])):
-        if name in templates.SECRET_FIELDS or old["fields"].get(name) == new["fields"].get(name):
+        if name in templates.SECRET_FIELDS or name in templates.secret_field_names(old["template"]) \
+                or old["fields"].get(name) == new["fields"].get(name):
             continue
         changes.append((name, f"{labels.get(name, name)}: {old['fields'].get(name) or '—'} → {new['fields'].get(name) or '—'}"))
     old_policy, new_policy = old.get("policy") or {}, new.get("policy") or {}
