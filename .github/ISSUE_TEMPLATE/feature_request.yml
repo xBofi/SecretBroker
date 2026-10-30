@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest an improvement or a new feature
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [roadmap](https://github.com/xBofi/SecretBroker/blob/main/docs/ROADMAP.md) and existing issues first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: How it could work, from the user's point of view.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Workarounds you use now, or how other tools solve it.
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Who is it for
+      multiple: true
+      options:
+        - Individual developers
+        - Teams
+        - Self-hosters
+        - AI agent users
+  - type: textarea
+    id: security
+    attributes:
+      label: Security considerations
+      description: Could this let a key go somewhere new, or add a step for the user? SecretBroker keeps one password per session and one-click approvals.

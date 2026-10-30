@@ -1,0 +1,58 @@
+name: Bug report
+description: Something does not work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Never paste real secrets, keys or passwords here**, not even in logs or screenshots.
+        If this is a security vulnerability, do not use this form: see SECURITY.md.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Desktop app
+        - AI / MCP tools
+        - sb command (run, import, check)
+        - Rotation
+        - Exposure checks
+        - Teams / sharing
+        - Team server (self-hosted)
+        - Installer / updates
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: SecretBroker version
+      placeholder: "0.15.0"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Windows version, installed or development mode, AI client (Claude Code, Claude Desktop…). For the server, OS and Docker version.
+      placeholder: "Windows 11 24H2, installed, Claude Code"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error messages or logs
+      description: Remove any secret values before pasting.
+      render: text
