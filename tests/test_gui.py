@@ -219,6 +219,19 @@ def run(app, env, devtools, api_port, client, integrations):
         page.shot(name)
     check("Copia diaria automática" in page.js("state.view = 'settings'; renderMain(); new Promise(r => setTimeout(() => r(document.body.innerText), 800))"),
           "settings show backups")
+    check("Importar de otro gestor" in page.text() and "Exportar" in page.text(), "settings offer import and export")
+
+    print("Generator and health")
+    page.js("openGenerator()")
+    check(wait_for(lambda: len(page.js("(document.querySelector('.modal .gen-output') || {}).textContent || ''")) == 20, 10),
+          "the generator opens with a 20-character password")
+    page.click("Frase de palabras")
+    check(wait_for(lambda: "-" in page.js("document.querySelector('.modal .gen-output').textContent"), 10), "and makes passphrases")
+    page.shot("07-generator")
+    page.click("Aleatoria")  # leave the saved options as they were
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    page.js("state.view = 'exposure'; renderMain()")
+    check(wait_for(lambda: page.js("!!document.querySelector('.health-score')"), 10), "health shows a score")
 
     print("Rotation with a guide")
     other = {"id": "other-api", "name": "Otra API", "template": "api_key", "description": "",
@@ -300,7 +313,7 @@ def run(app, env, devtools, api_port, client, integrations):
     page.click("Editar")
     check(wait_for(lambda: "Generar" in page.text(), 10), "the password field has «Generar»")
     page.click("Generar")
-    generated = page.js("[...document.querySelectorAll('.modal input[type=password]')].pop().value")
+    generated = wait_for(lambda: page.js("[...document.querySelectorAll('.modal input[type=password]')].pop().value"), 5)
     check(isinstance(generated, str) and len(generated) == 32 and generated.isalnum(),
           "it fills in 32 random letters and digits (nothing to escape in a connection URL)")
     check("no cambia la contraseña en el servidor" in page.text(), "and says that saving it doesn't change it on the server")
