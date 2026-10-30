@@ -55,6 +55,7 @@ PROVIDERS = [
     ("Stripe", ("sk_live_", "sk_test_", "rk_live_", "rk_test_"), "api.stripe.com", "https://api.stripe.com/v1/balance", _bearer),
     ("Groq", ("gsk_",), "api.groq.com", "https://api.groq.com/openai/v1/models", _bearer),
     ("Hugging Face", ("hf_",), "huggingface.co", "https://huggingface.co/api/whoami-v2", _bearer),
+    ("AssemblyAI", (), "api.eu.assemblyai.com", "https://api.eu.assemblyai.com/v2/transcript?limit=1", lambda k: {"Authorization": k}),
     ("AssemblyAI", (), "api.assemblyai.com", "https://api.assemblyai.com/v2/transcript?limit=1", lambda k: {"Authorization": k}),
     ("Mistral", (), "api.mistral.ai", "https://api.mistral.ai/v1/models", _bearer),
     ("ElevenLabs", (), "api.elevenlabs.io", "https://api.elevenlabs.io/v1/user", lambda k: {"xi-api-key": k}),

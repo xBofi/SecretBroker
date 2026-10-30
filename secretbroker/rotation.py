@@ -33,6 +33,10 @@ NOT_ROTATABLE = {
     "Anthropic": "Anthropic no permite crear claves por API: solo desde la Console.",
     "GitHub": "GitHub no permite crear tokens personales por API.",
     "AssemblyAI": "AssemblyAI no permite crear claves por API: solo desde su dashboard.",
+    "Google Cloud": "Las claves de cuentas de servicio se crean en la consola de Google Cloud.",
+    "Google OAuth": "Los secretos de clientes OAuth se crean en la consola de Google Cloud.",
+    "Microsoft Entra": "Los secretos de las apps se crean en el portal de Azure (Microsoft Entra).",
+    "Secreto propio": "Es un secreto tuyo, no de un proveedor: se rota generando uno nuevo.",
 }
 
 
@@ -104,6 +108,32 @@ GUIDES = {
         "revoke": "En la misma página, borra la clave anterior.",
         "link": "Consola",
     },
+    "Google Cloud": {
+        "create": ["Abre las claves de la cuenta de servicio y pulsa «Add key» › «Create new key» › JSON.",
+                   "Se descarga un archivo .json: abre el archivo, copia todo su contenido y pégalo en el paso 2. "
+                   "Después borra el archivo de Descargas."],
+        "revoke": "En la misma pestaña «Keys», borra la clave anterior con la papelera (su ID es el «private_key_id» del JSON viejo).",
+        "link": None,
+    },
+    "Google OAuth": {
+        "create": ["Abre el cliente OAuth y pulsa «Add secret»: Google permite tener dos secretos a la vez, así que no se corta nada.",
+                   "Copia el secreto nuevo."],
+        "revoke": "Cuando tu app ya use el nuevo, en el mismo cliente desactiva el secreto anterior («Disable») y luego bórralo.",
+        "link": None,
+    },
+    "Microsoft Entra": {
+        "create": ["Abre los secretos de la app (Certificates & secrets) y pulsa «New client secret».",
+                   "Elige la caducidad y copia el «Value» (no el «Secret ID»): solo se muestra una vez."],
+        "revoke": "Cuando tu app ya use el nuevo, borra el secreto anterior en la misma página.",
+        "link": None,
+    },
+    "Secreto propio": {
+        "create": ["Si es un secreto que generas tú (de sesión, de firma…), pulsa «Generar uno aleatorio» en el paso 2.",
+                   "Si viene de un servicio, añade su dirección web a la credencial (Editar) y la app te llevará a su página."],
+        "revoke": "No hay nada que borrar fuera: en cuanto tu app use el nuevo, el anterior deja de valer "
+                  "(por ejemplo, las sesiones abiertas con un secreto de sesión se cierran).",
+        "link": None,
+    },
     "Cloudflare": {
         "create": ["Abre la página de tokens y, en el token actual, pulsa «…» › «Roll»: conserva los permisos y cambia el valor."],
         "revoke": "Al hacer «Roll», el valor anterior deja de funcionar solo.",
@@ -174,6 +204,9 @@ def info(entry):
         if kind in CLOUDFLARE_NOT_ROTATABLE:
             return {"provider": "Cloudflare", "supported": False, "reason": CLOUDFLARE_NOT_ROTATABLE[kind]}
         return {"provider": "Cloudflare", "supported": True, "reason": ""}
+    console = links.console_kind(entry)
+    if console:
+        return {"provider": console[0], "supported": False, "reason": NOT_ROTATABLE[console[0]]}
     provider = exposure.provider_for(entry)
     if not provider:
         return {"provider": None, "supported": False,
@@ -197,13 +230,14 @@ def guide(entry):
         provider_links = (links.for_entry(entry) or {}).get("links") or []
         first = [link for link in provider_links if link["label"] == known["link"]] or provider_links[:1]
         return {"provider": provider, "source": "builtin", "create": known["create"], "revoke": known["revoke"],
-                "links": first + [link for link in provider_links if link not in first], "sources": []}
+                "links": first + [link for link in provider_links if link not in first], "sources": [],
+                "generate": provider == links.OWN_SECRET}
     written = entry.get("rotation_guide")
     if written:
         return {"provider": provider, "source": "ai", "create": written.get("create") or [],
                 "revoke": written.get("revoke") or "", "links": written.get("links") or [],
                 "sources": written.get("sources") or [], "written": written.get("written")}
-    return {"provider": provider, "source": "generic", **GENERIC_GUIDE, "links": [], "sources": []}
+    return {"provider": provider, "source": "generic", **GENERIC_GUIDE, "links": [links.search_link(entry)], "sources": []}
 
 
 def clean_guide(guide):

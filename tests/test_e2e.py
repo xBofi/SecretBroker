@@ -655,6 +655,39 @@ def main():
     client.request("forget_retired", {"id": "claude"})
     check(next(e for e in client.request("entries") if e["id"] == "claude")["retired"] is None, "the user can say it is deleted")
 
+    print("Direct links for consoles and regional APIs")
+    account = json.dumps({"type": "service_account", "project_id": "fincall-prod", "client_id": "123456789012345678901",
+                          "client_email": "vertex@fincall-prod.iam.gserviceaccount.com", "private_key": "-----BEGIN PRIVATE KEY-----\nX"})
+    consoles = [
+        {"id": "eu-stt", "name": "STT", "template": "api_key", "fields": {"value": "eu-key-1234567890", "base_url": "https://api.eu.assemblyai.com"}},
+        {"id": "vertex", "name": "Vertex", "template": "generic", "fields": {"value": account}},
+        {"id": "g-oauth", "name": "Google", "template": "generic", "fields": {
+            "value": "GOCSPX-secret-123456", "username": "619577974052-r6av55onin7fvn11.apps.googleusercontent.com", "url": "https://oauth2.googleapis.com"}},
+        {"id": "ms-oauth", "name": "Microsoft", "template": "generic", "fields": {
+            "value": "ms~secret~1234567890", "username": "f86bf497-4993-46b9-bccd-628b3721b715", "url": "https://login.microsoftonline.com"}},
+        {"id": "own", "name": "Sesión", "template": "generic", "fields": {"value": "my-own-session-secret-123"}},
+        {"id": "unknown-api", "name": "Otra", "template": "api_key", "fields": {"value": "zz-key-1234567890", "base_url": "https://api.unknown.example"}},
+    ]
+    for item in consoles:
+        call("save_entry", {"entry": {**item, "description": "", "policy": {"approval": "never"}}}, "hello")
+    listed = {e["id"]: e for e in client.request("entries")}
+    first = lambda i: listed[i]["guide"]["links"][0]["url"]
+    check(listed["eu-stt"]["guide"]["provider"] == "AssemblyAI" and listed["eu-stt"]["guide"]["source"] == "builtin"
+          and first("eu-stt").startswith("https://www.assemblyai.com/"), "the EU AssemblyAI endpoint is recognised, with its links")
+    check(exposure.provider_for(service.vault.get("eu-stt"))[3].startswith("https://api.eu.assemblyai.com/"),
+          "and its key is only tested against the EU endpoint")
+    check(first("vertex") == "https://console.cloud.google.com/iam-admin/serviceaccounts/details/123456789012345678901/keys?project=fincall-prod",
+          "a service account key links to that account's keys")
+    check(first("g-oauth") == "https://console.cloud.google.com/auth/clients/619577974052-r6av55onin7fvn11.apps.googleusercontent.com?project=619577974052",
+          "an OAuth client secret links to that client")
+    check(first("ms-oauth").endswith("/Credentials/appId/f86bf497-4993-46b9-bccd-628b3721b715"), "a Microsoft app secret links to that app's secrets")
+    check(listed["own"]["guide"]["generate"] and listed["own"]["provider"] is None, "a secret of your own offers to generate one")
+    check(listed["unknown-api"]["guide"]["source"] == "generic" and "api.unknown.example" in first("unknown-api"),
+          "an unknown provider gets at least a web search")
+    check("BEGIN PRIVATE" not in json.dumps(listed) and "GOCSPX" not in json.dumps(listed), "no secret leaks into the links")
+    for item in consoles:
+        call("delete_entry", {"id": item["id"]}, "hello")
+
     print("Rotation guides by the AI and reminders per credential")
     guide = {"create": ["Abre Settings › API", "Pulsa «New key»"], "revoke": "Borra la anterior en la misma página",
              "links": [{"label": "API keys", "url": "https://echo.example.com/settings/api"}],

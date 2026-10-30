@@ -5,8 +5,9 @@ than none. Cloudflare has several kinds of credentials, so its keys are also cla
 AI Gateway URL (gateway.ai.cloudflare.com/v1/<account>/<gateway>/...) links to that account.
 """
 
+import json
 import re
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 from . import exposure
 
@@ -152,10 +153,78 @@ def _cloudflare_links(kind, account, gateway):
     return first + [link for link in [gateway_link, *others] if link not in first] + [billing]
 
 
+# ----------------------------------------------------------------------------- consoles
+#
+# Secrets that are not API keys of a provider's API but are recognised by their own data: a Google
+# service account key (its JSON), an OAuth client secret (its client id) or a secret of your own.
+# Their links go straight to that account, project or app.
+
+GOOGLE_CONSOLE = "https://console.cloud.google.com"
+GOOGLE_PROJECT_RE = re.compile(r"^[a-z][a-z0-9-]{4,61}[a-z0-9]$")
+GOOGLE_CLIENT_RE = re.compile(r"^(?P<number>\d+)-[a-z0-9]+\.apps\.googleusercontent\.com$")
+UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+OWN_SECRET = "Secreto propio"
+
+
+def _service_account(entry):
+    try:
+        data = json.loads((entry["fields"].get("value") or "").strip())
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) and data.get("type") == "service_account" else None
+
+
+def console_kind(entry):
+    """(provider, links) for secrets recognised by their data rather than by an API host, or None."""
+    fields = entry["fields"]
+    host, _ = _host(entry)
+    client_id = (fields.get("username") or "").strip()
+    account = _service_account(entry)
+    if account:
+        project, unique = str(account.get("project_id") or ""), str(account.get("client_id") or "")
+        email = str(account.get("client_email") or "")
+        if GOOGLE_PROJECT_RE.match(project) and unique.isdigit():
+            keys = _link("Claves de esta cuenta de servicio", f"{GOOGLE_CONSOLE}/iam-admin/serviceaccounts/details/{unique}/keys?project={project}",
+                         f"{email}: «Add key» crea la nueva; la papelera borra la anterior.")
+        else:
+            keys = _link("Cuentas de servicio", f"{GOOGLE_CONSOLE}/iam-admin/serviceaccounts", f"Abre {email or 'la cuenta'} › Keys.")
+        return "Google Cloud", [keys]
+    google_client = GOOGLE_CLIENT_RE.match(client_id)
+    if google_client or host in ("oauth2.googleapis.com", "accounts.google.com"):
+        found = [_link("Clientes OAuth", f"{GOOGLE_CONSOLE}/auth/clients", "Elige el proyecto y abre el cliente"
+                       + (f" {client_id}." if client_id else "."))]
+        if google_client:
+            found.insert(0, _link("Este cliente OAuth", f"{GOOGLE_CONSOLE}/auth/clients/{client_id}?project={google_client['number']}",
+                                  "«Add secret» crea el nuevo; después desactiva y borra el anterior."))
+        return "Google OAuth", found
+    if host == "login.microsoftonline.com" or host.endswith(".microsoftonline.com"):
+        found = [_link("Registros de aplicaciones", "https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade",
+                       "Abre la app" + (f" {client_id}" if client_id else "") + " › Certificates & secrets.")]
+        if UUID_RE.match(client_id):
+            found.insert(0, _link("Secretos de esta app", "https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/"
+                                  f"ApplicationMenuBlade/~/Credentials/appId/{client_id}",
+                                  "Certificates & secrets › «New client secret»; después borra el anterior."))
+        return "Microsoft Entra", found
+    if entry["template"] == "generic" and not host and not client_id:
+        return OWN_SECRET, []
+    return None
+
+
+def search_link(entry):
+    """A web search for how to rotate a key nobody has a guide for."""
+    host, _ = _host(entry)
+    query = f"{host or entry.get('name') or ''} rotate API key".strip()
+    return _link("Buscar en la web cómo rotarla", "https://www.google.com/search?q=" + quote(query),
+                 "O pide a la IA que busque la guía en la documentación oficial y la guarde aquí.")
+
+
 def for_entry(entry):
     """{"provider", "kind": {"label", "help"} | None, "links": [...]} for API keys of a known provider."""
     if entry["template"] not in ("api_key", "generic"):
         return None
+    console = console_kind(entry)
+    if console:
+        return {"provider": console[0], "kind": None, "links": console[1]} if console[1] else None
     cloudflare = cloudflare_kind(entry)
     if cloudflare:
         kind, account, gateway = cloudflare

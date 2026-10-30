@@ -952,12 +952,18 @@ function rotateGuided(entry) {
       done(result.result);
     });
     group.input.addEventListener('keydown', (event) => { if (event.key === 'Enter') save.click(); });
+    const generate = guide.generate ? el('button', { class: 'btn', onclick: () => {
+      const bytes = crypto.getRandomValues(new Uint8Array(48));
+      group.input.value = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      toast('Generado: 48 bytes aleatorios');
+    } }, 'Generar uno aleatorio') : null;
     show(2, [
-      el('h3', {}, '2 · Pega la clave nueva'),
+      el('h3', {}, guide.generate ? '2 · El secreto nuevo' : '2 · Pega la clave nueva'),
       el('div', { class: 'field' }, el('label', {}, 'Clave nueva'), group,
         el('div', { class: 'help' }, known
           ? `Se prueba con ${known} antes de sustituir la actual: si no funciona, no se cambia nada. La IA no la ve.`
           : 'Esta clave no se puede probar desde aquí: comprueba que la has copiado entera. La IA no la ve.')),
+      generate,
       errorText,
     ], [el('button', { class: 'btn', onclick: create }, 'Atrás'), save]);
     setTimeout(() => group.input.focus(), 50);
