@@ -226,7 +226,14 @@ def check_entry(entry, record, timestamp):
             record["pwned"] = {"count": pwned_count(password), "checked": timestamp}
         except httpx.HTTPError:
             pass
+    record["checked"] = timestamp
     return alive
+
+
+def last_checked(record):
+    """When the entry's current value was last tested, or None if never."""
+    record = record or {}
+    return record.get("checked") or (record.get("alive") or {}).get("checked") or (record.get("pwned") or {}).get("checked")
 
 
 # --------------------------------------------------------------------------- assessment

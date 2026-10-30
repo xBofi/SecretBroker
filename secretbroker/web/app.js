@@ -842,6 +842,51 @@ function cadenceText(entry) {
   return `${text}. Puedes cambiarlo al editarla.`;
 }
 
+// How often each key is tested with its provider: hours, -1 once per value, 0 never, null the general setting.
+const CHECK_EVERY = [[1, 'Cada hora'], [6, 'Cada 6 horas'], [12, 'Cada 12 horas'], [24, 'Cada día'], [168, 'Cada semana'],
+  [720, 'Cada mes'], [8760, 'Cada año'], [-1, 'Solo una vez (cada clave nueva)'], [0, 'Nunca']];
+
+function checkLabel(hours) {
+  const found = CHECK_EVERY.find(([h]) => h === hours);
+  if (found) return found[1].toLowerCase();
+  return hours % 24 === 0 ? `cada ${hours / 24} días` : `cada ${hours} horas`;
+}
+
+// A select with the usual intervals plus «Cada X horas…»; value() is the number (or null for the general setting).
+function checkEveryControl(current, withGeneral, onChange) {
+  const presets = CHECK_EVERY.map(([h]) => h);
+  const custom = current !== null && current !== undefined && !presets.includes(current);
+  const select = el('select', { class: 'input', style: 'width:auto' },
+    withGeneral ? el('option', { value: '' }, 'Ajuste general') : null,
+    CHECK_EVERY.map(([h, label]) => el('option', { value: String(h) }, label)),
+    el('option', { value: 'custom' }, 'Cada X horas…'));
+  select.value = custom ? 'custom' : current === null || current === undefined ? (withGeneral ? '' : '24') : String(current);
+  const hours = el('input', { class: 'input', type: 'number', min: '1', max: '87600', step: '1', style: 'width:90px',
+    value: custom ? String(current) : '48', title: 'Horas entre comprobaciones' });
+  const hoursBox = el('span', { style: 'display:inline-flex;gap:6px;align-items:center' }, hours, el('span', { class: 'muted small' }, 'horas'));
+  const sync = () => { hoursBox.style.display = select.value === 'custom' ? 'inline-flex' : 'none'; };
+  const value = () => {
+    if (select.value === '') return null;
+    if (select.value !== 'custom') return Number(select.value);
+    const n = Number(hours.value);
+    if (!Number.isInteger(n) || n < 1 || n > 87600) throw new Error('Las horas entre comprobaciones deben ser un número entre 1 y 87600.');
+    return n;
+  };
+  select.addEventListener('change', () => { sync(); if (onChange && select.value !== 'custom') onChange(); });
+  hours.addEventListener('change', () => { if (onChange) onChange(); });
+  sync();
+  return { node: el('span', { style: 'display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap' }, select, hoursBox), value, select };
+}
+
+function checkCadenceText(entry) {
+  const own = entry.check_every_hours;
+  const hours = own === null || own === undefined ? (state.status.check_every_hours ?? 24) : own;
+  const general = own === null || own === undefined ? ' (ajuste general)' : '';
+  if (hours === 0) return `No se comprueba sola${general}. Puedes hacerlo con «Comprobar claves».`;
+  if (hours === -1) return `Se comprueba solo una vez cada clave nueva${general}.`;
+  return `Se comprueba ${checkLabel(hours)}${general}.`;
+}
+
 function rotationSection(entry) {
   const rotation = entry.rotation;
   if (!rotation) return null;
@@ -1157,6 +1202,7 @@ function showForm(templateId, entry) {
   const currentEvery = isNew ? null : (entry.rotate_every_days ?? null);
   const everyInput = el('select', { class: 'input' }, ROTATE_EVERY.map(([days, label]) =>
     el('option', { value: days === null ? '' : String(days), selected: days === currentEvery }, label)));
+  const checkEvery = checkEveryControl(isNew ? null : (entry.check_every_hours ?? null), true);
 
   const approval = el('div', { class: 'segmented' });
   const renderApproval = () => approval.replaceChildren(Object.entries(APPROVAL_LABELS).map(([k, label]) => el('button', {
@@ -1274,6 +1320,7 @@ function showForm(templateId, entry) {
       tags: [...new Set(tagsInput.value.split(',').map((t) => slugify(t.trim())).filter(Boolean))],
       ...(expiresInput.value ? { expires: expiresInput.value } : {}),
       ...(everyInput.value !== '' ? { rotate_every_days: Number(everyInput.value) } : {}),
+      ...(checkEvery.value() !== null ? { check_every_hours: checkEvery.value() } : {}),
     };
   };
 
@@ -1310,6 +1357,8 @@ function showForm(templateId, entry) {
           el('div', { class: 'help' }, 'Para agruparlas, por ejemplo por proyecto.')),
         el('div', { class: 'field', style: 'flex:1' }, el('label', {}, 'Caduca', el('span', { class: 'req' }, ' · opcional')), expiresInput),
         el('div', { class: 'field', style: 'flex:1' }, el('label', {}, 'Recordar rotarla'), everyInput)),
+      el('div', { class: 'field' }, el('label', {}, 'Comprobar que funciona'), checkEvery.node,
+        el('div', { class: 'help' }, 'Una llamada de solo lectura al proveedor (o entrar y salir del servidor SSH). «Ajuste general» sigue el de Ajustes.')),
       advanced,
       errorText,
     ],
@@ -1381,6 +1430,7 @@ function exposureSection(entry) {
     el('div', {}, levelBadge(item.level)),
     item.reasons.map((r) => el('p', { class: `reason is-${r.level}` }, r.text)),
     exposureFacts(item),
+    item.checkable ? el('div', { class: 'facts faint small' }, checkCadenceText(entry), ' Puedes cambiarlo al editarla.') : null,
     el('div', {}, el('button', { class: 'link small', onclick: () => { state.view = 'exposure'; renderMain(); } }, 'Ver detalles')));
 }
 
@@ -1656,6 +1706,12 @@ function renderSettings(content) {
   };
   const usesSelect = settingSelect('max_uses_per_hour', [[50, '50 usos en una hora'], [100, '100 usos en una hora'], [500, '500 usos en una hora'], [0, 'Nunca']], 100, 'Para cambiar el límite de usos.');
   const reminderSelect = settingSelect('rotate_reminder_days', [[90, '3 meses'], [180, '6 meses'], [365, '1 año'], [0, 'Nunca']], 365, 'Para cambiar el recordatorio.');
+  const checkControl = checkEveryControl(status.check_every_hours ?? 24, false, async () => {
+    let hours;
+    try { hours = checkControl.value(); } catch (error) { toast(error.message, 'error'); return; }
+    const result = await withProof((p) => api().call('set_settings', { settings: { check_every_hours: hours } }, p), 'Para cambiar cada cuánto se comprueban las claves.');
+    if (result.ok) { toast('Guardado'); await refreshStatus(); } else if (result.code !== 'cancelled') toast(result.error, 'error');
+  });
 
   const autoScan = el('input', { type: 'checkbox', checked: state.info.prefs.auto_scan !== false });
   autoScan.addEventListener('change', async () => {
@@ -1711,6 +1767,7 @@ function renderSettings(content) {
         status.session_unlock ? null : setting('Bloqueo automático', 'Bloquea la bóveda tras un tiempo sin uso. Las aprobaciones de la IA siguen valiendo al desbloquear.', lockSelect),
         setting('Volver a preguntar si se usa mucho', 'Aunque hayas aprobado una credencial, si la IA la usa más de estas veces en una hora te vuelve a preguntar. Frena bucles y sustos.', usesSelect),
         setting('Recordar rotar las claves', 'Marca las claves con más antigüedad que esta y te avisa una vez al día. Las fechas de caducidad avisan 14 días antes.', reminderSelect),
+        setting('Comprobar que las claves funcionan', 'Prueba cada clave con una llamada de solo lectura a su proveedor, entra y sale de los servidores SSH y busca las contraseñas en filtraciones conocidas. Cada credencial puede tener el suyo al editarla.', checkControl.node),
         setting('Recordar aprobaciones', 'Cuando permites una credencial, la IA puede usarla sin volver a preguntarte durante este tiempo. Bloquear a mano las olvida todas.', approvalSelect),
         setting('Aislamiento', status.isolated
           ? 'El servicio usa una cuenta de Windows propia: ningún programa puede leer su memoria ni sus archivos.'

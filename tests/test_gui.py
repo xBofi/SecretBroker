@@ -245,6 +245,28 @@ def run(app, env, devtools, api_port, client, integrations):
     page.click("Ya la he borrado")
     check(wait_for(lambda: "Falta borrar la clave anterior" not in page.text(), 10), "and it is done when the user says so")
 
+    print("How often keys are tested")
+    page.js("state.view = 'settings'; renderMain()")
+    check(wait_for(lambda: "Comprobar que las claves funcionan" in page.text(), 10), "the general setting is in Ajustes")
+    page.js("state.view = 'credentials'; state.selected = 'other-api'; renderMain()")
+    page.click("Editar")
+    check(wait_for(lambda: "Comprobar que funciona" in page.text(), 10), "each credential has its own")
+    page.js("""(() => { const s = [...document.querySelectorAll('.modal select')].find((x) => [...x.options].some((o) => o.value === 'custom'));
+      s.value = 'custom'; s.dispatchEvent(new Event('change'));
+      const n = document.querySelector('.modal input[type=number]'); n.value = '48'; })()""")
+    page.shot("10-check-every")
+    page.click("Guardar")
+    if wait_for(lambda: "Confirma que eres tú" in page.text(), 5):  # saving a credential asks who you are
+        page.click("Contraseña maestra")
+        page.js(f"""(() => {{ const i = [...document.querySelectorAll('.modal input[type=password]')].pop(); i.value = {json.dumps(MASTER)}; }})()""")
+        page.click("Confirmar")
+    check(wait_for(lambda: page.js("(state.entries.find((e) => e.id === 'other-api') || {}).check_every_hours") == 48, 15),
+          "a custom number of hours is saved")
+    page.click("Editar")
+    check(wait_for(lambda: page.js("(document.querySelector('.modal input[type=number]') || {}).value") == "48", 10),
+          "reopening it shows the 48 hours")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+
     print("Claude Code over HTTP, and approving with one click")
     url, token = integrations.mcp_endpoint()
     result = {}

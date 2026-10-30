@@ -36,7 +36,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from . import actions, crypto, exposure, links, paths, presets, rotation, update, winsec
 from .inject import ActionError, Redactor, substitute
 from .vault import (
-    DEFAULT_SETTINGS, ID_RE, TAG_RE, Vault, VaultLocked, ValidationError, WrongPassword, agent_view, secret_age_days,
+    CHECK_ONCE, DEFAULT_SETTINGS, ID_RE, valid_check_hours, TAG_RE, Vault, VaultLocked, ValidationError, WrongPassword, agent_view, secret_age_days,
     check_master_password, convert_legacy_entry, entry_summary,
 )
 from . import templates
@@ -52,7 +52,7 @@ ALL_PROOFS = ("hello", "windows_password", "master_password")
 APPROVAL_HOURS = (0, 8, 24)  # how long "don't ask again" lasts; 0: until the vault is locked
 AUDIT_AAD = b"secretbroker/audit/v1"
 SCAN_SESSION_SECONDS = 12 * 3600
-CHECK_EVERY_SECONDS = 24 * 3600
+RETIRED_CHECK_SECONDS = 24 * 3600  # old keys of a rotation by hand still waiting to be deleted
 ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 SLUG_RE = re.compile(r"[^a-z0-9]+")
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore")  # what the app that unlocked may do with one click
@@ -265,6 +265,7 @@ class Service:
             "approval_hours": settings.get("approval_hours"),
             "max_uses_per_hour": settings.get("max_uses_per_hour", 100),
             "rotate_reminder_days": settings.get("rotate_reminder_days", 365),
+            "check_every_hours": settings.get("check_every_hours", 24),
             "reminders": len(self._reminders()) if self.vault.is_unlocked else 0,
             "session_grants": len(self._live_grants()),
             "gui_connected": time.monotonic() - self._gui_seen < GUI_SEEN_SECONDS,
@@ -748,6 +749,8 @@ class Service:
             raise ServiceError("Límite de usos no válido", "invalid")
         if "rotate_reminder_days" in changes and changes["rotate_reminder_days"] not in REMINDER_DAYS:
             raise ServiceError("Recordatorio no válido", "invalid")
+        if "check_every_hours" in changes and not valid_check_hours(changes["check_every_hours"]):
+            raise ServiceError("Frecuencia de comprobación no válida", "invalid")
         changes = {k: v for k, v in changes.items() if k not in ("ai_permissions", "notify_uses")}  # see set_ai_permissions
         self.vault.update_settings(changes)
         return self.vault.settings()
@@ -895,8 +898,9 @@ class Service:
 
     def op_exposure_check(self, params):
         """Test the keys with their providers and the passwords against known breaches."""
+        wanted = {params["id"]} if params.get("id") else set(params["ids"]) if params.get("ids") is not None else None
         entries = [e for e in self.vault.entries()
-                   if exposure.check_alive_possible(e) and (not params.get("id") or e["id"] == params["id"])]
+                   if exposure.check_alive_possible(e) and (wanted is None or e["id"] in wanted)]
         timestamp = exposure.now_iso()
         stored = self.vault.exposure()
         records = {e["id"]: exposure.record_for(stored, e["id"], exposure.secret_fingerprint(self.vault, e)) for e in entries}
@@ -913,7 +917,7 @@ class Service:
         def store(data):
             for entry_id, checked in records.items():
                 record = exposure.record_for(data, entry_id, checked["fp"])
-                record.update({k: checked[k] for k in ("alive", "pwned") if k in checked})
+                record.update({k: checked[k] for k in ("alive", "pwned", "checked") if k in checked})
             if not params.get("id"):
                 data["last_check"] = timestamp
         self._update_exposure(store)
@@ -925,19 +929,39 @@ class Service:
             change(data)
             self.vault.set_exposure(data)
 
+    def _due_checks(self):
+        """Credentials whose key should be tested now, by their own interval or the general one."""
+        general = self.vault.settings().get("check_every_hours", 24)
+        now = datetime.fromisoformat(exposure.now_iso())
+        records = self.vault.exposure().get("entries") or {}
+        due = []
+        for entry in self.vault.entries():
+            hours = entry["check_every_hours"] if entry.get("check_every_hours") is not None else general
+            if entry.get("draft") or not hours or not exposure.check_alive_possible(entry):
+                continue
+            record = records.get(entry["id"])
+            if record and record.get("fp") != exposure.secret_fingerprint(self.vault, entry):
+                record = None  # results of a previous value
+            last = exposure.last_checked(record)
+            if not last or (hours != CHECK_ONCE and (now - datetime.fromisoformat(last)).total_seconds() >= hours * 3600):
+                due.append(entry["id"])
+        return due
+
     def _check_loop(self):
-        """Check the keys once a day while the vault is unlocked."""
+        """Test the keys while the vault is unlocked, each as often as the user chose."""
+        retired_checked = 0.0
         while True:
-            time.sleep(600)
+            time.sleep(300)
             try:
                 if not self.vault.is_unlocked:
                     continue
-                last = self.vault.exposure().get("last_check")
-                if last and (datetime.fromisoformat(exposure.now_iso()) - datetime.fromisoformat(last)).total_seconds() < CHECK_EVERY_SECONDS:
-                    continue
-                self.op_exposure_check({})
-                for entry_id in list(self.vault.retired().get("entries", {})):
-                    self._check_retired(self.vault.get(entry_id))
+                due = self._due_checks()
+                if due:
+                    self.op_exposure_check({"ids": due})
+                if time.monotonic() - retired_checked >= RETIRED_CHECK_SECONDS:
+                    retired_checked = time.monotonic()
+                    for entry_id in list(self.vault.retired().get("entries", {})):
+                        self._check_retired(self.vault.get(entry_id))
             except (VaultLocked, OSError, ValueError, KeyError) as exc:  # e.g. locked halfway: try again later
                 print(f"exposure check: {type(exc).__name__}: {exc}", file=sys.stderr)
 
@@ -1056,11 +1080,12 @@ class Service:
             entry["expires"] = str(params["expires"]).strip() or None
             if not entry["expires"]:
                 entry.pop("expires")
-        if params.get("rotate_every_days") is not None:
-            try:
-                entry["rotate_every_days"] = int(params["rotate_every_days"])
-            except (TypeError, ValueError):
-                raise ServiceError("rotate_every_days debe ser un número de días", "invalid") from None
+        for key in ("rotate_every_days", "check_every_hours"):
+            if params.get(key) is not None:
+                try:
+                    entry[key] = int(params[key])
+                except (TypeError, ValueError):
+                    raise ServiceError(f"{key} debe ser un número", "invalid") from None
         if params.get("rotation_guide") is not None:
             if not params["rotation_guide"]:
                 entry.pop("rotation_guide", None)
@@ -1566,8 +1591,9 @@ class Service:
 
 
 CHANGE_LABELS = {"name": "Nombre", "description": "Notas para la IA", "tags": "Etiquetas", "expires": "Caduca",
-                 "rotate_every_days": "Rotar cada (días)", "rotation_guide": "Guía de rotación"}
-CONTEXT_KEYS = ("name", "description", "tags", "expires", "rotate_every_days", "rotation_guide")  # changes that don't affect where a key can go
+                 "rotate_every_days": "Rotar cada (días)", "rotation_guide": "Guía de rotación",
+                 "check_every_hours": "Comprobar cada (horas)"}
+CONTEXT_KEYS = ("name", "description", "tags", "expires", "rotate_every_days", "rotation_guide", "check_every_hours")  # changes that don't affect where a key can go
 
 
 def _describe_changes(old, new):
@@ -1580,6 +1606,8 @@ def _describe_changes(old, new):
                 value = f"{len(new[key]['create'])} paso(s); fuentes: {', '.join(new[key]['sources'])}"
             elif key == "rotate_every_days" and new.get(key) is not None:
                 value = str(new[key] or "nunca")
+            elif key == "check_every_hours" and new.get(key) is not None:
+                value = {0: "nunca", CHECK_ONCE: "solo una vez"}.get(new[key], str(new[key]))
             changes.append((key, f"{CHANGE_LABELS[key]}: «{value[:200]}»"))
     labels = {s["name"]: s["label"] for s in templates.field_specs(old["template"])}
     for name in sorted(set(old["fields"]) | set(new["fields"])):

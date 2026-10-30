@@ -126,6 +126,7 @@ def create_credential(
     expires: str | None = None,
     rotate_every_days: int | None = None,
     rotation_guide: dict[str, Any] | None = None,
+    check_every_hours: int | None = None,
 ) -> dict:
     """Prepare a new credential with everything except its secret; the user then only pastes the
     key in the SecretBroker app (it can't be used until then). Never ask for the secret in the chat.
@@ -150,11 +151,12 @@ def create_credential(
     (where to click to create the new key), "revoke": "how to delete the old one", "links": [{"label",
     "url"}] (the exact https pages), "sources": ["https://..."] (the docs you read)}. The app shows it
     as written by the AI. rotate_every_days (30, 60, 90, 180, 365, or 0 for never) sets how often the
-    app reminds the user to rotate this key."""
+    app reminds the user to rotate this key; check_every_hours how often it tests that the key still
+    works (hours; -1 once per key, 0 never; leave it unset to follow the user's general setting)."""
     return _call("create_draft", _drop_none(
         template=template, provider=provider, name=name, description=description, fields=fields, id=id,
         allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands, tags=tags, expires=expires,
-        rotate_every_days=rotate_every_days, rotation_guide=rotation_guide,
+        rotate_every_days=rotate_every_days, rotation_guide=rotation_guide, check_every_hours=check_every_hours,
     ))
 
 
@@ -171,6 +173,7 @@ def update_credential(
     expires: str | None = None,
     rotate_every_days: int | None = None,
     rotation_guide: dict[str, Any] | None = None,
+    check_every_hours: int | None = None,
 ) -> dict:
     """Change a credential's name, notes, tags, expiry date (YYYY-MM-DD), non-secret fields or permissions (only what you pass;
     an empty string clears a field). Name and description change at once. Changes that affect where
@@ -181,12 +184,13 @@ def update_credential(
     (where to click to create the new key), "revoke": "how to delete the old one", "links": [{"label",
     "url"}] (the exact https pages), "sources": ["https://..."] (the docs you read)}. The app shows it
     as written by the AI. rotate_every_days (30, 60, 90, 180, 365, or 0 for never) sets how often the
-    app reminds the user to rotate this key.
+    app reminds the user to rotate this key; check_every_hours how often it tests that the key still
+    works (hours; -1 once per key, 0 never; leave it unset to follow the user's general setting).
     An empty rotation_guide ({}) removes it."""
     return _call("update_credential", _drop_none(
         secret_id=secret_id, name=name, description=description, fields=fields,
         allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands, tags=tags, expires=expires,
-        rotate_every_days=rotate_every_days, rotation_guide=rotation_guide,
+        rotate_every_days=rotate_every_days, rotation_guide=rotation_guide, check_every_hours=check_every_hours,
     ))
 
 

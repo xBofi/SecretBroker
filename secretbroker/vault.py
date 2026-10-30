@@ -29,13 +29,18 @@ MAC_KEY_INFO = b"secretbroker/mac-key/v1"
 APPROVAL_MODES = ("session", "always", "never")
 AUTH_KINDS = ("none", "header", "query", "basic")
 DEFAULT_SETTINGS = {"auto_lock_minutes": 60, "approval_hours": 24, "ai_permissions": {}, "notify_uses": True,
-                    "max_uses_per_hour": 100, "rotate_reminder_days": 365}
+                    "max_uses_per_hour": 100, "rotate_reminder_days": 365, "check_every_hours": 24}
 TAG_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,29}$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,63}$")
 ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 MIN_PASSWORD_LEN = 12
 ROTATE_EVERY_DAYS = (0, 30, 60, 90, 180, 365)  # per credential; 0: never remind (absent: the general setting)
+CHECK_ONCE, MAX_CHECK_HOURS = -1, 10 * 8760  # how often to test that a key works: hours, -1 once per value, 0 never
+
+
+def valid_check_hours(hours):
+    return isinstance(hours, int) and not isinstance(hours, bool) and CHECK_ONCE <= hours <= MAX_CHECK_HOURS
 
 
 class VaultLocked(Exception):
@@ -75,6 +80,8 @@ def validate_entry(entry):
             raise ValidationError("La fecha de caducidad debe ser AAAA-MM-DD") from None
     if entry.get("rotate_every_days") is not None and entry["rotate_every_days"] not in ROTATE_EVERY_DAYS:
         raise ValidationError("Cada cuánto rotarla: " + ", ".join(f"{d} días" for d in ROTATE_EVERY_DAYS if d) + " o 0 (nunca)")
+    if entry.get("check_every_hours") is not None and not valid_check_hours(entry["check_every_hours"]):
+        raise ValidationError("Cada cuánto comprobarla: un número de horas, -1 (solo una vez) o 0 (nunca)")
     if entry.get("rotation_guide") is not None and not isinstance(entry["rotation_guide"], dict):
         raise ValidationError("Guía de rotación no válida")
     fields = entry.get("fields", {})
@@ -146,6 +153,7 @@ def entry_summary(entry):
         "tags": entry.get("tags") or [],
         "expires": entry.get("expires"),
         "rotate_every_days": entry.get("rotate_every_days"),
+        "check_every_hours": entry.get("check_every_hours"),
     }
 
 
@@ -170,6 +178,8 @@ def agent_view(entry):
         view["expires"] = summary["expires"]
     if summary["rotate_every_days"] is not None:
         view["rotate_every_days"] = summary["rotate_every_days"]
+    if summary["check_every_hours"] is not None:
+        view["check_every_hours"] = summary["check_every_hours"]
     if entry.get("rotation_guide"):
         view["rotation_guide"] = "escrita por la IA"
     if entry.get("secret_since"):

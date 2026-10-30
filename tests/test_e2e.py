@@ -727,6 +727,37 @@ def main():
     client.request("update_credential", {"secret_id": "echo-api", "rotate_every_days": 0})
     check(not any(r["id"] == "echo-api" for r in client.request("reminders")), "0 means never remind")
 
+    print("How often keys are tested")
+    check(client.request("status")["check_every_hours"] == 24, "by default, every day")
+    expect_error(lambda: call("set_settings", {"settings": {"check_every_hours": -5}}, "hello"), "invalid", "nonsense intervals are refused")
+    expect_error(lambda: client.request("update_credential", {"secret_id": "claude", "check_every_hours": "a"}), "invalid",
+                 "the interval is a number")
+    service.op_exposure_check({})
+    check(not service._due_checks(), "right after a check, nothing is due")
+    stored = service.vault.exposure()
+    for record in stored["entries"].values():
+        record["checked"] = "2026-01-01T00:00:00+00:00"
+        record.pop("alive", None)
+    service.vault.set_exposure(stored)
+    due = set(service._due_checks())
+    check({"claude", "shop-db"} <= due, "a day later, every key is due again")
+    client.request("update_credential", {"secret_id": "claude", "check_every_hours": 0})
+    check("claude" not in service._due_checks(), "a credential set to never is not tested")
+    client.request("update_credential", {"secret_id": "claude", "check_every_hours": -1})
+    check("claude" not in service._due_checks(), "«only once»: a key tested once is not tested again")
+    client.request("update_credential", {"secret_id": "claude", "check_every_hours": 87600})
+    check("claude" not in service._due_checks(), "a custom number of hours is respected")
+    view = next(v for v in client.request("list_secrets") if v["id"] == "claude")
+    check(view["check_every_hours"] == 87600, "the AI sees the interval")
+    call("set_settings", {"settings": {"check_every_hours": 0}}, "hello")
+    check(not service._due_checks() and client.request("status")["check_every_hours"] == 0, "the general setting can turn it off")
+    client.request("update_credential", {"secret_id": "claude", "check_every_hours": 1})
+    check(service._due_checks() == ["claude"], "and one credential can still be tested on its own schedule")
+    call("set_settings", {"settings": {"check_every_hours": 24}}, "hello")
+    working.add("sk-ant-api03-FOURTH000000")
+    service.op_exposure_check({"ids": ["claude"]})
+    check("claude" not in service._due_checks(), "after its check it waits for its next turn")
+
     gateway = {"id": "aig", "name": "Gateway", "template": "api_key", "description": "",
                "fields": {"value": "cfat_" + "A" * 40, "auth_style": "bearer",
                           "base_url": "https://gateway.ai.cloudflare.com/v1/" + "0123456789abcdef" * 2 + "/team-gw/openai"},
