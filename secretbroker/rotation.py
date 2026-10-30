@@ -6,6 +6,10 @@ button disabled with the reason, so it never pretends to do what the provider do
 Some providers (Cloudflare, GitLab) revoke the old key in the same call that returns the new one:
 the service stores the new value before doing anything else, so a later failure (re-uploading it
 to GitHub, say) never leaves the user without a working key.
+
+The rest are rotated by hand with a guide: where to create the new key and where to delete the old
+one. The guides of known providers come from their own documentation; for other providers the AI
+can research one and store it with the credential (marked as written by the AI).
 """
 
 from datetime import date, timedelta
@@ -30,6 +34,90 @@ NOT_ROTATABLE = {
     "GitHub": "GitHub no permite crear tokens personales por API.",
     "AssemblyAI": "AssemblyAI no permite crear claves por API: solo desde su dashboard.",
 }
+
+
+GUIDES = {
+    "OpenAI": {
+        "create": ["Abre «API keys» y pulsa «Create new secret key».",
+                   "Elige el mismo proyecto y los mismos permisos que tenía la clave actual."],
+        "revoke": "En «API keys», borra la clave anterior con el icono de la papelera.",
+        "link": "API keys",
+    },
+    "Anthropic": {
+        "create": ["Abre «API keys» en la Console y pulsa «Create Key».",
+                   "Elige el mismo workspace que tenía la clave actual."],
+        "revoke": "En «API keys», abre el menú «…» de la clave anterior y bórrala.",
+        "link": "API keys",
+    },
+    "GitHub": {
+        "create": ["Abre tus tokens y entra en el token actual.",
+                   "Pulsa «Regenerate token»: conserva los repositorios y permisos y solo cambia el valor."],
+        "revoke": "Al regenerarlo, el valor anterior deja de funcionar solo. Si creaste un token nuevo, borra el viejo en la misma página.",
+        "link": "Crear token fine-grained",
+    },
+    "GitLab": {
+        "create": ["Abre «Tokens personales» y pulsa «Add new token» con los mismos scopes que el actual."],
+        "revoke": "En la misma página, pulsa «Revoke» en el token anterior.",
+        "link": "Tokens personales",
+    },
+    "AssemblyAI": {
+        "create": ["Abre el dashboard y entra en «API Keys» del proyecto que usa la clave.",
+                   "Pulsa «Create new API key»."],
+        "revoke": "En «API Keys», borra la clave anterior.",
+        "link": "Dashboard",
+    },
+    "OpenRouter": {
+        "create": ["Abre «API keys» y pulsa «Create API Key». Si la actual tenía un límite de crédito, ponle el mismo."],
+        "revoke": "En «API keys», borra la clave anterior desde su menú.",
+        "link": "API keys",
+    },
+    "Stripe": {
+        "create": ["Abre «API keys» (en el modo, pruebas o producción, de la clave actual).",
+                   "En la clave actual, pulsa «…» › «Roll key». Stripe deja elegir cuánto tiempo sigue funcionando la anterior."],
+        "revoke": "Si elegiste «ahora» al rotarla, la anterior ya no funciona; si no, caduca sola en el plazo que elegiste.",
+        "link": "API keys",
+    },
+    "Groq": {
+        "create": ["Abre «API Keys» en la consola y pulsa «Create API Key»."],
+        "revoke": "En la misma página, borra la clave anterior.",
+        "link": "API keys",
+    },
+    "Hugging Face": {
+        "create": ["Abre «Access Tokens», entra en el token actual y pulsa «Invalidate and refresh»: "
+                   "conserva los permisos y cambia el valor."],
+        "revoke": "Al refrescarlo, el valor anterior deja de funcionar solo.",
+        "link": "Tokens",
+    },
+    "Mistral": {
+        "create": ["Abre «API keys» del workspace que usa la clave y pulsa «Create new key»."],
+        "revoke": "En la misma página, borra la clave anterior.",
+        "link": "API keys",
+    },
+    "ElevenLabs": {
+        "create": ["Abre «API keys» y pulsa «Create API key» con los mismos permisos que la actual."],
+        "revoke": "En la misma página, borra la clave anterior.",
+        "link": "API keys",
+    },
+    "Deepgram": {
+        "create": ["Abre la consola, elige el proyecto y entra en «Settings» › «API Keys».",
+                   "Pulsa «Create a New API Key» con el mismo rol que la actual."],
+        "revoke": "En la misma página, borra la clave anterior.",
+        "link": "Consola",
+    },
+    "Cloudflare": {
+        "create": ["Abre la página de tokens y, en el token actual, pulsa «…» › «Roll»: conserva los permisos y cambia el valor."],
+        "revoke": "Al hacer «Roll», el valor anterior deja de funcionar solo.",
+        "link": None,
+    },
+}
+GENERIC_GUIDE = {
+    "create": ["Entra en la web del servicio y busca la sección de API keys o tokens (suele estar en Settings, "
+               "Developer o API).",
+               "Crea una clave nueva con los mismos permisos que la actual."],
+    "revoke": "En la misma sección, borra o revoca la clave anterior.",
+}
+GUIDE_STEPS_MAX = 8
+GUIDE_TEXT_MAX = 300
 
 
 def _key(entry):
@@ -95,6 +183,56 @@ def info(entry):
         return {"provider": name, "supported": True, "reason": ""}
     return {"provider": name, "supported": False,
             "reason": NOT_ROTATABLE.get(name, f"{name} no permite rotar claves por API.")}
+
+
+def guide(entry):
+    """How to rotate an API key by hand: {"provider", "source": builtin | ai | generic, "create": [steps],
+    "revoke", "links", "sources"}, or None for credentials that are not API keys."""
+    if entry["template"] not in ("api_key", "generic"):
+        return None
+    details = info(entry) or {}
+    provider = details.get("provider")
+    if provider in GUIDES:
+        known = GUIDES[provider]
+        provider_links = (links.for_entry(entry) or {}).get("links") or []
+        first = [link for link in provider_links if link["label"] == known["link"]] or provider_links[:1]
+        return {"provider": provider, "source": "builtin", "create": known["create"], "revoke": known["revoke"],
+                "links": first + [link for link in provider_links if link not in first], "sources": []}
+    written = entry.get("rotation_guide")
+    if written:
+        return {"provider": provider, "source": "ai", "create": written.get("create") or [],
+                "revoke": written.get("revoke") or "", "links": written.get("links") or [],
+                "sources": written.get("sources") or [], "written": written.get("written")}
+    return {"provider": provider, "source": "generic", **GENERIC_GUIDE, "links": [], "sources": []}
+
+
+def clean_guide(guide):
+    """A rotation guide written by the AI, checked and trimmed; raises ValueError if malformed."""
+    if not isinstance(guide, dict):
+        raise ValueError("rotation_guide debe ser un objeto con create, revoke, links y sources")
+    steps = guide.get("create") or []
+    if isinstance(steps, str):
+        steps = [steps]
+    steps = [str(s).strip()[:GUIDE_TEXT_MAX] for s in steps if str(s).strip()][:GUIDE_STEPS_MAX]
+    if not steps:
+        raise ValueError("rotation_guide.create necesita al menos un paso")
+    found = []
+    for link in (guide.get("links") or [])[:GUIDE_STEPS_MAX]:
+        if isinstance(link, str):
+            link = {"label": link, "url": link}
+        url = str((link or {}).get("url") or "").strip()
+        if not url.startswith("https://") or len(url) > 500 or any(c.isspace() for c in url):
+            raise ValueError(f"Enlace no válido (solo https://): {url[:80]}")
+        found.append({"label": str(link.get("label") or url).strip()[:80], "url": url, "hint": str(link.get("hint") or "").strip()[:GUIDE_TEXT_MAX]})
+    sources = []
+    for url in (guide.get("sources") or [])[:GUIDE_STEPS_MAX]:
+        url = str(url).strip()
+        if not url.startswith("https://") or len(url) > 500 or any(c.isspace() for c in url):
+            raise ValueError(f"Fuente no válida (solo https://): {url[:80]}")
+        sources.append(url)
+    if not sources:
+        raise ValueError("rotation_guide.sources: indica las páginas de documentación donde lo has comprobado")
+    return {"create": steps, "revoke": str(guide.get("revoke") or "").strip()[:GUIDE_TEXT_MAX], "links": found, "sources": sources}
 
 
 def rotate(entry):

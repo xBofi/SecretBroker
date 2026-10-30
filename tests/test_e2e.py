@@ -615,7 +615,77 @@ def main():
           and SealedBox(FakeGitHub.key).decrypt(base64.b64decode(FakeGitHub.received[-1]["encrypted_value"])).decode() == "cf-NEW-TOKEN-0987654321",
           "the new key is uploaded again to GitHub")
 
-    print("Provider links")
+    print("Rotation by hand")
+    working = {"sk-ant-api03-FAKEFAKEFAKE", "sk-ant-api03-NEWNEWNEW1234"}
+
+    def fake_alive(entry):
+        if not exposure.provider_for(entry):
+            return None
+        ok = entry["fields"]["value"] in working
+        return {"status": "ok" if ok else "invalid", "provider": "Anthropic", "message": "" if ok else "Anthropic rechaza la clave (HTTP 401)"}
+    exposure.check_alive = fake_alive
+    claude = listed["claude"]
+    check(claude["guide"]["source"] == "builtin" and claude["guide"]["create"]
+          and claude["guide"]["links"][0]["url"] == "https://platform.claude.com/settings/keys",
+          "Anthropic has a built-in guide that starts at its keys page")
+    check(listed["echo-api"]["guide"]["source"] == "generic" and listed["shop-db"]["guide"] is None,
+          "unknown providers get the generic guide; non-API credentials none")
+    expect_error(lambda: client.request("replace_key", {"id": "claude", "value": "sk-ant-api03-NEWNEWNEW1234"}), "proof_required",
+                 "replacing a key needs the user")
+    expect_error(lambda: call("replace_key", {"id": "claude", "value": "sk-ant-api03-REJECTED99"}, "hello"), "invalid",
+                 "a new key the provider rejects is refused")
+    expect_error(lambda: call("replace_key", {"id": "claude", "value": "sk-ant-api03-FAKEFAKEFAKE"}, "hello"), "invalid",
+                 "the same key is refused")
+    check(call("reveal", {"id": "claude", "field": "value"}, "hello") == "sk-ant-api03-FAKEFAKEFAKE", "and nothing changed")
+    result = call("replace_key", {"id": "claude", "value": "sk-ant-api03-NEWNEWNEW1234"}, "hello")
+    check(call("reveal", {"id": "claude", "field": "value"}, "hello") == "sk-ant-api03-NEWNEWNEW1234", "the new key is stored")
+    check(result["check"]["status"] == "ok" and result["entry"]["retired"]["status"] == "pending"
+          and result["entry"]["retired"]["checkable"], "it was tested, and the old one is kept to check it later")
+    check("FAKEFAKE" not in json.dumps(client.request("entries")) and "NEWNEW" not in json.dumps(result),
+          "neither key is shown")
+    check(client.request("check_retired", {"id": "claude"})["status"] == "alive", "the old key still works")
+    check(any(r["id"] == "claude" and r["kind"] == "old_alive" for r in client.request("reminders")),
+          "a working old key is a reminder")
+    working.discard("sk-ant-api03-FAKEFAKEFAKE")
+    check(client.request("check_retired", {"id": "claude"})["status"] == "done", "once deleted at the provider, it is detected")
+    check(next(e for e in client.request("entries") if e["id"] == "claude")["retired"] is None
+          and not any(r["id"] == "claude" for r in client.request("reminders")), "and forgotten")
+    working.add("sk-ant-api03-THIRD0000000")
+    call("replace_key", {"id": "claude", "value": "sk-ant-api03-THIRD0000000"}, "hello")
+    client.request("forget_retired", {"id": "claude"})
+    check(next(e for e in client.request("entries") if e["id"] == "claude")["retired"] is None, "the user can say it is deleted")
+
+    print("Rotation guides by the AI and reminders per credential")
+    guide = {"create": ["Abre Settings › API", "Pulsa «New key»"], "revoke": "Borra la anterior en la misma página",
+             "links": [{"label": "API keys", "url": "https://echo.example.com/settings/api"}],
+             "sources": ["https://docs.echo.example.com/keys"]}
+    expect_error(lambda: client.request("update_credential", {"secret_id": "echo-api", "rotation_guide": dict(
+        guide, links=[{"label": "x", "url": "http://echo.example.com"}])}), "invalid", "guide links must be HTTPS")
+    expect_error(lambda: client.request("update_credential", {"secret_id": "echo-api", "rotation_guide": dict(guide, sources=[])}),
+                 "invalid", "a guide must say where it comes from")
+    expect_error(lambda: client.request("update_credential", {"secret_id": "echo-api", "rotate_every_days": 7}), "invalid",
+                 "only the listed intervals")
+    changed = client.request("update_credential", {"secret_id": "echo-api", "rotation_guide": guide, "rotate_every_days": 90})
+    check(any("Guía de rotación" in c and "docs.echo.example.com" in c for c in changed["changed"]), "the change says where the guide comes from")
+    echo = next(e for e in client.request("entries") if e["id"] == "echo-api")
+    check(echo["guide"]["source"] == "ai" and echo["guide"]["links"][0]["url"] == "https://echo.example.com/settings/api"
+          and echo["guide"]["written"] and echo["rotate_every_days"] == 90, "the app shows the AI's guide, marked as such")
+    view = next(v for v in client.request("list_secrets") if v["id"] == "echo-api")
+    check(view["rotate_every_days"] == 90 and view["rotation_guide"] == "escrita por la IA", "the AI sees it too")
+    check(client.request("ai_check", {"secret_id": "echo-api"})["rotation_guide"] == "ai", "check_credential says which guide there is")
+    saved = dict(echo, fields={**echo["fields"], "value": None})
+    saved = {k: saved[k] for k in ("id", "name", "template", "description", "fields", "policy", "tags", "rotate_every_days")}
+    call("save_entry", {"entry": saved, "replaces": "echo-api"}, "hello")
+    check(next(e for e in client.request("entries") if e["id"] == "echo-api")["guide"]["source"] == "ai",
+          "editing it in the app keeps the AI's guide")
+    with service.vault._lock:
+        service.vault._payload["entries"]["echo-api"]["secret_since"] = "2026-01-01T00:00:00+00:00"
+    old_reminder = next((r for r in client.request("reminders") if r["id"] == "echo-api"), None)
+    check(service.vault.settings()["rotate_reminder_days"] in (0, 365) and old_reminder and old_reminder["kind"] == "old",
+          "its own interval (90 days) applies instead of the general one")
+    client.request("update_credential", {"secret_id": "echo-api", "rotate_every_days": 0})
+    check(not any(r["id"] == "echo-api" for r in client.request("reminders")), "0 means never remind")
+
     gateway = {"id": "aig", "name": "Gateway", "template": "api_key", "description": "",
                "fields": {"value": "cfat_" + "A" * 40, "auth_style": "bearer",
                           "base_url": "https://gateway.ai.cloudflare.com/v1/" + "0123456789abcdef" * 2 + "/team-gw/openai"},

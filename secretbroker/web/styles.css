@@ -330,6 +330,8 @@ details.advanced > .inner { padding: 6px 0 4px 24px; display: flex; flex-directi
   background: var(--bg-subtle); border-radius: var(--radius); padding: 12px 14px;
 }
 .warning { display: flex; gap: 8px; align-items: flex-start; color: var(--danger); font-size: 13px; }
+.guide-steps { margin: 6px 0 12px; padding-left: 20px; font-size: 13.5px; line-height: 1.5; }
+.guide-steps li + li { margin-top: 4px; }
 
 /* ---------- activity ---------- */
 .table { width: 100%; border-collapse: collapse; }

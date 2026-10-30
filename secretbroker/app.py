@@ -27,7 +27,7 @@ log = logging.getLogger("secretbroker.app")
 BACKUP_EVERY_HOURS = 24
 BACKUPS_KEPT = 10
 # What the app that unlocked may do with one click (see service.PRESENCE_OPS).
-PRESENCE_OPS = ("approve", "complete_draft", "resume_ai", "set_ai_permissions", "backup", "restore")
+PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore")
 # Operations the service only accepts with a proof of identity.
 PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal", "rotate", "complete_draft",
              "enable_session_unlock", "resume_ai", "set_ai_permissions", "backup", "restore",

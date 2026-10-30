@@ -220,6 +220,31 @@ def run(app, env, devtools, api_port, client, integrations):
     check("Copia diaria automática" in page.js("state.view = 'settings'; renderMain(); new Promise(r => setTimeout(() => r(document.body.innerText), 800))"),
           "settings show backups")
 
+    print("Rotation with a guide")
+    other = {"id": "other-api", "name": "Otra API", "template": "api_key", "description": "",
+             "fields": {"value": "other-OLD-key-1234567", "base_url": "https://api.other.example.com", "auth_style": "bearer"},
+             "policy": {"approval": "session"}}
+    page.js(f"api().call('save_entry', {{ entry: {json.dumps(other)} }}, {{ kind: 'master_password', value: {json.dumps(MASTER)} }})")
+    page.js("state.view = 'credentials'; state.selected = 'other-api'; loadEntries().then(renderMain)")
+    check(wait_for(lambda: "Rotar con ayuda" in page.text() and "Te recuerda rotarla" in page.text(), 10),
+          "a key without a rotation API offers the guided rotation and says when it will remind")
+    page.click("Rotar con ayuda")
+    check(wait_for(lambda: "1 · Crea la clave nueva" in page.text() and "other-api-" in page.text(), 10), "step 1: how to create the new key")
+    page.shot("07-rotate-guide")
+    page.click("Ya la tengo")
+    check(wait_for(lambda: "2 · Pega la clave nueva" in page.text(), 10), "step 2: paste it")
+    page.js("""(() => { const i = document.querySelector('.modal input[type=password]'); i.value = 'other-NEW-key-7654321'; })()""")
+    page.click("Probar y guardar")
+    check(wait_for(lambda: "3 · Ya se usa la nueva" in page.text(), 15), "step 3: saved with one click, what changed")
+    page.shot("08-rotate-done")
+    page.click("Siguiente")
+    check(wait_for(lambda: "4 · Borra la clave anterior" in page.text(), 10), "step 4: delete the old one")
+    page.click("Más tarde")
+    check(wait_for(lambda: "Falta borrar la clave anterior" in page.text(), 10), "until then the credential says so")
+    page.shot("09-rotate-pending")
+    page.click("Ya la he borrado")
+    check(wait_for(lambda: "Falta borrar la clave anterior" not in page.text(), 10), "and it is done when the user says so")
+
     print("Claude Code over HTTP, and approving with one click")
     url, token = integrations.mcp_endpoint()
     result = {}

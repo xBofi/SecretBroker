@@ -55,7 +55,7 @@ SCAN_SESSION_SECONDS = 12 * 3600
 CHECK_EVERY_SECONDS = 24 * 3600
 ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 SLUG_RE = re.compile(r"[^a-z0-9]+")
-PRESENCE_OPS = ("approve", "complete_draft", "resume_ai", "set_ai_permissions", "backup", "restore")  # what the app that unlocked may do with one click
+PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore")  # what the app that unlocked may do with one click
 # Everything the AI can ask for. "Pause the AI" refuses all of it without locking the vault.
 AI_OPS = AGENT_ACTIONS | {"list_secrets", "release_env", "push_github_secret", "create_draft", "update_credential",
                           "request_access", "check_env", "import_env", "ai_check", "ai_rotate", "ai_activity",
@@ -526,8 +526,10 @@ class Service:
 
     def _summary(self, entry, destinations=None):
         destinations = self.vault.destinations() if destinations is None else destinations
+        retired = self.vault.retired().get("entries", {}).get(entry["id"])
         return {**entry_summary(entry), "rotation": rotation.info(entry), "provider": links.for_entry(entry),
-                "destinations": destinations.get("entries", {}).get(entry["id"], [])}
+                "guide": rotation.guide(entry), "destinations": destinations.get("entries", {}).get(entry["id"], []),
+                "retired": {k: v for k, v in retired.items() if k != "fields"} if retired else None}
 
     def op_entries(self, params):
         destinations = self.vault.destinations()
@@ -545,6 +547,8 @@ class Service:
                 if name in fields and fields[name] is None and old["fields"].get(name):
                     fields[name] = old["fields"][name]
         entry["fields"] = {k: v for k, v in fields.items() if v not in (None, "")}
+        if replaces and "rotation_guide" not in entry and old.get("rotation_guide"):
+            entry["rotation_guide"] = old["rotation_guide"]  # written by the AI; the editor doesn't show it
         if replaces and old.get("draft") and not all(
                 entry["fields"].get(s["name"]) for s in templates.active_specs(entry.get("template", ""), entry["fields"])
                 if s["secret"] and s["required"]):
@@ -557,6 +561,7 @@ class Service:
                     records[entry["id"]] = records.pop(replaces)
             self._update_exposure(rename)
             self._update_destinations(rename)
+            self._update_retired(rename)
         with self._lock:
             self._forget_grants(entry["id"], replaces)
         self._audit(entry["id"], "save", "creada" if not replaces else "modificada", "ok")
@@ -567,6 +572,7 @@ class Service:
         self.vault.delete(params["id"])
         self._update_exposure(lambda data: data.get("entries", {}).pop(params["id"], None))
         self._update_destinations(lambda data: data.get("entries", {}).pop(params["id"], None))
+        self._update_retired(lambda data: data.get("entries", {}).pop(params["id"], None))
         with self._lock:
             self._forget_grants(params["id"])
         self._audit(params["id"], "delete", "", "ok")
@@ -626,6 +632,83 @@ class Service:
             self._audit(entry["id"], "push_github_secret", detail, "error", message)
             result.update(ok=False, error=message)
         return result
+
+    # ------------------------------------------------------------------ rotation by hand
+    #
+    # For providers without an API to issue keys, the user creates the new key on the provider's
+    # website and pastes it here. It is tested before it replaces the old one, which is kept (in the
+    # vault) only to check that the user really deleted it at the provider.
+
+    def op_replace_key(self, params):
+        self._verify_proof("replace_key", params, ALL_PROOFS)
+        entry = self._get_secret(params.get("id"))
+        if entry["template"] not in ("api_key", "generic"):
+            raise ServiceError("Solo se rotan así las API keys", "invalid")
+        value = str(params.get("value") or "").strip()
+        if not value:
+            raise ServiceError("Pega la clave nueva", "invalid")
+        if value == (entry["fields"].get("value") or "").strip():
+            raise ServiceError("Es la misma clave que ya está guardada: crea una nueva en el proveedor", "invalid")
+        candidate = copy.deepcopy(entry)
+        candidate["fields"]["value"] = value
+        alive = exposure.check_alive(candidate)
+        if alive and alive["status"] == "invalid":
+            message = Redactor(candidate)(str(alive.get("message") or ""))
+            self._audit(entry["id"], "rotate", "a mano", "error", f"La clave nueva no funciona: {message}")
+            raise ServiceError(f"La clave nueva no funciona ({message}). No se ha cambiado nada.", "invalid")
+        self.vault.put(candidate, replaces=entry["id"])
+        with self._lock:
+            self._forget_grants(entry["id"])
+        provider = (rotation.info(entry) or {}).get("provider")
+        retired = {"fields": {"value": entry["fields"].get("value")}, "since": exposure.now_iso(), "provider": provider,
+                   "checkable": exposure.provider_for(entry) is not None, "status": "pending"}
+        self._update_retired(lambda data: data["entries"].__setitem__(entry["id"], retired))
+        self._audit(entry["id"], "rotate", "a mano" + (f" ({provider})" if provider else ""), "ok")
+        stored = self.vault.get(entry["id"])
+        uploads = [self._push_again(stored, d) for d in self.vault.destinations().get("entries", {}).get(entry["id"], [])]
+        return {"entry": self._summary(stored), "check": alive, "uploads": uploads}
+
+    def op_check_retired(self, params):
+        """Does the previous key of a credential rotated by hand still work? Once it doesn't, it is forgotten."""
+        return self._check_retired(self.vault.get(params["id"]))
+
+    def _check_retired(self, entry):
+        record = self.vault.retired().get("entries", {}).get(entry["id"])
+        if not record:
+            return {"status": "done"}
+        old = copy.deepcopy(entry)
+        old["fields"].update(record["fields"])
+        alive = exposure.check_alive(old)
+        if alive and alive["status"] == "invalid":
+            self._update_retired(lambda data: data["entries"].pop(entry["id"], None))
+            self._audit(entry["id"], "rotate", "la clave anterior ya no funciona", "ok")
+            return {"status": "done"}
+        if alive and alive["status"] == "ok":
+            status, message = "alive", ""
+        else:
+            status = "unknown"
+            message = Redactor(old)(str((alive or {}).get("message") or "Esta clave no se puede comprobar"))
+        checked = exposure.now_iso()
+
+        def mark(data):
+            item = data["entries"].get(entry["id"])
+            if item:
+                item.update(checked=checked, **({"status": "alive"} if status == "alive" else {}))
+        self._update_retired(mark)
+        return {"status": status, "message": message}
+
+    def op_forget_retired(self, params):
+        """The user says the previous key is deleted: stop keeping it."""
+        entry = self.vault.get(params["id"])
+        self._update_retired(lambda data: data["entries"].pop(entry["id"], None))
+        self._audit(entry["id"], "rotate", "clave anterior borrada (según el usuario)", "ok")
+        return True
+
+    def _update_retired(self, change):
+        with self._lock:
+            data = {"entries": self.vault.retired().get("entries", {})}
+            change(data)
+            self.vault.set_retired(data)
 
     def _update_destinations(self, change):
         data = {"entries": self.vault.destinations().get("entries", {})}
@@ -846,7 +929,9 @@ class Service:
                 if last and (datetime.fromisoformat(exposure.now_iso()) - datetime.fromisoformat(last)).total_seconds() < CHECK_EVERY_SECONDS:
                     continue
                 self.op_exposure_check({})
-            except (VaultLocked, OSError, ValueError) as exc:  # e.g. locked halfway: try again later
+                for entry_id in list(self.vault.retired().get("entries", {})):
+                    self._check_retired(self.vault.get(entry_id))
+            except (VaultLocked, OSError, ValueError, KeyError) as exc:  # e.g. locked halfway: try again later
                 print(f"exposure check: {type(exc).__name__}: {exc}", file=sys.stderr)
 
     # ------------------------------------------------------------------ updates
@@ -964,6 +1049,20 @@ class Service:
             entry["expires"] = str(params["expires"]).strip() or None
             if not entry["expires"]:
                 entry.pop("expires")
+        if params.get("rotate_every_days") is not None:
+            try:
+                entry["rotate_every_days"] = int(params["rotate_every_days"])
+            except (TypeError, ValueError):
+                raise ServiceError("rotate_every_days debe ser un número de días", "invalid") from None
+        if params.get("rotation_guide") is not None:
+            if not params["rotation_guide"]:
+                entry.pop("rotation_guide", None)
+            else:
+                try:
+                    guide = rotation.clean_guide(params["rotation_guide"])
+                except ValueError as exc:
+                    raise ServiceError(str(exc), "invalid") from None
+                entry["rotation_guide"] = {**guide, "written": datetime.now().date().isoformat()}
         policy = entry.setdefault("policy", {})
         if params.get("allowed_hosts") is not None:
             policy.setdefault("http", {"auth": {"kind": "none"}})["allowed_hosts"] = \
@@ -1115,15 +1214,18 @@ class Service:
         alive = exposure.check_alive(entry) or {"status": "unknown", "message": "Este tipo de credencial no se puede comprobar"}
         alive = {**alive, "message": Redactor(entry)(str(alive.get("message") or ""))}
         self._audit(entry["id"], "check", alive.get("status", ""), "ok")
+        guide = rotation.guide(entry)
         return {"check": alive, "rotation": rotation.info(entry), "key_age_days": secret_age_days(entry),
-                "expires": entry.get("expires")}
+                "expires": entry.get("expires"), "rotate_every_days": entry.get("rotate_every_days"),
+                "rotation_guide": guide and guide["source"]}
 
     def op_ai_rotate(self, params):
         entry = self._get_secret(params.get("secret_id"))
         info = rotation.info(entry) or {"supported": False, "reason": "solo se rotan API keys"}
         if not info.get("supported"):
             raise ServiceError(f"No se puede rotar por API: {(info.get('reason') or 'proveedor no compatible').rstrip('.')}. "
-                               "El usuario debe crear una clave nueva en la web del proveedor.", "invalid")
+                               "El usuario puede rotarla en la app con «Rotar con ayuda»: crea la clave nueva en la web "
+                               "del proveedor y la pega en SecretBroker.", "invalid")
         detail = f"Rotar la clave con {info.get('provider')}" + (f"\nMotivo: {params['reason']}" if params.get("reason") else "")
         try:
             self._gate("rotate", entry, "rotate", detail)
@@ -1162,10 +1264,15 @@ class Service:
     def _reminders(self):
         """Credentials that need attention: expired, expiring soon, or with a key older than the user's limit."""
         today = datetime.now().date()
-        old_after = self.vault.settings().get("rotate_reminder_days", 365)
+        general = self.vault.settings().get("rotate_reminder_days", 365)
+        retired = self.vault.retired().get("entries", {})
         found = []
         for entry in self.vault.entries():
             if entry.get("draft"):
+                continue
+            if retired.get(entry["id"], {}).get("status") == "alive":
+                found.append({"id": entry["id"], "name": entry.get("name"), "kind": "old_alive",
+                              "provider": retired[entry["id"]].get("provider")})
                 continue
             if entry.get("expires"):
                 days = (datetime.strptime(entry["expires"], "%Y-%m-%d").date() - today).days
@@ -1176,6 +1283,7 @@ class Service:
                     found.append({"id": entry["id"], "name": entry.get("name"), "kind": "expiring", "days": days})
                     continue
             age = secret_age_days(entry)
+            old_after = entry["rotate_every_days"] if entry.get("rotate_every_days") is not None else general
             if old_after and age is not None and age >= old_after:
                 found.append({"id": entry["id"], "name": entry.get("name"), "kind": "old", "days": age})
         return found
@@ -1450,16 +1558,21 @@ class Service:
             os.replace(tmp, self.audit_file)
 
 
-CHANGE_LABELS = {"name": "Nombre", "description": "Notas para la IA", "tags": "Etiquetas", "expires": "Caduca"}
-CONTEXT_KEYS = ("name", "description", "tags", "expires")  # changes that don't affect where a key can go
+CHANGE_LABELS = {"name": "Nombre", "description": "Notas para la IA", "tags": "Etiquetas", "expires": "Caduca",
+                 "rotate_every_days": "Rotar cada (días)", "rotation_guide": "Guía de rotación"}
+CONTEXT_KEYS = ("name", "description", "tags", "expires", "rotate_every_days", "rotation_guide")  # changes that don't affect where a key can go
 
 
 def _describe_changes(old, new):
     """[(key, human-readable line)] of what differs between two versions of an entry (no secrets)."""
     changes = []
     for key in CONTEXT_KEYS:
-        if (old.get(key) or "") != (new.get(key) or ""):
+        if old.get(key) != new.get(key):
             value = ", ".join(new[key]) if key == "tags" and new.get(key) else str(new.get(key) or "—")
+            if key == "rotation_guide" and new.get(key):
+                value = f"{len(new[key]['create'])} paso(s); fuentes: {', '.join(new[key]['sources'])}"
+            elif key == "rotate_every_days" and new.get(key) is not None:
+                value = str(new[key] or "nunca")
             changes.append((key, f"{CHANGE_LABELS[key]}: «{value[:200]}»"))
     labels = {s["name"]: s["label"] for s in templates.field_specs(old["template"])}
     for name in sorted(set(old["fields"]) | set(new["fields"])):

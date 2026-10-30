@@ -58,6 +58,7 @@ LINKS = {
         _link("Políticas de acceso", "https://dashboard.stripe.com/api-access-policies"),
     ],
     "Groq": [
+        _link("API keys", "https://console.groq.com/keys"),
         _link("Facturación", "https://console.groq.com/settings/billing"),
         _link("Uso", "https://console.groq.com/dashboard/usage"),
     ],

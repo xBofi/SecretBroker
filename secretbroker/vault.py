@@ -35,6 +35,7 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,63}$")
 ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 MIN_PASSWORD_LEN = 12
+ROTATE_EVERY_DAYS = (0, 30, 60, 90, 180, 365)  # per credential; 0: never remind (absent: the general setting)
 
 
 class VaultLocked(Exception):
@@ -72,6 +73,10 @@ def validate_entry(entry):
             datetime.strptime(str(entry["expires"]), "%Y-%m-%d")
         except ValueError:
             raise ValidationError("La fecha de caducidad debe ser AAAA-MM-DD") from None
+    if entry.get("rotate_every_days") is not None and entry["rotate_every_days"] not in ROTATE_EVERY_DAYS:
+        raise ValidationError("Cada cuánto rotarla: " + ", ".join(f"{d} días" for d in ROTATE_EVERY_DAYS if d) + " o 0 (nunca)")
+    if entry.get("rotation_guide") is not None and not isinstance(entry["rotation_guide"], dict):
+        raise ValidationError("Guía de rotación no válida")
     fields = entry.get("fields", {})
     draft = bool(entry.get("draft"))  # prepared by the AI: everything but the secret, which the user adds
     for spec in templates.active_specs(template_id, fields):
@@ -140,6 +145,7 @@ def entry_summary(entry):
         "draft": bool(entry.get("draft")),
         "tags": entry.get("tags") or [],
         "expires": entry.get("expires"),
+        "rotate_every_days": entry.get("rotate_every_days"),
     }
 
 
@@ -162,6 +168,10 @@ def agent_view(entry):
         view["tags"] = summary["tags"]
     if summary["expires"]:
         view["expires"] = summary["expires"]
+    if summary["rotate_every_days"] is not None:
+        view["rotate_every_days"] = summary["rotate_every_days"]
+    if entry.get("rotation_guide"):
+        view["rotation_guide"] = "escrita por la IA"
     if entry.get("secret_since"):
         view["key_age_days"] = secret_age_days(entry)
     if entry.get("draft"):
@@ -327,6 +337,19 @@ class Vault:
         with self._lock:
             self._require_unlocked()
             self._payload["destinations"] = copy.deepcopy(data)
+            self._save()
+
+    # ----- retired: the previous key of a credential rotated by hand, until it is confirmed dead
+
+    def retired(self):
+        with self._lock:
+            self._require_unlocked()
+            return copy.deepcopy(self._payload.get("retired") or {})
+
+    def set_retired(self, data):
+        with self._lock:
+            self._require_unlocked()
+            self._payload["retired"] = copy.deepcopy(data)
             self._save()
 
     # ----- settings

@@ -21,7 +21,9 @@ mcp = MCPServer(
         "file (VARIABLE = credential-id lines, no values; it can be committed), prepare missing credentials "
         "with create_credential, move keys out of a .env with the shell command `sb import .env --delete` "
         "(it never prints values; the user confirms in the app), check with `sb check`, run the app with "
-        "`sb run -- <command>`, and store production secrets with push_github_secret."
+        "`sb run -- <command>`, and store production secrets with push_github_secret. When you prepare a "
+        "credential for a provider that is not a known preset, look up in its official documentation how "
+        "its keys are rotated and pass rotation_guide, so the app can guide the user when it is time."
     ),
 )
 
@@ -122,6 +124,8 @@ def create_credential(
     commands: list[str] | None = None,
     tags: list[str] | None = None,
     expires: str | None = None,
+    rotate_every_days: int | None = None,
+    rotation_guide: dict[str, Any] | None = None,
 ) -> dict:
     """Prepare a new credential with everything except its secret; the user then only pastes the
     key in the SecretBroker app (it can't be used until then). Never ask for the secret in the chat.
@@ -140,10 +144,17 @@ def create_credential(
     Permissions are derived from the fields; override them with allowed_hosts, env_vars
     ({"OPENAI_API_KEY": "{{value}}"}, used by `sb run` and run_command) and commands (CLIs allowed in
     run_command). tags group credentials (e.g. the project name); expires is YYYY-MM-DD if the key
-    has an expiry date. The id defaults to a slug of the name."""
+    has an expiry date. The id defaults to a slug of the name.
+    rotation_guide is for providers without a preset: how the user replaces the key by hand, found in
+    the provider's official documentation (search the web; never guess URLs). {"create": ["step", ...]
+    (where to click to create the new key), "revoke": "how to delete the old one", "links": [{"label",
+    "url"}] (the exact https pages), "sources": ["https://..."] (the docs you read)}. The app shows it
+    as written by the AI. rotate_every_days (30, 60, 90, 180, 365, or 0 for never) sets how often the
+    app reminds the user to rotate this key."""
     return _call("create_draft", _drop_none(
         template=template, provider=provider, name=name, description=description, fields=fields, id=id,
         allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands, tags=tags, expires=expires,
+        rotate_every_days=rotate_every_days, rotation_guide=rotation_guide,
     ))
 
 
@@ -158,28 +169,40 @@ def update_credential(
     commands: list[str] | None = None,
     tags: list[str] | None = None,
     expires: str | None = None,
+    rotate_every_days: int | None = None,
+    rotation_guide: dict[str, Any] | None = None,
 ) -> dict:
     """Change a credential's name, notes, tags, expiry date (YYYY-MM-DD), non-secret fields or permissions (only what you pass;
     an empty string clears a field). Name and description change at once. Changes that affect where
     its secret can go (fields, allowed_hosts, env_vars, commands) wait for the user's OK in the app
-    when the credential already has its secret. Secret values and the approval mode can't be changed."""
+    when the credential already has its secret. Secret values and the approval mode can't be changed.
+    rotation_guide is for providers without a preset: how the user replaces the key by hand, found in
+    the provider's official documentation (search the web; never guess URLs). {"create": ["step", ...]
+    (where to click to create the new key), "revoke": "how to delete the old one", "links": [{"label",
+    "url"}] (the exact https pages), "sources": ["https://..."] (the docs you read)}. The app shows it
+    as written by the AI. rotate_every_days (30, 60, 90, 180, 365, or 0 for never) sets how often the
+    app reminds the user to rotate this key.
+    An empty rotation_guide ({}) removes it."""
     return _call("update_credential", _drop_none(
         secret_id=secret_id, name=name, description=description, fields=fields,
         allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands, tags=tags, expires=expires,
+        rotate_every_days=rotate_every_days, rotation_guide=rotation_guide,
     ))
 
 
 @mcp.tool()
 def check_credential(secret_id: str) -> dict:
     """Test whether a credential still works (a harmless read-only call to its provider, or an SSH
-    login), and see its key's age, expiry date and whether it can be rotated by API."""
+    login), and see its key's age, expiry date, whether it can be rotated by API and which rotation
+    guide the app has for it (builtin, ai or generic: generic means you could research one and store it
+    with update_credential's rotation_guide)."""
     return _call("ai_check", dict(secret_id=secret_id))
 
 
 @mcp.tool()
 def rotate_credential(secret_id: str, reason: str) -> dict:
     """Replace an API key with a new one issued by its provider (only providers that allow it, see
-    check_credential). The old key stops working at once; GitHub secrets it was pushed to are updated.
+    check_credential; for the rest, tell the user to use «Rotar con ayuda» in the app). The old key stops working at once; GitHub secrets it was pushed to are updated.
     The user usually confirms it in the app. You never see the new key."""
     return _call("ai_rotate", dict(secret_id=secret_id, reason=reason))
 
