@@ -229,21 +229,61 @@ def run(app, env, devtools, api_port, client, integrations):
     check(wait_for(lambda: "Rotar con ayuda" in page.text() and "Te recuerda rotarla" in page.text(), 10),
           "a key without a rotation API offers the guided rotation and says when it will remind")
     page.click("Rotar con ayuda")
-    check(wait_for(lambda: "1 · Crea la clave nueva" in page.text() and "other-api-" in page.text(), 10), "step 1: how to create the new key")
+    check(wait_for(lambda: "1 · Dónde se usa" in page.text() and "Todavía no hay ningún sitio apuntado" in page.text(), 10),
+          "step 1: where it is used")
+    for place in ("develop: .env local", "pro: servidor api.other.example.com"):
+        page.js(f"""(() => {{ const i = document.querySelector('.modal input.input:not([type])'); i.value = {json.dumps(place)}; }})()""")
+        page.click("Añadir")
+    check(wait_for(lambda: "pro: servidor api.other.example.com" in page.text() and "develop: .env local" in page.text(), 5), "places are added")
+    page.shot("07-rotate-where")
+    page.click("Siguiente")
+    check(wait_for(lambda: "2 · Crea la clave nueva" in page.text() and "other-api-" in page.text(), 10), "step 2: how to create the new key")
     page.shot("07-rotate-guide")
     page.click("Ya la tengo")
-    check(wait_for(lambda: "2 · Pega la clave nueva" in page.text(), 10), "step 2: paste it")
+    check(wait_for(lambda: "3 · Pega la clave nueva" in page.text(), 10), "step 3: paste it")
     page.js("""(() => { const i = document.querySelector('.modal input[type=password]'); i.value = 'other-NEW-key-7654321'; })()""")
     page.click("Probar y guardar")
-    check(wait_for(lambda: "3 · Ya se usa la nueva" in page.text(), 15), "step 3: saved with one click, what changed")
+    check(wait_for(lambda: "4 · Ponla en cada sitio" in page.text() and "Faltan 2" in page.text(), 15),
+          "step 4: saved with one click, and a list of places to update")
+    next_disabled = "[...document.querySelectorAll('.modal button')].find((b) => b.innerText.trim() === 'Siguiente').disabled"
+    check(page.js(next_disabled), "the old key can't be deleted before every place has the new one")
+    page.js("document.querySelectorAll('.modal input[type=checkbox]').forEach((c) => { c.click(); })")
     page.shot("08-rotate-done")
+    check(wait_for(lambda: not page.js(next_disabled), 5), "once all are ticked, it goes on")
     page.click("Siguiente")
-    check(wait_for(lambda: "4 · Borra la clave anterior" in page.text(), 10), "step 4: delete the old one")
+    check(wait_for(lambda: "5 · Borra la clave anterior" in page.text(), 10), "step 5: delete the old one")
     page.click("Más tarde")
     check(wait_for(lambda: "Falta borrar la clave anterior" in page.text(), 10), "until then the credential says so")
     page.shot("09-rotate-pending")
     page.click("Ya la he borrado")
     check(wait_for(lambda: "Falta borrar la clave anterior" not in page.text(), 10), "and it is done when the user says so")
+    check(wait_for(lambda: "Se usa en:" in page.text() and "pro: servidor api.other.example.com" in page.text(), 10),
+          "the places are kept with the credential")
+
+    print("Rotation of a database password")
+    db = {"id": "shop-db", "name": "BD tienda", "template": "database", "description": "",
+          "fields": {"engine": "postgresql", "host": "db.example.com", "database": "shop", "username": "shop_app", "password": "OLD-db-pass"},
+          "used_in": ["develop: .env local", "pre: servidor pre", "pro: servidor pro"], "policy": {"approval": "session"}}
+    page.js(f"api().call('save_entry', {{ entry: {json.dumps(db)} }}, {{ kind: 'master_password', value: {json.dumps(MASTER)} }})")
+    page.js("state.view = 'credentials'; state.selected = 'shop-db'; loadEntries().then(renderMain)")
+    check(wait_for(lambda: "Rotar con ayuda" in page.text() and "pre: servidor pre" in page.text(), 10),
+          "a database offers the guided rotation and lists where it is used")
+    page.click("Rotar con ayuda")
+    check(wait_for(lambda: "1 · Dónde se usa" in page.text() and "pro: servidor pro" in page.text(), 10), "step 1 has the places already")
+    page.click("Siguiente")
+    check(wait_for(lambda: "2 · Cambia la contraseña" in page.text() and "deja de funcionar" in page.text(), 10),
+          "step 2 warns that everything using it stops working")
+    page.click("Generar una")
+    check(wait_for(lambda: 'ALTER ROLE "shop_app" WITH PASSWORD' in page.text() and "CONTRASEÑA_NUEVA" not in page.text(), 5),
+          "it generates one and gives the exact command, the password hidden")
+    page.shot("09-rotate-database")
+    page.click("Ya la he cambiado: guardar")
+    check(wait_for(lambda: "3 · Ponla en cada sitio" in page.text() and "Faltan 3" in page.text(), 15), "step 3: put it in every place")
+    page.js("document.querySelectorAll('.modal input[type=checkbox]').forEach((c) => { c.click(); })")
+    page.click("Terminar")
+    check(wait_for(lambda: page.js("!document.querySelector('.modal')"), 5), "and it is done")
+    check(wait_for(lambda: any(e["secret"] == "shop-db" and e["action"] == "rotate" for e in client.request("audit", {"limit": 10})), 5),
+          "the rotation is in the activity")
 
     print("Rotation of a secret that goes with an id")
     oauth = {"id": "g-oauth", "name": "Google OAuth", "template": "generic", "description": "",
@@ -253,9 +293,10 @@ def run(app, env, devtools, api_port, client, integrations):
     page.js("state.view = 'credentials'; state.selected = 'g-oauth'; loadEntries().then(renderMain)")
     check(wait_for(lambda: "Rotar con ayuda" in page.text(), 10), "an OAuth client secret offers the guided rotation")
     page.click("Rotar con ayuda")
-    check(wait_for(lambda: "No borres el cliente OAuth" in page.text(), 10), "step 1 warns not to delete the client")
+    page.click("Siguiente")
+    check(wait_for(lambda: "No borres el cliente OAuth" in page.text(), 10), "step 2 warns not to delete the client")
     page.click("Ya la tengo")
-    check(wait_for(lambda: "¿Y el ID de cliente?" in page.text(), 10), "step 2 asks whether the client id changed")
+    check(wait_for(lambda: "¿Y el ID de cliente?" in page.text(), 10), "step 3 asks whether the client id changed")
     page.js("""(() => { const i = document.querySelector('.modal input[type=password]'); i.value = 'GOCSPX-new-654321'; })()""")
     page.click("Probar y guardar")
     check(wait_for(lambda: "Indica si el ID de cliente es el mismo o ha cambiado" in page.text(), 10), "it can't be saved without answering")

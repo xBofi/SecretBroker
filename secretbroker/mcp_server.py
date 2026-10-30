@@ -26,7 +26,9 @@ mcp = MCPServer(
         "its keys are rotated and pass rotation_guide, so the app can guide the user when it is time. If a "
         "secret goes with an identifier (OAuth client id, app id, account id, key id), store that id in "
         "fields.username; when create_credential or check_credential returns a question about it and you "
-        "don't know the answer, ask the user."
+        "don't know the answer, ask the user. Whenever you put a credential somewhere (an environment such "
+        "as develop, pre or pro, a server's .env, Vercel, a CI, another project), add that place to its "
+        "used_in, so nothing is forgotten when it is rotated."
     ),
 )
 
@@ -130,6 +132,7 @@ def create_credential(
     rotate_every_days: int | None = None,
     rotation_guide: dict[str, Any] | None = None,
     check_every_hours: int | None = None,
+    used_in: list[str] | None = None,
 ) -> dict:
     """Prepare a new credential with everything except its secret; the user then only pastes the
     key in the SecretBroker app (it can't be used until then). Never ask for the secret in the chat.
@@ -158,11 +161,15 @@ def create_credential(
     "what not to do" (e.g. deleting the app changes its client id)}. The app shows it
     as written by the AI. rotate_every_days (30, 60, 90, 180, 365, or 0 for never) sets how often the
     app reminds the user to rotate this key; check_every_hours how often it tests that the key still
-    works (hours; -1 once per key, 0 never; leave it unset to follow the user's general setting)."""
+    works (hours; -1 once per key, 0 never; leave it unset to follow the user's general setting).
+    used_in lists every place the secret is configured, one short line each, e.g. "develop: .env local
+    (DATABASE_URL)", "pro: servidor api.example.com, /srv/app/.env", "Vercel: proyecto web (pro)": when
+    it is rotated, the app makes the user update each one. It replaces the whole list."""
     return _call("create_draft", _drop_none(
         template=template, provider=provider, name=name, description=description, fields=fields, id=id,
         allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands, tags=tags, expires=expires,
         rotate_every_days=rotate_every_days, rotation_guide=rotation_guide, check_every_hours=check_every_hours,
+        used_in=used_in,
     ))
 
 
@@ -180,6 +187,7 @@ def update_credential(
     rotate_every_days: int | None = None,
     rotation_guide: dict[str, Any] | None = None,
     check_every_hours: int | None = None,
+    used_in: list[str] | None = None,
 ) -> dict:
     """Change a credential's name, notes, tags, expiry date (YYYY-MM-DD), non-secret fields or permissions (only what you pass;
     an empty string clears a field). Name and description change at once. Changes that affect where
@@ -193,11 +201,15 @@ def update_credential(
     as written by the AI. rotate_every_days (30, 60, 90, 180, 365, or 0 for never) sets how often the
     app reminds the user to rotate this key; check_every_hours how often it tests that the key still
     works (hours; -1 once per key, 0 never; leave it unset to follow the user's general setting).
+    used_in lists every place the secret is configured, one short line each, e.g. "develop: .env local
+    (DATABASE_URL)", "pro: servidor api.example.com, /srv/app/.env", "Vercel: proyecto web (pro)": when
+    it is rotated, the app makes the user update each one. It replaces the whole list.
     An empty rotation_guide ({}) removes it."""
     return _call("update_credential", _drop_none(
         secret_id=secret_id, name=name, description=description, fields=fields,
         allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands, tags=tags, expires=expires,
         rotate_every_days=rotate_every_days, rotation_guide=rotation_guide, check_every_hours=check_every_hours,
+        used_in=used_in,
     ))
 
 

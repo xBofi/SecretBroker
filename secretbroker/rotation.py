@@ -17,7 +17,7 @@ from datetime import date, timedelta
 
 import httpx
 
-from . import exposure, links
+from . import exposure, links, templates
 from .inject import ActionError
 
 TIMEOUT = 30
@@ -210,7 +210,10 @@ ROTATORS = {
 
 
 def info(entry):
-    """{"provider", "supported", "reason"} for API keys of a known provider, None otherwise."""
+    """{"provider", "supported", "reason"} for API keys of a known provider and databases, None otherwise."""
+    if entry["template"] == "database":
+        return {"provider": _database(entry)[0], "supported": False,
+                "reason": "La contraseña de una base de datos se cambia en la propia base de datos o en el panel de su proveedor."}
     if entry["template"] not in ("api_key", "generic"):
         return None
     cloudflare = links.cloudflare_kind(entry)
@@ -258,9 +261,78 @@ def clean_paired_id(entry, value):
     return value
 
 
+# ----------------------------------------------------------------------------- databases
+#
+# Nothing connects to the database from here: the app generates the password and gives the exact
+# command (or the panel of a managed database). The old password stops working at once, so every
+# place that uses it has to get the new one.
+
+DB_COMMANDS = {
+    "postgresql": """ALTER ROLE "{user}" WITH PASSWORD '{password}';""",
+    "mysql": """ALTER USER '{user}'@'%' IDENTIFIED BY '{password}';""",
+    "sqlserver": """ALTER LOGIN [{user}] WITH PASSWORD = '{password}';""",
+    "mongodb": """db.getSiblingDB("{database}").changeUserPassword("{user}", "{password}")""",
+    "redis": """ACL SETUSER {user} resetpass >{password}""",
+}
+DB_COMMAND_NOTES = {
+    "mysql": "Si el usuario no es de cualquier host ('%'), pon el suyo (lo ves con SELECT user, host FROM mysql.user).",
+    "redis": "Si no usa usuarios (solo requirepass): CONFIG SET requirepass y cámbiala también en redis.conf.",
+}
+SUPABASE_HOST_RE = re.compile(r"^db\.(?P<ref>[a-z0-9]{20})\.supabase\.co$")
+SUPABASE_USER_RE = re.compile(r"^postgres\.(?P<ref>[a-z0-9]{20})$")
+
+
+def _database(entry):
+    """(name, links, panel_only) of a database: its engine, or the managed service it runs on."""
+    fields = entry["fields"]
+    host = (fields.get("host") or "").strip().lower()
+    engine = templates.DB_ENGINES.get(fields.get("engine") or "postgresql", templates.DB_ENGINES["other"])["label"]
+    supabase = SUPABASE_HOST_RE.match(host) or (host.endswith(".pooler.supabase.com") and SUPABASE_USER_RE.match(fields.get("username") or ""))
+    if supabase:
+        return "Supabase", [links._link("Contraseña de la base de datos", f"https://supabase.com/dashboard/project/{supabase['ref']}/settings/database",
+                                        "«Reset database password»: pega la generada o copia la que te dé.")], False
+    if host.endswith(".supabase.co") or host.endswith(".supabase.com"):
+        return "Supabase", [links._link("Proyectos de Supabase", "https://supabase.com/dashboard/projects",
+                                        "Abre el proyecto › Database › Settings › «Reset database password».")], False
+    if host.endswith(".neon.tech"):
+        return "Neon", [links._link("Proyectos de Neon", "https://console.neon.tech/app/projects",
+                                    "Abre el proyecto › Roles › «Reset password»: Neon genera la nueva; cópiala.")], True
+    if host.endswith(".rds.amazonaws.com"):
+        return f"{engine} en AWS RDS", [links._link("Bases de datos de RDS", "https://console.aws.amazon.com/rds/home#databases:",
+                                                    "Para el usuario maestro: «Modify» › «New master password». Para otros, el comando.")], False
+    if host.endswith(".database.azure.com") or host.endswith(".database.windows.net"):
+        return f"{engine} en Azure", [links._link("Bases de datos de Azure", "https://portal.azure.com/#browse/resourcegroups",
+                                                  "Para el administrador: «Reset password» en el servidor. Para otros, el comando.")], False
+    return engine, [], False
+
+
+def _database_guide(entry):
+    fields = entry["fields"]
+    name, found, panel_only = _database(entry)
+    engine = fields.get("engine") or "postgresql"
+    command = None if panel_only else DB_COMMANDS.get(engine)
+    if command:
+        command = command.replace("{user}", fields.get("username") or "usuario").replace("{database}", fields.get("database") or "admin")
+    where = f"{fields.get('host') or 'el servidor'}" + (f" (base de datos {fields['database']})" if fields.get("database") else "")
+    steps = (["Abre el panel (enlace de abajo) y cambia la contraseña del usuario "
+              f"{fields.get('username') or ''} con la que te da el panel; pégala en el paso siguiente."] if panel_only else
+             ["Genera la contraseña nueva aquí abajo (o escribe la tuya).",
+              f"Conéctate a {where} con la contraseña actual (la puedes copiar en la credencial) "
+              + ("y ejecuta el comando, o cámbiala en el panel (enlace de abajo)." if found and command else
+                 "y ejecuta el comando." if command else "y cámbiala como se haga en esa base de datos."),
+              "Cuando esté cambiada, pulsa «Ya la he cambiado: guardar»."])
+    return {"provider": name, "source": "builtin", "kind": "database", "create": steps, "revoke": "",
+            "warning": "En cuanto la cambies, la actual deja de funcionar: todo lo que la usa (develop, pre, pro…) "
+                       "fallará hasta que le pongas la nueva. Hazlo cuando puedas actualizar todos esos sitios seguidos.",
+            "links": found, "sources": [], "generate": not panel_only, "paired": None, "testable": False,
+            "command": command, "command_note": DB_COMMAND_NOTES.get(engine, "") if command else ""}
+
+
 def guide(entry):
-    """How to rotate an API key by hand: {"provider", "source": builtin | ai | generic, "create": [steps],
-    "revoke", "links", "sources"}, or None for credentials that are not API keys."""
+    """How to rotate an API key or a database password by hand: {"provider", "source": builtin | ai |
+    generic, "create": [steps], "revoke", "links", "sources"}, or None for other credentials."""
+    if entry["template"] == "database":
+        return _database_guide(entry)
     if entry["template"] not in ("api_key", "generic"):
         return None
     details = info(entry) or {}

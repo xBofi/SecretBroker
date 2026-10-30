@@ -84,6 +84,8 @@ def validate_entry(entry):
         raise ValidationError("Cada cuánto comprobarla: un número de horas, -1 (solo una vez) o 0 (nunca)")
     if entry.get("rotation_guide") is not None and not isinstance(entry["rotation_guide"], dict):
         raise ValidationError("Guía de rotación no válida")
+    if entry.get("used_in") is not None and clean_used_in(entry["used_in"]) != entry["used_in"]:
+        raise ValidationError(f"Dónde se usa: hasta {USED_IN_MAX} sitios, de {USED_IN_TEXT_MAX} caracteres como mucho")
     fields = entry.get("fields", {})
     draft = bool(entry.get("draft"))  # prepared by the AI: everything but the secret, which the user adds
     for spec in templates.active_specs(template_id, fields):
@@ -136,6 +138,26 @@ def secret_age_days(entry):
     return (datetime.now(timezone.utc) - since).days
 
 
+USED_IN_MAX = 20
+USED_IN_TEXT_MAX = 200
+
+
+def clean_used_in(places):
+    """Where a credential is used (develop, pre, pro, a server's .env, Vercel…): one line per place."""
+    if isinstance(places, str):
+        places = places.splitlines()
+    if not isinstance(places, list):
+        raise ValidationError("Dónde se usa: una lista de sitios")
+    cleaned = []
+    for place in places:
+        place = " ".join(str(place).split())
+        if place and place not in cleaned:
+            cleaned.append(place[:USED_IN_TEXT_MAX])
+    if len(cleaned) > USED_IN_MAX:
+        raise ValidationError(f"Dónde se usa: como mucho {USED_IN_MAX} sitios")
+    return cleaned
+
+
 def entry_summary(entry):
     """Everything about an entry except secret values (for the GUI)."""
     secret_names = set(templates.secret_field_names(entry["template"]))
@@ -154,6 +176,7 @@ def entry_summary(entry):
         "expires": entry.get("expires"),
         "rotate_every_days": entry.get("rotate_every_days"),
         "check_every_hours": entry.get("check_every_hours"),
+        "used_in": entry.get("used_in") or [],
     }
 
 
@@ -182,6 +205,8 @@ def agent_view(entry):
         view["check_every_hours"] = summary["check_every_hours"]
     if entry.get("rotation_guide"):
         view["rotation_guide"] = "escrita por la IA"
+    if entry.get("used_in"):
+        view["used_in"] = entry["used_in"]
     if entry.get("secret_since"):
         view["key_age_days"] = secret_age_days(entry)
     if entry.get("draft"):

@@ -36,7 +36,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from . import actions, crypto, exposure, links, paths, presets, rotation, update, winsec
 from .inject import ActionError, Redactor, substitute
 from .vault import (
-    CHECK_ONCE, DEFAULT_SETTINGS, ID_RE, valid_check_hours, TAG_RE, Vault, VaultLocked, ValidationError, WrongPassword, agent_view, secret_age_days,
+    CHECK_ONCE, DEFAULT_SETTINGS, ID_RE, valid_check_hours, TAG_RE, Vault, VaultLocked, ValidationError, WrongPassword, agent_view, secret_age_days, clean_used_in,
     check_master_password, convert_legacy_entry, entry_summary,
 )
 from . import templates
@@ -643,15 +643,21 @@ class Service:
     def op_replace_key(self, params):
         self._verify_proof("replace_key", params, ALL_PROOFS)
         entry = self._get_secret(params.get("id"))
-        if entry["template"] not in ("api_key", "generic"):
-            raise ServiceError("Solo se rotan así las API keys", "invalid")
-        value = str(params.get("value") or "").strip()
-        if not value:
-            raise ServiceError("Pega la clave nueva", "invalid")
-        if value == (entry["fields"].get("value") or "").strip():
-            raise ServiceError("Es la misma clave que ya está guardada: crea una nueva en el proveedor", "invalid")
+        if entry["template"] not in ("api_key", "generic", "database"):
+            raise ServiceError("Solo se rotan así las API keys y las contraseñas de bases de datos", "invalid")
+        database = entry["template"] == "database"
+        field = "password" if database else "value"
+        value = str(params.get("value") or "") if database else str(params.get("value") or "").strip()
+        if not value.strip():
+            raise ServiceError("Escribe la contraseña nueva" if database else "Pega la clave nueva", "invalid")
+        if value == (entry["fields"].get(field) or ""):
+            raise ServiceError("Es la misma que ya está guardada: " + ("genera una nueva" if database else "crea una nueva en el proveedor"), "invalid")
         candidate = copy.deepcopy(entry)
-        candidate["fields"]["value"] = value
+        candidate["fields"][field] = value
+        if params.get("used_in") is not None:
+            candidate["used_in"] = clean_used_in(params["used_in"])
+            if not candidate["used_in"]:
+                candidate.pop("used_in")
         # A secret paired with an id (OAuth client, app…): the user says whether it was made in the same
         # client (same id) or in a new one (new id). Never guessed: a new secret with a stale id fails.
         paired = rotation.paired_id(entry)
@@ -675,6 +681,12 @@ class Service:
             self._forget_grants(entry["id"])
         provider = (rotation.info(entry) or {}).get("provider")
         label = paired["label"] if paired else "ID asociado"
+        if database:
+            # The user already changed it in the database: the old one is gone, nothing to keep.
+            self._audit(entry["id"], "rotate", f"a mano ({provider})", "ok")
+            uploads = [self._push_again(candidate, d) for d in self.vault.destinations().get("entries", {}).get(entry["id"], [])]
+            return {"entry": self._summary(self.vault.get(entry["id"])), "check": None, "uploads": uploads,
+                    "id_changed": False, "also_updated": []}
         retired = {"fields": {"value": entry["fields"].get("value"), **({"username": old_id} if id_changed else {})},
                    "since": exposure.now_iso(), "provider": provider,
                    "checkable": exposure.provider_for(entry) is not None, "status": "pending",
@@ -1116,6 +1128,10 @@ class Service:
             entry["expires"] = str(params["expires"]).strip() or None
             if not entry["expires"]:
                 entry.pop("expires")
+        if params.get("used_in") is not None:
+            entry["used_in"] = clean_used_in(params["used_in"])
+            if not entry["used_in"]:
+                entry.pop("used_in")
         for key in ("rotate_every_days", "check_every_hours"):
             if params.get(key) is not None:
                 try:
@@ -1176,6 +1192,7 @@ class Service:
         self.vault.put(entry)
         self._audit(entry_id, "draft", "preparada por la IA", "ok")
         return {"credential": agent_view(self.vault.get(entry_id)), **_paired_question(entry),
+                **({} if entry.get("used_in") else {"used_in_question": USED_IN_QUESTION}),
                 "next": "El usuario debe pegar la clave en la app SecretBroker; hasta entonces no se puede usar."}
 
     def op_update_credential(self, params):
@@ -1293,7 +1310,8 @@ class Service:
         guide = rotation.guide(entry)
         return {"check": alive, "rotation": rotation.info(entry), "key_age_days": secret_age_days(entry),
                 "expires": entry.get("expires"), "rotate_every_days": entry.get("rotate_every_days"),
-                "rotation_guide": guide and guide["source"], **_paired_question(entry)}
+                "rotation_guide": guide and guide["source"], "used_in": entry.get("used_in") or [],
+                **({} if entry.get("used_in") else {"used_in_question": USED_IN_QUESTION}), **_paired_question(entry)}
 
     def op_ai_rotate(self, params):
         entry = self._get_secret(params.get("secret_id"))
@@ -1635,7 +1653,7 @@ class Service:
 
 
 CHANGE_LABELS = {"name": "Nombre", "description": "Notas para la IA", "tags": "Etiquetas", "expires": "Caduca",
-                 "rotate_every_days": "Rotar cada (días)", "rotation_guide": "Guía de rotación",
+                 "rotate_every_days": "Rotar cada (días)", "rotation_guide": "Guía de rotación", "used_in": "Dónde se usa",
                  "check_every_hours": "Comprobar cada (horas)"}
 def _paired_question(entry):
     """For the AI: the id a secret goes with, or a question to settle it when nobody knows."""
@@ -1650,7 +1668,9 @@ def _paired_question(entry):
             "con update_credential (pregúntaselo al usuario si no lo sabes): al rotarlo, la app preguntará si ha cambiado."}
 
 
-CONTEXT_KEYS = ("name", "description", "tags", "expires", "rotate_every_days", "rotation_guide", "check_every_hours")  # changes that don't affect where a key can go
+USED_IN_QUESTION = ("¿Dónde se usa esta credencial (develop, pre, pro, el .env de un servidor, Vercel, CI, otro proyecto…)? "
+                    "Apúntalo con update_credential(used_in=[...]): al rotarla, la app le pedirá al usuario que la cambie en cada sitio.")
+CONTEXT_KEYS = ("name", "description", "tags", "expires", "rotate_every_days", "rotation_guide", "check_every_hours", "used_in")  # changes that don't affect where a key can go
 
 
 def _describe_changes(old, new):
@@ -1663,6 +1683,8 @@ def _describe_changes(old, new):
                 value = f"{len(new[key]['create'])} paso(s); fuentes: {', '.join(new[key]['sources'])}"
             elif key == "rotate_every_days" and new.get(key) is not None:
                 value = str(new[key] or "nunca")
+            elif key == "used_in":
+                value = "; ".join(new.get(key) or []) or "—"
             elif key == "check_every_hours" and new.get(key) is not None:
                 value = {0: "nunca", CHECK_ONCE: "solo una vez"}.get(new[key], str(new[key]))
             changes.append((key, f"{CHANGE_LABELS[key]}: «{value[:200]}»"))

@@ -910,7 +910,10 @@ function rotationSection(entry) {
     entry.retired ? retiredBox(entry) : null,
     el('p', { class: 'help' }, rotation.supported
       ? `Pide a ${rotation.provider} una clave nueva y anula la actual, sin que nadie la vea.`
-      : `${rotation.reason} La app te guía: creas la clave nueva en su web, la pegas aquí y se prueba, se guarda y se sube donde haga falta.`),
+      : guide.kind === 'database'
+        ? `${rotation.reason} La app genera la nueva, te da ${guide.command ? 'el comando' : 'los pasos'}${guide.links && guide.links.length ? ' o el enlace al panel' : ''} y la lista de sitios donde ponerla.`
+        : `${rotation.reason} La app te guía: creas la clave nueva en su web, la pegas aquí y se prueba, se guarda y se sube donde haga falta.`),
+    usedInList(entry),
     rotation.supported && destinations.length
       ? el('p', { class: 'help' }, 'Después se vuelve a subir a: ', destinations.map(destinationLabel).join(', '))
       : null,
@@ -948,9 +951,17 @@ function retiredBox(entry) {
     el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, retired.status === 'alive'
       ? `La clave anterior sigue funcionando. Bórrala en ${where} para terminar la rotación.`
       : `Falta borrar la clave anterior en ${where}.`)),
+    (entry.used_in || []).length ? el('p', { class: 'help' }, `Antes, asegúrate de que ya usan la nueva: ${entry.used_in.join('; ')}.`) : null,
     guide.revoke ? el('p', { class: 'help' }, guide.revoke) : null,
     guide.links && guide.links.length ? linkList(guide.links.slice(0, 1)) : null,
     el('div', { style: 'margin-top:8px;display:flex;gap:8px' }, checkButton, forget, status));
+}
+
+function usedInList(entry) {
+  const places = entry.used_in || [];
+  return el('div', { class: 'help' }, places.length
+    ? [el('div', {}, 'Se usa en:'), el('ul', { class: 'used-in' }, places.map((p) => el('li', {}, p)))]
+    : 'No está apuntado dónde se usa. Añádelo al editarla (o pídeselo a la IA): al rotarla, la app te pedirá cambiarla en cada sitio.');
 }
 
 function guideSteps(steps) {
@@ -962,26 +973,122 @@ function rotateGuided(entry) {
   const known = guide.provider || (entry.rotation && entry.rotation.provider);
   const provider = known || 'el proveedor';
   const site = known ? `la web de ${known}` : 'la web del servicio';
+  const database = guide.kind === 'database';
   const exposureBefore = exposureOf(entry.id);  // its findings are for the old value: gone once it changes
   const suggested = `${entry.id}-${new Date().toISOString().slice(0, 7)}`;
+  const env = Object.keys(((entry.policy || {}).commands || {}).env || {});
+  const automatic = [
+    ...(entry.destinations || []).map((d) => `${destinationLabel(d)} (se vuelve a subir sola)`),
+    ...(env.length ? [`tus programas con sb run (${env.join(', ')}), al reiniciarlos`] : []),
+  ];
+  const titles = database
+    ? ['Dónde se usa', 'Cambia la contraseña', 'Ponla en cada sitio']
+    : ['Dónde se usa', 'Crea la clave nueva', guide.generate ? 'El secreto nuevo' : 'Pega la clave nueva', 'Ponla en cada sitio', 'Borra la clave anterior'];
   const body = el('div', {});
   const foot = el('div', { style: 'display:contents' });
   let changed = false;
+  let places = [...(entry.used_in || [])];
   const modal = openModal({
     title: `Rotar ${entry.name}`, wide: true, body, footer: [foot],
     onClose: async () => { if (changed) { await loadEntries(); renderMain(); } },
   });
-  const progress = (step) => el('div', { class: 'steps', style: 'margin-bottom:14px' }, [1, 2, 3, 4].map((i) => el('span', { class: i <= step ? 'done' : '' })));
   const show = (step, nodes, buttons) => {
-    body.replaceChildren(el('div', {}, progress(step), nodes));
+    body.replaceChildren(el('div', {},
+      el('div', { class: 'steps', style: 'margin-bottom:14px' }, titles.map((_, i) => el('span', { class: i < step ? 'done' : '' }))),
+      el('h3', {}, `${step} · ${titles[step - 1]}`), nodes));
     foot.replaceChildren(el('div', { class: 'spacer' }), ...buttons.filter(Boolean));
   };
+  const line = (ok, text) => el('div', { class: 'perm' }, icon(ok ? 'check' : 'alert', 'sm'), el('span', {}, text));
+  const generated = () => {
+    const bytes = crypto.getRandomValues(new Uint8Array(database ? 24 : 48));
+    return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  };
 
+  // 1 · Every place that will need the new one: asked first, kept with the credential for next time.
+  function where() {
+    const list = el('div', { class: 'used-in-edit' });
+    const input = el('input', { class: 'input', placeholder: 'p. ej. pro: servidor api.ejemplo.com, /srv/app/.env' });
+    const render = () => list.replaceChildren(places.length
+      ? places.map((place, i) => el('div', { class: 'perm' }, el('span', { class: 'muted' }, '•'), el('span', { style: 'flex:1' }, place),
+        el('button', { class: 'btn icon-only', title: 'Quitar', onclick: () => { places.splice(i, 1); render(); } }, icon('x'))))
+      : el('p', { class: 'help' }, 'Todavía no hay ningún sitio apuntado.'));
+    const add = () => {
+      const value = input.value.trim();
+      if (value && !places.includes(value)) places.push(value);
+      input.value = '';
+      render();
+      input.focus();
+    };
+    input.addEventListener('keydown', (event) => { if (event.key === 'Enter') add(); });
+    render();
+    show(1, [
+      el('p', { class: 'muted' }, database
+        ? 'En cuanto cambies la contraseña, la actual deja de funcionar en todos los sitios que la usan. Apúntalos todos: develop, pre, pro, cada servidor, Vercel, CI, otros proyectos…'
+        : 'Cuando tengas la nueva, habrá que ponerla en cada sitio que la usa antes de borrar la anterior. Apúntalos todos: develop, pre, pro, cada servidor, Vercel, CI, otros proyectos…'),
+      list,
+      el('div', { style: 'display:flex;gap:8px;margin-top:8px' }, input, el('button', { class: 'btn', onclick: add }, 'Añadir')),
+      automatic.length ? el('p', { class: 'help', style: 'margin-top:10px' }, `De esto se encarga la app: ${automatic.join('; ')}.`) : null,
+      el('p', { class: 'help' }, 'Se guarda en la credencial para la próxima vez. La IA también los apunta cuando configura un sitio.'),
+    ], [el('button', { class: 'btn', onclick: () => modal.close() }, 'Cancelar'),
+      el('button', { class: 'btn primary', onclick: () => { if (input.value.trim()) add(); (database ? change : create)(); } }, 'Siguiente')]);
+    setTimeout(() => input.focus(), 50);
+  }
+
+  const save = async (button, errorText, params) => {
+    busy(button, true);
+    const result = await withProof((p) => api().call('replace_key', { id: entry.id, used_in: places, ...params }, p),
+      `Para guardar la ${database ? 'contraseña' : 'clave'} nueva de ${entry.name}.`);
+    busy(button, false);
+    if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
+    changed = true;
+    update(result.result);
+  };
+
+  // 2 · Databases: a new password and the exact command (or the panel). Nothing connects from here.
+  function change() {
+    const group = passwordInput({ placeholder: guide.generate ? 'Genera una o escribe la tuya' : 'Pega la que te ha dado el panel' });
+    const errorText = el('div', { class: 'error-text' });
+    const commandBox = el('div', {});
+    const renderCommand = () => {
+      if (!guide.command) { commandBox.replaceChildren(); return; }
+      const password = group.input.value;
+      const quoted = guide.command.startsWith('db.') ? JSON.stringify(password).slice(1, -1) : password.replace(/'/g, "''");
+      const shown = guide.command.replace('{password}', password ? '•'.repeat(12) : 'CONTRASEÑA_NUEVA');
+      commandBox.replaceChildren(el('div', { class: 'prop' }, el('div', { style: 'min-width:0' },
+        el('div', { class: 'k' }, 'Comando (al copiarlo lleva la contraseña)'), el('div', { class: 'v mono selectable', style: 'white-space:normal' }, shown)),
+        password ? el('div', { class: 'actions' }, copyButton(guide.command.replace('{password}', quoted))) : null),
+        guide.command_note ? el('p', { class: 'help' }, guide.command_note) : null);
+    };
+    group.input.addEventListener('input', renderCommand);
+    const generate = guide.generate ? el('button', { class: 'btn', onclick: () => {
+      group.input.value = generated();
+      renderCommand();
+      toast('Generada: 32 caracteres aleatorios');
+    } }, 'Generar una') : null;
+    const saveButton = el('button', { class: 'btn primary' }, 'Ya la he cambiado: guardar');
+    saveButton.addEventListener('click', () => {
+      errorText.textContent = '';
+      if (!group.input.value.trim()) { errorText.textContent = 'Primero genera o escribe la contraseña nueva.'; return; }
+      save(saveButton, errorText, { value: group.input.value });
+    });
+    renderCommand();
+    show(2, [
+      guide.warning ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, guide.warning)) : null,
+      guideSteps(guide.create || []),
+      el('div', { class: 'field' }, el('label', {}, 'Contraseña nueva'),
+        el('div', { style: 'display:flex;gap:8px' }, el('div', { style: 'flex:1' }, group), generate),
+        el('div', { class: 'help' }, 'La IA no la ve. Guárdala aquí solo después de cambiarla en la base de datos.')),
+      commandBox,
+      guide.links && guide.links.length ? linkList(guide.links) : null,
+      errorText,
+    ], [el('button', { class: 'btn', onclick: where }, 'Atrás'), saveButton]);
+  }
+
+  // 2 · API keys: where to create the new one.
   const paired = guide.paired;
   let idChoice = null;  // 'same' | 'new': the user must say it, never assumed
-  let oldId = paired ? paired.value : '';
-  const create = () => show(1, [
-    el('h3', {}, '1 · Crea la clave nueva'),
+  const oldId = paired ? paired.value : '';
+  const create = () => show(2, [
     el('p', { class: 'muted' }, `Créala en ${site}. La actual sigue funcionando hasta que la borres, así que no se corta nada.`),
     guide.warning ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, guide.warning)) : null,
     guideSteps(guide.create || []),
@@ -990,18 +1097,20 @@ function rotateGuided(entry) {
     guide.links && guide.links.length ? linkList(guide.links) : null,
     guide.source === 'ai' ? el('p', { class: 'help' }, icon('sparkles', 'sm'), ' Guía escrita por la IA. Fuentes: ',
       guide.sources.map((url, i) => [i ? ', ' : '', el('button', { class: 'link small', onclick: () => api().open_link(url) }, new URL(url).hostname)])) : null,
-  ], [el('button', { class: 'btn', onclick: () => modal.close() }, 'Cancelar'),
+  ], [el('button', { class: 'btn', onclick: where }, 'Atrás'),
     el('button', { class: 'btn primary', onclick: paste }, 'Ya la tengo')]);
 
+  // 3 · Paste it: tested before it replaces the current one.
   function paste() {
     const group = passwordInput({ placeholder: 'Pega aquí la clave nueva' });
     const errorText = el('div', { class: 'error-text' });
-    const save = el('button', { class: 'btn primary' }, 'Probar y guardar');
-    save.addEventListener('click', async () => {
+    const saveButton = el('button', { class: 'btn primary' }, 'Probar y guardar');
+    const idInput = el('input', { class: 'input mono', placeholder: paired && paired.hint ? paired.hint : '', spellcheck: 'false' });
+    saveButton.addEventListener('click', () => {
       errorText.textContent = '';
       const value = group.input.value.trim();
       if (!value) { errorText.textContent = 'Pega la clave nueva.'; return; }
-      const params = { id: entry.id, value };
+      const params = { value };
       if (paired) {
         if (!idChoice) { errorText.textContent = `Indica si el ${paired.label} es el mismo o ha cambiado.`; return; }
         params.paired_id = idChoice === 'same' ? oldId : idInput.value.trim();
@@ -1009,15 +1118,9 @@ function rotateGuided(entry) {
           errorText.textContent = `Pega el ${paired.label} nuevo.`; idInput.focus(); return;
         }
       }
-      busy(save, true);
-      const result = await withProof((p) => api().call('replace_key', params, p), `Para guardar la clave nueva de ${entry.name}.`);
-      busy(save, false);
-      if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
-      changed = true;
-      done(result.result);
+      save(saveButton, errorText, params);
     });
-    group.input.addEventListener('keydown', (event) => { if (event.key === 'Enter') save.click(); });
-    const idInput = el('input', { class: 'input mono', placeholder: paired && paired.hint ? paired.hint : '', spellcheck: 'false' });
+    group.input.addEventListener('keydown', (event) => { if (event.key === 'Enter') saveButton.click(); });
     const idField = el('div', { class: 'field hidden' }, el('label', {}, `${paired ? paired.label : ''} nuevo`), idInput);
     const choice = (value, text) => el('label', { class: 'perm', style: 'cursor:pointer' },
       el('input', { type: 'radio', name: 'id-choice', value, checked: idChoice === value, onchange: () => {
@@ -1032,12 +1135,10 @@ function rotateGuided(entry) {
       choice('new', `Ha cambiado: he creado ${guide.provider === 'Microsoft Entra' ? 'otra app' : 'otro cliente'} nuevo.`),
       idField) : null;
     const generate = guide.generate ? el('button', { class: 'btn', onclick: () => {
-      const bytes = crypto.getRandomValues(new Uint8Array(48));
-      group.input.value = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      group.input.value = generated();
       toast('Generado: 48 bytes aleatorios');
     } }, 'Generar uno aleatorio') : null;
-    show(2, [
-      el('h3', {}, guide.generate ? '2 · El secreto nuevo' : '2 · Pega la clave nueva'),
+    show(3, [
       el('div', { class: 'field' }, el('label', {}, 'Clave nueva'), group,
         el('div', { class: 'help' }, guide.testable
           ? `Se prueba con ${known} antes de sustituir la actual: si no funciona, no se cambia nada. La IA no la ve.`
@@ -1045,30 +1146,46 @@ function rotateGuided(entry) {
       generate,
       idQuestion,
       errorText,
-    ], [el('button', { class: 'btn', onclick: create }, 'Atrás'), save]);
+    ], [el('button', { class: 'btn', onclick: create }, 'Atrás'), saveButton]);
     setTimeout(() => group.input.focus(), 50);
   }
 
-  function done(result) {
-    const line = (ok, text) => el('div', { class: 'perm' }, icon(ok ? 'check' : 'alert', 'sm'), el('span', {}, text));
+  // Put it in every place: each one ticked before the old one is deleted (or, for a database, before finishing).
+  function update(result) {
     const check = result.check;
-    const env = Object.keys(((entry.policy || {}).commands || {}).env || {});
-    show(3, [
-      el('h3', {}, '3 · Ya se usa la nueva'),
-      check && check.status === 'ok' ? line(true, `Funciona: ${check.provider} la acepta.`)
-        : !guide.testable ? line(false, 'Esta clave no se puede probar desde aquí: comprueba en tu app que funciona.')
-        : line(false, `No se pudo probar con ${provider}${check && check.message ? ` (${check.message})` : ''}; se ha guardado igualmente.`),
+    const step = database ? 3 : 4;
+    const next = el('button', { class: 'btn primary', onclick: () => {
+      if (database) { modal.close(); toast('Rotación completa'); } else revoke(result.entry.retired, result.id_changed);
+    } }, database ? 'Terminar' : 'Siguiente');
+    const left = el('div', { class: 'help' });
+    const boxes = places.map(() => el('input', { type: 'checkbox' }));
+    const sync = () => {
+      const missing = boxes.filter((box) => !box.checked).length;
+      next.disabled = missing > 0;
+      left.textContent = missing ? `Falta${missing > 1 ? 'n' : ''} ${missing}. ${database ? 'Hasta que la pongas, esos sitios no pueden conectar.' : 'No borres la anterior hasta tenerlos todos.'}` : '';
+    };
+    boxes.forEach((box) => box.addEventListener('change', sync));
+    sync();
+    show(step, [
+      database ? line(true, 'Guardada. La URL de conexión ya lleva la nueva.')
+        : check && check.status === 'ok' ? line(true, `Funciona: ${check.provider} la acepta.`)
+          : !guide.testable ? line(false, 'Esta clave no se puede probar desde aquí: comprueba en tu app que funciona.')
+            : line(false, `No se pudo probar con ${provider}${check && check.message ? ` (${check.message})` : ''}; se ha guardado igualmente.`),
       line(true, 'La IA ya usa la nueva. Sus aprobaciones de esta credencial se han reiniciado.'),
       result.id_changed ? line(true, `${paired.label} nuevo guardado: ${result.entry.fields.username}.`) : null,
       (result.also_updated || []).map((o) => line(true, `También se ha cambiado el ID en «${o.name}».`)),
-      result.id_changed ? line(false, `Cambia también el ${paired.label} en tu app (su .env o su configuración) si lo tiene escrito.`) : null,
       result.uploads.map((u) => line(u.ok, u.ok ? `Subida a ${u.label} como ${u.name}.` : `No se pudo subir a ${u.label}: ${u.error}`)),
       env.length ? line(true, `Tus programas con sb run (${env.join(', ')}) la usarán al reiniciarlos.`) : null,
-      exposureBefore && exposureBefore.found ? line(false, `La clave anterior estaba en claro en ${exposureBefore.found} sitio(s). En cuanto la borres, esas copias dejan de ser un riesgo.`) : null,
-      el('p', { class: 'help', style: 'margin-top:8px' }, 'Si la tienes puesta en otros sitios (un servidor, Vercel, otra app…), cámbiala allí también antes de borrar la anterior.'),
-    ], [el('button', { class: 'btn primary', onclick: () => revoke(result.entry.retired, result.id_changed) }, 'Siguiente')]);
+      exposureBefore && exposureBefore.found && !database ? line(false, `La clave anterior estaba en claro en ${exposureBefore.found} sitio(s). En cuanto la borres, esas copias dejan de ser un riesgo.`) : null,
+      places.length
+        ? el('div', { class: 'field', style: 'margin-top:10px' },
+          el('label', {}, `Ponla en cada sitio y márcalo${result.id_changed ? ` (y el ${paired.label} nuevo)` : ''}`),
+          places.map((place, i) => el('label', { class: 'perm', style: 'cursor:pointer' }, boxes[i], el('span', {}, place))), left)
+        : el('p', { class: 'help', style: 'margin-top:8px' }, `No hay sitios apuntados. Si la usas en otro sitio (un servidor, Vercel, otra app…), cámbiala allí también${database ? '' : ' antes de borrar la anterior'}.`),
+    ], [next]);
   }
 
+  // Delete the old key at the provider, and check it is dead.
   function revoke(retired, idChanged) {
     const status = el('div', {});
     const checkable = retired && retired.checkable;
@@ -1094,10 +1211,9 @@ function rotateGuided(entry) {
       modal.close();
       toast('Rotación completa');
     } }, 'Ya la he borrado');
-    show(4, [
-      el('h3', {}, '4 · Borra la clave anterior'),
+    show(5, [
       el('p', { class: 'muted' }, idChanged
-        ? `Como has creado ${guide.provider === 'Microsoft Entra' ? 'otra app' : 'otro cliente'}, cuando tu app ya use el nuevo borra el anterior (${oldId}) en ${provider}.`
+        ? `Como has creado ${guide.provider === 'Microsoft Entra' ? 'otra app' : 'otro cliente'}, borra el anterior (${oldId}) en ${provider}.`
         : guide.revoke || `Borra o revoca la clave anterior en ${provider}.`),
       guide.links && guide.links.length ? linkList(guide.links.slice(0, 1)) : null,
       el('p', { class: 'help' }, checkable
@@ -1108,7 +1224,7 @@ function rotateGuided(entry) {
       forget, checkable ? checkButton : null]);
   }
 
-  create();
+  where();
 }
 
 async function rotateEntry(entry) {
@@ -1244,6 +1360,8 @@ function showForm(templateId, entry) {
   const everyInput = el('select', { class: 'input' }, ROTATE_EVERY.map(([days, label]) =>
     el('option', { value: days === null ? '' : String(days), selected: days === currentEvery }, label)));
   const checkEvery = checkEveryControl(isNew ? null : (entry.check_every_hours ?? null), true);
+  const usedInput = el('textarea', { class: 'input', rows: 3, placeholder: 'develop: .env local (DATABASE_URL)\npro: servidor api.ejemplo.com, /srv/app/.env\nVercel: proyecto web' },
+    isNew ? '' : (entry.used_in || []).join('\n'));
 
   const approval = el('div', { class: 'segmented' });
   const renderApproval = () => approval.replaceChildren(Object.entries(APPROVAL_LABELS).map(([k, label]) => el('button', {
@@ -1362,6 +1480,7 @@ function showForm(templateId, entry) {
       ...(expiresInput.value ? { expires: expiresInput.value } : {}),
       ...(everyInput.value !== '' ? { rotate_every_days: Number(everyInput.value) } : {}),
       ...(checkEvery.value() !== null ? { check_every_hours: checkEvery.value() } : {}),
+      used_in: usedInput.value.split('\n').map((line) => line.trim()).filter(Boolean),
     };
   };
 
@@ -1400,6 +1519,8 @@ function showForm(templateId, entry) {
         el('div', { class: 'field', style: 'flex:1' }, el('label', {}, 'Recordar rotarla'), everyInput)),
       el('div', { class: 'field' }, el('label', {}, 'Comprobar que funciona'), checkEvery.node,
         el('div', { class: 'help' }, 'Una llamada de solo lectura al proveedor (o entrar y salir del servidor SSH). «Ajuste general» sigue el de Ajustes.')),
+      el('div', { class: 'field' }, el('label', {}, 'Dónde se usa', el('span', { class: 'req' }, ' · opcional')), usedInput,
+        el('div', { class: 'help' }, 'Un sitio por línea: develop, pre, pro, cada servidor, Vercel, CI, otros proyectos… Al rotarla, la app te pedirá cambiarla en cada uno.')),
       advanced,
       errorText,
     ],

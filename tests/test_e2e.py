@@ -602,8 +602,8 @@ def main():
     check(listed["cloudflare"]["rotation"] == {"provider": "Cloudflare", "supported": True, "reason": ""}, "Cloudflare keys are rotatable")
     check(listed["claude"]["rotation"]["provider"] == "Anthropic" and not listed["claude"]["rotation"]["supported"]
           and "Console" in listed["claude"]["rotation"]["reason"], "Anthropic keys are not, with the reason")
-    check(not listed["echo-api"]["rotation"]["supported"] and listed["shop-db"]["rotation"] is None,
-          "unknown providers are not rotatable; non-API credentials have no rotation")
+    check(not listed["echo-api"]["rotation"]["supported"] and listed["shop-db"]["rotation"]["provider"] == "PostgreSQL"
+          and not listed["shop-db"]["rotation"]["supported"], "unknown providers and databases are not rotatable by API")
     check(listed["shop-db"]["destinations"][0]["repo"] == "me/app", "uploads to GitHub are remembered")
     expect_error(lambda: call("rotate", {"id": "claude"}, "hello"), "invalid", "rotating an unsupported provider is refused")
     expect_error(lambda: client.request("rotate", {"id": "cloudflare"}), "proof_required", "rotation needs a proof")
@@ -634,8 +634,8 @@ def main():
     check(claude["guide"]["source"] == "builtin" and claude["guide"]["create"]
           and claude["guide"]["links"][0]["url"] == "https://platform.claude.com/settings/keys",
           "Anthropic has a built-in guide that starts at its keys page")
-    check(listed["echo-api"]["guide"]["source"] == "generic" and listed["shop-db"]["guide"] is None,
-          "unknown providers get the generic guide; non-API credentials none")
+    check(listed["echo-api"]["guide"]["source"] == "generic" and listed["shop-db"]["guide"]["kind"] == "database",
+          "unknown providers get the generic guide; databases their own")
     expect_error(lambda: client.request("replace_key", {"id": "claude", "value": "sk-ant-api03-NEWNEWNEW1234"}), "proof_required",
                  "replacing a key needs the user")
     expect_error(lambda: call("replace_key", {"id": "claude", "value": "sk-ant-api03-REJECTED99"}, "hello"), "invalid",
@@ -731,6 +731,43 @@ def main():
     check(drafted["paired_id"] is None and "fields.username" in drafted["question"], "a new secret of unknown origin asks the AI about its id")
     call("delete_entry", {"id": "g-client-id"}, "hello")
     call("delete_entry", {"id": "webhook-x"}, "hello")
+
+    print("Where a credential is used, and database passwords")
+    places = ["develop: .env local (DATABASE_URL)", "pre: servidor pre.example.com", "pro: servidor api.example.com, /srv/app/.env"]
+    changed = client.request("update_credential", {"secret_id": "shop-db", "used_in": places + ["  pre: servidor   pre.example.com "]})
+    check(any(c.startswith("Dónde se usa") for c in changed["changed"])
+          and next(e for e in client.request("entries") if e["id"] == "shop-db")["used_in"] == places,
+          "the AI notes where it is used (cleaned, no duplicates), without asking the user")
+    check(next(v for v in client.request("list_secrets") if v["id"] == "shop-db")["used_in"] == places, "and sees it later")
+    check("used_in_question" not in client.request("ai_check", {"secret_id": "shop-db"})
+          and "used_in_question" in client.request("ai_check", {"secret_id": "echo-api"}), "the AI is asked where a credential is used when nobody noted it")
+    expect_error(lambda: client.request("update_credential", {"secret_id": "shop-db", "used_in": [str(i) for i in range(30)]}),
+                 "invalid", "at most 20 places")
+    guide = next(e for e in client.request("entries") if e["id"] == "shop-db")["guide"]
+    check(guide["provider"] == "PostgreSQL" and guide["command"] == """ALTER ROLE "app" WITH PASSWORD '{password}';"""
+          and guide["generate"] and "deja de funcionar" in guide["warning"] and DB_PASSWORD not in json.dumps(guide),
+          "a database guide gives the exact command (without the password) and the warning")
+    managed = [
+        ({"engine": "postgresql", "host": "db.abcdefghijklmnopqrst.supabase.co", "username": "postgres"}, "Supabase",
+         "https://supabase.com/dashboard/project/abcdefghijklmnopqrst/settings/database", True),
+        ({"engine": "postgresql", "host": "ep-cool-1.eu-central-1.aws.neon.tech", "username": "app"}, "Neon",
+         "https://console.neon.tech/app/projects", False),
+        ({"engine": "mysql", "host": "shop.abc.eu-west-1.rds.amazonaws.com", "username": "admin"}, "MySQL / MariaDB en AWS RDS",
+         "https://console.aws.amazon.com/rds/home#databases:", True),
+    ]
+    for fields, name, url, command in managed:
+        g = rotation.guide({"template": "database", "fields": {**fields, "password": "x"}})
+        check(g["provider"] == name and g["links"][0]["url"] == url and bool(g["command"]) == command,
+              f"{name}: its panel" + (" and the command" if command else ", where the panel gives the password"))
+    expect_error(lambda: call("replace_key", {"id": "shop-db", "value": DB_PASSWORD}, "hello"), "invalid", "the same password is refused")
+    uploads_before = len(FakeGitHub.received)
+    result = call("replace_key", {"id": "shop-db", "value": "NEW-db-pass-123", "used_in": places[:2]}, "hello")
+    check(call("reveal", {"id": "shop-db", "field": "password"}, "hello") == "NEW-db-pass-123", "the new database password is stored")
+    check(result["entry"]["retired"] is None and len(FakeGitHub.received) == uploads_before + len(result["uploads"]) == uploads_before + 2
+          and all(u["ok"] for u in result["uploads"]), "nothing old is kept (it no longer works), and its GitHub secrets are updated")
+    check(result["entry"]["used_in"] == places[:2], "the places edited in the wizard are saved")
+    check("NEW-db-pass" not in json.dumps(result) and "NEW-db-pass" not in json.dumps(client.request("audit", {"limit": 20})),
+          "the new password appears nowhere")
     for item in consoles:
         call("delete_entry", {"id": item["id"]}, "hello")
 
