@@ -617,10 +617,13 @@ def main():
 
     print("Rotation by hand")
     working = {"sk-ant-api03-FAKEFAKEFAKE", "sk-ant-api03-NEWNEWNEW1234"}
+    deleted_409 = set()
 
     def fake_alive(entry):
         if not exposure.provider_for(entry):
             return None
+        if entry["fields"]["value"] in deleted_409:  # how AssemblyAI answers a deleted key
+            return {"status": "unknown", "provider": "Anthropic", "http": 409, "message": "Respuesta inesperada (HTTP 409)"}
         ok = entry["fields"]["value"] in working
         return {"status": "ok" if ok else "invalid", "provider": "Anthropic", "message": "" if ok else "Anthropic rechaza la clave (HTTP 401)"}
     exposure.check_alive = fake_alive
@@ -652,6 +655,11 @@ def main():
           and not any(r["id"] == "claude" for r in client.request("reminders")), "and forgotten")
     working.add("sk-ant-api03-THIRD0000000")
     call("replace_key", {"id": "claude", "value": "sk-ant-api03-THIRD0000000"}, "hello")
+    deleted_409.add("sk-ant-api03-NEWNEWNEW1234")
+    check(client.request("check_retired", {"id": "claude"})["status"] == "done",
+          "an old key refused with an unusual 4xx (AssemblyAI's 409) counts as deleted while the new one works")
+    working.add("sk-ant-api03-FOURTH000000")
+    call("replace_key", {"id": "claude", "value": "sk-ant-api03-FOURTH000000"}, "hello")
     client.request("forget_retired", {"id": "claude"})
     check(next(e for e in client.request("entries") if e["id"] == "claude")["retired"] is None, "the user can say it is deleted")
 

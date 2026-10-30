@@ -679,9 +679,16 @@ class Service:
         old = copy.deepcopy(entry)
         old["fields"].update(record["fields"])
         alive = exposure.check_alive(old)
-        if alive and alive["status"] == "invalid":
+        rejected = bool(alive and alive["status"] == "invalid")
+        if not rejected and alive and 400 <= (alive.get("http") or 0) < 500 and alive["http"] != 429:
+            # Some providers answer a deleted key with an unusual error (AssemblyAI: 409) instead of
+            # 401/403. If the current key works, the old one being refused means it is gone.
+            current = exposure.check_alive(entry)
+            rejected = bool(current and current["status"] == "ok")
+        if rejected:
             self._update_retired(lambda data: data["entries"].pop(entry["id"], None))
-            self._audit(entry["id"], "rotate", "la clave anterior ya no funciona", "ok")
+            self._audit(entry["id"], "rotate", "la clave anterior ya no funciona"
+                        + (f" (HTTP {alive['http']})" if alive.get("http") else ""), "ok")
             return {"status": "done"}
         if alive and alive["status"] == "ok":
             status, message = "alive", ""

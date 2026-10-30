@@ -172,7 +172,23 @@ def check_alive(entry):
         return {"status": "invalid", "provider": name, "message": f"{name} rechaza la clave (HTTP {response.status_code})"}
     if response.is_success or response.status_code == 429:  # rate limited means the key was recognised
         return {"status": "ok", "provider": name}
-    return {"status": "unknown", "provider": name, "message": f"Respuesta inesperada (HTTP {response.status_code})"}
+    return {"status": "unknown", "provider": name, "http": response.status_code,
+            "message": f"Respuesta inesperada (HTTP {response.status_code}){_said(response)}"}
+
+
+def _said(response):
+    """What the provider says about an unexpected answer, briefly (it may explain a revoked key)."""
+    try:
+        body = response.json()
+    except ValueError:
+        return ""
+    if isinstance(body, dict):
+        said = body.get("error") or body.get("message") or body.get("detail")
+        if isinstance(said, dict):
+            said = said.get("message")
+        if isinstance(said, str) and said.strip():
+            return ": " + said.strip()[:160]
+    return ""
 
 
 def password_of(entry):
