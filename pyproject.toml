@@ -39,7 +39,7 @@ secretbroker-service = "secretbroker.service:main"
 secretbroker = "secretbroker.app:main"
 
 [tool.setuptools]
-packages = ["secretbroker"]
+packages = ["secretbroker", "secretbroker.platform"]
 
 [tool.setuptools.package-data]
 secretbroker = ["web/*", "assets/*"]
