@@ -683,10 +683,11 @@ function renderCredentials(content) {
 }
 
 function reminderShort(r) {
-  return { expired: 'Caducada', expiring: `Caduca en ${r.days} d`, old: 'Clave antigua', old_alive: 'Borra la anterior' }[r.kind];
+  return { expired: 'Caducada', expiring: `Caduca en ${r.days} d`, old: 'Clave antigua', old_alive: 'Borra la anterior', team_access: 'Rótala' }[r.kind];
 }
 
 function reminderText(r) {
+  if (r.kind === 'team_access') return `${r.people.join(', ')} tenía acceso a esta credencial del equipo y ya no está. ${r.can_rotate ? 'Rótala' : 'Pide a quien la gestiona que la rote'} por si la vio.`;
   if (r.kind === 'old_alive') return `Rotaste la clave, pero la anterior sigue funcionando. Bórrala en ${r.provider || 'la web del proveedor'}.`;
   if (r.kind === 'expired') return `Caducó hace ${r.days} día(s). Crea una clave nueva o rótala.`;
   if (r.kind === 'expiring') return `Caduca en ${r.days} día(s). Rótala antes de que deje de funcionar.`;

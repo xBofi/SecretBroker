@@ -33,11 +33,11 @@ import httpx
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from . import actions, crypto, exposure, links, paths, presets, rotation, update, winsec
+from . import actions, crypto, exposure, links, paths, presets, rotation, teams, update, winsec
 from .inject import ActionError, Redactor, substitute
 from .vault import (
     CHECK_ONCE, DEFAULT_SETTINGS, ID_RE, valid_check_hours, TAG_RE, Vault, VaultLocked, ValidationError, WrongPassword, agent_view, secret_age_days, clean_used_in,
-    check_master_password, convert_legacy_entry, entry_summary,
+    check_master_password, convert_legacy_entry, entry_summary, can_write_shared, shared_content,
 )
 from . import templates
 
@@ -55,7 +55,15 @@ SCAN_SESSION_SECONDS = 12 * 3600
 RETIRED_CHECK_SECONDS = 24 * 3600  # old keys of a rotation by hand still waiting to be deleted
 ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 SLUG_RE = re.compile(r"[^a-z0-9]+")
-PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore")  # what the app that unlocked may do with one click
+# Team operations that change something: the app that unlocked does them with one click. None is for the AI.
+TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_invite", "team_accept_invite",
+                   "team_confirm_member", "team_set_role", "team_remove_member", "team_create_collection", "team_grant",
+                   "team_revoke", "team_share_entry", "team_unshare_entry", "team_accept_change")
+PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore") \
+    + TEAM_CHANGE_OPS  # what the app that unlocked may do with one click
+# Operations that may change a shared credential: the team sync runs soon after them to push it.
+TEAM_PUSH_OPS = {"save_entry", "delete_entry", "replace_key", "rotate", "update_credential", "ai_rotate", "ai_delete"}
+TEAM_SYNC_SECONDS = 300
 # Everything the AI can ask for. "Pause the AI" refuses all of it without locking the vault.
 AI_OPS = AGENT_ACTIONS | {"list_secrets", "release_env", "push_github_secret", "create_draft", "update_credential",
                           "request_access", "check_env", "import_env", "ai_check", "ai_rotate", "ai_activity",
@@ -123,6 +131,10 @@ class Service:
         self._uses = collections.defaultdict(collections.deque)  # secret id -> monotonic times of recent uses
         self._server = None
         self.updates = update.Checker()
+        self.team = teams.Team(self.vault)
+        self._team_lock = threading.Lock()   # one team operation or sync at a time
+        self._team_wake = threading.Event()  # set to sync now instead of waiting for the next round
+        self._team_info = {"state": "idle"}
 
     # ------------------------------------------------------------------ server
 
@@ -134,6 +146,7 @@ class Service:
         threading.Thread(target=self._server.serve_forever, daemon=True, name="server").start()
         threading.Thread(target=self._auto_lock_loop, daemon=True, name="auto-lock").start()
         threading.Thread(target=self._check_loop, daemon=True, name="exposure-check").start()
+        threading.Thread(target=self._team_loop, daemon=True, name="team-sync").start()
         public_key = self.signing_key.public_key().public_bytes(
             serialization.Encoding.Raw, serialization.PublicFormat.Raw)
         info = {"port": self._server.server_address[1], "token": self.token, "pid": os.getpid(),
@@ -166,8 +179,11 @@ class Service:
             handler = getattr(self, "op_" + str(op), None)
             if handler is None:
                 raise ServiceError(f"Operación desconocida: {op}", "unknown_op")
-            return {"ok": True, "result": handler(params)}
-        except ServiceError as exc:
+            result = handler(params)
+            if op in TEAM_PUSH_OPS:
+                self._team_wake.set()
+            return {"ok": True, "result": result}
+        except (ServiceError, teams.TeamError) as exc:
             return {"ok": False, "code": exc.code, "error": str(exc)}
         except VaultLocked:
             return {"ok": False, "code": "locked",
@@ -273,6 +289,7 @@ class Service:
             "session_unlock": self.session_file.exists(),
             "ai_paused": self.pause_file.exists(),
             "drafts": sum(1 for e in self.vault.entries() if e.get("draft")) if self.vault.is_unlocked else 0,
+            "team": self._team_info.get("state"),
             "protocol": PROTOCOL_VERSION,
         }
 
@@ -332,6 +349,7 @@ class Service:
         self._last_activity = time.monotonic()
         self._seal_audit_log()
         self._audit("vault", "unlock", proof.get("kind", ""), "ok")
+        self._team_wake.set()  # sync in the background: unlocking never waits for the network
         return self._unlocked_result()
 
     def _unlocked_result(self):
@@ -550,6 +568,8 @@ class Service:
         entry["fields"] = {k: v for k, v in fields.items() if v not in (None, "")}
         if replaces and "rotation_guide" not in entry and old.get("rotation_guide"):
             entry["rotation_guide"] = old["rotation_guide"]  # written by the AI; the editor doesn't show it
+        if replaces and old.get("shared"):
+            entry = self._shared_edit(old, entry)
         if replaces and old.get("draft") and not all(
                 entry["fields"].get(s["name"]) for s in templates.active_specs(entry.get("template", ""), entry["fields"])
                 if s["secret"] and s["required"]):
@@ -570,6 +590,7 @@ class Service:
 
     def op_delete_entry(self, params):
         self._verify_proof("delete_entry", params)
+        self._require_team_write(self.vault.get(params["id"]))
         self.vault.delete(params["id"])
         self._update_exposure(lambda data: data.get("entries", {}).pop(params["id"], None))
         self._update_destinations(lambda data: data.get("entries", {}).pop(params["id"], None))
@@ -583,6 +604,10 @@ class Service:
         self._verify_proof("reveal", params)
         entry = self.vault.get(params["id"])
         field = params.get("field")
+        if (entry.get("shared") or {}).get("permission") == "use":
+            self._audit(entry["id"], "reveal", field or "", "denied", "Permiso de equipo: solo usar")
+            raise ServiceError("Esta credencial del equipo es solo para usar: la IA y tus programas pueden usarla, "
+                               "pero no se puede mostrar ni copiar", "forbidden")
         if field not in templates.secret_field_names(entry["template"]) or not entry["fields"].get(field):
             raise ServiceError("Ese campo no existe", "not_found")
         self._audit(entry["id"], "reveal", field, "ok")
@@ -600,6 +625,7 @@ class Service:
         return self._rotate(self.vault.get(params["id"]))
 
     def _rotate(self, entry):
+        self._require_team_write(entry)
         redact = Redactor(entry)
         try:
             value = rotation.rotate(entry)
@@ -643,6 +669,7 @@ class Service:
     def op_replace_key(self, params):
         self._verify_proof("replace_key", params, ALL_PROOFS)
         entry = self._get_secret(params.get("id"))
+        self._require_team_write(entry)
         if entry["template"] not in ("api_key", "generic", "database"):
             raise ServiceError("Solo se rotan así las API keys y las contraseñas de bases de datos", "invalid")
         database = entry["template"] == "database"
@@ -708,7 +735,7 @@ class Service:
         updated = []
         for other in self.vault.entries():
             names = [n for n in ("value", "username") if (other["fields"].get(n) or "").strip() == old_id]
-            if other["id"] == source_id or not names:
+            if other["id"] == source_id or not names or not can_write_shared(other):
                 continue
             for name in names:
                 other["fields"][name] = new_id
@@ -1204,6 +1231,8 @@ class Service:
             raise ServiceError(f"No existe el secreto '{params.get('secret_id')}'", "not_found") from None
         updated = self._ai_changes(entry, params)
         changes = _describe_changes(entry, updated)
+        if changes:
+            self._require_team_write(entry)
         if not changes:
             return {"credential": agent_view(entry), "changed": []}
         risky = [line for key, line in changes if key not in CONTEXT_KEYS]
@@ -1344,6 +1373,7 @@ class Service:
             entry = self.vault.get(params.get("secret_id"))
         except KeyError:
             raise ServiceError(f"No existe el secreto '{params.get('secret_id')}'", "not_found") from None
+        self._require_team_write(entry)
         detail = "Borrar esta credencial para siempre" + (f"\nMotivo: {params['reason']}" if params.get("reason") else "")
         try:
             self._ask_user(entry, "delete", detail, allow_session=False)
@@ -1363,6 +1393,13 @@ class Service:
         found = []
         for entry in self.vault.entries():
             if entry.get("draft"):
+                continue
+            rotate = (entry.get("shared") or {}).get("rotate")
+            if rotate and rotate.get("fp") == teams.secret_fp(self.vault, entry):
+                # Someone left a team collection with this credential in it: they may have seen it.
+                found.append({"id": entry["id"], "name": entry.get("name"), "kind": "team_access",
+                              "people": rotate.get("people") or [], "since": rotate.get("since"),
+                              "can_rotate": can_write_shared(entry)})
                 continue
             if retired.get(entry["id"], {}).get("status") == "alive":
                 found.append({"id": entry["id"], "name": entry.get("name"), "kind": "old_alive",
@@ -1413,6 +1450,7 @@ class Service:
         self._last_activity = time.monotonic()
         self._seal_audit_log()
         self._audit("vault", "restore", f"{len(self.vault.entries())} credenciales", "ok")
+        self._team_wake.set()
         return {**self.op_status({}), "exposure_session": self._new_scan_session(), "presence": self._new_presence()}
 
     def op_complete_draft(self, params):
@@ -1605,6 +1643,209 @@ class Service:
                 else "Nadie aprobó la solicitud a tiempo"
             raise ServiceError(reason, "denied")
 
+    # ------------------------------------------------------------------ teams (client logic in teams.py)
+    #
+    # The account password is typed once, in team_connect; afterwards the vault keeps the account keys and a
+    # session token, and every change is one click (presence). Nothing here is reachable by the AI.
+
+    def _shared_edit(self, old, entry):
+        """An edit of a team credential keeps its team block. Without permission to edit it, only the local
+        approval mode may change."""
+        entry = {**entry, "shared": copy.deepcopy(old["shared"])}
+        if not can_write_shared(old):
+            if _normalized(shared_content(old)) != _normalized(shared_content(entry)):
+                raise ServiceError(_team_read_only(old), "forbidden")
+            approval = (entry.get("policy") or {}).get("approval", "session")
+            entry = copy.deepcopy(old)
+            entry["policy"] = {**(old.get("policy") or {}), "approval": approval}
+            return entry
+        if entry["shared"].get("pending_policy") and \
+                teams.widening_changes(old, entry) + teams.widening_changes(entry, old):
+            entry["shared"].pop("pending_policy")  # the user decided by hand where it may go
+        return entry
+
+    def _require_team_write(self, entry):
+        if not can_write_shared(entry):
+            raise ServiceError(_team_read_only(entry), "forbidden")
+
+    def _team_loop(self):
+        """Sync while the vault is unlocked: on unlock, every 5 minutes, and soon after a local change."""
+        while True:
+            self._team_wake.wait(TEAM_SYNC_SECONDS)
+            self._team_wake.clear()
+            if self.vault.is_unlocked:
+                self._team_sync()
+
+    def _team_sync(self):
+        """One sync round. Never raises: problems are reported by team_status."""
+        with self._team_lock:
+            try:
+                if not teams.connected(self.vault.team()):
+                    self._team_info = {"state": "idle"}
+                    return None
+                self._team_info = {**self._team_info, "state": "syncing"}
+                notes = self.team.sync()
+            except teams.TeamError as exc:
+                state = exc.code if exc.code in ("reconnect", "offline") else "error"
+                self._team_info = {**self._team_info, "state": state, "error": str(exc)}
+                return None
+            except VaultLocked:
+                self._team_info = {**self._team_info, "state": "idle"}
+                return None
+            except Exception as exc:  # noqa: BLE001 - the sync thread must survive anything
+                print(f"team sync: {type(exc).__name__}", file=sys.stderr)
+                self._team_info = {**self._team_info, "state": "error", "error": "Error inesperado al sincronizar"}
+                return None
+            self._team_info = {"state": "error" if notes["errors"] else "ok", "error": "; ".join(notes["errors"])[:500],
+                               "last_sync": datetime.now().isoformat(timespec="seconds"),
+                               "last": {k: len(v) for k, v in notes.items()}}
+        self._team_notices(notes)
+        return notes
+
+    def _team_notices(self, notes):
+        for name in notes["quarantined"]:
+            self._notify(f"Cambio por revisar en {name}", "Un compañero ha cambiado adónde puede ir la clave. "
+                         "Hasta que lo aceptes se sigue usando como estaba.")
+        for item in notes["rotate"]:
+            self._notify(f"Rota las claves de {item['collection']}", f"{', '.join(item['people'])} tenía acceso.")
+        for entry_id in notes["conflicts"]:
+            self._notify("Conflicto al sincronizar", f"Alguien cambió la credencial a la vez. Tu versión está en {entry_id}.")
+            self._audit(entry_id, "team_conflict", "tu versión, guardada aparte", "error")
+        if notes["added"]:
+            self._notify("Credenciales nuevas del equipo", ", ".join(notes["added"]))
+
+    def _team_call(self, op, params, action, change=True):
+        if change:
+            self._verify_proof(op, params)
+        if not self.vault.is_unlocked:
+            raise VaultLocked()
+        with self._team_lock:
+            try:
+                return action()
+            except teams.TeamError as exc:
+                if exc.code == "reconnect":
+                    self._team_info = {**self._team_info, "state": "reconnect", "error": str(exc)}
+                raise
+
+    def op_team_status(self, params):
+        status = self.team.status()
+        info = dict(self._team_info)
+        return {**status, "state": info.pop("state") if status["connected"] else "off",
+                **({k: v for k, v in info.items() if k in ("error", "last", "last_sync")} if status["connected"] else {})}
+
+    def op_team_connect(self, params):
+        """Create (mode "register") or open (mode "login") the team account. Its password is only used here."""
+        result = self._team_call("team_connect", params, lambda: self.team.connect(
+            params.get("server_url"), params.get("email"), str(params.get("password") or ""),
+            params.get("mode") or "login", params.get("name") or "", params.get("device_name") or "",
+            params.get("invite_token")))
+        self._team_info = {"state": "idle"}
+        self._audit("vault", "team_connect", f"{result['user']['email']} en {result['server_url']}", "ok")
+        self._team_wake.set()
+        return result
+
+    def op_team_disconnect(self, params):
+        result = self._team_call("team_disconnect", params, self.team.disconnect)
+        self._team_info = {"state": "idle"}
+        self._audit("vault", "team_disconnect", f"{result['removed']} credenciales del equipo quitadas", "ok")
+        return result
+
+    def op_team_sync(self, params):
+        if not self.vault.is_unlocked:
+            raise VaultLocked()
+        notes = self._team_sync()
+        return {**self.op_team_status({}), "result": notes}
+
+    def op_team_orgs(self, params):
+        return self._team_call("team_orgs", params, self.team.orgs, change=False)
+
+    def op_team_create_org(self, params):
+        return self._team_call("team_create_org", params, lambda: self.team.create_org(params.get("name")))
+
+    def op_team_invite(self, params):
+        return self._team_call("team_invite", params, lambda: self.team.invite(
+            params.get("org"), params.get("email"), params.get("role") or "member"))
+
+    def op_team_invites(self, params):
+        return self._team_call("team_invites", params, self.team.invites, change=False)
+
+    def op_team_accept_invite(self, params):
+        result = self._team_call("team_accept_invite", params, lambda: self.team.accept_invite(params.get("id")))
+        self._audit("vault", "team_join", "invitación aceptada", "ok")
+        return result
+
+    def op_team_members(self, params):
+        return self._team_call("team_members", params, lambda: self.team.members(params.get("org")), change=False)
+
+    def op_team_confirm_member(self, params):
+        result = self._team_call("team_confirm_member", params, lambda: self.team.confirm_member(
+            params.get("org"), params.get("user_id"), params.get("fingerprint")))
+        self._audit("vault", "team_confirm", f"miembro confirmado (huella {result['fingerprint']})", "ok")
+        return result
+
+    def op_team_set_role(self, params):
+        return self._team_call("team_set_role", params, lambda: self.team.set_role(
+            params.get("org"), params.get("user_id"), params.get("role")))
+
+    def op_team_remove_member(self, params):
+        result = self._team_call("team_remove_member", params, lambda: self.team.remove_member(
+            params.get("org"), params.get("user_id")))
+        self._audit("vault", "team_remove", f"{len(result['rekeyed'])} colección(es) con clave nueva", "ok")
+        return result
+
+    def op_team_collections(self, params):
+        return self._team_call("team_collections", params, self.team.collections, change=False)
+
+    def op_team_create_collection(self, params):
+        return self._team_call("team_create_collection", params, lambda: self.team.create_collection(
+            params.get("org"), params.get("name")))
+
+    def op_team_collection_members(self, params):
+        return self._team_call("team_collection_members", params,
+                               lambda: self.team.collection_members(params.get("collection")), change=False)
+
+    def op_team_grant(self, params):
+        result = self._team_call("team_grant", params, lambda: self.team.grant(
+            params.get("collection"), params.get("user_id"), params.get("permission")))
+        self._audit("vault", "team_grant", f"permiso «{params.get('permission')}» en una colección", "ok")
+        return result
+
+    def op_team_revoke(self, params):
+        result = self._team_call("team_revoke", params, lambda: self.team.revoke(
+            params.get("collection"), params.get("user_id")))
+        self._audit("vault", "team_revoke", "acceso a una colección retirado; clave cambiada", "ok")
+        return result
+
+    def op_team_share_entry(self, params):
+        entry = self.vault.get(params.get("id"))
+        result = self._team_call("team_share_entry", params, lambda: self.team.share_entry(
+            entry["id"], params.get("collection")))
+        self._audit(entry["id"], "share", f"Compartida en {result['collection_name']}", "ok")
+        return {**result, "entry": self._summary(self.vault.get(entry["id"]))}
+
+    def op_team_unshare_entry(self, params):
+        entry = self.vault.get(params.get("id"))
+        result = self._team_call("team_unshare_entry", params, lambda: self.team.unshare_entry(entry["id"]))
+        self._audit(entry["id"], "unshare", f"Ya no está en {result['collection_name']}", "ok")
+        return {**result, "entry": self._summary(self.vault.get(entry["id"]))}
+
+    def op_team_accept_change(self, params):
+        """Accept (or, with edit permission, turn down) a teammate's change to where a key can go."""
+        entry = self.vault.get(params.get("id"))
+        accept = params.get("accept", True) is not False
+        result = self._team_call("team_accept_change", params, lambda: self.team.accept_change(entry["id"], accept))
+        if accept:
+            self._forget_grants(entry["id"])  # approvals were given for the places it could go before
+        else:
+            self._team_wake.set()  # push the local version back
+        self._audit(entry["id"], "team_change", ("aceptado: " if accept else "rechazado: ")
+                    + "; ".join(result["changes"]), "ok")
+        return {**result, "entry": self._summary(self.vault.get(entry["id"]))}
+
+    def op_team_events(self, params):
+        return self._team_call("team_events", params, lambda: self.team.events(
+            params.get("org"), params.get("before")), change=False)
+
     # ------------------------------------------------------------------ audit
 
     def _audit(self, secret_id, action, detail, status, message=""):
@@ -1704,6 +1945,19 @@ def _describe_changes(old, new):
         env = commands(new_policy).get("env", {})
         changes.append(("env", "Variables: " + (", ".join(f"{k}={v}" for k, v in env.items()) or "—")))
     return changes
+
+
+def _normalized(content):
+    """Entry content without empty values, so an editor that sends "" or [] for unset keys is no change."""
+    if isinstance(content, dict):
+        return {k: _normalized(v) for k, v in content.items() if v not in (None, "", [], {})}
+    return content
+
+
+def _team_read_only(entry):
+    shared = entry.get("shared") or {}
+    return (f"«{entry.get('name') or entry['id']}» es del equipo ({shared.get('collection_name') or 'colección compartida'}) "
+            "y tu permiso no permite cambiarla. Pide a quien la gestiona que lo haga.")
 
 
 def _plain_audit_event(line):

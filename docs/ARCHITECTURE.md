@@ -202,6 +202,38 @@ Added to `secretbroker/service.py` (GUI only, never reachable from the AI unless
 The AI sees shared credentials like any other (with `shared: {org, collection, permission}` in `list_secrets`), and
 `reveal`/copy is refused for `use` permission.
 
+Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI):
+
+* **Plaintext formats.** Item plaintext is `{"entry": <entry without shared/updated/secret_since and without
+  policy.approval>, "author": {id, name}, "updated"}`; the author shown is the server's `updated_by` (the plaintext
+  one is informative). The collection name plaintext is JSON `{"name"}`, plus `{"removed": [names], "version": n}`
+  after a re-key, which is how members who did not re-key learn who to "rotate because" of.
+* **Local state.** Vault section `team`: `server_url, token, user, device, keys {x25519, ed25519},
+  public_key, signing_public_key, pinned {uid: {fp, public_key, signing_public_key, email, name}}, orgs,
+  collections {cid: {org, name, keys {version: b64}, key_version, permission, revision, needs_rekey, members,
+  items {iid: {revision, hash, content}}}}, last_sync`. `items[*].content` is the last synced content ("base"):
+  a local entry whose content differs from it has an unpushed edit.
+* **Entry block.** `entry.shared = {org, org_name, collection, collection_name, item, revision, permission, author,
+  changed, pending_policy?, rotate?}`. `pending_policy = {by, at, changes: [lines], policy, fields}` (or `entry` when
+  the template changed). Quarantined: new hosts, new programs, new or changed env vars, a different HTTP auth, and the
+  `host`/`port`/`engine` fields. `rotate = {people, since, fp}`; the reminder (`kind: "team_access"`, `people`,
+  `can_rotate`) lasts while the secret's fingerprint is `fp`, so any rotation (wizard, API, a teammate's) clears it.
+* **Permissions on this PC.** Without `edit`/`manage`, the service refuses edits, deletes and rotations of a shared
+  credential; only its local approval mode may change. `delete_entry` with write permission deletes it for the team
+  (tombstone); `team_unshare_entry` removes it from the collection but keeps it here as a personal credential.
+  Losing access to a collection (removed, left, deleted, `team_disconnect`) removes its credentials from this PC.
+* **Proofs.** `team_status, team_sync, team_orgs, team_invites, team_members, team_collections,
+  team_collection_members, team_events` only need an unlocked vault; every other team op needs a proof and accepts
+  the presence token (one click). `team_sync` and the background sync never raise: `team_status.state` is
+  `off | idle | syncing | ok | error | offline | reconnect`, with `error` and counts of the `last` round.
+* **Op parameters.** `team_connect {server_url, email, password, mode: register|login, name?, device_name?,
+  invite_token?}`, `team_invite {org, email, role}`, `team_accept_invite {id}`, `team_members {org}` (rows add
+  `fingerprint`, `key_changed`, `me`), `team_confirm_member {org, user_id, fingerprint?}`, `team_set_role {org,
+  user_id, role}`, `team_remove_member {org, user_id}` → `{rekeyed, pending}`, `team_create_collection {org, name}`,
+  `team_collection_members {collection}`, `team_grant {collection, user_id, permission}`, `team_revoke {collection,
+  user_id}` (own id: leave), `team_share_entry {id, collection}`, `team_unshare_entry {id}`,
+  `team_accept_change {id, accept?}`, `team_events {org, before?}`.
+
 ## 6. Roadmap beyond this release
 
 * Cross-platform desktop (macOS Keychain/Touch ID, Linux Secret Service) — the core is plain Python; `winsec`/`hello`

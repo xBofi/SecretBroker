@@ -26,12 +26,16 @@ LOG_FILE = integrations.PREFS_FILE.parent / "app.log"
 log = logging.getLogger("secretbroker.app")
 BACKUP_EVERY_HOURS = 24
 BACKUPS_KEPT = 10
+# Team changes (see service.TEAM_CHANGE_OPS): one click too.
+TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_invite", "team_accept_invite",
+                   "team_confirm_member", "team_set_role", "team_remove_member", "team_create_collection", "team_grant",
+                   "team_revoke", "team_share_entry", "team_unshare_entry", "team_accept_change")
 # What the app that unlocked may do with one click (see service.PRESENCE_OPS).
-PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore")
+PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore") + TEAM_CHANGE_OPS
 # Operations the service only accepts with a proof of identity.
 PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal", "rotate", "complete_draft",
              "enable_session_unlock", "resume_ai", "set_ai_permissions", "backup", "restore",
-             "change_master_password", "set_settings", "remove_hello", "exposure_begin"}
+             "change_master_password", "set_settings", "remove_hello", "exposure_begin", *TEAM_CHANGE_OPS}
 
 
 class Api:

@@ -37,6 +37,9 @@ ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 MIN_PASSWORD_LEN = 12
 ROTATE_EVERY_DAYS = (0, 30, 60, 90, 180, 365)  # per credential; 0: never remind (absent: the general setting)
 CHECK_ONCE, MAX_CHECK_HOURS = -1, 10 * 8760  # how often to test that a key works: hours, -1 once per value, 0 never
+SHARE_PERMISSIONS = ("manage", "edit", "view", "use")  # in a team collection (see docs/ARCHITECTURE.md 2.3)
+SHARE_WRITE = ("manage", "edit")
+LOCAL_ONLY_KEYS = ("shared", "updated", "secret_since")  # never sent to the team
 
 
 def valid_check_hours(hours):
@@ -84,6 +87,8 @@ def validate_entry(entry):
         raise ValidationError("Cada cuánto comprobarla: un número de horas, -1 (solo una vez) o 0 (nunca)")
     if entry.get("rotation_guide") is not None and not isinstance(entry["rotation_guide"], dict):
         raise ValidationError("Guía de rotación no válida")
+    if entry.get("shared") is not None:
+        _check_shared(entry["shared"])
     if entry.get("used_in") is not None and clean_used_in(entry["used_in"]) != entry["used_in"]:
         raise ValidationError(f"Dónde se usa: hasta {USED_IN_MAX} sitios, de {USED_IN_TEXT_MAX} caracteres como mucho")
     fields = entry.get("fields", {})
@@ -128,6 +133,27 @@ def validate_entry(entry):
     for command in commands.get("allowed", []):
         if not re.match(r"^[A-Za-z0-9_.+-]+$", command):
             raise ValidationError(f"Nombre de comando no válido (sin rutas): {command}")
+
+
+def _check_shared(shared):
+    if not isinstance(shared, dict) or not all(isinstance(shared.get(k), str) and shared[k]
+                                               for k in ("org", "collection", "item")):
+        raise ValidationError("Datos de equipo no válidos")
+    if shared.get("permission") not in SHARE_PERMISSIONS:
+        raise ValidationError("Permiso de equipo no válido")
+
+
+def shared_content(entry):
+    """What a team sees of an entry: everything but local bookkeeping and the local approval mode,
+    which is always the local user's own (docs/ARCHITECTURE.md 2.5)."""
+    content = {k: copy.deepcopy(v) for k, v in entry.items() if k not in LOCAL_ONLY_KEYS}
+    (content.get("policy") or {}).pop("approval", None)
+    return content
+
+
+def can_write_shared(entry):
+    shared = entry.get("shared")
+    return not shared or shared.get("permission") in SHARE_WRITE
 
 
 def secret_age_days(entry):
@@ -177,7 +203,20 @@ def entry_summary(entry):
         "rotate_every_days": entry.get("rotate_every_days"),
         "check_every_hours": entry.get("check_every_hours"),
         "used_in": entry.get("used_in") or [],
+        "shared": _shared_summary(entry.get("shared")),
     }
+
+
+def _shared_summary(shared):
+    """The team side of an entry for the GUI: names, permission and what needs attention."""
+    if not shared:
+        return None
+    pending = shared.get("pending_policy")
+    return {"org": shared["org"], "org_name": shared.get("org_name", ""), "collection": shared["collection"],
+            "collection_name": shared.get("collection_name", ""), "permission": shared["permission"],
+            "author": shared.get("author"), "changed": shared.get("changed"),
+            "pending_change": {k: pending.get(k) for k in ("by", "at", "changes")} if pending else None,
+            "rotate_because": (shared.get("rotate") or {}).get("people") or []}
 
 
 def agent_view(entry):
@@ -209,6 +248,10 @@ def agent_view(entry):
         view["used_in"] = entry["used_in"]
     if entry.get("secret_since"):
         view["key_age_days"] = secret_age_days(entry)
+    if entry.get("shared"):
+        shared = entry["shared"]
+        view["shared"] = {"org": shared.get("org_name", ""), "collection": shared.get("collection_name", ""),
+                          "permission": shared["permission"]}
     if entry.get("draft"):
         view["draft"] = True
         view["missing"] = [s["name"] for s in templates.active_specs(entry["template"], entry["fields"])
@@ -385,6 +428,27 @@ class Vault:
         with self._lock:
             self._require_unlocked()
             self._payload["retired"] = copy.deepcopy(data)
+            self._save()
+
+    # ----- team: account, keys and the collections cache (see teams.py)
+
+    @property
+    def mutex(self):
+        """Held while reading and rewriting an entry that the team sync may also change."""
+        return self._lock
+
+    def team(self):
+        with self._lock:
+            self._require_unlocked()
+            return copy.deepcopy(self._payload.get("team") or {})
+
+    def set_team(self, data):
+        with self._lock:
+            self._require_unlocked()
+            if data:
+                self._payload["team"] = copy.deepcopy(data)
+            else:
+                self._payload.pop("team", None)
             self._save()
 
     # ----- settings
