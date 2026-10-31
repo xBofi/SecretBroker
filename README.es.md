@@ -1,0 +1,153 @@
+# SecretBroker
+
+[English](README.md) · **Español**
+
+Bóveda de credenciales para Windows que permite a un agente de IA (Claude Code u otro cliente MCP) **usar** tus API keys, contraseñas y accesos **sin poder leerlos nunca**.
+
+```
+ Tú (app SecretBroker)                 Servicio SecretBroker               Internet / servidores
+ ─ guardas claves con plantillas  ──▶  (cuenta de Windows aparte)    ──▶  HTTPS · SSH · CLIs
+ ─ apruebas con Windows Hello          ─ bóveda cifrada                    con la clave inyectada
+                                       ─ verifica tu firma Hello
+ Claude ── MCP: «usa 'github'» ─────▶  ─ ejecuta y censura la salida ◀── respuesta sin secretos
+```
+
+## Instalación
+
+Descarga `SecretBroker-Setup-<versión>.exe` de la [página de versiones](https://github.com/xBofi/SecretBroker/releases/latest), ejecútalo y acepta el aviso de administrador. No hace falta internet ni escribir nada. El instalador:
+1. Instala la app y su propio Python en `C:\Program Files\SecretBroker`, donde solo pueden escribir los administradores.
+2. Crea la cuenta oculta `SecretBroker`, que no puede iniciar sesión ni usarse por red.
+3. Crea `C:\ProgramData\SecretBroker\data`, que **solo esa cuenta** puede leer.
+4. Importa una bóveda anterior si la hay, registra el servicio para que arranque con Windows y lo inicia.
+5. Crea los accesos directos y conecta Claude Code y Claude Desktop si están instalados (también se puede hacer luego desde Ajustes → IA).
+
+**Actualizaciones.** La app comprueba cada pocas horas si hay una versión nueva en GitHub y lo indica en la barra lateral. Al pulsar «Actualizar», el servicio descarga el instalador y comprueba su firma, Windows pide permiso de administrador y la app se reabre actualizada. Se conservan la bóveda, la cuenta y el desbloqueo con Windows. Solo se instalan versiones firmadas con la clave de publicación (Ed25519; la clave pública va en `secretbroker/update.py`, dentro de Program Files). También se puede ejecutar el instalador nuevo encima a mano. Para desinstalar, usa «Aplicaciones instaladas» de Windows. El desinstalador quita el servicio y su cuenta, desconecta Claude Code y Claude Desktop y borra tus preferencias. Después pregunta si quieres borrar también la bóveda. Por defecto la respuesta es «No», y entonces se conserva en `C:\ProgramData\SecretBroker\data`.
+
+Sin instalar, la app funciona en **modo de desarrollo** (`.venv\Scripts\secretbroker.exe`): es la misma app, pero sin aislamiento.
+
+### Publicar una versión
+
+Sube la versión en `pyproject.toml`, `secretbroker/__init__.py` e `installer/SecretBroker.iss`, y empuja una etiqueta `v<versión>`. GitHub Actions (`.github/workflows/release.yml`) pasa las pruebas, compila el instalador, lo firma con el secret `UPDATE_SIGNING_KEY` y lo publica en Releases. Las apps instaladas lo verán solas. La clave de firma se creó con `tools/new_signing_key.py`, que solo imprime la clave pública y la privada ya cifrada para GitHub.
+
+### Generar el instalador
+
+```powershell
+winget install JRSoftware.InnoSetup      # una vez
+powershell -ExecutionPolicy Bypass -File .\tools\build_installer.ps1
+```
+
+El resultado es `dist\SecretBroker-Setup-<versión>.exe`, de unos 26 MB, con Python y todas las dependencias incluidos. El `.exe` no está firmado, así que Windows SmartScreen mostrará «Windows protegió su PC» (Más información → Ejecutar de todas formas). Para distribuirlo sin ese aviso hay que firmarlo con un certificado de firma de código.
+
+## Uso
+
+- **Plantillas**: web o servicio, API key, servidor SSH, base de datos, AWS u otro secreto. Cada una muestra solo los campos que necesita.
+- **Notas para la IA**: texto que la IA sí lee, para explicarle qué es cada credencial y cómo usarla.
+- **Permisos de la IA**: se rellenan solos a partir de la plantilla (por ejemplo, el dominio sale de la URL). Incluyen las webs permitidas, la cabecera de autenticación, los programas locales permitidos y sus variables de entorno, y cuándo pedir aprobación.
+- **Aprobaciones**: la contraseña se escribe al desbloquear; después, aprobar lo que pide la IA es un clic. «Permitir hoy» deja a la IA usar esa credencial sin volver a preguntar durante 24 h (configurable: 8 h, 24 h o hasta bloquear), también tras el bloqueo automático. Bloquear a mano las olvida todas. Las credenciales con aprobación «Nunca» no preguntan nunca.
+- **Abrir con mi sesión de Windows** (opcional): la bóveda se abre sola al entrar en Windows y se cierra al bloquearlo (Win+L), sin escribir contraseñas. Las aprobaciones de la IA sobreviven a esos bloqueos. Protege de errores de la IA, no de alguien que use tu sesión de Windows.
+- **Acceso de la IA**: una página muestra qué credenciales puede usar la IA ahora mismo sin preguntar (y hasta cuándo), con un botón para retirar cada aprobación. **Pausar la IA** corta todo su acceso al instante (no puede ni listar las credenciales) sin bloquear la bóveda; también desde el icono junto al reloj. Reanudarla es un clic.
+- **Qué puede hacer la IA**: en «Acceso de la IA» eliges, para cada cosa que la IA puede hacer además de usar credenciales (preparar credenciales, cambiar nombre y notas, cambiar adónde puede ir una clave, dar claves a programas locales, subir a GitHub), si es *Libre*, *Avisarme*, *Preguntarme* o *Nunca*. Endurecer un permiso no pide nada; relajarlo es un clic en la app que desbloqueaste. También puedes recibir un aviso de Windows cuando la IA use credenciales que no preguntan (como mucho uno cada 10 min por credencial).
+- **Una aprobación por tarea**: la IA puede pedir al empezar todas las credenciales que va a necesitar, explicando para qué; las apruebas de una vez.
+- **Uso inusual**: aunque hayas aprobado una credencial para todo el día, si la IA la usa más de 100 veces en una hora (configurable: 50, 100, 500 o sin límite) te vuelve a preguntar.
+- **Etiquetas y caducidad**: agrupa las credenciales con etiquetas (por ejemplo, por proyecto) y fíltralas en la lista. Si una clave tiene fecha de caducidad, te avisa 14 días antes; las claves con más de un año (configurable) se marcan para rotarlas. Un aviso de Windows al día resume las que necesitan atención.
+- **Copia de seguridad**: una copia diaria de la bóveda cifrada en la carpeta que elijas (por defecto OneDrive, para que esté fuera del PC); se guardan las 10 últimas. Se restaura desde Ajustes o, en un PC nuevo, desde la primera pantalla, con la contraseña maestra que tenía la copia.
+- **Siempre lista**: SecretBroker arranca con Windows y se queda junto al reloj. Cerrar la ventana no lo cierra (usa «Salir» en ese icono). Cuando la IA pide algo, la ventana aparece sola.
+- **Windows Hello**: con tu PIN, huella o cara desbloqueas la bóveda, apruebas usos, ves o copias contraseñas y guardas cambios. En PCs sin Hello se usa la contraseña de Windows o la maestra.
+- **Recuperación**: si olvidas la contraseña maestra, entra con Windows Hello o con la contraseña de Windows y crea una nueva. Esto solo funciona en este PC.
+- **Copiar**: el portapapeles se borra a los 30 s y la contraseña no pasa al historial del portapapeles.
+- **Enlaces al proveedor**: las API keys de proveedores conocidos (OpenAI, Anthropic, GitHub, GitLab, Cloudflare, Stripe, OpenRouter, Mistral…) muestran enlaces directos a su página de claves, a la de crear una nueva y a la facturación. En Cloudflare se indica además el tipo de credencial (token de usuario o de cuenta, Global API Key, AI Gateway, R2, Access). Las de AI Gateway enlazan al panel de su cuenta y nombran su gateway.
+- **Rotar**: en las API keys de proveedores que permiten crear claves por API (por ahora **Cloudflare** y **GitLab**), el botón «Rotar clave» pide una clave nueva al proveedor, la guarda y la vuelve a subir a los secrets de GitHub donde se subió con `push_github_secret`. La clave vieja deja de funcionar al momento.
+- **Rotar con ayuda**: en los demás proveedores (OpenAI, Anthropic, GitHub, AssemblyAI, Stripe…) un asistente de cuatro pasos: 1) te dice dónde y cómo crear la clave nueva, con enlace directo y un nombre sugerido; 2) la pegas en la app y se **prueba con el proveedor** antes de sustituir la actual (si no funciona, no cambia nada); 3) se guarda, se vuelve a subir a GitHub y te dice dónde más se usaba; 4) te lleva a borrar la anterior y **comprueba que ya no funciona**. Hasta entonces la credencial lo indica y, si la anterior sigue viva, te lo recuerda.
+  - *Enlaces directos*: también para lo que no es una API key de un proveedor conocido. Una clave de cuenta de servicio de Google (su JSON) abre las claves de esa cuenta; un secreto de cliente OAuth de Google o de una app de Microsoft Entra abre ese cliente (sale del client id guardado en «Usuario»); el endpoint europeo de AssemblyAI se reconoce. Para un secreto tuyo (de sesión, de firma…) el asistente genera uno aleatorio. Si el proveedor es desconocido, da al menos un enlace de búsqueda.
+  - *Dónde se usa*: cada credencial guarda la lista de sitios donde está puesta (develop, pre, pro, cada servidor, Vercel, CI, otros proyectos…). La IA la rellena cuando configura un sitio (`used_in`) y la app se lo pregunta si falta; también se edita a mano. El asistente empieza por esa lista (para añadir lo que falte) y, con la clave nueva guardada, hay que marcar cada sitio como actualizado antes de pasar a borrar la anterior.
+  - *Bases de datos*: no se conecta a la base de datos. El asistente genera la contraseña nueva y da el comando exacto para el motor (`ALTER ROLE` en PostgreSQL, `ALTER USER` en MySQL, `ALTER LOGIN` en SQL Server, `changeUserPassword` en MongoDB, `ACL SETUSER` en Redis) con la contraseña oculta en pantalla, o el enlace al panel si es gestionada (Supabase, Neon, AWS RDS, Azure). Avisa de que la actual deja de funcionar al momento, se guarda cuando dices que ya está cambiada, se vuelve a subir a GitHub y te lleva por la lista de sitios. También puedes guardarla primero y que la aplique la IA con `sb run` (por ejemplo dentro de un contenedor Docker, donde no hace falta la anterior): el asistente te da el texto para pedírselo. Al crear o editar una base de datos, el botón «Generar» junto a la contraseña sugiere una (32 letras y números, nada que escapar en la URL de conexión) y avisa de que guardarla no la cambia en el servidor.
+  - *Secretos con un ID*: si el secreto va emparejado con un identificador (el client id de un cliente OAuth de Google, el Application ID de una app de Microsoft, un account id…), se guarda en «Usuario» / «ID asociado». Al rotarlo, el asistente pregunta si es el mismo (solo has creado un secreto nuevo) o ha cambiado (has creado otro cliente u otra app), y no termina sin la respuesta: si ha cambiado, pide el ID nuevo, lo guarda junto al secreto, lo cambia también en las credenciales que guardaban ese ID por separado y te dice que borres el cliente anterior. Las guías de Google y Microsoft avisan de no borrar el cliente o la app. `sb import` guarda el ID solo si está en el mismo `.env` (`GOOGLE_CLIENT_SECRET` con `GOOGLE_CLIENT_ID`, `AWS_SECRET_ACCESS_KEY` con `AWS_ACCESS_KEY_ID`…), y cuando la IA prepara un secreto de origen desconocido, la app le pide que averigüe si tiene un ID.
+  - *Guías*: las de los proveedores conocidos salen de su documentación. Para los demás, la IA puede buscar en la documentación oficial cómo se rota la clave y guardar la guía en la credencial (`rotation_guide`, con sus fuentes); la app la muestra marcada como escrita por la IA.
+  - *Cada cuánto*: cada credencial puede tener su propio recordatorio de rotación (30 días, 2, 3 o 6 meses, 1 año o nunca); si no, usa el de Ajustes.
+- **Exposición**: cada credencial tiene un semáforo que dice si sigue estando solo en la bóveda.
+  - *Copias en claro*: al desbloquear (como mucho cada 12 h) o a mano, la app busca tus claves en las conversaciones de Claude Code y Codex, los historiales de PowerShell y bash, la configuración de programas (`.claude.json`, Claude Desktop, `.npmrc`, `.aws`, `.ssh`…), las variables de entorno, las carpetas de proyectos (las de Claude Code y las que añadas) y su historial de git. Busca también las formas en JSON, URL y base64. Después de la primera vez solo lee lo que ha cambiado.
+  - *¿Sigue funcionando?*: por defecto una vez al día (en Ajustes: cada X horas, cada día, semana, mes o año, solo una vez por clave o nunca; y cada credencial puede tener el suyo) prueba cada clave con una llamada de solo lectura a su proveedor (OpenAI, Anthropic, AssemblyAI, GitHub, Stripe, ElevenLabs, Cloudflare…) y los servidores SSH. Si una clave que funcionaba deja de hacerlo, avisa: lo normal es que el proveedor la haya revocado al encontrarla filtrada. Una clave solo se envía al proveedor de su URL o de un prefijo inequívoco (`sk-ant-`, `ghp_`…).
+  - *Filtraciones*: las contraseñas se comprueban en Have I Been Pwned por k-anonimato (solo salen 5 caracteres de su hash SHA-1).
+  - Además muestra la antigüedad del valor actual y cuántas veces se ha mostrado o copiado. Al cambiar el valor (rotarla), su historial empieza de cero.
+
+### Herramientas MCP
+
+Claude Code se conecta a la app por HTTP (`127.0.0.1`, con un token propio), así que vuelve a conectarse solo después de cada actualización. Claude Desktop usa la conexión clásica por stdio.
+
+| Herramienta | Qué hace |
+|---|---|
+| `list_secrets` | Catálogo con el contexto de cada credencial, sin valores |
+| `http_request` | Petición HTTPS a un dominio permitido; admite autenticación automática o marcadores `{{value}}`, `{{username}}` y `{{password}}` |
+| `ssh_exec` · `ssh_upload` · `ssh_download` | Comandos (también con sudo) y transferencia de archivos por SFTP |
+| `run_command` | Ejecuta un programa permitido (`gh`, `psql`, `aws`…) con la credencial en variables de entorno |
+| `request_access` | Pide al empezar una tarea todas las credenciales que necesitará, con el motivo: el usuario las aprueba con un solo clic |
+| `create_credential` | Prepara una credencial nueva con todo (plantilla, notas, URL, permisos, variables) menos la clave. Con `provider` (openai, anthropic, github, stripe, cloudflare…) la URL, la autenticación y la variable de entorno salen solas. El usuario solo la pega en la app; hasta entonces no se puede usar. Puede incluir cada cuánto rotarla y, para proveedores sin guía, cómo se rota (`rotation_guide`) |
+| `update_credential` | Cambia nombre, notas, campos, permisos o dónde se usa (`used_in`). El nombre y las notas cambian al momento; lo que decide adónde puede ir una clave ya guardada espera la aprobación del usuario. Nunca toca valores secretos ni el modo de aprobación |
+| `check_credential` | Comprueba si una clave sigue funcionando y dice su antigüedad, su caducidad, si se puede rotar por API y qué guía de rotación tiene |
+| `rotate_credential` | Pide al proveedor una clave nueva y actualiza los secrets de GitHub donde estaba. Por defecto te pide confirmación |
+| `credential_activity` | El historial reciente (usos, aprobaciones, errores, cambios), sin valores |
+| `delete_credential` | Propone borrar una credencial que ya no se usa; siempre lo confirmas tú |
+| `push_github_secret` | Guarda una credencial como secret de GitHub Actions (del repositorio o de un entorno), cifrada con la clave del repositorio y sin que la IA vea el valor |
+
+### Tus apps en local: `sb run`
+
+Para que tus programas usen las credenciales sin guardar un `.env` con valores en el proyecto:
+
+1. Crea un `.secretbroker` en la raíz del proyecto. Solo dice de qué credencial sale cada variable, así que se puede subir a git:
+   ```
+   OPENAI_API_KEY = openai                  # la plantilla de esa variable en la credencial, o {{value}}
+   DATABASE_URL   = tienda-db:connection_url # un dato concreto de la credencial
+   aws-prod                                 # todas las variables de entorno de la credencial
+   ```
+2. Arranca la app con `sb run -- npm run dev` (o `python app.py`, `dotnet run`…). Las variables llegan de la bóveda al proceso directamente, sin pasar por ningún archivo.
+
+Tu código solo lee variables de entorno, así que en producción funciona igual con las que ponga la plataforma: por ejemplo, `env: OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}` en GitHub Actions. La IA puede subir esos secrets con `push_github_secret`, y tras rotar una clave basta con volver a subirla.
+
+- Solo se entregan credenciales que tengan variables de entorno en sus *Permisos de la IA*. Es tu forma de decir que esa credencial se puede usar en programas locales.
+- La aprobación sigue la de cada credencial, igual que el resto de usos, y cada entrega queda en el historial con el comando y la carpeta.
+- Si la salida no va a una terminal (por ejemplo, cuando la app la arranca una IA), `sb` censura las claves línea a línea.
+- **Límite:** el programa recibe la clave en claro. Esto evita que la IA la vea por accidente (un `cat .env`, un log), pero no protege de código escrito a propósito para filtrarla.
+
+Si la bóveda está bloqueada o hace falta una aprobación, el MCP abre la app y espera.
+
+**¿Ya tienes un `.env`?** `sb import --delete` mete en la bóveda las variables que parecen claves (nombres con KEY, TOKEN, SECRET, PASSWORD… o URLs con contraseña), escribe el `.secretbroker` y las quita del `.env`; las demás (`PORT`, `NODE_ENV`…) se quedan. Antes, la app te enseña la lista de nombres (nunca los valores) para que la confirmes. Las claves de proveedores conocidos salen ya configuradas (URL, autenticación, variable). `sb import` no imprime nunca un valor, así que la IA puede ejecutarlo por ti.
+
+**`sb check`** dice si todas las credenciales del `.secretbroker` están listas: si falta alguna, si espera su clave o si no tiene variables de entorno.
+
+## Modelo de seguridad
+
+| Amenaza | Protección |
+|---|---|
+| La IA lee un secreto | Ninguna operación de la IA devuelve valores. Las salidas se censuran: texto literal, base64, codificación URL, JSON y cadenas de conexión. |
+| Lectura de la memoria del servicio o de sus archivos | El servicio corre con otra cuenta de Windows; sin elevación de administrador, nadie puede leerlo. |
+| Modificar el código para que filtre claves | El código está en Program Files y se ejecuta con `python -I`, que ignora variables de entorno y módulos del usuario. |
+| Falsificar una aprobación o un desbloqueo | El servicio exige una **firma de Windows Hello** (clave en el TPM) sobre un desafío de un solo uso, ligado a esa operación concreta. |
+| Registrar una clave Hello falsa | Para registrar Hello hace falta la contraseña maestra o la de Windows. |
+| Suplantar al servicio | Cada respuesta va firmada (Ed25519) con una clave que solo tiene el servicio real. |
+| Enviar la clave a otro sitio | Lista blanca de dominios por credencial, solo HTTPS, sin seguir redirecciones; el host SSH sale de la bóveda. |
+| Robo del disco | scrypt (128 MiB) + AES-256-GCM; la clave del equipo además va protegida con DPAPI. |
+| Leer el historial de actividad | Cada entrada se cifra con una clave pública (X25519 + AES-256-GCM) derivada de la bóveda: se puede escribir con la bóveda bloqueada, pero solo se lee desbloqueada. |
+| Otro programa o una web usa las herramientas de la IA | El servidor MCP solo escucha en `127.0.0.1`, exige un token y comprueba las cabeceras `Host` y `Origin`. |
+| Fuerza bruta de contraseñas | Retardo creciente tras cada fallo. |
+| Usar el análisis de exposición para adivinar contraseñas («¿está este texto en la bóveda?») | El servicio solo busca dentro de una sesión de análisis, que se entrega al desbloquear o tras verificar la identidad y caduca al bloquear. Sin ella, el informe dice qué credenciales están expuestas, pero no en qué archivos. |
+
+**Límites conocidos.** Todo lo que pasa por tu escritorio es visible para los programas de tu sesión: un programa malicioso podría ver el portapapeles cuando copias una clave para pegarla en la app, capturar teclas o superponer ventanas falsas. Esto le ocurre igual a cualquier gestor de contraseñas. Aprueba solo solicitudes que esperes, y **nunca ejecutes Claude Code como administrador**. Los programas permitidos en `run_command` reciben la credencial, así que permite solo los necesarios.
+
+## Desarrollo
+
+```powershell
+python -m venv .venv; .venv\Scripts\python.exe -m pip install .[dev]
+.venv\Scripts\python.exe tests\test_e2e.py   # servicio, pruebas de identidad, aprobaciones, acciones, MCP
+.venv\Scripts\python.exe tests\test_gui.py   # la app de verdad (ventana, icono, aprobaciones, MCP por HTTP) con una bóveda de prueba aparte; guarda capturas
+.venv\Scripts\python.exe tests\test_ssh.py   # SSH contra un servidor de prueba local
+.venv\Scripts\python.exe tests\test_exposure.py   # análisis de exposición contra un perfil de usuario falso (necesita git)
+python tools\make_icon.py secretbroker\assets\icon.ico
+.\tools\update_installed.ps1         # pasa el código a la versión instalada y reinicia el servicio (pide UAC)
+.\tools\update_installed.ps1 -Full   # igual, pero con el instalador completo (si cambian dependencias o installer\)
+```
+
+La interfaz sigue el sistema de diseño documentado al principio de `secretbroker/web/styles.css`: un único color de acento por paleta (Salvia, Cobalto, Terracota, Grafito), los colores de categoría solo en los iconos y la jerarquía marcada con el peso del texto, no con cajas.
+
+```text
+Atajos: Ctrl+F buscar · Ctrl+N nueva credencial · Ctrl+L bloquear · Esc cerrar
+```

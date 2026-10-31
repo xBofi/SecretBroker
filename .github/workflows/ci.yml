@@ -1,0 +1,87 @@
+# Runs the tests on every push to main and every pull request.
+# Releases are built and signed separately by release.yml.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install SecretBroker
+        run: |
+          python -m venv .venv
+          .venv\Scripts\python.exe -m pip install --disable-pip-version-check --quiet .[dev]
+
+      - name: End-to-end tests
+        run: .venv\Scripts\python.exe tests\test_e2e.py
+
+      - name: Personal tests
+        shell: pwsh
+        run: |
+          if (Test-Path tests\test_personal.py) {
+            .venv\Scripts\python.exe tests\test_personal.py
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } else { "tests\test_personal.py not present, skipped" }
+
+      - name: Team tests
+        shell: pwsh
+        run: |
+          if (Test-Path tests\test_teams.py) {
+            if (Test-Path server\pyproject.toml) {
+              .venv\Scripts\python.exe -m pip install --disable-pip-version-check --quiet -e server
+            }
+            .venv\Scripts\python.exe tests\test_teams.py
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } else { "tests\test_teams.py not present, skipped" }
+
+  linux-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install the server
+        run: |
+          if [ -f server/pyproject.toml ]; then
+            python -m pip install --disable-pip-version-check --quiet -e server httpx
+          else
+            echo "server/ not present, skipped"
+          fi
+
+      - name: Server tests
+        run: |
+          if [ -f server/tests/test_server.py ]; then
+            python server/tests/test_server.py
+          else
+            echo "server/tests/test_server.py not present, skipped"
+          fi
+
+      - name: Docker image
+        run: |
+          if [ -f server/Dockerfile ]; then
+            docker build -t secretbroker-server:ci server/
+          else
+            echo "server/Dockerfile not present, skipped"
+          fi

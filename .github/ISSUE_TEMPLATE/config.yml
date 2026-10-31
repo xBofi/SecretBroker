@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/xBofi/SecretBroker/security/advisories/new
+    about: Please report vulnerabilities privately, as described in SECURITY.md. Do not open a public issue.
+  - name: Security policy
+    url: https://github.com/xBofi/SecretBroker/blob/main/SECURITY.md
+    about: Scope, supported versions and how reports are handled.
