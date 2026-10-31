@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "Код за 2FA"
+  },
+  "2fa_code_copied": {
+    "message": "Кодът за 2FA е копиран"
+  },
+  "browser": {
+    "message": "Браузър"
+  },
+  "can_talk_secretbroker": {
+    "message": "Няма връзка със SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Няма връзка със SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Няма връзка със SecretBroker. Отворете го и опитайте отново."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Проверете дали SecretBroker показва същия код и щракнете „Свързване“."
+  },
+  "cmd_fill": {
+    "message": "Попълване на данните за вход за този уебсайт"
+  },
+  "cmd_open": {
+    "message": "Отваряне на SecretBroker"
+  },
+  "code": {
+    "message": "Код"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Потвърдете го в SecretBroker"
+  },
+  "connect": {
+    "message": "Свързване на $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Свързване на този браузър"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Свържете този браузър: щракнете иконата на SecretBroker в лентата на браузъра, а после „Свързване“."
+  },
+  "copy_2fa_code": {
+    "message": "Копиране на кода за 2FA"
+  },
+  "copy_password": {
+    "message": "Копиране на паролата"
+  },
+  "copy_username": {
+    "message": "Копиране на потребителското име"
+  },
+  "couldn_connect": {
+    "message": "Неуспешно свързване."
+  },
+  "couldn_copy": {
+    "message": "Неуспешно копиране"
+  },
+  "couldn_fill_it_in": {
+    "message": "Неуспешно попълване"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Не е открито къде да се попълни."
+  },
+  "couldn_look_it_up": {
+    "message": "Неуспешно търсене."
+  },
+  "couldn_save": {
+    "message": "Неуспешно запазване"
+  },
+  "create_your_vault_first": {
+    "message": "Първо създайте трезора си"
+  },
+  "ext_description": {
+    "message": "Попълва паролите, които пазите в SecretBroker, само на техния уебсайт и само когато поискате."
+  },
+  "fill_in": {
+    "message": "Попълване"
+  },
+  "fill_in_on": {
+    "message": "Попълване в $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Попълване със SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Попълване, без да се отваря този прозорец"
+  },
+  "form_from": {
+    "message": "Формуляр от"
+  },
+  "form_is_in_frame_too": {
+    "message": "Формулярът е в рамка, твърде малка, за да се види: не се попълва."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Формулярът е в скрита или много малка рамка: не се попълва."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Инсталирайте SecretBroker и отворете Настройки › Браузър. Ако току-що сте го инсталирали, рестартирайте браузъра."
+  },
+  "it_no_longer_pending": {
+    "message": "Вече не чака."
+  },
+  "it_only_fills_in_on": {
+    "message": "Попълва само на уебсайта на съответната парола."
+  },
+  "loading": {
+    "message": "Зареждане"
+  },
+  "name": {
+    "message": "Име"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Нито един запис за $domain$ няма код за 2FA.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· без https"
+  },
+  "no_username": {
+    "message": "Без потребителско име"
+  },
+  "not_now": {
+    "message": "Не сега"
+  },
+  "nothing_matches": {
+    "message": "Няма съвпадения."
+  },
+  "nothing_saved_for": {
+    "message": "Няма нищо запазено за $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Няма нищо запазено за $domain$. Влезте и ще ви предложа да го запазя.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "В други уебсайтове"
+  },
+  "on_this_website": {
+    "message": "В този уебсайт"
+  },
+  "open": {
+    "message": "Отваряне на $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Отворете го и опитайте отново."
+  },
+  "open_it_can_be_filled": {
+    "message": "Отваряне на $host$ (там може да се попълни)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Отваряне на SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Отворете SecretBroker и създайте трезора си, за да запазвате пароли."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Отворете уебсайт, за да видите паролите му."
+  },
+  "open_website_you_want_sign": {
+    "message": "Отворете уебсайта, в който искате да влезете."
+  },
+  "page_has_changed_try_again": {
+    "message": "Страницата се промени. Опитайте отново."
+  },
+  "password_copied": {
+    "message": "Паролата е копирана"
+  },
+  "password_updated": {
+    "message": "Паролата е актуализирана"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Паролата е актуализирана в SecretBroker"
+  },
+  "save": {
+    "message": "Запазване"
+  },
+  "save_this_login": {
+    "message": "Запазване на тези данни за вход?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Запазване на тази парола в SecretBroker?"
+  },
+  "saved": {
+    "message": "Запазено"
+  },
+  "saved_for": {
+    "message": "Запазено за $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Запазено в SecretBroker"
+  },
+  "search": {
+    "message": "Търсене"
+  },
+  "search_secretbroker": {
+    "message": "Търсене в SecretBroker"
+  },
+  "searching": {
+    "message": "Търсене…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker не отговори навреме."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker е заключен."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker е заключен"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker е заключен. Отключете го и опитайте отново."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "SecretBroker липсва на този компютър"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker не е инсталиран на този компютър или все още трябва да се свърже с браузъра."
+  },
+  "that_way_it_can_fill": {
+    "message": "Така ще може да попълва паролите ви. SecretBroker ще ви помоли да потвърдите с едно щракване."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Няма запазени данни за вход за $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "На тази страница няма видимо поле за код за 2FA."
+  },
+  "there_no_visible_login_form": {
+    "message": "На тази страница няма видим формуляр за вход."
+  },
+  "this_page_can_be_filled": {
+    "message": "Тази страница не може да се попълни."
+  },
+  "this_team_credential_is_use": {
+    "message": "Този екипен запис е само за ползване: не се попълва в браузъра."
+  },
+  "unlock": {
+    "message": "Отключване"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Отключете го и щракнете тук отново."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Отключете го, за да се попълват паролите ви."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Отключете SecretBroker и щракнете отново „Свързване“."
+  },
+  "update": {
+    "message": "Актуализиране"
+  },
+  "update_password": {
+    "message": "Актуализиране на паролата на „$name$“?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Само за ползване: не се попълва"
+  },
+  "use_only_on_team_not": {
+    "message": "Само за ползване в екипа: не се попълва"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Екипен запис само за ползване: попълването би го показало на страницата"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Екипните записи само за ползване могат да се използват от ИИ, но не се показват: попълването би ги дало на страницата."
+  },
+  "username_copied": {
+    "message": "Потребителското име е копирано"
+  },
+  "you_re_on": {
+    "message": "Намирате се на"
+  }
+}

@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "2FA kôd"
+  },
+  "2fa_code_copied": {
+    "message": "2FA kôd kopiran"
+  },
+  "browser": {
+    "message": "Preglednik"
+  },
+  "can_talk_secretbroker": {
+    "message": "Nema veze s aplikacijom SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Nema veze s aplikacijom SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Nema veze s aplikacijom SecretBroker. Otvori je i pokušaj ponovno."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Provjeri prikazuje li SecretBroker isti ovaj kôd i klikni „Poveži”."
+  },
+  "cmd_fill": {
+    "message": "Ispuni prijavu za ovu web-stranicu"
+  },
+  "cmd_open": {
+    "message": "Otvori SecretBroker"
+  },
+  "code": {
+    "message": "Kôd"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Potvrdi to u aplikaciji SecretBroker"
+  },
+  "connect": {
+    "message": "Poveži $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Poveži ovaj preglednik"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Poveži ovaj preglednik: klikni ikonu SecretBroker na alatnoj traci preglednika, a zatim „Poveži”."
+  },
+  "copy_2fa_code": {
+    "message": "Kopiraj 2FA kôd"
+  },
+  "copy_password": {
+    "message": "Kopiraj lozinku"
+  },
+  "copy_username": {
+    "message": "Kopiraj korisničko ime"
+  },
+  "couldn_connect": {
+    "message": "Povezivanje nije uspjelo."
+  },
+  "couldn_copy": {
+    "message": "Kopiranje nije uspjelo"
+  },
+  "couldn_fill_it_in": {
+    "message": "Ispunjavanje nije uspjelo"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Nije pronađeno gdje ispuniti."
+  },
+  "couldn_look_it_up": {
+    "message": "Pretraga nije uspjela."
+  },
+  "couldn_save": {
+    "message": "Spremanje nije uspjelo"
+  },
+  "create_your_vault_first": {
+    "message": "Najprije stvori svoj trezor"
+  },
+  "ext_description": {
+    "message": "Ispunjava lozinke koje čuvaš u aplikaciji SecretBroker, samo na njihovoj web-stranici i samo kad to zatražiš."
+  },
+  "fill_in": {
+    "message": "Ispuni"
+  },
+  "fill_in_on": {
+    "message": "Ispuni na $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Ispuni pomoću aplikacije SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Ispuni bez otvaranja ovog prozora"
+  },
+  "form_from": {
+    "message": "Obrazac s"
+  },
+  "form_is_in_frame_too": {
+    "message": "Obrazac je u okviru premalom da bi se vidio: ne ispunjava se."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Obrazac je u skrivenom ili vrlo malom okviru: ne ispunjava se."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Instaliraj SecretBroker i otvori Postavke › Preglednik. Ako si ga upravo instalirao, ponovno pokreni preglednik."
+  },
+  "it_no_longer_pending": {
+    "message": "Više nije na čekanju."
+  },
+  "it_only_fills_in_on": {
+    "message": "Ispunjava samo na web-stranici pojedine lozinke."
+  },
+  "loading": {
+    "message": "Učitavanje"
+  },
+  "name": {
+    "message": "Naziv"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Nijedna vjerodajnica za $domain$ nema 2FA kôd.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· bez https"
+  },
+  "no_username": {
+    "message": "Bez korisničkog imena"
+  },
+  "not_now": {
+    "message": "Ne sada"
+  },
+  "nothing_matches": {
+    "message": "Ništa se ne podudara."
+  },
+  "nothing_saved_for": {
+    "message": "Ništa nije spremljeno za $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Ništa nije spremljeno za $domain$. Prijavi se i ponudit ću da je spremim.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Na drugim web-stranicama"
+  },
+  "on_this_website": {
+    "message": "Na ovoj web-stranici"
+  },
+  "open": {
+    "message": "Otvori $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Otvori je i pokušaj ponovno."
+  },
+  "open_it_can_be_filled": {
+    "message": "Otvori $host$ (tamo se može ispuniti)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Otvori SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Otvori SecretBroker i stvori trezor za spremanje lozinki."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Otvori web-stranicu da vidiš njezine lozinke."
+  },
+  "open_website_you_want_sign": {
+    "message": "Otvori web-stranicu na koju se želiš prijaviti."
+  },
+  "page_has_changed_try_again": {
+    "message": "Stranica se promijenila. Pokušaj ponovno."
+  },
+  "password_copied": {
+    "message": "Lozinka kopirana"
+  },
+  "password_updated": {
+    "message": "Lozinka ažurirana"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Lozinka ažurirana u aplikaciji SecretBroker"
+  },
+  "save": {
+    "message": "Spremi"
+  },
+  "save_this_login": {
+    "message": "Spremiti ovu prijavu?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Spremiti ovu lozinku u SecretBroker?"
+  },
+  "saved": {
+    "message": "Spremljeno"
+  },
+  "saved_for": {
+    "message": "Spremljeno za $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Spremljeno u aplikaciji SecretBroker"
+  },
+  "search": {
+    "message": "Pretraži"
+  },
+  "search_secretbroker": {
+    "message": "Pretraži SecretBroker"
+  },
+  "searching": {
+    "message": "Pretraživanje…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker nije odgovorio na vrijeme."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker je zaključan."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker je zaključan"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker je zaključan. Otključaj ga i pokušaj ponovno."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "SecretBroker nedostaje na ovom računalu"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker nije instaliran na ovom računalu ili ga još treba povezati s preglednikom."
+  },
+  "that_way_it_can_fill": {
+    "message": "Tako može ispunjavati tvoje lozinke. SecretBroker će te zamoliti da to potvrdiš jednim klikom."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Za $domain$ nema spremljenih prijava.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Na ovoj stranici nema vidljivog polja za 2FA kôd."
+  },
+  "there_no_visible_login_form": {
+    "message": "Na ovoj stranici nema vidljivog obrasca za prijavu."
+  },
+  "this_page_can_be_filled": {
+    "message": "Ova se stranica ne može ispuniti."
+  },
+  "this_team_credential_is_use": {
+    "message": "Ova timska vjerodajnica je samo za korištenje: ne ispunjava se u pregledniku."
+  },
+  "unlock": {
+    "message": "Otključaj"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Otključaj ga i ponovno klikni ovdje."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Otključaj ga da ispuni tvoje lozinke."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Otključaj SecretBroker i ponovno klikni „Poveži”."
+  },
+  "update": {
+    "message": "Ažuriraj"
+  },
+  "update_password": {
+    "message": "Ažurirati lozinku za „$name$”?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Samo korištenje: ne ispunjava se"
+  },
+  "use_only_on_team_not": {
+    "message": "Samo korištenje u timu: ne ispunjava se"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Timska vjerodajnica samo za korištenje: ispunjavanje bi je otkrilo stranici"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Timske vjerodajnice samo za korištenje može koristiti AI, ali se ne prikazuju: ispunjavanje bi ih predalo stranici."
+  },
+  "username_copied": {
+    "message": "Korisničko ime kopirano"
+  },
+  "you_re_on": {
+    "message": "Nalaziš se na"
+  }
+}

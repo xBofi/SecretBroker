@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "Κωδικός 2FA"
+  },
+  "2fa_code_copied": {
+    "message": "Ο κωδικός 2FA αντιγράφηκε"
+  },
+  "browser": {
+    "message": "Πρόγραμμα περιήγησης"
+  },
+  "can_talk_secretbroker": {
+    "message": "Δεν υπάρχει επικοινωνία με το SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Δεν υπάρχει επικοινωνία με το SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Δεν υπάρχει επικοινωνία με το SecretBroker. Ανοίξτε το και δοκιμάστε ξανά."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Ελέγξτε ότι το SecretBroker δείχνει αυτόν τον ίδιο κωδικό και πατήστε «Σύνδεση»."
+  },
+  "cmd_fill": {
+    "message": "Συμπλήρωση στοιχείων σύνδεσης για αυτόν τον ιστότοπο"
+  },
+  "cmd_open": {
+    "message": "Άνοιγμα του SecretBroker"
+  },
+  "code": {
+    "message": "Κωδικός"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Επιβεβαιώστε το στο SecretBroker"
+  },
+  "connect": {
+    "message": "Σύνδεση του $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Σύνδεση αυτού του προγράμματος περιήγησης"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Συνδέστε αυτό το πρόγραμμα περιήγησης: πατήστε το εικονίδιο του SecretBroker στη γραμμή εργαλείων και μετά «Σύνδεση»."
+  },
+  "copy_2fa_code": {
+    "message": "Αντιγραφή κωδικού 2FA"
+  },
+  "copy_password": {
+    "message": "Αντιγραφή κωδικού πρόσβασης"
+  },
+  "copy_username": {
+    "message": "Αντιγραφή ονόματος χρήστη"
+  },
+  "couldn_connect": {
+    "message": "Η σύνδεση απέτυχε."
+  },
+  "couldn_copy": {
+    "message": "Η αντιγραφή απέτυχε"
+  },
+  "couldn_fill_it_in": {
+    "message": "Η συμπλήρωση απέτυχε"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Δεν βρέθηκε πού να συμπληρωθεί."
+  },
+  "couldn_look_it_up": {
+    "message": "Η αναζήτηση απέτυχε."
+  },
+  "couldn_save": {
+    "message": "Η αποθήκευση απέτυχε"
+  },
+  "create_your_vault_first": {
+    "message": "Δημιουργήστε πρώτα την κρύπτη σας"
+  },
+  "ext_description": {
+    "message": "Συμπληρώνει τους κωδικούς που φυλάτε στο SecretBroker, μόνο στον δικό τους ιστότοπο και μόνο όταν το ζητήσετε."
+  },
+  "fill_in": {
+    "message": "Συμπλήρωση"
+  },
+  "fill_in_on": {
+    "message": "Συμπλήρωση στο $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Συμπλήρωση με το SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Συμπλήρωση χωρίς άνοιγμα αυτού του παραθύρου"
+  },
+  "form_from": {
+    "message": "Φόρμα από"
+  },
+  "form_is_in_frame_too": {
+    "message": "Η φόρμα βρίσκεται σε πλαίσιο πολύ μικρό για να φαίνεται: δεν συμπληρώνεται."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Η φόρμα βρίσκεται σε κρυφό ή πολύ μικρό πλαίσιο: δεν συμπληρώνεται."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Εγκαταστήστε το SecretBroker και ανοίξτε Ρυθμίσεις › Πρόγραμμα περιήγησης. Αν μόλις το εγκαταστήσατε, επανεκκινήστε το πρόγραμμα περιήγησης."
+  },
+  "it_no_longer_pending": {
+    "message": "Δεν εκκρεμεί πια."
+  },
+  "it_only_fills_in_on": {
+    "message": "Συμπληρώνει μόνο στον ιστότοπο κάθε κωδικού."
+  },
+  "loading": {
+    "message": "Φόρτωση"
+  },
+  "name": {
+    "message": "Όνομα"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Κανένα διαπιστευτήριο για το $domain$ δεν έχει κωδικό 2FA.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· χωρίς https"
+  },
+  "no_username": {
+    "message": "Χωρίς όνομα χρήστη"
+  },
+  "not_now": {
+    "message": "Όχι τώρα"
+  },
+  "nothing_matches": {
+    "message": "Δεν υπάρχουν αποτελέσματα."
+  },
+  "nothing_saved_for": {
+    "message": "Δεν υπάρχει τίποτα αποθηκευμένο για το $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Δεν υπάρχει τίποτα αποθηκευμένο για το $domain$. Συνδεθείτε και θα σας προτείνω να το αποθηκεύσω.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Σε άλλους ιστότοπους"
+  },
+  "on_this_website": {
+    "message": "Σε αυτόν τον ιστότοπο"
+  },
+  "open": {
+    "message": "Άνοιγμα $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Ανοίξτε το και δοκιμάστε ξανά."
+  },
+  "open_it_can_be_filled": {
+    "message": "Άνοιγμα $host$ (εκεί μπορεί να συμπληρωθεί)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Άνοιγμα του SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Ανοίξτε το SecretBroker και δημιουργήστε την κρύπτη σας για να αποθηκεύετε κωδικούς."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Ανοίξτε έναν ιστότοπο για να δείτε τους κωδικούς του."
+  },
+  "open_website_you_want_sign": {
+    "message": "Ανοίξτε τον ιστότοπο στον οποίο θέλετε να συνδεθείτε."
+  },
+  "page_has_changed_try_again": {
+    "message": "Η σελίδα άλλαξε. Δοκιμάστε ξανά."
+  },
+  "password_copied": {
+    "message": "Ο κωδικός αντιγράφηκε"
+  },
+  "password_updated": {
+    "message": "Ο κωδικός ενημερώθηκε"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Ο κωδικός ενημερώθηκε στο SecretBroker"
+  },
+  "save": {
+    "message": "Αποθήκευση"
+  },
+  "save_this_login": {
+    "message": "Αποθήκευση αυτών των στοιχείων σύνδεσης;"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Αποθήκευση αυτού του κωδικού στο SecretBroker;"
+  },
+  "saved": {
+    "message": "Αποθηκεύτηκε"
+  },
+  "saved_for": {
+    "message": "Αποθηκεύτηκε για το $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Αποθηκεύτηκε στο SecretBroker"
+  },
+  "search": {
+    "message": "Αναζήτηση"
+  },
+  "search_secretbroker": {
+    "message": "Αναζήτηση στο SecretBroker"
+  },
+  "searching": {
+    "message": "Αναζήτηση…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "Το SecretBroker δεν απάντησε εγκαίρως."
+  },
+  "secretbroker_is_locked": {
+    "message": "Το SecretBroker είναι κλειδωμένο."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "Το SecretBroker είναι κλειδωμένο"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "Το SecretBroker είναι κλειδωμένο. Ξεκλειδώστε το και δοκιμάστε ξανά."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "Το SecretBroker λείπει από αυτόν τον υπολογιστή"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "Το SecretBroker δεν είναι εγκατεστημένο σε αυτόν τον υπολογιστή ή πρέπει ακόμα να συνδεθεί με το πρόγραμμα περιήγησης."
+  },
+  "that_way_it_can_fill": {
+    "message": "Έτσι μπορεί να συμπληρώνει τους κωδικούς σας. Το SecretBroker θα σας ζητήσει να το επιβεβαιώσετε με ένα κλικ."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Δεν υπάρχουν αποθηκευμένα στοιχεία σύνδεσης για το $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Δεν υπάρχει ορατό πεδίο κωδικού 2FA σε αυτή τη σελίδα."
+  },
+  "there_no_visible_login_form": {
+    "message": "Δεν υπάρχει ορατή φόρμα σύνδεσης σε αυτή τη σελίδα."
+  },
+  "this_page_can_be_filled": {
+    "message": "Αυτή η σελίδα δεν μπορεί να συμπληρωθεί."
+  },
+  "this_team_credential_is_use": {
+    "message": "Αυτό το διαπιστευτήριο ομάδας είναι μόνο για χρήση: δεν συμπληρώνεται στο πρόγραμμα περιήγησης."
+  },
+  "unlock": {
+    "message": "Ξεκλείδωμα"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Ξεκλειδώστε το και πατήστε ξανά εδώ."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Ξεκλειδώστε το για να συμπληρώνονται οι κωδικοί σας."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Ξεκλειδώστε το SecretBroker και πατήστε ξανά «Σύνδεση»."
+  },
+  "update": {
+    "message": "Ενημέρωση"
+  },
+  "update_password": {
+    "message": "Ενημέρωση του κωδικού του «$name$»;",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Μόνο χρήση: δεν συμπληρώνεται"
+  },
+  "use_only_on_team_not": {
+    "message": "Μόνο χρήση στην ομάδα: δεν συμπληρώνεται"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Διαπιστευτήριο ομάδας μόνο για χρήση: η συμπλήρωση θα το έδειχνε στη σελίδα"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Τα διαπιστευτήρια ομάδας μόνο για χρήση μπορεί να τα χρησιμοποιεί η ΤΝ, αλλά δεν εμφανίζονται: η συμπλήρωση θα τα έδινε στη σελίδα."
+  },
+  "username_copied": {
+    "message": "Το όνομα χρήστη αντιγράφηκε"
+  },
+  "you_re_on": {
+    "message": "Βρίσκεστε στο"
+  }
+}
