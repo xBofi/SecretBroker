@@ -1,0 +1,91 @@
+/* The popup follows secretbroker/web/styles.css (Grafito palette, light and dark with the system). */
+:root {
+  --radius-sm: 6px; --radius: 8px; --radius-lg: 10px;
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+  --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px;
+  --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600;
+  --bg: #fbfbfb; --bg-subtle: #f4f4f4; --fill: #ebebeb; --fill-hover: #e2e2e2;
+  --line: #e4e4e4; --line-strong: #cfcfcf; --text: #171717; --muted: #5f5f5f; --faint: #8f8f8f;
+  --accent: #171717; --accent-hover: #000; --accent-text: #fff;
+  --interactive: #3a64b0; --interactive-soft: color-mix(in srgb, var(--interactive) 12%, transparent);
+  --warning: #a65f00; --danger: #c4321f; --ok: #1d7f4e;
+  --elevated: #fff;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161616; --bg-subtle: #1b1b1b; --fill: #262626; --fill-hover: #2e2e2e;
+    --line: #2a2a2a; --line-strong: #3b3b3b; --text: #ececec; --muted: #a3a3a3; --faint: #727272;
+    --accent: #f2f2f2; --accent-hover: #fff; --accent-text: #111;
+    --interactive: #8eaee6; --interactive-soft: color-mix(in srgb, var(--interactive) 16%, transparent);
+    --warning: #f0b34a; --danger: #f2705f; --ok: #4cc38a; --elevated: #202020;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { width: 360px; min-height: 160px; max-height: 560px; background: var(--bg); color: var(--text);
+  font: var(--fw-regular) var(--fs-md)/1.45 var(--font); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
+svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+.top { display: flex; align-items: center; gap: 8px; padding: 12px 12px 10px 16px; border-bottom: 1px solid var(--line); }
+.mark { width: 20px; height: 20px; }
+.brand { font-weight: var(--fw-semibold); flex: 1; }
+.icon-btn { border: 0; background: none; width: 30px; height: 30px; border-radius: var(--radius-sm); display: grid; place-items: center; color: var(--muted); cursor: pointer; }
+.icon-btn:hover { background: var(--fill); color: var(--text); }
+.icon-btn:focus-visible, .btn:focus-visible, .row:focus-visible, .search:focus-visible { outline: 2px solid var(--interactive); outline-offset: 1px; }
+
+main { padding: 12px 12px 14px; }
+.site { display: flex; align-items: center; gap: 8px; padding: 0 4px 10px; color: var(--muted); font-size: var(--fs-sm); }
+.site .domain { color: var(--text); font-weight: var(--fw-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site .insecure { color: var(--warning); }
+
+.search { width: 100%; height: 34px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--bg);
+  color: var(--text); padding: 0 10px 0 32px; font: inherit; font-size: var(--fs-sm); outline: none; }
+.search-wrap { position: relative; margin-bottom: 10px; }
+.search-wrap svg { position: absolute; left: 10px; top: 9px; color: var(--faint); }
+
+.section { font-size: var(--fs-xs); color: var(--muted); font-weight: var(--fw-medium); padding: 10px 4px 4px; }
+.list { display: flex; flex-direction: column; gap: 2px; max-height: 330px; overflow: auto; }
+.row { display: flex; align-items: center; gap: 10px; padding: 7px 6px 7px 8px; border-radius: var(--radius); }
+.row:hover { background: var(--bg-subtle); }
+.avatar { flex: none; width: 30px; height: 30px; border-radius: var(--radius-sm); background: var(--fill); display: grid; place-items: center;
+  font-weight: var(--fw-semibold); color: var(--muted); font-size: var(--fs-sm); }
+.who { min-width: 0; flex: 1; }
+.name, .user { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.name { font-weight: var(--fw-medium); }
+.user { color: var(--muted); font-size: var(--fs-xs); }
+.user.locked { color: var(--warning); }
+.actions { display: flex; gap: 2px; align-items: center; }
+.actions .icon-btn { width: 28px; height: 28px; }
+
+.btn { border: 1px solid var(--line-strong); background: var(--bg); padding: 0 12px; height: 30px; border-radius: var(--radius-sm);
+  font-size: var(--fs-sm); font-weight: var(--fw-medium); cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--fill); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.btn.primary:hover { background: var(--accent-hover); }
+.btn[disabled] { opacity: .5; cursor: default; }
+.btn.block { width: 100%; height: 34px; }
+
+.state { text-align: center; padding: 18px 12px 8px; }
+.state h1 { font-size: var(--fs-md); font-weight: var(--fw-semibold); margin: 8px 0 4px; }
+.state p { margin: 0 0 14px; color: var(--muted); font-size: var(--fs-sm); }
+.state .badge { width: 40px; height: 40px; border-radius: 50%; background: var(--fill); display: inline-grid; place-items: center; color: var(--muted); }
+.state .badge svg { width: 20px; height: 20px; }
+.code { font: var(--fw-semibold) 22px/1.2 var(--font-mono); letter-spacing: .12em; margin: 4px 0 12px; }
+
+.offer { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 10px; background: var(--bg-subtle); }
+.offer b { font-weight: var(--fw-semibold); }
+.offer p { margin: 2px 0 10px; color: var(--muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.offer .buttons { display: flex; gap: 8px; justify-content: flex-end; }
+
+.empty { color: var(--muted); font-size: var(--fs-sm); padding: 6px 4px 2px; }
+.hint { color: var(--faint); font-size: var(--fs-xs); padding: 10px 4px 0; display: flex; justify-content: space-between; gap: 8px; }
+kbd { font: var(--fs-xs) var(--font-mono); background: var(--fill); border-radius: 4px; padding: 1px 5px; color: var(--muted); }
+.message { font-size: var(--fs-sm); padding: 8px 10px; border-radius: var(--radius-sm); margin-top: 8px; background: var(--fill); }
+.message.error { color: var(--danger); }
+.spinner { width: 20px; height: 20px; margin: 36px auto; border: 2px solid var(--line-strong); border-top-color: var(--text); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
