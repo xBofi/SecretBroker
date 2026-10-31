@@ -108,9 +108,24 @@ def secure_data_dir(path):
 
 
 def write_public_file(path, text, isolated):
-    """Installed, public/ carries an inherited ACL entry that lets the owner read what the service writes there
-    (secretbroker-setup); the mode bits stay 0640 (`_secretbroker`'s own group). In development: 0600."""
-    write_private(path, text.encode("utf-8"), 0o640 if isolated else 0o600)
+    """Installed, the owner reads what the service writes to public/ through an ACL entry, not a group (every
+    desktop account shares `staff`); the mode bits stay 0640 (`_secretbroker`'s own group). public/ carries an
+    inheritable entry (secretbroker-setup), but a file created by the service does not reliably get it, so the
+    service adds the entry itself before the file takes its name. In development: 0600."""
+    if not isolated:
+        write_private(path, text.encode("utf-8"), 0o600)
+        return
+    path = Path(path)
+    owner = path.parent.parent.name  # <root>/<owner>/public/<file>
+    pwd.getpwnam(owner)  # a real account, never a name that could be read as a chmod option
+    tmp = path.with_name(path.name + ".public.tmp")
+    write_private(tmp, text.encode("utf-8"), 0o640)
+    try:
+        subprocess.run(["/bin/chmod", "+a", f"user:{owner} allow read,readattr,readextattr,readsecurity", str(tmp)],
+                       check=True, capture_output=True, timeout=10)
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 # --------------------------------------------------------------------------- identity

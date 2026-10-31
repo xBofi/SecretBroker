@@ -2,9 +2,14 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
-## 0.16.1 (2026-10-31)
+## 0.16.2 (2026-10-31)
 
-The first public build of everything in 0.16.0 below (the 0.16.0 tag never produced a release).
+The first public build of everything in 0.16.0 below (the 0.16.0 and 0.16.1 tags never produced a release).
+
+- macOS: the app could not reach its service after installing, when the setup re-applied the folder's permissions
+  while the service was writing its address file; the service now gives the owner read access to that file itself.
+
+## 0.16.1 (not released)
 
 - macOS: closing the browser no longer leaves its connection to SecretBroker running for 30 seconds; a password
   copied from the extension is cleared when the browser closes.
