@@ -245,6 +245,13 @@ def test_orgs_and_items(base, alice):
     check(keys["public_key"] and keys["signing_public_key"], "admin reads the keys of someone who accepted")
     outsider = Api(base).signup("eve@example.com")
     check(outsider.call("GET", f"/users/{alice.id}/keys").status_code == 404, "strangers cannot read keys")
+    batch = alice.ok("GET", f"/users/keys?ids={bob.id},{carol.id},{outsider.id},{bob.id}")
+    check(sorted(k["id"] for k in batch) == sorted([bob.id, carol.id]) and all(k["public_key"] for k in batch),
+          "keys of several people in one request, strangers left out")
+    check(outsider.ok("GET", f"/users/keys?ids={alice.id},{bob.id}") == [], "a stranger gets nobody's keys in a batch")
+    check(alice.call("GET", "/users/keys?ids=nope").status_code == 400
+          and alice.call("GET", "/users/keys?ids=" + ",".join(str(uuid.uuid4()) for _ in range(201))).status_code == 400,
+          "batch ids are checked and limited")
     check(outsider.call("GET", f"/orgs/{oid}/members").status_code == 404, "non-member cannot see the org")
     for person in (bob, carol, dave):
         alice.ok("POST", f"/orgs/{oid}/members/{person.id}/confirm", {})

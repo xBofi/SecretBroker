@@ -368,7 +368,8 @@ def main():
     check(response["code"] == "invalid", "short account password refused")
     status = alice.act("team_connect", server_url=base, email="alice@example.com", password=ACCOUNT, mode="register",
                        name="Alice")
-    check(status["connected"] and len(status["fingerprint"].split()) == 8, "Alice registers and gets a fingerprint")
+    check(status["connected"] and len(status["fingerprint"].split()) == 8 and status["fingerprint"].replace(" ", "").isdigit(),
+          "Alice registers and gets a security code (8 groups of digits, easy to read out)")
     bob_status = bob.act("team_connect", server_url=base, email="bob@example.com", password=ACCOUNT, mode="register",
                          name="Bob")
     carol.act("team_connect", server_url=base, email="carol@example.com", password=ACCOUNT, mode="register", name="Carol")
@@ -404,6 +405,34 @@ def main():
     alice.act("team_confirm_member", org=oid, user_id=bob_id, fingerprint=bob_status["fingerprint"].replace(" ", ""))
     alice.act("team_confirm_member", org=oid, user_id=carol_id)
     check(bob_id in alice.service.vault.team()["pinned"], "Bob's key is pinned")
+    bob_keys = bob.service.vault.team()
+    legacy = teams._hex_fingerprint(bob_keys["public_key"], bob_keys["signing_public_key"])
+    alice.act("team_confirm_member", org=oid, user_id=bob_id, fingerprint=" ".join(legacy[i:i + 4] for i in range(0, 32, 4)))
+    check(True, "the hex fingerprint older versions showed is still accepted when typed")
+    pinned = alice.service.vault.team()["pinned"]
+    pinned[bob_id]["fp"] = legacy  # a pin made by an older version
+    alice.service.vault.set_team({**alice.service.vault.team(), "pinned": pinned})
+    rows = {m["user_id"]: m for m in alice.ok("team_members", org=oid)}
+    check(rows[bob_id]["trusted"] and not rows[bob_id]["key_changed"], "and pins made by older versions still count")
+    calls = []
+    real_call = teams.Client.call
+
+    def counting(self, method, path, body=None, auth=True):
+        calls.append(path)
+        return real_call(self, method, path, body, auth)
+    teams.Client.call = counting
+    try:
+        alice.ok("team_members", org=oid)
+    finally:
+        teams.Client.call = real_call
+    check(sum(1 for p in calls if "keys" in p) == 1, f"members' keys come in one request ({calls})")
+    view = alice.ok("team_overview")
+    check(view["orgs"] and view["orgs"][0]["name"] == "Acme" and len(view["members"][oid]) == 3
+          and view["status"]["connected"], "the Equipo view is drawn from this PC (orgs, members)")
+    with alice.service._team_lock:  # a sync or a change running: reads don't wait for it
+        started = time.monotonic()
+        check(alice.call("team_orgs")["ok"] and alice.call("team_members", org=oid)["ok"]
+              and time.monotonic() - started < 5, "reads don't take the team lock")
 
     print("Collections and sharing")
     cid = alice.act("team_create_collection", org=oid, name=COLLECTION)["id"]
@@ -418,6 +447,19 @@ def main():
           "Alice shares a credential")
     collections = alice.ok("team_collections")
     check(collections[0]["name"] == COLLECTION and collections[0]["entries"] == 1, "collection list with names and counts")
+    for n in (1, 2):
+        alice.save({"id": f"bulk-{n}", "name": f"Lote {n}", "template": "generic", "description": "",
+                    "fields": {"value": f"bulk-FAKE-{n}"}, "policy": {"approval": "session"}})
+    response = alice.call("team_share_entries", ids=["bulk-1", "bulk-2"], collection=cid)
+    check(response["code"] == "proof_required" or response["ok"] is False, "sharing several needs the user too")
+    bulk = alice.act("team_share_entries", ids=["bulk-1", "bulk-2"], collection=cid)
+    check(bulk["shared"] == ["bulk-1", "bulk-2"] and not bulk["failed"] and bulk["collection_name"] == COLLECTION,
+          "several credentials are shared with one click")
+    again = alice.act("team_share_entries", ids=["bulk-1"], collection=cid)
+    check(again["shared"] == [] and again["failed"][0]["id"] == "bulk-1", "each one fails or not on its own")
+    for n in (1, 2):
+        alice.ok("delete_entry", id=f"bulk-{n}", proof={"kind": "master_password", "value": MASTER})
+    alice.sync()  # the deletions reach the server before the others first look
 
     result = bob.sync()
     check(result["state"] == "ok" and result["result"]["added"] == [NAME], f"Bob syncs the new credential ({result.get('error')})")
@@ -475,6 +517,7 @@ def main():
     pending = alice.summary("echo-api")["shared"]["pending_change"]
     check(pending["by"] == "Bob" and any("evil.example.com" in line for line in pending["changes"]),
           "the change to review says who and what")
+    check(pending["hosts"] == ["evil.example.com"] and pending["only_hosts"], "and which new webs, to name them")
     check(any(n["title"].startswith("Cambio por revisar") for n in alice.ok("notices")), "Alice gets a notice")
     alice.sync()
     bob.sync()
@@ -500,14 +543,23 @@ def main():
         api.call("POST", "/accounts/logout")
     status = laptop.sync()
     check(status["state"] == "reconnect", "an expired session shows 'reconnect', no exception")
+    laptop.sync()
+    notices = [n for n in laptop.ok("notices") if n["title"] == "La sesión del equipo ha caducado"]
+    check(len(notices) == 1, "a Windows notice says the session expired (once)")
     status = laptop.act("team_connect", server_url=base, email="alice@example.com", password=ACCOUNT, mode="login")
     check(laptop.sync()["state"] == "ok" and laptop.entry("echo-api")["fields"]["value"] == API_KEY,
           "reconnecting keeps the collections")
 
     print("Removing a member")
     old_key = bob.service.vault.team()["collections"][cid]["keys"]["1"]
+    bob.edit("echo-api", description="Editado sin conexión")
+    check(bob.summary("echo-api")["shared"].get("unsent") == "pending", "an edit not sent yet is marked as such")
     removed = alice.act("team_remove_member", org=oid, user_id=bob_id)
-    check(removed["rekeyed"] == [cid], "Alice re-keys the collection Bob could read")
+    check(removed["rekeyed"] == [cid] and removed["person"] == "Bob" and removed["credentials"] == 1 and not removed["failed"],
+          "Alice re-keys the collection Bob could read")
+    offboarding = alice.ok("team_offboarding")
+    check(offboarding and offboarding[0]["person"] == "Bob" and offboarding[0]["total"] == 1
+          and offboarding[0]["pending"] == ["echo-api"], "Bob could see 1 credential, 0 changed")
     reminder = next((r for r in alice.ok("reminders") if r["id"] == "echo-api"), {})
     check(reminder.get("kind") == "team_access" and reminder.get("people") == ["Bob"] and reminder.get("can_rotate"),
           "every credential in it gets 'rotate: Bob had access'")
@@ -519,6 +571,8 @@ def main():
     rotated = alice.act("replace_key", id="echo-api", value=NEW_KEY)
     check(rotated["entry"]["id"] == "echo-api" and not any(r["id"] == "echo-api" for r in alice.ok("reminders")),
           "the guided rotation clears the reminder")
+    offboarding = next(p for p in alice.ok("team_offboarding") if p["person"] == "Bob")
+    check(offboarding["total"] == 1 and offboarding["pending"] == [], "and counts as changed in Bob's list")
     alice.sync()
     carol.sync()
     check(carol.entry("echo-api")["fields"]["value"] == NEW_KEY and not any(r["id"] == "echo-api" for r in carol.ok("reminders")),
@@ -526,9 +580,11 @@ def main():
     bob.sync()
     check(not any(e.get("shared") for e in bob.service.vault.entries()) and not bob.service.vault.team()["collections"],
           "Bob's copies are gone after his next sync")
+    check(any(e["id"].startswith("echo-api-conflict") for e in bob.service.vault.entries()),
+          "and his edit not sent yet stays with him as a personal copy")
     state = alice.service.vault.team()
     with teams.Client(state["server_url"], state["token"]) as api:
-        item = api.call("GET", f"/collections/{cid}/items?since=0")["items"][0]
+        item = next(i for i in api.call("GET", f"/collections/{cid}/items?since=0")["items"] if not i["deleted"])
     try:
         teams.open_item(teams.unb64(old_key), cid, item["id"], 1, item["ciphertext"])
         check(False, "the removed member cannot decrypt new items")
@@ -567,6 +623,43 @@ def main():
           and alice.service.vault.team()["collections"][cid]["key_version"] == 3, "the manager re-keys on sync after someone left")
     reminder = next((r for r in alice.ok("reminders") if r["id"] == "echo-api"), {})
     check(reminder.get("people") == ["Carol"], "and gets 'rotate: Carol had access'")
+
+    print("Removing someone while a collection can't be re-encrypted")
+    dave = Person("dave")
+    dave.act("team_connect", server_url=base, email="dave@example.com", password=ACCOUNT, mode="register", name="Dave")
+    alice.act("team_invite", org=oid, email="dave@example.com", role="member")
+    dave.act("team_accept_invite", id=dave.ok("team_invites")[0]["id"])
+    dave_id = next(m["user_id"] for m in alice.ok("team_members", org=oid) if m["email"] == "dave@example.com")
+    alice.act("team_confirm_member", org=oid, user_id=dave_id)
+    c5 = alice.act("team_create_collection", org=oid, name="Cinco")["id"]
+    c6 = alice.act("team_create_collection", org=oid, name="Seis")["id"]
+    for c in (c5, c6):
+        alice.act("team_grant", collection=c, user_id=dave_id, permission="view")
+    alice.save({"id": "five-api", "name": "Cinco API", "template": "generic", "description": "",
+                "fields": {"value": "five-FAKE-1"}, "policy": {"approval": "session"}})
+    alice.act("team_share_entry", id="five-api", collection=c5)
+    real_rekey = teams.Team._rekey
+
+    def failing(self, api, state, c, people, removed=()):
+        if c == c5:
+            raise teams.TeamError("Algo salió mal", "bad_server")
+        return real_rekey(self, api, state, c, people, removed)
+    teams.Team._rekey = failing
+    try:
+        removed = alice.act("team_remove_member", org=oid, user_id=dave_id)
+    finally:
+        teams.Team._rekey = real_rekey
+    state = alice.service.vault.team()
+    check(set(removed["failed"]) | set(removed["rekeyed"]) == {c5, c6} and c5 in removed["failed"] and not removed["offline"],
+          "a collection that fails is reported, the others are done")
+    check(state["collections"][c5]["needs_rekey"] and state["collections"][c6]["key_version"] == 2,
+          "and what was done is saved")
+    reminder = next((r for r in alice.ok("reminders") if r["id"] == "five-api"), {})
+    check(reminder.get("people") == ["Dave"], "every credential Dave could see is flagged at once")
+    alice.sync()
+    check(alice.service.vault.team()["collections"][c5]["key_version"] == 2, "the next sync re-encrypts the one left")
+    check(not any(c in json.dumps(teams.explain(exc, "Prod")) for exc in (KeyError("x"), ValueError("y"), InvalidTag())
+                  for c in ("KeyError", "ValueError", "InvalidTag")), "sync errors never show exception names")
 
     db = b"".join(p.read_bytes() for p in Path(settings.data_dir).glob("secretbroker.db*"))
     leaks = [w for w in (API_KEY, NEW_KEY, NAME, COLLECTION, "echo-api", "API compartida", "Notas de Bob")

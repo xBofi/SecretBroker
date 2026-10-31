@@ -215,7 +215,7 @@ def _shared_summary(shared):
     return {"org": shared["org"], "org_name": shared.get("org_name", ""), "collection": shared["collection"],
             "collection_name": shared.get("collection_name", ""), "permission": shared["permission"],
             "author": shared.get("author"), "changed": shared.get("changed"),
-            "pending_change": {k: pending.get(k) for k in ("by", "at", "changes")} if pending else None,
+            "pending_change": {k: pending.get(k) for k in ("by", "at", "changes", "hosts", "only_hosts")} if pending else None,
             "rotate_because": (shared.get("rotate") or {}).get("people") or []}
 
 
@@ -451,6 +451,21 @@ class Vault:
                 self._payload["team"] = copy.deepcopy(data)
             else:
                 self._payload.pop("team", None)
+            self._save()
+
+    def team_view(self):
+        """What the Equipo view last showed (orgs, people, invites): drawn at once, refreshed from the server."""
+        with self._lock:
+            self._require_unlocked()
+            return copy.deepcopy(self._payload.get("team_view") or {})
+
+    def set_team_view(self, data):
+        with self._lock:
+            self._require_unlocked()
+            if data:
+                self._payload["team_view"] = copy.deepcopy(data)
+            else:
+                self._payload.pop("team_view", None)
             self._save()
 
     # ----- settings

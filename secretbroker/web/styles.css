@@ -528,3 +528,80 @@ details.collection > summary .subtitle { color: var(--muted); font-size: 12.5px;
 .import-row .meta { flex: 1; min-width: 0; }
 .import-row .title { font-weight: 550; }
 .import-row .subtitle { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- teams: Equipo view ---------- */
+.team-top { transition: background .15s, box-shadow .15s; }
+.team-top.scrolled { background: var(--bg-subtle); box-shadow: 0 1px 0 var(--line); }
+.team-top .content-header { padding-bottom: 8px; }
+.team-top .content-header h1 { margin-right: 4px; }
+.team-top .spacer, .bulk-bar .spacer { flex: 1; }
+.org-picker { max-width: 220px; font-weight: 550; }
+.team-tabs { display: flex; gap: 2px; padding: 0 24px; border-bottom: 1px solid var(--line); }
+.team-tabs button { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px;
+  border: none; background: none; color: var(--muted); font-weight: 550; cursor: pointer; }
+.team-tabs button:hover { color: var(--text); }
+.team-tabs button.active { color: var(--text); }
+.team-tabs button.active::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
+.tab-count { font-size: 11.5px; font-weight: 600; color: var(--faint); background: var(--fill); border-radius: 999px; padding: 0 7px; line-height: 18px; }
+.tab-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c-key); }
+.team-view { padding-top: 16px; }
+.team-panel { max-width: 860px; }
+.team-banners { display: flex; flex-direction: column; gap: 12px; max-width: 860px; margin-bottom: 16px; }
+.team-banners:empty { display: none; }
+.team-banners .pause-card { margin-bottom: 0; }
+.warning.banner-line { color: var(--c-key); background: color-mix(in srgb, var(--c-key) 8%, transparent); padding: 10px 12px; border-radius: var(--radius); }
+.banner { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 12px 16px 4px; }
+.banner-head { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; flex-wrap: wrap; }
+.banner-head > .icon { color: var(--c-key); }
+.banner-head h3 { font-size: 14px; }
+.banner .member:last-child .fingerprint-box, .banner > .access-row:last-child { border-bottom: none; }
+.panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.panel-head p { flex: 1; }
+.sub-head { margin: 18px 0 2px; }
+.invite-box { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; margin-bottom: 8px; background: var(--bg-subtle); border-radius: var(--radius); }
+.avatar { width: 30px; height: 30px; border-radius: 50%; flex: none; display: grid; place-items: center; font-weight: 600; font-size: 13px;
+  background: var(--accent-soft); color: var(--accent); }
+.avatar.invited { background: transparent; border: 1px dashed var(--line-strong); color: var(--faint); }
+.fingerprint.big { font-size: 15px; letter-spacing: .06em; }
+.instructions { white-space: pre-wrap; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; background: var(--bg-subtle);
+  border-radius: var(--radius); padding: 12px 14px; margin-top: 10px; max-height: 300px; overflow: auto; word-break: break-all; }
+.notice { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 10px 12px; border-radius: var(--radius); background: var(--accent-soft); }
+.review-box h3 { line-height: 1.45; }
+.review-box h3 code { font-family: var(--font-mono); font-size: 12.5px; background: var(--fill); border-radius: 4px; padding: 1px 5px; }
+.unsent-line { display: flex; gap: 6px; align-items: flex-start; color: var(--c-key); }
+.ok-text { display: flex; gap: 8px; align-items: center; color: var(--ok); margin-top: 10px; }
+.nav .count.warn { color: #fff; background: var(--c-key); border-radius: 999px; min-width: 18px; height: 18px; display: grid; place-items: center;
+  font-weight: 700; font-size: 11.5px; }
+
+/* "?" next to a control, and what it opens */
+.popover-wrap { position: relative; display: inline-flex; flex: none; }
+.btn.icon-only.help-btn { font-weight: 700; font-size: 13px; border: 1px solid var(--line); border-radius: 50%; width: 24px; height: 24px; }
+.popover { position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; width: 340px; padding: 12px 14px; border-radius: var(--radius-lg);
+  background: var(--bg); border: 1px solid var(--line); box-shadow: var(--shadow-dialog); font-size: 13px; }
+.popover-title { font-weight: 600; margin-bottom: 6px; }
+.popover .perm-legend { margin-top: 0; }
+
+/* Someone left: change, one after the other, what they could see */
+.offboard-card { display: flex; gap: 14px; align-items: center; padding: 12px 16px; border: 1px solid var(--c-key); border-radius: var(--radius-lg); max-width: 860px; }
+.content-body > .offboard-card { margin-bottom: 16px; }
+.offboard-card > .icon { color: var(--c-key); }
+.offboard-card .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.offboard-card .title { font-weight: 600; }
+.offboard-card .subtitle { color: var(--muted); font-size: 12.5px; }
+.progress { height: 6px; border-radius: 999px; background: var(--fill); overflow: hidden; max-width: 320px; }
+.progress > span { display: block; height: 100%; background: var(--ok); border-radius: 999px; transition: width .2s; }
+.offboard-progress { display: flex; align-items: center; gap: 12px; margin: 12px 0 6px; }
+.offboard-progress .progress { flex: 1; max-width: none; }
+.access-row.skipped .title { color: var(--muted); }
+
+/* Credential list: tick several to share them at once */
+.list-pane { display: flex; flex-direction: column; min-height: 0; }
+.list-pane > .list { flex: 1; }
+.bulk-bar { display: flex; align-items: center; gap: 8px; margin: 0 12px 8px 24px; padding: 6px 6px 6px 12px; border-radius: var(--radius);
+  background: var(--accent-soft); }
+.bulk-bar .btn { height: 30px; }
+.pick-slot { position: relative; flex: none; }
+.pick-slot .pick { position: absolute; inset: 0; margin: auto; width: 18px; height: 18px; opacity: 0; cursor: pointer; accent-color: var(--accent); }
+.row:hover .pick-slot .pick, .list.picking .pick-slot .pick { opacity: 1; }
+.row:hover .pick-slot .glyph, .list.picking .pick-slot .glyph { opacity: 0; }
+.row.picked { background: var(--accent-soft); }

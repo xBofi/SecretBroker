@@ -72,7 +72,10 @@ Changing the account password re-wraps `private_blob`; it does not change keys.
 
 ### 2.2 Fingerprints and key pinning
 
-`fingerprint(user) = SHA-256(x25519_pub || ed25519_pub)`, shown as 8 groups of 4 hex chars. The server hands out
+`fingerprint(user) = SHA-256(x25519_pub || ed25519_pub)` as 40 decimal digits (`int(digest) mod 10^40`, 133 bits)
+in 8 groups of 5: the **código de seguridad** the app shows, easy to read out over the phone. A typed code is also
+accepted as the 32 hex chars earlier versions showed, and pins are compared by recomputing the code from the pinned
+keys, so pins made by earlier versions keep working. The server hands out
 public keys, so a client never trusts one on first sight: a key is pinned (`team.pinned`) only by an explicit act of
 the user on this PC:
 
@@ -182,6 +185,7 @@ shared credential always asks the user.
 | `DELETE /me/devices/{id}` | → `{}` |
 | `POST /accounts/password` | `{current_auth_hash, kdf, auth_hash, private_blob}` → `{}` (revokes other sessions; a wrong current password is `403 invalid_credentials` and counts like a failed login) |
 | `GET /users/{uid}/keys` | → `{id, email, name, public_key, signing_public_key}` (only users sharing an org with you, or invited by your org) |
+| `GET /users/keys?ids=a,b,…` | → `[{id, email, name, public_key, signing_public_key}]`, at most 200 ids; people you may not see are left out (one request for a team's members; clients fall back to the single endpoint on a `404`) |
 | `POST /orgs` | `{name}` → `{id}` (caller is owner) |
 | `GET /orgs` | → `[{id, name, role}]` |
 | `GET /orgs/{oid}/members` | → `[{user_id, email, name, role, status: invited|accepted|confirmed}]` |
@@ -243,8 +247,9 @@ Added to `secretbroker/service.py` (GUI only, never reachable from the AI unless
 `team_status`, `team_connect` (server url + email + password + register|login), `team_disconnect`, `team_sync`,
 `team_orgs`, `team_create_org`, `team_invite`, `team_invites`, `team_accept_invite`, `team_members`,
 `team_confirm_member`, `team_set_role`, `team_remove_member`, `team_collections`, `team_create_collection`,
-`team_collection_members`, `team_grant`, `team_revoke`, `team_share_entry`, `team_unshare_entry`,
-`team_accept_change`, `team_events`. Client logic and crypto live in `secretbroker/teams.py`.
+`team_collection_members`, `team_grant`, `team_revoke`, `team_share_entry`, `team_share_entries`,
+`team_unshare_entry`, `team_accept_change`, `team_events`, `team_overview`, `team_offboarding`. Client logic and
+crypto live in `secretbroker/teams.py`.
 
 The AI sees shared credentials like any other (with `shared: {org, collection, permission}` in `list_secrets`), and
 `reveal`/copy is refused for `use` permission.
@@ -261,10 +266,18 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   items {iid: {revision, hash, content}}}}, last_sync`. `items[*].content` is the last synced content ("base"):
   a local entry whose content differs from it has an unpushed edit.
 * **Entry block.** `entry.shared = {org, org_name, collection, collection_name, item, revision, permission, author,
-  changed, pending_policy?, rotate?}`. `pending_policy = {by, at, changes: [lines], policy, fields}` (or `entry` when
-  the template changed). Quarantined: new hosts, new programs, new or changed env vars, a different HTTP auth, and the
-  `host`/`port`/`engine` fields. `rotate = {people, since, fp}`; the reminder (`kind: "team_access"`, `people`,
-  `can_rotate`) lasts while the secret's fingerprint is `fp`, so any rotation (wizard, API, a teammate's) clears it.
+  changed, pending_policy?, rotate?}`. `pending_policy = {by, at, changes: [lines], hosts, only_hosts, policy, fields}`
+  (or `entry` when the template changed; `hosts`: the new web hosts, named in the review box). Quarantined: new hosts,
+  new programs, new or changed env vars, a different HTTP auth, and the `host`/`port`/`engine` fields.
+  `rotate = {people, since, fp, seen}`; the reminder (`kind: "team_access"`, `people`, `can_rotate`) lasts while the
+  secret's fingerprint is `fp`, so any rotation (wizard, API, a teammate's) clears it. `seen` keeps everyone who ever
+  had access, for `team_offboarding` (`[{person, since, total, pending: [ids]}]`: "Bob pudo ver 3 · 1 cambiada").
+* **Display cache.** Vault section `team_view` (`orgs, invites, members {oid}, collection_members {cid}, events
+  {oid}`): what the read ops last got from the server. `team_overview` returns it with the status, the collections,
+  `unsent` and `offboarding`, from this PC only, so the Equipo view draws at once and then refreshes. Read ops use
+  short timeouts (8 s), don't take the team lock and never write the team state (a sync owns it), only this cache.
+* **Unsent edits.** `entries` adds `shared.unsent`: `"rekey"` (its collection waits to be re-encrypted) or
+  `"pending"` (next sync); `status.team_held` counts the edits the last round held.
 * **Permissions on this PC.** Without `edit`/`manage`, the service refuses edits, deletes and rotations of a shared
   credential; only its local approval mode may change. `delete_entry` with write permission deletes it for the team
   (tombstone); `team_unshare_entry` removes it from the collection but keeps it here as a personal credential.
@@ -283,31 +296,47 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   `off | idle | syncing | ok | error | offline | reconnect`, with `error` and counts of the `last` round.
   The general `status` op also carries `team` (that state) and `team_sync` (time of the last finished round), so
   the GUI's 1.5 s poll notices a finished round and reloads only when `team_status.last` says something arrived.
+  `error` is always one sentence for the user with what to do (`teams.explain`); codes and exception types only go
+  to the service log. A session that expires raises one Windows notice.
 * **Op parameters.** `team_connect {server_url, email, password, mode: register|login, name?, device_name?,
   invite_token?}`, `team_invite {org, email, role}`, `team_accept_invite {id}`, `team_members {org}` (rows add
   `fingerprint`, `key_changed`, `trusted`, `me`), `team_confirm_member {org, user_id, fingerprint?}`, `team_set_role {org,
   user_id, role}` (`team_confirm_member` pins the key on this PC; for a member already confirmed in the org it
   only verifies them locally, so any member may call it; a changed key needs `fingerprint`), `team_remove_member
-  {org, user_id}` → `{rekeyed, pending}`, `team_create_collection {org, name}`,
+  {org, user_id}` → `{rekeyed, pending, failed, offline, person, credentials}` (once the server let them go it never
+  raises: a collection that can't be re-encrypted now stays `needs_rekey` for the next sync, the state is always
+  saved, and every credential they could see is flagged at once), `team_create_collection {org, name}`,
   `team_collection_members {collection}`, `team_grant {collection, user_id, permission}`, `team_revoke {collection,
-  user_id}` (own id: leave), `team_share_entry {id, collection}`, `team_unshare_entry {id}`,
+  user_id}` (own id: leave), `team_share_entry {id, collection}`, `team_share_entries {ids, collection}` →
+  `{shared, failed: [{id, error}], collection_name}` (in `TEAM_EXPORT_OPS` like `team_share_entry`), `team_unshare_entry {id}`,
   `team_accept_change {id, accept?}`, `team_events {org, before?}`.
 
 ### 5.1 GUI (`secretbroker/web/app.js`)
 
-* Sidebar view **Equipo**: not connected, an explainer and the link form (server, e-mail, account password; create
-  account or log in; nothing prefilled). Connected: sync state and «Sincronizar ahora» in the header; items to review
-  (quarantined changes, "rotate because <person> had access" with a link to the guided rotation); invitations to
-  accept; per organization its collections (members and permission, add / change / remove, create) and people
-  (invite with role, pending confirmations with the fingerprint to compare and one-click «Confirmar», «Verificar»
-  for teammates not verified on this PC, a typed fingerprint when a key changed, role, remove with the re-key /
-  rotate warning), and the org events for admins; people waiting to be verified in «Por revisar»; the account, its
-  fingerprint and «Desconectar».
-* Credential detail: «Compartir» (choose a writable collection), a collection · permission badge, «Dejar de
-  compartir», the quarantined change box («Aceptar» / «Mantener la actual», the latter only with edit permission),
-  reveal and copy hidden for `use`, and edit / delete / rotate limited to what the permission allows. Deleting a
-  shared credential warns that it is deleted for the whole collection.
-* Credential list: a team mark on shared rows and collection chips next to the tag filter.
+* Sidebar view **Equipo** (a warning badge when the session expired, the server can't be reached, a sync failed or
+  edits are held): not connected, an explainer and the link form (server, e-mail, account password; create account
+  or log in; nothing prefilled, except from an invite link). Connected: the organization picker, sync state
+  («Actualizando…» while it asks the server) and «Sincronizar ahora» in the header; banners on top (session expired,
+  offline, invitations to accept, «Por verificar (N)» with each person's code and one-click «Confirmar» /
+  «Verificar», "Bob pudo ver N credenciales · M cambiadas" opening the offboarding queue, «Por revisar» with
+  quarantined changes and unsent edits); then tabs **Colecciones** (members and permission Gestor / Editor / Lector /
+  Solo uso with a «?» popover, add / change / remove, create), **Personas** (invite, «Invitada · aún no ha entrado»
+  with «Copiar instrucciones», role, remove), **Actividad** (admins) and **Tu cuenta** (código de seguridad,
+  «Desconectar»). Offline, buttons that need the server are disabled.
+* Invites: no e-mail is sent. The admin gets instructions to pass on with a link
+  `secretbroker://join?server=…&email=…&code=…` (the code is the invite id, which works as a sign-up code). The
+  installer registers the `secretbroker:` protocol; `app.py` keeps a link it was opened with (also when the app is
+  already running) in `join_link.json` for 10 minutes, and the page fills in the team form from it. Pasting the link
+  into the server field does the same.
+* Removing someone opens the **offboarding queue**: what they could see, the guided rotation for each one back to
+  back, with «Saltar» and progress. Also reachable from Salud and the Equipo banner.
+* Credential detail: «Compartir» (choose a writable collection or «Nueva colección…»), a «Compartida · <colección>»
+  badge (permission in its tooltip and in the detail), «Dejar de compartir», the change review box («<Persona>
+  quiere que la IA pueda enviar esta clave a: <hosts>»; «Rechazar y mantener como estaba», only with edit permission,
+  undoes it for the whole team; «Permitir <host>»), reveal and copy hidden for `use`, and edit / delete / rotate
+  limited to what the permission allows. Deleting a shared credential warns that it is deleted for the whole collection.
+* Credential list: a team mark on shared rows, collection chips next to the tag filter, «Sin enviar» / «Cambiar:
+  salió Bob» badges, and with a team account a checkbox on hover (shift-click for a range) to «Compartir N en…».
 
 ## 6. Roadmap beyond this release
 

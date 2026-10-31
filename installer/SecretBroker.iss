@@ -56,6 +56,11 @@ Source: "sb.cmd"; DestDir: "{app}\bin"; Flags: ignoreversion
 [Registry]
 ; `sb` (sb run -- npm run dev) from any terminal.
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}\bin"; Check: NeedsAddPath(ExpandConstant('{app}\bin'))
+; Team invite links (secretbroker://join?server=…&email=…&code=…) open the app with the team form filled in.
+Root: HKLM; Subkey: "Software\Classes\secretbroker"; ValueType: string; ValueName: ""; ValueData: "URL:SecretBroker"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\secretbroker"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKLM; Subkey: "Software\Classes\secretbroker\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{#AppIcon}"
+Root: HKLM; Subkey: "Software\Classes\secretbroker\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\python\pythonw.exe"" -I -m secretbroker.app ""%1"""
 
 [Icons]
 Name: "{autoprograms}\SecretBroker"; Filename: "{app}\python\pythonw.exe"; Parameters: "-I -m secretbroker.app"; WorkingDir: "{app}"; IconFilename: "{#AppIcon}"; Comment: "Bóveda de credenciales para tu IA"
