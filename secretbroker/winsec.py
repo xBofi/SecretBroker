@@ -3,6 +3,8 @@
 import ctypes
 import sys
 
+from .i18n import tr
+
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
@@ -35,7 +37,7 @@ def _blob(data):
 
 def _dpapi(function, data, entropy, *extra):
     if not IS_WINDOWS:
-        raise OSError("DPAPI solo está disponible en Windows")
+        raise OSError(tr("winsec.dpapi_is_only_available_on"))
     data_blob, _keep1 = _blob(data)
     entropy_blob, _keep2 = _blob(entropy)
     out = _DataBlob()
@@ -73,7 +75,7 @@ def verify_windows_password(owner, password):
 def load_hello_public_key(der):
     key = load_der_public_key(der)
     if not isinstance(key, rsa.RSAPublicKey) or key.key_size < 2048:
-        raise ValueError("Clave pública de Windows Hello no válida")
+        raise ValueError(tr("winsec.invalid_windows_hello_public_key"))
     return key
 
 

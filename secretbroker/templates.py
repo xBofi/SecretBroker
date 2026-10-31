@@ -3,7 +3,7 @@
 import re
 from urllib.parse import quote, urlsplit
 
-from . import totp
+from . import i18n, totp
 
 PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-z_]+)\s*\}\}")
 
@@ -280,8 +280,8 @@ def available_actions(entry):
 
 
 def export():
-    """Template definitions for the GUI."""
-    return {
+    """Template definitions for the GUI, in the language of the request (messages templates.*)."""
+    return i18n.localize("templates", {
         "templates": [{"id": k, **v} for k, v in TEMPLATES.items()],
         "db_engines": {k: {"label": v["label"], "port": v["port"]} for k, v in DB_ENGINES.items()},
-    }
+    })

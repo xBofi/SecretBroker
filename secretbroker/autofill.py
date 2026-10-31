@@ -14,6 +14,8 @@ Per credential (`entry.autofill`): `sites` (more addresses besides `fields.url`)
 
 import ipaddress
 import re
+
+from .i18n import tr
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -55,12 +57,12 @@ def _ascii(host):
     """A host in the form browsers send it (lower case, punycode), or SiteError."""
     host = (host or "").strip().rstrip(".").lower()
     if not host:
-        raise SiteError("Dirección vacía")
+        raise SiteError(tr("autofill.empty_address"))
     if not host.isascii():
         try:
             host = host.encode("idna").decode("ascii")
         except UnicodeError:
-            raise SiteError(f"Dirección no válida: {host}") from None
+            raise SiteError(tr("autofill.invalid_address", host=host)) from None
     return host
 
 
@@ -134,25 +136,25 @@ def parse(address, page=False):
     the page in the browser (only http and https pages are ever filled)."""
     text = str(address or "").strip()
     if not text or len(text) > 2048:
-        raise SiteError("Dirección vacía o demasiado larga")
+        raise SiteError(tr("autofill.empty_or_too_long_address"))
     if "://" not in text:
         if page:
-            raise SiteError("Solo se rellenan páginas web (http o https)")
+            raise SiteError(tr("autofill.only_web_pages_are_filled"))
         text = "https://" + text
     try:
         parts = urlsplit(text)
         port = parts.port
     except ValueError:
-        raise SiteError(f"Dirección no válida: {address}") from None
+        raise SiteError(tr("autofill.invalid_address_2", address=address)) from None
     scheme = parts.scheme.lower()
     if scheme not in DEFAULT_PORTS:
-        raise SiteError("Solo se rellenan páginas web (http o https)")
+        raise SiteError(tr("autofill.only_web_pages_are_filled"))
     host = parts.hostname or ""
     if host.startswith("[") or ":" in host:
         host = host.strip("[]")
     host = _ascii(host)
     if not (is_ip(host) or HOST_RE.match(host)):
-        raise SiteError(f"Dirección no válida: {address}")
+        raise SiteError(tr("autofill.invalid_address_2", address=address))
     if port == DEFAULT_PORTS[scheme]:
         port = None
     return Site(scheme, host, port)
@@ -163,30 +165,30 @@ def clean_sites(sites):
     if isinstance(sites, str):
         sites = sites.splitlines()
     if not isinstance(sites, list):
-        raise SiteError("Direcciones para autorrellenar: una lista")
+        raise SiteError(tr("autofill.addresses_autofill_list"))
     cleaned = []
     for site in sites:
         site = str(site).strip()
         if not site:
             continue
         if len(site) > MAX_SITE_LEN:
-            raise SiteError(f"Dirección demasiado larga: {site[:40]}…")
+            raise SiteError(tr("autofill.address_too_long", value=site[:40]))
         parse(site)
         if site not in cleaned:
             cleaned.append(site)
     if len(cleaned) > MAX_SITES:
-        raise SiteError(f"Como mucho {MAX_SITES} direcciones para autorrellenar")
+        raise SiteError(tr("autofill.addresses_autofill_at_most", MAX_SITES=MAX_SITES))
     return cleaned
 
 
 def validate(autofill):
     """Checks `entry.autofill` (raises SiteError)."""
     if not isinstance(autofill, dict) or set(autofill) - {"sites", "match"}:
-        raise SiteError("Ajustes de autorrellenado no válidos")
+        raise SiteError(tr("autofill.invalid_autofill_settings"))
     if autofill.get("match", "domain") not in MATCH_MODES:
-        raise SiteError("Cómo comparar la dirección: domain, host o never")
+        raise SiteError(tr("autofill.how_compare_address_domain_host"))
     if clean_sites(autofill.get("sites") or []) != (autofill.get("sites") or []):
-        raise SiteError("Direcciones para autorrellenar no válidas")
+        raise SiteError(tr("autofill.invalid_addresses_autofill"))
 
 
 def saved_sites(entry):

@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 
 from . import __version__, client, paths
+from .i18n import tr
 
 HOST_NAME = "com.secretbroker.autofill"
 # The extension's id is pinned by the "key" in extension/manifest.json. Store builds get their own ids: add them here.
@@ -221,13 +222,13 @@ def answer(message, origin):
     reply = {"id": message.get("id") if isinstance(message, dict) else None}
     try:
         if not isinstance(message, dict):
-            raise client.BrokerError("Mensaje no válido", "bad_request")
+            raise client.BrokerError(tr("native_host.invalid_message"), "bad_request")
         op = message.get("op")
         if op == "open_app":
             client.launch_app()
             return {**reply, "ok": True, "result": True}
         if op not in RELAYED:
-            raise client.BrokerError(f"Operación desconocida: {op}", "unknown_op")
+            raise client.BrokerError(tr("service.unknown_operation", op=op), "unknown_op")
         params = message.get("params") if isinstance(message.get("params"), dict) else {}
         pair = message.get("pair") if isinstance(message.get("pair"), dict) else {}
         params = {**params, "_ext": {"origin": origin, "pair": str(pair.get("id") or ""), "key": str(pair.get("key") or ""),

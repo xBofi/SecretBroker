@@ -43,6 +43,8 @@ from .vault import (
 )
 from . import templates
 from . import __version__, exports, health, importers, totp
+from . import i18n
+from .i18n import tr
 
 PROTOCOL_VERSION = 2
 MAX_REQUEST_BYTES = 4 * 1024 * 1024
@@ -91,12 +93,10 @@ PROVEN_OPS += ("browser_pair_answer",)
 # An AI request the user approves with one click, except these: they delete, rotate or change where a key may go,
 # so after a Windows-session unlock (no proof) the first one needs Hello or a password, like PROVEN_OPS.
 STRONG_APPROVALS = ("delete", "rotate", "edit_config")
-PROVEN_PURPOSE = {"browser_pair_answer": "conectar un navegador", "reveal": "ver o copiar claves", "save_entry": "cambiar credenciales", "delete_entry": "eliminar credenciales",
-                  "team_resolve_deletions": "decidir sobre credenciales borradas del equipo",
-                  "approve": "aprobar que la IA borre, rote o cambie adónde va una clave",
-                  "rotate": "rotar claves", "set_settings": "cambiar los ajustes", "exposure_begin": "buscar copias de tus claves",
-                  "enable_session_unlock": f"abrir la bóveda con tu sesión de {platform.OS_LABEL}", "export_vault": "exportar la bóveda",
-                  "rotation_secret": "copiar la contraseña nueva", "totp_code": "ver el código 2FA"}
+# What a proof is for, said after «Confirma que eres tú una vez … para» (messages service.purpose_*).
+PROVEN_PURPOSE = {op: f"service.purpose_{op}" for op in (
+    "browser_pair_answer", "reveal", "save_entry", "delete_entry", "team_resolve_deletions", "approve", "rotate", "set_settings",
+    "exposure_begin", "enable_session_unlock", "export_vault", "rotation_secret", "totp_code")}
 APPROVAL_EXPIRED_SECONDS = 600  # how long the app is told about a request nobody answered in time
 # The browser extension, through native_host.py (see the browser section of Service). None is for the AI.
 EXTENSION_OPS = ("ext_hello", "ext_pair", "ext_logins", "ext_search", "ext_fill", "ext_save_check", "ext_save")
@@ -127,6 +127,13 @@ AI_CAPABILITIES = {
     "github": ("free", "Guardar claves como secretos de GitHub Actions"),
     "rotate": ("ask", "Rotar claves con su proveedor"),
 }
+
+
+def _capability_label(key):
+    """The capability's name in the language of the request (the Spanish above is its source)."""
+    return tr(f"service.capability_{key}")
+
+
 MAX_USES = (0, 50, 100, 500)  # uses per hour of one credential before asking again (0: no limit)
 REMINDER_DAYS = (0, 90, 180, 365)
 EXPIRY_WARNING_DAYS = 14
@@ -242,19 +249,18 @@ class Service:
         _ACTOR.presence = _ACTOR.host = None
         try:
             if op in EXTENSION_OPS and not isinstance(params, dict):
-                raise ServiceError("Petición mal formada", "bad_request")
+                raise ServiceError(tr("service.malformed_request"), "bad_request")
             if isinstance(params, dict) and "_ext" in params and op not in EXTENSION_OPS:
-                raise ServiceError("Operación no disponible para el navegador", "forbidden")
+                raise ServiceError(tr("service.operation_not_available_browser"), "forbidden")
             if op in AI_OPS and client:
                 self._ai_client_seen(client)
             if op in AI_OPS and self.pause_file.exists():
-                raise ServiceError("El usuario ha pausado el acceso de la IA en SecretBroker. "
-                                   "No reintentes: espera a que lo reanude.", "paused")
+                raise ServiceError(tr("service.user_has_paused_ai_access"), "paused")
             if op in AGENT_ACTIONS:
                 return {"ok": True, "result": self._run_action(op, params)}
             handler = getattr(self, "op_" + str(op), None)
             if handler is None:
-                raise ServiceError(f"Operación desconocida: {op}", "unknown_op")
+                raise ServiceError(tr("service.unknown_operation", op=op), "unknown_op")
             result = handler(params)
             if op in TEAM_PUSH_OPS:
                 self._team_wake.set()
@@ -266,11 +272,11 @@ class Service:
             return {"ok": False, "code": exc.code, "error": str(exc), **({"weak": True} if getattr(exc, "weak", False) else {})}
         except VaultLocked:
             return {"ok": False, "code": "locked",
-                    "error": "La bóveda de SecretBroker está bloqueada. El usuario debe desbloquearla en la app SecretBroker."}
+                    "error": tr("service.secretbroker_vault_is_locked_user")}
         except (ValidationError, ActionError) as exc:
             return {"ok": False, "code": "invalid", "error": str(exc)}
         except KeyError as exc:
-            return {"ok": False, "code": "not_found", "error": f"No existe: {exc.args[0] if exc.args else ''}"}
+            return {"ok": False, "code": "not_found", "error": tr("service.doesn_exist", value=exc.args[0] if exc.args else '')}
         finally:
             _ACTOR.value = _ACTOR.client = _ACTOR.presence = _ACTOR.host = _ACTOR.reason = None
 
@@ -296,14 +302,14 @@ class Service:
             if presence and presence[1] > time.monotonic() and hmac.compare_digest(
                     str(proof.get("token", "")).encode(), presence[0].encode()):
                 if (strong or op in TEAM_EXPORT_OPS or op in PROVEN_OPS) and not presence[2]:
-                    error = ServiceError("Confirma que eres tú una vez (Windows Hello o contraseña) para "
-                                         + PROVEN_PURPOSE.get(op, "compartir con otras personas"), "proof_required")
+                    error = ServiceError(tr("service.confirm_it_you_once_windows")
+                                         + tr(PROVEN_PURPOSE.get(op, "service.purpose_share"), os=platform.OS_LABEL), "proof_required")
                     error.weak = True  # the app explains why: it was opened with the Windows session
                     raise error
                 return kind
-            raise ServiceError("La verificación ha caducado; inténtalo de nuevo", "proof_invalid")
+            raise ServiceError(tr("service.verification_has_expired_try_again"), "proof_invalid")
         if kind not in allowed:
-            raise ServiceError("Esta operación requiere verificar tu identidad", "proof_required")
+            raise ServiceError(tr("service.this_operation_requires_verifying_your"), "proof_required")
         kind = self._check_proof(op, params, proof, kind)
         if "presence" in proof and self.vault.is_unlocked and op not in ("unlock", "create_vault", "restore"):
             # The app that unlocked sends its token with a proof: from now on it is one click, even after
@@ -322,19 +328,19 @@ class Service:
         if kind == "hello":
             public_key = self._hello_public_key()
             if not public_key:
-                raise ServiceError("Windows Hello no está configurado en SecretBroker", "proof_invalid")
+                raise ServiceError(tr("service.windows_hello_isn_set_up"), "proof_invalid")
             with self._lock:
                 challenge = self._challenges.pop(str(proof.get("nonce")), None)
             if not challenge or challenge["expires"] < time.monotonic():
-                raise ServiceError("La verificación ha caducado; inténtalo de nuevo", "proof_invalid")
+                raise ServiceError(tr("service.verification_has_expired_try_again"), "proof_invalid")
             if not hmac.compare_digest(challenge["digest"], op_digest(op, params)):
-                raise ServiceError("La verificación no corresponde a esta operación", "proof_invalid")
+                raise ServiceError(tr("service.verification_doesn_match_this_operation"), "proof_invalid")
             try:
                 signature = crypto.unb64(proof.get("signature", ""))
             except ValueError:
                 signature = b""
             if not winsec.verify_hello_signature(public_key, challenge["message"], signature):
-                raise ServiceError("Firma de Windows Hello no válida", "proof_invalid")
+                raise ServiceError(tr("service.invalid_windows_hello_signature"), "proof_invalid")
             return kind
 
         self._throttle()
@@ -420,9 +426,9 @@ class Service:
                 try:
                     payload = crypto.decrypt_legacy_v1(password, json.loads(path.read_bytes()))
                 except WrongPassword:
-                    raise ServiceError("La contraseña de la bóveda anterior no es correcta", "proof_invalid") from None
+                    raise ServiceError(tr("service.previous_vault_password_isn_correct"), "proof_invalid") from None
                 return {e["id"]: convert_legacy_entry(e) for e in payload["entries"].values()}
-        raise ServiceError("No se encontró la bóveda anterior", "not_found")
+        raise ServiceError(tr("service.previous_vault_wasn_found"), "not_found")
 
     def op_unlock(self, params):
         proof = params.get("proof") or {}
@@ -448,12 +454,12 @@ class Service:
             except WrongPassword:
                 self._failures += 1
                 self._audit("vault", "unlock", "contraseña maestra", "error", "Contraseña incorrecta")
-                raise ServiceError("Contraseña maestra incorrecta", "proof_invalid") from None
+                raise ServiceError(tr("service.wrong_master_password"), "proof_invalid") from None
             self._failures = 0
         else:
             kind = self._verify_proof("unlock", params, ("hello", "windows_password"))
             if not self.vault.device_unlock_available():
-                raise ServiceError("Este PC aún no puede desbloquear la bóveda; usa la contraseña maestra", "invalid")
+                raise ServiceError(tr("service.this_pc_can_unlock_vault"), "invalid")
             self.vault.unlock_with_device()
             proof = {"kind": kind}
         self._last_activity = time.monotonic()
@@ -475,11 +481,11 @@ class Service:
         try:
             stored = json.loads(self.session_file.read_text())["hash"]
         except (OSError, ValueError, KeyError):
-            raise ServiceError(f"El desbloqueo con la sesión de {platform.OS_LABEL} no está activado", "proof_invalid") from None
+            raise ServiceError(tr("service.unlocking_with_session_isn_turned", OS_LABEL=platform.OS_LABEL), "proof_invalid") from None
         digest = hashlib.sha256(str(token or "").encode()).hexdigest()
         if not (self.vault.device_unlock_available() and hmac.compare_digest(digest, stored)):
             self._failures += 1
-            raise ServiceError(f"La sesión de {platform.OS_LABEL} no puede desbloquear la bóveda; usa la contraseña", "proof_invalid")
+            raise ServiceError(tr("service.session_can_unlock_vault_use", OS_LABEL=platform.OS_LABEL), "proof_invalid")
         self._failures = 0
 
     def op_enable_session_unlock(self, params):
@@ -487,7 +493,7 @@ class Service:
         if not self.vault.is_unlocked:
             raise VaultLocked()
         if not self.vault.device_unlock_available():
-            raise ServiceError("Desbloquea una vez con la contraseña maestra en este PC y vuelve a intentarlo", "invalid")
+            raise ServiceError(tr("service.unlock_once_with_master_password"), "invalid")
         token = secrets.token_urlsafe(32)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.session_file.write_text(json.dumps({"hash": hashlib.sha256(token.encode()).hexdigest(),
@@ -526,7 +532,7 @@ class Service:
 
     def op_ai_permissions(self, params):
         settings = self.vault.settings()
-        return {"capabilities": [{"id": key, "label": label, "default": default, "level": self._ai_level(key)}
+        return {"capabilities": [{"id": key, "label": _capability_label(key), "default": default, "level": self._ai_level(key)}
                                  for key, (default, label) in AI_CAPABILITIES.items()],
                 "notify_uses": settings.get("notify_uses", True)}
 
@@ -535,7 +541,7 @@ class Service:
         that unlocked, or a proof)."""
         changes = params.get("permissions") or {}
         if any(key not in AI_CAPABILITIES or level not in AI_LEVELS for key, level in changes.items()):
-            raise ServiceError("Permiso no válido", "invalid")
+            raise ServiceError(tr("service.invalid_permission"), "invalid")
         looser = any(AI_LEVELS.index(level) < AI_LEVELS.index(self._ai_level(key)) for key, level in changes.items())
         notify = params.get("notify_uses")
         if looser or notify is False:
@@ -546,7 +552,7 @@ class Service:
         if notify is not None:
             update["notify_uses"] = bool(notify)
         self.vault.update_settings(update)
-        detail = ", ".join(f"{AI_CAPABILITIES[k][1]}: {v}" for k, v in changes.items())
+        detail = ", ".join(f"{_capability_label(k)}: {v}" for k, v in changes.items())
         self._audit("vault", "ai_permissions", detail, "ok")
         return self.op_ai_permissions({})
 
@@ -557,16 +563,14 @@ class Service:
         if strict and level in ("free", "notify"):
             level = "ask"
         if level == "off":
-            raise ServiceError(f"El usuario no permite a la IA: {AI_CAPABILITIES[capability][1][0].lower() + AI_CAPABILITIES[capability][1][1:]}. "
-                               "Pídele que lo haga en la app SecretBroker o que cambie el permiso en «Acceso de la IA».",
+            raise ServiceError(tr("service.user_doesn_allow_ai_ask", value=_capability_label(capability)[0].lower() + _capability_label(capability)[1:]),
                                "forbidden")
         if level == "ask":
             self._ask_user(entry, action, detail, allow_session=False, strong=capability in STRONG_APPROVALS)
             return True
         if level == "notify":
-            self._notify("La IA " + {"create": "ha preparado", "edit_notes": "ha editado", "edit_config": "ha cambiado",
-                                     "local_env": "ha dado a un programa", "github": "ha subido a GitHub"}[capability]
-                         + f" {entry.get('name', entry.get('id'))}", detail.splitlines()[0] if detail else "")
+            self._notify(tr(f"service.ai_did_{capability}", name=entry.get("name", entry.get("id"))),
+                         detail.splitlines()[0] if detail else "")
         return False
 
     # ------------------------------------------------------------------ notices for the user
@@ -701,7 +705,7 @@ class Service:
             base, version = params.get("base_updated"), params.get("base_version")
             if (base is not None and base != old.get("updated")) or (version is not None and version != self._version(old)):
                 # Changed meanwhile (the AI, a rotation, the team): the editor says what and lets the user choose.
-                raise ServiceError("Cambió mientras editabas", "conflict")
+                raise ServiceError(tr("service.it_changed_while_you_were"), "conflict")
             for name in templates.secret_field_names(entry.get("template", "")):
                 if name in fields and fields[name] is None and old["fields"].get(name):
                     fields[name] = old["fields"][name]
@@ -753,10 +757,9 @@ class Service:
         field = params.get("field")
         if (entry.get("shared") or {}).get("permission") == "use":
             self._audit(entry["id"], "reveal", field or "", "denied", "Permiso en el equipo: solo uso")
-            raise ServiceError("Esta credencial del equipo es solo para usar: la IA y tus programas pueden usarla, "
-                               "pero no se puede mostrar ni copiar", "forbidden")
+            raise ServiceError(tr("service.this_team_credential_is_use"), "forbidden")
         if field not in templates.secret_field_names(entry["template"]) or not entry["fields"].get(field):
-            raise ServiceError("Ese campo no existe", "not_found")
+            raise ServiceError(tr("service.that_field_doesn_exist"), "not_found")
         self._audit(entry["id"], "reveal", field, "ok")
         fingerprint = exposure.secret_fingerprint(self.vault, entry)
 
@@ -825,7 +828,7 @@ class Service:
         self._require_team_write(entry)
         if entry["template"] not in ("api_key", "generic", "database", "web_login", "ssh") or \
                 (entry["template"] == "ssh" and entry["fields"].get("auth_method") == "key"):
-            raise ServiceError("Solo se rotan así las API keys y las contraseñas", "invalid")
+            raise ServiceError(tr("service.only_api_keys_and_passwords"), "invalid")
         # A password (database, web, SSH) was already changed where it is used: same path as a database.
         database = entry["template"] in ("database", "web_login", "ssh")
         field = "password" if database else "value"
@@ -834,11 +837,11 @@ class Service:
             # The new one prepared earlier (rotation_begin): the page never had it.
             value = ((self._rotation_of(entry["id"]).get("pending") or {}).get("value")) or ""
             if not value:
-                raise ServiceError("No hay ninguna contraseña nueva preparada: genera una", "invalid")
+                raise ServiceError(tr("service.there_no_new_password_prepared"), "invalid")
         if not value.strip():
-            raise ServiceError("Escribe la contraseña nueva" if database else "Pega la clave nueva", "invalid")
+            raise ServiceError(tr("service.type_new_password") if database else tr("service.paste_new_key"), "invalid")
         if value == (entry["fields"].get(field) or ""):
-            raise ServiceError("Es la misma que ya está guardada: " + ("genera una nueva" if database else "crea una nueva en el proveedor"), "invalid")
+            raise ServiceError(tr("service.it_same_one_that_already") + (tr("service.generate_new_one") if database else tr("service.create_new_one_with_provider")), "invalid")
         candidate = copy.deepcopy(entry)
         candidate["fields"][field] = value
         if params.get("used_in") is not None:
@@ -850,7 +853,7 @@ class Service:
         paired = rotation.paired_id(entry)
         new_id = params.get("paired_id")
         if paired and new_id is None:
-            raise ServiceError(f"Indica si el {paired['label']} sigue siendo el mismo o ha cambiado", "id_unconfirmed")
+            raise ServiceError(tr("service.say_whether_is_still_same", label=paired['label']), "id_unconfirmed")
         old_id = (entry["fields"].get("username") or "").strip()
         if new_id is not None and str(new_id).strip() != old_id:
             try:
@@ -862,7 +865,7 @@ class Service:
         if alive and alive["status"] == "invalid":
             message = Redactor(candidate)(str(alive.get("message") or ""))
             self._audit(entry["id"], "rotate", "a mano", "error", f"La clave nueva no funciona: {message}")
-            raise ServiceError(f"La clave nueva no funciona ({message}). No se ha cambiado nada.", "invalid")
+            raise ServiceError(tr("service.new_key_doesn_work_nothing", message=message), "invalid")
         provider = (rotation.info(entry) or {}).get("provider")
         if database:
             # The user already changed it in the database: the old one is gone, nothing to keep.
@@ -918,7 +921,7 @@ class Service:
         self._require_team_write(entry)
         if entry["template"] not in ("api_key", "generic", "database", "web_login", "ssh") or \
                 (entry["template"] == "ssh" and entry["fields"].get("auth_method") == "key"):
-            raise ServiceError("Solo se rotan así las API keys y las contraseñas", "invalid")
+            raise ServiceError(tr("service.only_api_keys_and_passwords"), "invalid")
         return entry, "value" if entry["template"] in ("api_key", "generic") else "password"
 
     def op_rotation_begin(self, params):
@@ -931,11 +934,11 @@ class Service:
             value = str(params.get("value") or "")
             value = value if field == "password" else value.strip()
         if not value.strip():
-            raise ServiceError("Escribe la contraseña nueva", "invalid")
+            raise ServiceError(tr("service.type_new_password"), "invalid")
         if any(c in value for c in "\r\n\0"):
-            raise ServiceError("La contraseña nueva no puede tener saltos de línea", "invalid")
+            raise ServiceError(tr("service.new_password_can_contain_line"), "invalid")
         if value == (entry["fields"].get(field) or ""):
-            raise ServiceError("Es la misma que ya está guardada: genera una nueva", "invalid")
+            raise ServiceError(tr("service.it_same_one_that_already_2"), "invalid")
         self._keep_pending(entry, field, value, bool(params.get("generate")))
         return self._summary(self.vault.get(entry["id"]))
 
@@ -959,14 +962,14 @@ class Service:
         self._verify_proof("rotation_secret", params)
         entry = self.vault.get(params.get("id"))
         if (entry.get("shared") or {}).get("permission") == "use":
-            raise ServiceError("Esta credencial del equipo es solo para usar", "forbidden")
+            raise ServiceError(tr("service.this_team_credential_is_use_2"), "forbidden")
         value = (self._rotation_of(entry["id"]).get("pending") or {}).get("value")
         if not value:
-            raise ServiceError("No hay ninguna contraseña nueva preparada", "not_found")
+            raise ServiceError(tr("service.there_no_new_password_prepared_2"), "not_found")
         what = params.get("what") or "value"
         text = rotation.db_command(entry, value) if what == "command" and entry["template"] == "database" else value
         if not text:
-            raise ServiceError("Esta base de datos no tiene un comando para cambiarla", "invalid")
+            raise ServiceError(tr("service.this_database_has_no_command"), "invalid")
         self._audit(entry["id"], "reveal", "comando con la contraseña nueva" if what == "command" else "contraseña nueva", "ok")
         return text
 
@@ -976,7 +979,7 @@ class Service:
         self._verify_proof("rotation_apply", params)
         entry, _ = self._rotatable_password(params.get("id"))
         if entry["template"] != "database":
-            raise ServiceError("Solo se aplica así la contraseña de una base de datos", "invalid")
+            raise ServiceError(tr("service.only_database_password_is_applied"), "invalid")
         if not self._rotation_of(entry["id"]).get("pending"):
             self._keep_pending(entry, "password", rotation_password(entry), True)
         new = self._rotation_of(entry["id"])["pending"]["value"]
@@ -1126,15 +1129,15 @@ class Service:
         changes = {k: v for k, v in (params.get("settings") or {}).items() if k in DEFAULT_SETTINGS}
         minutes = changes.get("auto_lock_minutes")
         if minutes is not None and (not isinstance(minutes, int) or not 0 <= minutes <= 24 * 60):
-            raise ServiceError("Tiempo de bloqueo no válido", "invalid")
+            raise ServiceError(tr("service.invalid_lock_time"), "invalid")
         if "approval_hours" in changes and changes["approval_hours"] not in APPROVAL_HOURS:
-            raise ServiceError("Duración de las aprobaciones no válida", "invalid")
+            raise ServiceError(tr("service.invalid_approval_duration"), "invalid")
         if "max_uses_per_hour" in changes and changes["max_uses_per_hour"] not in MAX_USES:
-            raise ServiceError("Límite de usos no válido", "invalid")
+            raise ServiceError(tr("service.invalid_usage_limit"), "invalid")
         if "rotate_reminder_days" in changes and changes["rotate_reminder_days"] not in REMINDER_DAYS:
-            raise ServiceError("Recordatorio no válido", "invalid")
+            raise ServiceError(tr("service.invalid_reminder"), "invalid")
         if "check_every_hours" in changes and not valid_check_hours(changes["check_every_hours"]):
-            raise ServiceError("Frecuencia de comprobación no válida", "invalid")
+            raise ServiceError(tr("service.invalid_check_frequency"), "invalid")
         changes = {k: v for k, v in changes.items() if k not in ("ai_permissions", "notify_uses")}  # see set_ai_permissions
         self.vault.update_settings(changes)
         return self.vault.settings()
@@ -1187,7 +1190,7 @@ class Service:
                 events.append(dict(event))
             except Exception:
                 events.append({"ts": "", "secret": "", "action": "audit", "detail": "",
-                               "status": "error", "message": "Entrada del historial ilegible"})
+                               "status": "error", "message": tr("service.unreadable_history_entry")})
         if offset == 0:
             self._audit_opened = opened
         return events
@@ -1239,12 +1242,12 @@ class Service:
     def op_exposure_scan(self, params):
         session = self._scan_session(params)
         if not session:
-            raise ServiceError("La sesión de análisis ha caducado", "session_expired")
+            raise ServiceError(tr("service.scan_session_has_expired"), "session_expired")
         found = 0
         for item in params.get("items") or []:
             location, source = str(item.get("location", "")), str(item.get("source", ""))
             if not location or source not in exposure.SOURCE_LABELS:
-                raise ServiceError("Elemento de análisis no válido", "invalid")
+                raise ServiceError(tr("service.invalid_scan_item"), "invalid")
             data = base64.b64decode(item.get("data") or "")
             hits = {entry_id for needle, entry_id in session["needles"] if needle in data}
             with self._lock:
@@ -1257,7 +1260,7 @@ class Service:
     def op_exposure_finish(self, params):
         session = self._scan_session(params)
         if not session:
-            raise ServiceError("La sesión de análisis ha caducado", "session_expired")
+            raise ServiceError(tr("service.scan_session_has_expired"), "session_expired")
         unchanged = {str(location) for location in params.get("unchanged") or []}
         timestamp = exposure.now_iso()
         current = {e["id"]: e for e in self.vault.entries()}
@@ -1276,7 +1279,7 @@ class Service:
             data["last_scan"] = {"ts": timestamp, "files": len(session["scanned"] | unchanged)}
         self._update_exposure(merge)
         for entry_id, count in new_findings.items():
-            self._audit(entry_id, "exposure", f"Encontrada en claro en {count} {'sitio nuevo' if count == 1 else 'sitios nuevos'}", "error")
+            self._audit(entry_id, "exposure", tr("service.found_in_new_places", count=count), "error")
         return self.op_exposure_report(params)
 
     def op_exposure_report(self, params):
@@ -1298,15 +1301,15 @@ class Service:
     def _finding(self, params, sources=None):
         session = self._scan_session(params)
         if not session:
-            raise ServiceError("Verifica tu identidad para ver en qué archivos están tus claves", "session_expired")
+            raise ServiceError(tr("service.verify_your_identity_see_which"), "session_expired")
         entry = self.vault.get(params.get("id"))
         location = str(params.get("location") or "")
         record = (self.vault.exposure().get("entries") or {}).get(entry["id"]) or {}
         finding = (record.get("findings") or {}).get(location)
         if record.get("fp") != exposure.secret_fingerprint(self.vault, entry) or not finding:
-            raise ServiceError("Ese sitio no está entre los encontrados de esta credencial", "not_found")
+            raise ServiceError(tr("service.that_place_isn_among_ones"), "not_found")
         if sources and finding["source"] not in sources:
-            raise ServiceError("En este tipo de archivo no se puede borrar desde aquí", "invalid")
+            raise ServiceError(tr("service.this_type_file_can_be"), "invalid")
         return entry, location, finding
 
     def _change_finding(self, entry, location, change):
@@ -1430,7 +1433,7 @@ class Service:
             self.updates.status(force=True)
             latest = self.updates.latest()
         if not latest:
-            raise ServiceError("No hay ninguna versión nueva", "not_found")
+            raise ServiceError(tr("service.there_no_new_version"), "not_found")
         try:
             path = update.download(latest, self.public_dir / "updates")
         except (update.UpdateError, httpx.HTTPError) as exc:
@@ -1485,11 +1488,11 @@ class Service:
         with self._lock:
             request = self._approvals.get(params.get("id"))
             if not request:
-                raise ServiceError("La solicitud ya no está pendiente", "not_found")
+                raise ServiceError(tr("service.request_is_no_longer_pending"), "not_found")
             scope = params.get("scope")
             if scope not in ("once", "session") or (scope == "session" and not request["allow_session"]) \
                     or (scope == "once" and not request.get("allow_once", True)):
-                raise ServiceError("Tipo de aprobación no válido", "invalid")
+                raise ServiceError(tr("service.invalid_approval_type"), "invalid")
             request["answer"] = scope
             request["event"].set()
         # After proving it with a password or Hello, the next approvals are a single click.
@@ -1534,9 +1537,9 @@ class Service:
         try:
             entry = self.vault.get(secret_id)
         except KeyError:
-            raise ServiceError(f"No existe el secreto '{secret_id}'. Usa list_secrets para ver los disponibles.", "not_found") from None
+            raise ServiceError(tr("service.secret_doesn_exist_use_list", secret_id=secret_id), "not_found") from None
         if entry.get("draft"):
-            raise ServiceError(f"'{secret_id}' aún no tiene la clave. Pide al usuario que la pegue en la app SecretBroker.", "draft")
+            raise ServiceError(tr("service.doesn_have_its_key_yet", secret_id=secret_id), "draft")
         return entry
 
     # ------------------------------------------------------------------ credentials prepared by the AI
@@ -1550,9 +1553,9 @@ class Service:
         known = {s["name"] for s in templates.field_specs(template)}
         for name, value in (params.get("fields") or {}).items():
             if name in secret_names:
-                raise ServiceError(f"El valor de «{name}» solo lo puede escribir el usuario en la app", "invalid")
+                raise ServiceError(tr("service.only_user_can_write_value", name=name), "invalid")
             if name not in known:
-                raise ServiceError(f"La plantilla '{template}' no tiene el campo '{name}'. Campos: "
+                raise ServiceError(tr("service.template_has_no_field_fields", template=template, name=name)
                                    + ", ".join(sorted(known - set(secret_names))), "invalid")
             if value in (None, ""):
                 entry["fields"].pop(name, None)
@@ -1576,7 +1579,7 @@ class Service:
                 try:
                     entry[key] = int(params[key])
                 except (TypeError, ValueError):
-                    raise ServiceError(f"{key} debe ser un número", "invalid") from None
+                    raise ServiceError(tr("service.must_be_number", value=key), "invalid") from None
         if params.get("rotation_guide") is not None:
             if not params["rotation_guide"]:
                 entry.pop("rotation_guide", None)
@@ -1612,19 +1615,19 @@ class Service:
         if preset_id:
             preset = presets.get(preset_id)
             if not preset:
-                raise ServiceError(f"Proveedor desconocido: {preset_id}. Conocidos: {', '.join(presets.PRESETS)}", "invalid")
+                raise ServiceError(tr("service.unknown_provider_known", preset_id=preset_id, value=', '.join(presets.PRESETS)), "invalid")
             if params.get("template") not in (None, "api_key"):
-                raise ServiceError("Los proveedores usan la plantilla api_key", "invalid")
+                raise ServiceError(tr("service.providers_use_api_key_template"), "invalid")
             fields, description = presets.apply(preset_id, params.get("fields") or {}, str(params.get("description") or ""))
             params = {**params, "template": "api_key", "fields": fields, "description": description,
                       "name": params.get("name") or preset[0]}
         template = params.get("template")
         if template not in templates.TEMPLATES:
-            raise ServiceError(f"Plantilla desconocida: {template}. Usa una de: {', '.join(templates.TEMPLATES)}", "invalid")
+            raise ServiceError(tr("service.unknown_template_use_one", template=template, value=', '.join(templates.TEMPLATES)), "invalid")
         name = str(params.get("name") or "").strip()
         entry_id = params.get("id") or SLUG_RE.sub("-", name.lower()).strip("-")[:64]
         if entry_id in {e["id"] for e in self.vault.entries()}:
-            raise ServiceError(f"Ya existe una credencial '{entry_id}': usa update_credential para cambiarla", "invalid")
+            raise ServiceError(tr("service.credential_already_exists_use_update", entry_id=entry_id), "invalid")
         entry = self._ai_changes({"id": entry_id, "name": name, "template": template, "fields": {}}, params)
         self._gate("create", entry, "draft", f"Preparar «{name}» ({templates.TEMPLATES[template]['label']})")
         placeholder_secrets = {n: "x" for n in templates.secret_field_names(template)}
@@ -1650,7 +1653,7 @@ class Service:
         try:
             entry = self.vault.get(params.get("secret_id"))
         except KeyError:
-            raise ServiceError(f"No existe el secreto '{params.get('secret_id')}'", "not_found") from None
+            raise ServiceError(tr("service.secret_doesn_exist", get=params.get('secret_id')), "not_found") from None
         updated = self._ai_changes(entry, params)
         changes = _describe_changes(entry, updated)
         if changes:
@@ -1703,12 +1706,12 @@ class Service:
         for item in params.get("items") or []:
             var, value, entry_id = str(item.get("var") or ""), item.get("value"), str(item.get("id") or "")
             if not ENV_NAME_RE.match(var) or not isinstance(value, str) or not value or not ID_RE.match(entry_id):
-                raise ServiceError(f"Variable no válida: {var}", "invalid")
+                raise ServiceError(tr("service.invalid_variable", var=var), "invalid")
             paired = str(item.get("paired_id") or "").strip()
             if paired and (len(paired) > rotation.PAIRED_ID_MAX or not rotation.PAIRED_ID_RE.match(paired)):
-                raise ServiceError(f"ID asociado no válido para {var}", "invalid")
+                raise ServiceError(tr("service.invalid_associated_id_for", var=var), "invalid")
             if entry_id in existing or entry_id in {n["id"] for n in new}:
-                skipped.append({"var": var, "id": entry_id, "reason": "ya existe"})
+                skipped.append({"var": var, "id": entry_id, "reason": tr("service.already_exists")})
             else:
                 new.append({"var": var, "value": value, "id": entry_id, "paired_id": paired,
                             "paired_var": str(item.get("paired_var") or "")[:100]})
@@ -1756,7 +1759,7 @@ class Service:
     def op_ai_check(self, params):
         """Does the key still work? Plus what the AI may want to know before rotating it."""
         entry = self._get_secret(params.get("secret_id"))
-        alive = exposure.check_alive(entry) or {"status": "unknown", "message": "Este tipo de credencial no se puede comprobar"}
+        alive = exposure.check_alive(entry) or {"status": "unknown", "message": tr("service.this_type_credential_can_be")}
         alive = {**alive, "message": Redactor(entry)(str(alive.get("message") or ""))}
         self._audit(entry["id"], "check", alive.get("status", ""), "ok")
         guide = rotation.guide(entry)
@@ -1769,11 +1772,9 @@ class Service:
 
     def op_ai_rotate(self, params):
         entry = self._get_secret(params.get("secret_id"))
-        info = rotation.info(entry) or {"supported": False, "reason": "solo se rotan API keys"}
+        info = rotation.info(entry) or {"supported": False, "reason": tr("service.only_api_keys_are_rotated")}
         if not info.get("supported"):
-            raise ServiceError(f"No se puede rotar por API: {(info.get('reason') or 'proveedor no compatible').rstrip('.')}. "
-                               "El usuario puede rotarla en la app con «Rotar con ayuda»: crea la clave nueva en la web "
-                               "del proveedor y la pega en SecretBroker.", "invalid")
+            raise ServiceError(tr("service.can_rotate_through_api_user", value=(info.get('reason') or 'proveedor no compatible').rstrip('.')), "invalid")
         detail = f"Rotar la clave con {info.get('provider')}" + (f"\nMotivo: {params['reason']}" if params.get("reason") else "")
         try:
             self._gate("rotate", entry, "rotate", detail)
@@ -1799,7 +1800,7 @@ class Service:
         try:
             entry = self.vault.get(params.get("secret_id"))
         except KeyError:
-            raise ServiceError(f"No existe el secreto '{params.get('secret_id')}'", "not_found") from None
+            raise ServiceError(tr("service.secret_doesn_exist", get=params.get('secret_id')), "not_found") from None
         self._require_team_write(entry)
         detail = "Borrar esta credencial para siempre" + (f"\nMotivo: {params['reason']}" if params.get("reason") else "")
         try:
@@ -1878,7 +1879,7 @@ class Service:
             fmt, skipped, planned, source = session["format"], session["skipped"], session["planned"], session["source"]
         else:
             if params.get("import_id"):
-                raise ServiceError("La importación ha caducado: elige el archivo otra vez", "expired")
+                raise ServiceError(tr("service.import_has_expired_choose_file"), "expired")
             try:
                 fmt, candidates, skipped = importers.parse(str(params.get("content") or ""), params.get("format") or "auto",
                                                            params.get("password"), source)
@@ -1933,10 +1934,10 @@ class Service:
         kind = self._verify_proof("totp_code", params)
         entry = self.vault.get(params.get("id"))
         if (entry.get("shared") or {}).get("permission") == "use":
-            raise ServiceError("Esta credencial del equipo es solo para usar: no se puede ver su código 2FA", "forbidden")
+            raise ServiceError(tr("service.this_team_credential_is_use_3"), "forbidden")
         seed = entry["fields"].get("totp")
         if not seed:
-            raise ServiceError("Esta credencial no tiene código 2FA", "not_found")
+            raise ServiceError(tr("service.this_credential_has_no_2fa"), "not_found")
         try:
             result = totp.code(seed)
         except totp.TotpError as exc:
@@ -1978,7 +1979,7 @@ class Service:
         except to say hello or ask to connect, a browser the user connected."""
         ext = params.pop("_ext", None)
         if not isinstance(ext, dict) or ext.get("origin") not in native_host.ALLOWED_ORIGINS:
-            raise ServiceError("Esta extensión no es la de SecretBroker", "forbidden")
+            raise ServiceError(tr("service.this_extension_isn_secretbroker"), "forbidden")
         ext = {k: str(ext.get(k) or "")[:200] for k in ("origin", "pair", "key", "browser")}
         with self._lock:
             pair = self._browsers().get(ext["pair"]) if ext["pair"] else None
@@ -1988,7 +1989,7 @@ class Service:
         if ext["paired"]:
             self._browser_seen[ext["pair"]] = datetime.now().isoformat(timespec="seconds")
         elif op not in ("ext_hello", "ext_pair"):
-            raise ServiceError("Conecta este navegador con SecretBroker desde la extensión", "not_paired")
+            raise ServiceError(tr("service.connect_this_browser_secretbroker_from"), "not_paired")
         _ACTOR.client = {"name": f"Navegador · {ext['name']}", "folder": None}
         return ext
 
@@ -2009,14 +2010,14 @@ class Service:
         if ext["paired"]:
             return {"paired": True}
         if not re.fullmatch(r"[A-Za-z0-9_-]{16,64}", ext["pair"]) or len(ext["key"]) < 32:
-            raise ServiceError("Petición de conexión no válida", "invalid")
+            raise ServiceError(tr("service.invalid_connection_request"), "invalid")
         browser = " ".join(str(params.get("name") or ext["browser"] or "Navegador").split())[:40]
         now = time.monotonic()
         with self._lock:
             self._browser_requests = {k: v for k, v in self._browser_requests.items()
                                       if v["expires"] > now and v["pair"] != ext["pair"]}
             if len(self._browser_requests) >= 5:
-                raise ServiceError("Hay demasiadas peticiones de conexión pendientes", "busy")
+                raise ServiceError(tr("service.there_are_too_many_pending"), "busy")
             request = {"id": uuid.uuid4().hex, "pair": ext["pair"], "origin": ext["origin"], "name": browser,
                        "key_hash": hashlib.sha256(ext["key"].encode()).hexdigest(),
                        "code": f"{secrets.randbelow(1000000):06d}", "expires": now + BROWSER_PAIR_SECONDS}
@@ -2046,7 +2047,7 @@ class Service:
         with self._lock:
             request = self._browser_requests.pop(str(params.get("id") or ""), None)
             if not request or request["expires"] < time.monotonic():
-                raise ServiceError("La petición de conexión ha caducado: vuelve a pulsar «Conectar» en el navegador", "not_found")
+                raise ServiceError(tr("service.connection_request_has_expired_click"), "not_found")
             if accept:
                 self._browsers()[request["pair"]] = {"name": request["name"], "origin": request["origin"],
                                                      "key_hash": request["key_hash"],
@@ -2073,8 +2074,7 @@ class Service:
         except autofill.SiteError as exc:
             raise ServiceError(str(exc), "invalid") from None
         if not autofill.frame_allowed(top, frame):
-            raise ServiceError(f"Este formulario está dentro de otra web ({frame.label}) incrustada en {top.label}: "
-                               "no se rellena", "frame")
+            raise ServiceError(tr("service.this_form_is_inside_another", label=frame.label, label2=top.label), "frame")
         return top, frame, frame or top
 
     def _fillable(self, entry):
@@ -2138,26 +2138,25 @@ class Service:
         top, frame, target = self._page(params)
         what = params.get("what") or "login"
         if what not in ("login", "totp", "username", "password"):
-            raise ServiceError("Qué rellenar: login, totp, username o password", "invalid")
+            raise ServiceError(tr("service.what_fill_in_login_totp"), "invalid")
         entry = self.vault.get(str(params.get("id") or ""))
         if not autofill.match_entry(entry, target):
             self._audit(entry["id"], "browser_fill", target.label, "denied", "La página no es la de esta credencial")
-            raise ServiceError(f"Esta credencial no es de {target.label}", "mismatch")
+            raise ServiceError(tr("service.this_credential_isn_for", label=target.label), "mismatch")
         if self._fillable(entry) == "use_only":
             self._audit(entry["id"], "browser_fill", target.label, "denied", "Permiso en el equipo: solo uso")
-            raise ServiceError("Esta credencial del equipo es de solo uso: rellenarla se la mostraría a la página, "
-                               "así que no se rellena", "forbidden")
+            raise ServiceError(tr("service.this_team_credential_is_use_4"), "forbidden")
         self._last_activity = time.monotonic()  # a click in the browser is the user using the vault
         fields, result = entry["fields"], {}
         if what in ("login", "username"):
             result["username"] = fields.get("username", "")
         if what in ("login", "password"):
             if not fields.get("password"):
-                raise ServiceError("Esta credencial no tiene contraseña", "not_found")
+                raise ServiceError(tr("service.this_credential_has_no_password"), "not_found")
             result["password"] = fields["password"]
         if what == "totp":
             if not fields.get("totp"):
-                raise ServiceError("Esta credencial no tiene código 2FA", "not_found")
+                raise ServiceError(tr("service.this_credential_has_no_2fa"), "not_found")
             try:
                 code = totp.code(fields["totp"])
             except totp.TotpError as exc:
@@ -2282,9 +2281,9 @@ class Service:
             self.vault.restore(str(params.get("vault") or "").encode("utf-8"), params.get("master_password") or "")
         except WrongPassword:
             self._failures += 1
-            raise ServiceError("La contraseña maestra no abre esa copia", "wrong_password") from None
+            raise ServiceError(tr("service.master_password_doesn_open_that"), "wrong_password") from None
         except ValueError:
-            raise ServiceError("Ese archivo no es una copia de SecretBroker", "invalid") from None
+            raise ServiceError(tr("service.that_file_isn_secretbroker_backup"), "invalid") from None
         self._failures = 0
         with self._lock:
             self._grants = {}
@@ -2299,7 +2298,7 @@ class Service:
         self._verify_proof("complete_draft", params, ALL_PROOFS)
         entry = self.vault.get(params["id"])
         if not entry.get("draft"):
-            raise ServiceError("Esta credencial ya tiene su clave", "invalid")
+            raise ServiceError(tr("service.this_credential_already_has_its"), "invalid")
         secret_names = templates.secret_field_names(entry["template"])
         for name, value in (params.get("fields") or {}).items():
             if name in secret_names and value:
@@ -2355,22 +2354,21 @@ class Service:
         grouped = {}
         for item in params.get("vars") or []:
             if not isinstance(item, dict):
-                raise ServiceError("Petición mal formada", "invalid")
+                raise ServiceError(tr("service.malformed_request"), "invalid")
             if item.get("name") and not ENV_NAME_RE.match(str(item["name"])):
-                raise ServiceError(f"Nombre de variable no válido: {item['name']}", "invalid")
+                raise ServiceError(tr("service.invalid_variable_name", name=item['name']), "invalid")
             if item.get("field") and not ENV_NAME_RE.match(str(item["field"])):
-                raise ServiceError(f"Nombre de dato no válido: {item['field']}", "invalid")
+                raise ServiceError(tr("service.invalid_data_name", field=item['field']), "invalid")
             grouped.setdefault(item.get("secret_id"), []).append(item)
         if not grouped:
-            raise ServiceError("No se ha pedido ninguna variable", "invalid")
+            raise ServiceError(tr("service.no_variable_was_requested"), "invalid")
 
         entries = []
         for secret_id, items in grouped.items():
             entry = self._get_secret(secret_id)
             mapping = (entry["policy"].get("commands") or {}).get("env") or {}
             if not mapping:
-                raise ServiceError(f"'{entry['id']}' no tiene variables de entorno en sus permisos, así que no se puede "
-                                   "entregar a programas locales. Añádelas en la app SecretBroker.", "invalid")
+                raise ServiceError(tr("service.has_no_environment_variables_in", id=entry['id']), "invalid")
             templates_by_name = {}
             for item in items:
                 name, field = item.get("name"), item.get("field")
@@ -2407,7 +2405,7 @@ class Service:
             return
         if mode == "never":
             if self.vault.settings().get("notify_uses", True):
-                self._notify(f"La IA ha usado {entry.get('name', entry['id'])}", detail.splitlines()[0] if detail else "",
+                self._notify(tr("service.ai_used", get=entry.get('name', entry['id'])), detail.splitlines()[0] if detail else "",
                              key=entry["id"])
             return
         if mode == "session" and entry["id"] in self._live_grants():
@@ -2418,7 +2416,7 @@ class Service:
         """The AI asks at the start of a task for every credential it will need: one approval for all."""
         ids = params.get("secret_ids")
         if not isinstance(ids, list) or not ids or len(ids) > 20:
-            raise ServiceError("Indica entre 1 y 20 credenciales en secret_ids", "invalid")
+            raise ServiceError(tr("service.give_between_1_and_20"), "invalid")
         reason = str(params.get("reason") or "").strip()[:500]
         entries = [self._get_secret(str(i)) for i in dict.fromkeys(ids)]
         live = self._live_grants()
@@ -2459,7 +2457,7 @@ class Service:
         """Show the request in the app and wait for the user's answer. `strong`: it deletes, rotates or widens
         where a key goes, so after a Windows-session unlock approving it needs a proof once (op_approve)."""
         if time.monotonic() - self._gui_seen > GUI_SEEN_SECONDS:
-            raise ServiceError("Esta acción necesita la aprobación del usuario y la app SecretBroker no está abierta.",
+            raise ServiceError(tr("service.this_action_needs_user_approval"),
                                "gui_required")
         reason = getattr(_ACTOR, "reason", None) or ""
         if reason:  # shown on its own: not twice
@@ -2555,8 +2553,7 @@ class Service:
                 return None
             except Exception as exc:  # noqa: BLE001 - the sync thread must survive anything
                 print(f"team sync: {type(exc).__name__}", file=sys.stderr)
-                self._team_state("error", "No se pudo sincronizar con el equipo. Se reintentará en unos minutos; "
-                                          "si sigue, pulsa «Sincronizar ahora» o reinicia SecretBroker.")
+                self._team_state("error", tr("service.couldn_sync_with_team_it"))
                 return None
             self._team_info = {"state": "error" if notes["errors"] else "ok", "error": "; ".join(notes["errors"])[:500],
                                "last_sync": datetime.now().isoformat(timespec="seconds"),
@@ -2567,8 +2564,7 @@ class Service:
     def _team_state(self, state, error=""):
         """The sync state the GUI shows; a session that just expired is also told in a Windows notice."""
         if state == "reconnect" and not self._team_info.get("expired"):
-            self._notify("La sesión del equipo ha caducado", "Abre SecretBroker › Equipo y vuelve a entrar para seguir "
-                         "recibiendo y enviando cambios. Mientras, todo funciona con lo que ya tienes.")
+            self._notify(tr("service.your_team_session_has_expired"), tr("service.open_secretbroker_team_and_sign"))
         # `expired` stays until a sync round works again (it rebuilds _team_info): one notice per expiry.
         self._team_info = {**self._team_info, "state": state, "error": error,
                            "expired": bool(self._team_info.get("expired")) or state == "reconnect"}
@@ -2578,36 +2574,31 @@ class Service:
         for change in notes.get("changes", []):
             self._audit(change["id"], change["action"], change.get("detail") or "", "ok", by=change.get("by"))
         for name in notes["quarantined"]:
-            self._notify(f"Cambio por revisar en {name}", "Un compañero ha cambiado adónde puede ir la clave o lo que "
-                         "lee la IA. Hasta que lo aceptes se sigue usando como estaba.")
+            self._notify(tr("service.change_review_in", name=name), tr("service.teammate_changed_where_key_can"))
         for held in notes.get("held_deletions", []):
             who = _join(held["by"]) if held["by"] else None
-            self._notify(f"{held['count']} credenciales de {held['collection']} esperan tu decisión",
-                         ("La colección ya no aparece en el servidor. " if held.get("gone") else
-                          f"{who or 'Alguien'} las ha borrado a la vez. ")
-                         + "No se ha borrado nada en este PC: decide en Equipo.")
+            self._notify(tr("service.held_waiting", count=held["count"], collection=held["collection"]),
+                         (tr("service.collection_no_longer_appears_on") if held.get("gone") else
+                          tr("service.deleted_them_at_once", value=who or tr("service.someone")))
+                         + tr("service.nothing_has_been_deleted_on"))
             self._audit("vault", "team_held", f"{held['count']} borradas en {held['collection']}: esperan tu decisión",
                         "denied", by=who)
         if notes.get("unsigned"):
-            self._notify("Cambios del equipo descartados", "Llegaron cambios sin una firma válida de alguien que "
-                         "pueda editar (" + ", ".join(notes["unsigned"][:3]) + "). No se han aplicado.")
+            self._notify(tr("service.team_changes_discarded"), tr("service.unsigned_discarded", names=", ".join(notes["unsigned"][:3])))
             self._audit("vault", "team_unsigned", ", ".join(notes["unsigned"][:5]), "denied")
         for item in notes.get("recovery", []):
             self._audit("vault", "team_recovery", f"{item['person']} puede recuperar «{item['collection']}»", "ok")
         for item in notes["rotate"]:
             people = item["people"]
-            self._notify(f"Cambia las claves de {item['collection']}",
-                         f"{_join(people)} {'tenían' if len(people) > 1 else 'tenía'} acceso y ya no "
-                         f"{'están' if len(people) > 1 else 'está'}. Cámbialas por si "
-                         f"{'las vieron' if len(people) > 1 else 'las vio'}.")
+            self._notify(tr("service.change_keys", collection=item['collection']),
+                         tr("service.rotate_after_leave", count=len(people), names=_join(people)))
         for name in notes.get("trust", []):
-            self._notify(f"Verifica el código de seguridad de {name}", "Hasta entonces no se usan las claves de "
-                         "colección que firma ni se le da ninguna. Ábrelo en Equipo.")
+            self._notify(tr("service.verify_security_code", name=name), tr("service.until_then_collection_keys_they"))
         for entry_id in notes["conflicts"]:
-            self._notify("Conflicto al sincronizar", f"Alguien cambió la credencial a la vez. Tu versión está en {entry_id}.")
+            self._notify(tr("service.sync_conflict"), tr("service.someone_changed_credential_at_same", entry_id=entry_id))
             self._audit(entry_id, "team_conflict", "tu versión, guardada aparte", "error")
         if notes["added"]:
-            self._notify("Credenciales nuevas del equipo", ", ".join(notes["added"]))
+            self._notify(tr("service.new_credentials_from_team"), ", ".join(notes["added"]))
 
     def _team_call(self, op, params, action, change=True):
         """Changes run one at a time with the sync (team lock). Reads (`change=False`) don't wait for it: they
@@ -2929,9 +2920,9 @@ def _normalized(content):
 
 
 def _join(names):
-    """«Bob», «Bob y Carol», «Bob, Carol y Dan»."""
+    """«Bob», «Bob y Carol», «Bob, Carol y Dan» (in the language of the request)."""
     names = [str(n) for n in names]
-    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " y " + names[-1] if names else ""
+    return names[0] if len(names) == 1 else tr("service.list_and", names=", ".join(names[:-1]), last=names[-1]) if names else ""
 
 
 def _team_read_only(entry):
@@ -2967,28 +2958,28 @@ def _clean_test_request(entry, test):
     if not test:
         return None
     if not isinstance(test, dict) or entry["template"] not in ("api_key", "generic"):
-        raise ValueError("Solo las API keys y otros secretos tienen petición de prueba")
+        raise ValueError(tr("service.only_api_keys_and_other"))
     method = str(test.get("method") or "GET").upper()
     if method not in ("GET", "HEAD"):
-        raise ValueError("La petición de prueba solo puede ser GET o HEAD: no debe cambiar nada")
+        raise ValueError(tr("service.test_request_can_only_be"))
     url = str(test.get("url") or test.get("path") or "").strip()
     if url.startswith("/"):
         base = (entry["fields"].get("base_url") or entry["fields"].get("url") or "").strip().rstrip("/")
         if not base:
-            raise ValueError("Escribe la dirección completa (https://…): la credencial no tiene la dirección de su API")
+            raise ValueError(tr("service.type_full_address_https_credential"))
         url = (base if "://" in base else "https://" + base) + url
     hosts = ((entry.get("policy") or {}).get("http") or {}).get("allowed_hosts") or \
         templates.default_policy(entry["template"], entry["fields"]).get("http", {}).get("allowed_hosts") or []
     try:
         actions._check_destination({"id": entry["id"], "policy": {"http": {"allowed_hosts": hosts}}}, {"url": url})
     except ActionError as exc:
-        raise ValueError(f"La petición de prueba solo puede ir a una de sus webs permitidas. {exc}") from None
+        raise ValueError(tr("service.test_request_can_only_go", exc=exc)) from None
     try:
         status = int(test.get("status") or 200)
     except (TypeError, ValueError):
-        raise ValueError("La respuesta esperada debe ser un código HTTP, p. ej. 200") from None
+        raise ValueError(tr("service.expected_response_must_be_http")) from None
     if not 200 <= status <= 399:
-        raise ValueError("La respuesta esperada debe ser un código entre 200 y 399")
+        raise ValueError(tr("service.expected_response_must_be_code"))
     return {"method": method, "url": url, "status": status}
 
 
@@ -3029,11 +3020,15 @@ class _Handler(socketserver.StreamRequestHandler):
             request = json.loads(self.rfile.readline(MAX_REQUEST_BYTES))
             nonce = base64.b64decode(request.get("nonce", ""))
             if not hmac.compare_digest(str(request.get("token", "")).encode(), service.token.encode()):
-                response = {"ok": False, "code": "auth", "error": "Token del servicio no válido"}
+                response = {"ok": False, "code": "auth", "error": tr("service.invalid_service_token")}
             else:
-                response = service.handle(request.get("op"), request.get("params") or {}, request.get("client"))
+                lang = request.get("lang")  # only the app sends it: the language it shows
+                if lang:
+                    i18n.set_default(lang)  # also for the AI's requests, the browser and notices from the team sync
+                with i18n.using(lang):
+                    response = service.handle(request.get("op"), request.get("params") or {}, request.get("client"))
         except (ValueError, UnicodeDecodeError, AttributeError, TypeError):
-            response = {"ok": False, "code": "bad_request", "error": "Petición mal formada"}
+            response = {"ok": False, "code": "bad_request", "error": tr("service.malformed_request")}
         body = json.dumps(response, ensure_ascii=False)
         envelope = {"body": body, "sig": service.sign(nonce, body.encode("utf-8"))}
         self.wfile.write(json.dumps(envelope).encode("utf-8") + b"\n")

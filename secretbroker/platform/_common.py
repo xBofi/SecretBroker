@@ -1,6 +1,8 @@
 """What every platform module provides, and helpers shared by the POSIX ones."""
 
 import os
+
+from ..i18n import tr
 from pathlib import Path
 
 from cryptography.exceptions import InvalidTag
@@ -106,12 +108,12 @@ def seal(key, data, entropy):
 
 def open_sealed(key, blob, entropy):
     if not blob.startswith(KEY_MAGIC) or len(blob) < len(KEY_MAGIC) + 12 + 16:
-        raise ProtectError("Formato de clave protegida desconocido")
+        raise ProtectError(tr("common.unknown_protected_key_format"))
     nonce, sealed = blob[4:16], blob[16:]
     try:
         return AESGCM(key).decrypt(nonce, sealed, entropy)
     except InvalidTag:
-        raise ProtectError("La clave protegida no corresponde a esta cuenta") from None
+        raise ProtectError(tr("common.protected_key_doesn_belong_this")) from None
 
 
 def xdg(name, default):

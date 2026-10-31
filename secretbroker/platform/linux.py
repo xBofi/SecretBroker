@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .. import hello as biometric  # noqa: F401  (no Windows Hello here: is_supported() is False)
 from ._common import INTERFACE, InstallCancelled, ProtectError, key_file, open_sealed, parse_env_file, seal, write_private, xdg
+from ..i18n import tr
 
 NAME = "linux"
 OS_LABEL = "Linux"
@@ -190,7 +191,7 @@ def protect_for_service(data, entropy, folder):
 def unprotect_for_service(blob, entropy, folder):
     path = Path(folder) / SERVICE_KEY_FILE
     if not path.exists():
-        raise ProtectError("Falta la clave de este equipo")
+        raise ProtectError(tr("linux.this_computer_key_is_missing"))
     return open_sealed(key_file(path), blob, entropy)
 
 
@@ -254,11 +255,11 @@ def unprotect_for_user(blob, entropy):
     if kind == b"s":
         key = _secret_service_key(create=False)
         if key is None:
-            raise ProtectError("El llavero de la sesión no está disponible")
+            raise ProtectError(tr("linux.session_keyring_isn_available"))
     elif kind == b"f" and (user_dir() / USER_KEY_FILE).exists():
         key = key_file(user_dir() / USER_KEY_FILE)
     else:
-        raise ProtectError("Formato de clave protegida desconocido")
+        raise ProtectError(tr("common.unknown_protected_key_format"))
     return open_sealed(key, rest, entropy)
 
 
@@ -537,7 +538,7 @@ def run_installer(path):
     """Install a downloaded .deb with apt, after the administrator's consent (polkit). The caller restarts the
     app afterwards (Windows' installer does that by itself)."""
     if not shutil.which("pkexec"):
-        raise OSError("Falta pkexec para instalar la actualización")
+        raise OSError(tr("linux.pkexec_is_missing_install_update"))
     result = subprocess.run(["pkexec", "/usr/bin/apt-get", "install", "-y", "--allow-downgrades", str(path)],
                             capture_output=True, text=True, stdin=subprocess.DEVNULL)
     if result.returncode in (126, 127):  # the user dismissed the dialog, or was not allowed

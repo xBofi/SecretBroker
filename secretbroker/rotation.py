@@ -22,6 +22,7 @@ import httpx
 
 from . import actions, exposure, links, templates
 from .inject import ActionError, Redactor
+from .i18n import tr
 
 TIMEOUT = 30
 GITLAB_LIFETIME_DAYS = 364  # gitlab.com caps token lifetime at a year
@@ -174,9 +175,8 @@ def _key(entry):
 
 def _fail(provider, response):
     if response.status_code in (401, 403):
-        raise ActionError(f"{provider} no deja rotar esta clave (HTTP {response.status_code}): "
-                          "le falta el permiso para gestionar tokens")
-    raise ActionError(f"{provider} respondió HTTP {response.status_code}")
+        raise ActionError(tr("rotation.doesn_let_this_key_be", provider=provider, status_code=response.status_code))
+    raise ActionError(tr("rotation.answered_http", provider=provider, status_code=response.status_code))
 
 
 def _rotate_cloudflare(entry):
@@ -185,8 +185,7 @@ def _rotate_cloudflare(entry):
                       follow_redirects=False) as client:
         verify = client.get("/user/tokens/verify")
         if verify.status_code in (401, 403):
-            raise ActionError("Cloudflare no reconoce este token como token de usuario. "
-                              "Los tokens de cuenta todavía no se pueden rotar desde aquí.")
+            raise ActionError(tr("rotation.cloudflare_doesn_recognise_this_token"))
         if not verify.is_success:
             _fail("Cloudflare", verify)
         token_id = verify.json()["result"]["id"]
@@ -216,7 +215,7 @@ def info(entry):
     """{"provider", "supported", "reason"} for API keys of a known provider and databases, None otherwise."""
     if entry["template"] == "database":
         return {"provider": _database(entry)[0], "supported": False,
-                "reason": "La contraseña de una base de datos se cambia en la propia base de datos o en el panel de su proveedor."}
+                "reason": tr("rotation.database_password_is_changed_in")}
     if entry["template"] not in ("api_key", "generic"):
         return None
     cloudflare = links.cloudflare_kind(entry)
@@ -231,7 +230,7 @@ def info(entry):
     provider = exposure.provider_for(entry)
     if not provider:
         return {"provider": None, "supported": False,
-                "reason": "No se reconoce el proveedor de esta clave, así que no se puede rotar automáticamente."}
+                "reason": tr("rotation.this_key_provider_isn_recognised")}
     name = provider[0]
     if name in ROTATORS:
         return {"provider": name, "supported": True, "reason": ""}
@@ -260,7 +259,7 @@ def clean_paired_id(entry, value):
     provider = (info(entry) or {}).get("provider")
     label, pattern, hint = PAIRED_IDS.get(provider, ("ID asociado", PAIRED_ID_RE, ""))
     if not value or len(value) > PAIRED_ID_MAX or not pattern.match(value):
-        raise ValueError(f"El {label} nuevo no es válido" + (f" (tiene esta forma: {hint})" if hint else ""))
+        raise ValueError(tr("rotation.new_isn_valid", label=label) + (f" (tiene esta forma: {hint})" if hint else ""))
     return value
 
 
@@ -388,7 +387,7 @@ def _run_client(argv, env, stdin):
     password is on a command line. Returns (exit code, output). Replaced in tests."""
     executable = actions._resolve_executable(argv[0])
     if os.path.splitext(executable)[1].lower() in (".bat", ".cmd") and any(actions.CMD_METACHARS & set(a) for a in argv[1:]):
-        raise ActionError("Un dato de la credencial tiene caracteres especiales de cmd.exe: no se puede usar con un script .bat/.cmd")
+        raise ActionError(tr("rotation.piece_credential_has_cmd_exe"))
     completed = subprocess.run([executable, *argv[1:]], input=stdin.encode("utf-8"), capture_output=True,
                                env={**os.environ, **env}, timeout=APPLY_TIMEOUT,
                                creationflags=CREATE_NO_WINDOW if sys.platform == "win32" else 0)
@@ -401,17 +400,17 @@ def apply_info(entry):
     engine = fields.get("engine") or "postgresql"
     if engine not in DB_CLIENTS or _database(entry)[2]:
         return {"client": None, "available": False,
-                "reason": "Este tipo de base de datos no se puede cambiar desde aquí: hazlo tú con los pasos."}
+                "reason": tr("rotation.this_type_database_can_be")}
     client = DB_CLIENTS[engine][0]
     allowed = {c.lower() for c in ((entry.get("policy") or {}).get("commands") or {}).get("allowed", [])}
     if client not in allowed:
         return {"client": client, "available": False,
-                "reason": f"La credencial no permite usar «{client}»: añádelo a sus programas permitidos (Editar) o hazlo tú."}
+                "reason": tr("rotation.credential_doesn_allow_using_add", client=client)}
     try:
         actions._resolve_executable(client)
     except ActionError:
         return {"client": client, "available": False,
-                "reason": f"«{client}» no está instalado en este PC (o no está en el PATH): instálalo o hazlo tú."}
+                "reason": tr("rotation.isn_installed_on_this_pc", client=client)}
     return {"client": client, "available": True, "reason": ""}
 
 
@@ -422,7 +421,7 @@ def apply_database(entry, new_password, run=None):
     if not info["available"]:
         raise ApplyError(info["reason"], "no_client")
     if any(c in new_password for c in "\r\n\0"):
-        raise ApplyError("La contraseña nueva no puede tener saltos de línea")
+        raise ApplyError(tr("service.new_password_can_contain_line"))
     run = run or _run_client
     fields = entry["fields"]
     old = fields.get("password") or ""
@@ -442,10 +441,10 @@ def apply_database(entry, new_password, run=None):
 
     ok, output = attempt(old, change(fields, old, new_password))
     if not ok:
-        raise ApplyError(f"{client} no pudo cambiarla y no se ha cambiado nada: {output or 'sin detalles'}")
+        raise ApplyError(tr("rotation.couldn_change_it_and_nothing", client=client, value=output or 'sin detalles'))
     ok, output = attempt(new_password, check)
     if not ok:
-        raise ApplyError(f"La base de datos aceptó el cambio, pero no se pudo entrar con la nueva: {output or 'sin detalles'}",
+        raise ApplyError(tr("rotation.database_accepted_change_but_signing", value=output or 'sin detalles'),
                          "unverified")
     return client
 
@@ -518,29 +517,29 @@ def guide(entry):
 def clean_guide(guide):
     """A rotation guide written by the AI, checked and trimmed; raises ValueError if malformed."""
     if not isinstance(guide, dict):
-        raise ValueError("rotation_guide debe ser un objeto con create, revoke, links y sources")
+        raise ValueError(tr("rotation.rotation_guide_must_be_object"))
     steps = guide.get("create") or []
     if isinstance(steps, str):
         steps = [steps]
     steps = [str(s).strip()[:GUIDE_TEXT_MAX] for s in steps if str(s).strip()][:GUIDE_STEPS_MAX]
     if not steps:
-        raise ValueError("rotation_guide.create necesita al menos un paso")
+        raise ValueError(tr("rotation.rotation_guide_create_needs_at"))
     found = []
     for link in (guide.get("links") or [])[:GUIDE_STEPS_MAX]:
         if isinstance(link, str):
             link = {"label": link, "url": link}
         url = str((link or {}).get("url") or "").strip()
         if not url.startswith("https://") or len(url) > 500 or any(c.isspace() for c in url):
-            raise ValueError(f"Enlace no válido (solo https://): {url[:80]}")
+            raise ValueError(tr("rotation.invalid_link_https_only", value=url[:80]))
         found.append({"label": str(link.get("label") or url).strip()[:80], "url": url, "hint": str(link.get("hint") or "").strip()[:GUIDE_TEXT_MAX]})
     sources = []
     for url in (guide.get("sources") or [])[:GUIDE_STEPS_MAX]:
         url = str(url).strip()
         if not url.startswith("https://") or len(url) > 500 or any(c.isspace() for c in url):
-            raise ValueError(f"Fuente no válida (solo https://): {url[:80]}")
+            raise ValueError(tr("rotation.invalid_source_https_only", value=url[:80]))
         sources.append(url)
     if not sources:
-        raise ValueError("rotation_guide.sources: indica las páginas de documentación donde lo has comprobado")
+        raise ValueError(tr("rotation.rotation_guide_sources_give_documentatio"))
     return {"create": steps, "revoke": str(guide.get("revoke") or "").strip()[:GUIDE_TEXT_MAX],
             "warning": str(guide.get("warning") or "").strip()[:GUIDE_TEXT_MAX], "links": found, "sources": sources}
 
@@ -549,11 +548,11 @@ def rotate(entry):
     """Ask the provider for a new key. Returns the new value; the old one is no longer valid."""
     details = info(entry)
     if not details or not details["supported"]:
-        raise ActionError(details["reason"] if details else "Esta credencial no se puede rotar")
+        raise ActionError(details["reason"] if details else tr("rotation.this_credential_can_be_rotated"))
     try:
         value = ROTATORS[details["provider"]](entry)
     except httpx.HTTPError as exc:
         raise ActionError(exposure.unreachable(exc, details['provider'])) from None
     if not isinstance(value, str) or not value.strip():
-        raise ActionError(f"{details['provider']} no devolvió una clave nueva")
+        raise ActionError(tr("rotation.didn_return_new_key", provider=details['provider']))
     return value.strip()

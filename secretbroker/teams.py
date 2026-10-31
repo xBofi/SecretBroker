@@ -26,6 +26,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from . import crypto, templates
 from .crypto import b64, unb64
 from .vault import ID_RE, SHARE_PERMISSIONS, SHARE_WRITE, ValidationError, secret_fields, shared_content
+from .i18n import tr
 
 API = "/api/v1"
 AUTH_INFO = b"secretbroker/team-auth/v1"
@@ -102,7 +103,7 @@ def check_kdf(kdf):
     except (KeyError, TypeError, ValueError):
         ok = False
     if not ok:
-        raise TeamError("El servidor ha enviado parámetros de cifrado no válidos", "bad_server")
+        raise TeamError(tr("teams.server_sent_invalid_encryption_parameter"), "bad_server")
     return kdf
 
 
@@ -122,7 +123,7 @@ def open_private_keys(wrap_key, blob, user_id):
         keys = {"x25519": keys["x25519"], "ed25519": keys["ed25519"]}
         public_keys(keys)
     except (InvalidTag, ValueError, KeyError, TypeError):
-        raise TeamError("No se pudieron abrir las claves de la cuenta: la contraseña no es la de la cuenta",
+        raise TeamError(tr("teams.couldn_open_account_keys_password"),
                         "invalid_credentials") from None
     return keys
 
@@ -175,9 +176,9 @@ def open_grant(keys, member_id, cid, version, grant, granter_signing_key):
             unb64(grant["signature"]), _grant_message(cid, version, member_id, grant["sealed"]))
         key = crypto.open_from(_x25519(keys), grant["sealed"], _grant_aad(cid, version, member_id))
     except (InvalidSignature, InvalidTag, ValueError, KeyError, TypeError):
-        raise TeamError("La clave de una colección no tiene una firma válida: no se usará", "bad_grant") from None
+        raise TeamError(tr("teams.collection_key_doesn_have_valid"), "bad_grant") from None
     if len(key) != 32:
-        raise TeamError("La clave de una colección no es válida", "bad_grant")
+        raise TeamError(tr("teams.collection_key_isn_valid"), "bad_grant")
     return key
 
 
@@ -346,9 +347,9 @@ def server_base(url):
     except ValueError:
         host = None
     if not host or parts.query or parts.fragment or parts.username or parts.password:
-        raise TeamError("La dirección del servidor no es válida", "invalid")
+        raise TeamError(tr("teams.server_address_isn_valid"), "invalid")
     if parts.scheme != "https" and not (parts.scheme == "http" and host in LOCAL_HOSTS):
-        raise TeamError("El servidor del equipo debe usar https:// (http solo para pruebas en este mismo PC)", "invalid")
+        raise TeamError(tr("teams.team_server_must_use_https"), "invalid")
     return url
 
 
@@ -372,21 +373,18 @@ class Client:
         try:
             response = self._http.request(method, self.base + API + path, json=body, headers=headers)
         except httpx.TimeoutException:
-            raise TeamError("El servidor del equipo no responde. Se reintentará solo; mientras, todo funciona con "
-                            "lo que ya tienes en este PC.", "offline") from None
+            raise TeamError(tr("teams.team_server_isn_responding_it"), "offline") from None
         except httpx.HTTPError as exc:
             if "CERTIFICATE" in str(exc).upper():
-                raise TeamError("El certificado del servidor del equipo no es válido, así que no se le envía nada. "
-                                "Avisa a quien lo administra.", "offline", data={"certificate": True}) from None
-            raise TeamError("No se llega al servidor del equipo. Se reintentará solo; mientras, todo funciona con "
-                            "lo que ya tienes en este PC.", "offline") from None
+                raise TeamError(tr("teams.team_server_certificate_isn_valid"), "offline", data={"certificate": True}) from None
+            raise TeamError(tr("teams.can_reach_team_server_it"), "offline") from None
         try:
             data = response.json()
         except ValueError:
             data = None
         if response.status_code == 200:
             if data is None:
-                raise TeamError("El servidor del equipo ha respondido algo inesperado", "bad_server")
+                raise TeamError(tr("teams.team_server_answered_something_unexpecte"), "bad_server")
             return data
         error = data if isinstance(data, dict) else {}
         message = error.get("error") if isinstance(error.get("error"), str) else \
@@ -397,8 +395,9 @@ class Client:
         raise TeamError(message[:300], code, response.status_code, error)
 
 
-# What the user reads when something about the team goes wrong: one sentence that says what to do. The
-# details (codes, exception types) only go to the service log.
+# What the user reads when something about the team goes wrong: one sentence that says what to do (the
+# messages teams.explain_<code>; these Spanish texts are their source). The details (codes, exception types)
+# only go to the service log.
 _EXPLAIN = {
     "bad_grant": "{where}la clave no la firma nadie de confianza, así que no se usa. Avisa a quien la gestiona.",
     "old_key": "{where}llegó una versión cifrada con una clave antigua y se ha descartado. No tienes que hacer nada.",
@@ -428,7 +427,7 @@ def explain(exc, where=""):
         code = "invalid_item"
     elif isinstance(exc, (InvalidTag, ValueError, KeyError, TypeError)):
         code = "decrypt"
-    text = _EXPLAIN[code].format(where=f"En «{where}», " if where else "")
+    text = tr(f"teams.explain_{code}", where=tr("teams.explain_where", name=where) if where else "")
     return text[0].upper() + text[1:]
 
 
@@ -506,18 +505,18 @@ class Team:
         """Link (mode "register") or log in to a team account. The only time the account password is used."""
         base, email = server_base(server_url), str(email or "").strip().lower()
         if mode not in ("register", "login"):
-            raise TeamError("Indica si quieres crear la cuenta o entrar en una existente", "invalid")
+            raise TeamError(tr("teams.say_whether_you_want_create"), "invalid")
         if not email or "@" not in email:
-            raise TeamError("Escribe tu e-mail", "invalid")
+            raise TeamError(tr("teams.type_your_e_mail"), "invalid")
         current = self.vault.team()
         if connected(current) and (current["user"]["email"] != email or current["server_url"] != base):
-            raise TeamError("Ya hay otra cuenta de equipo conectada. Desconéctala antes.", "invalid")
+            raise TeamError(tr("teams.another_team_account_is_already"), "invalid")
         device_name = str(device_name or os.environ.get("COMPUTERNAME") or "PC")[:100]
         with Client(base) as api:
             info = api.call("GET", "/info", auth=False)
             if mode == "register":
                 if len(password or "") < MIN_ACCOUNT_PASSWORD:
-                    raise TeamError(f"La contraseña de la cuenta debe tener al menos {MIN_ACCOUNT_PASSWORD} caracteres",
+                    raise TeamError(tr("teams.account_password_must_have_at", MIN_ACCOUNT_PASSWORD=MIN_ACCOUNT_PASSWORD),
                                     "invalid")
                 user_id, kdf, keys = str(uuid.uuid4()), crypto.new_kdf(), new_account_keys()
                 auth_key, wrap_key = account_secrets(password, kdf)
@@ -535,7 +534,7 @@ class Team:
             keys = open_private_keys(wrap_key, session["private_blob"], session["user"]["id"])
             if public_keys(keys) != {"public_key": session["public_key"],
                                      "signing_public_key": session["signing_public_key"]}:
-                raise TeamError("Las claves de la cuenta no coinciden con las del servidor", "bad_server")
+                raise TeamError(tr("teams.account_keys_don_match_server"), "bad_server")
             user = {k: session["user"].get(k) for k in ("id", "email", "name")}
             user["verified"] = session["user"].get("verified", True) is not False  # servers before 0.16: no check
             state = current if connected(current) and current["user"]["id"] == user["id"] else {}
@@ -643,7 +642,7 @@ class Team:
 
     def _api(self, state, timeout=TIMEOUT):
         if not connected(state):
-            raise TeamError("No hay ninguna cuenta de equipo conectada", "not_connected")
+            raise TeamError(tr("teams.no_team_account_is_connected"), "not_connected")
         return Client(state["server_url"], state["token"], timeout)
 
     def _read(self):
@@ -717,8 +716,7 @@ class Team:
             return pinned
         found = self._fetch_keys(api, uid)
         if _pinned_fp(pinned) != found["fp"]:
-            raise TeamError(f"La clave de {_label(found)} ha cambiado desde que la verificaste. Compara su código "
-                            "de seguridad con esa persona y vuelve a verificarla antes de compartir nada con ella.",
+            raise TeamError(tr("teams.key_has_changed_since_you", _label=_label(found)),
                             "key_changed")
         return pinned
 
@@ -728,8 +726,7 @@ class Team:
             person = self._fetch_keys(api, uid)
         except TeamError:
             person = {}
-        return TeamError(f"Antes verifica el código de seguridad de {_label(person)} en Equipo › Personas: así "
-                         "nadie, ni el servidor, puede colarse con otra clave.", "untrusted",
+        return TeamError(tr("teams.first_verify_security_code_in", _label=_label(person)), "untrusted",
                          data={"user_id": uid, "name": person.get("name"), "email": person.get("email"),
                                "fingerprint": person.get("fp"), "org": org})
 
@@ -811,15 +808,13 @@ class Team:
         with self._api(state) as api:
             row = next((r for r in api.call("GET", f"/orgs/{oid}/members") if r.get("user_id") == uid), None)
             if row is None or row.get("status") not in ("accepted", "confirmed"):
-                raise TeamError("Esa persona no está en la organización", "not_found")
+                raise TeamError(tr("teams.that_person_isn_in_organization"), "not_found")
             found = self._fetch_keys(api, uid)
             if expected_fingerprint and not _same_fingerprint(expected_fingerprint, found):
-                raise TeamError(f"El código de seguridad no coincide con el de {_label(found)}. No lo verifiques: "
-                                "alguien podría estar haciéndose pasar por esa persona.", "fingerprint_mismatch")
+                raise TeamError(tr("teams.security_code_doesn_match_don", _label=_label(found)), "fingerprint_mismatch")
             pinned = state["pinned"].get(uid)
             if pinned and _pinned_fp(pinned) != found["fp"] and not expected_fingerprint:
-                raise TeamError(f"La clave de {_label(found)} ha cambiado. Pídele su código de seguridad y escríbelo "
-                                "para verificarla.", "key_changed")
+                raise TeamError(tr("teams.key_has_changed_ask_them", _label=_label(found)), "key_changed")
             if row["status"] == "accepted":
                 api.call("POST", f"/orgs/{oid}/members/{uid}/confirm")
             state["pinned"][uid] = {**found, "at": now_iso()}
@@ -938,7 +933,7 @@ class Team:
         (if this user verified them), so it can always be recovered (2.6)."""
         name = str(name or "").strip()
         if not name:
-            raise TeamError("Ponle un nombre a la colección", "invalid")
+            raise TeamError(tr("teams.give_collection_name"), "invalid")
         state = self.vault.team()
         cid, key, me = str(uuid.uuid4()), os.urandom(32), state["user"]["id"]
         record = make_members_record(state["keys"], me, cid, None, {me: "manage"}, 1)
@@ -1019,15 +1014,15 @@ class Team:
     def _collection(self, state, cid, permissions=SHARE_PERMISSIONS):
         coll = (state.get("collections") or {}).get(cid)
         if not coll:
-            raise TeamError("Esa colección no existe o aún no se ha sincronizado", "not_found")
+            raise TeamError(tr("teams.that_collection_doesn_exist_or"), "not_found")
         if coll.get("permission") not in permissions:
-            raise TeamError("Tu permiso en esta colección no permite hacer esto", "forbidden")
+            raise TeamError(tr("teams.your_permission_in_this_collection"), "forbidden")
         return coll
 
     def grant(self, cid, uid, permission):
         """Give someone access to a collection (sealing its key to their pinned key), or change their permission."""
         if permission not in SHARE_PERMISSIONS:
-            raise TeamError("Permiso no válido", "invalid")
+            raise TeamError(tr("service.invalid_permission"), "invalid")
         state = self.vault.team()
         self._collection(state, cid, ("manage",))
         with self._api(state) as api:
@@ -1065,7 +1060,7 @@ class Team:
         coll = self._collection(state, cid)
         me = state["user"]["id"]
         if uid != me and coll.get("permission") != "manage":
-            raise TeamError("Solo quien gestiona la colección puede quitar a otros", "forbidden")
+            raise TeamError(tr("teams.only_whoever_manages_collection_can"), "forbidden")
         with self._api(state) as api:
             person = _label((coll.get("members") or {}).get(uid) or state["pinned"].get(uid))
             body = {}
@@ -1123,7 +1118,7 @@ class Team:
                 return None  # a server from before 0.16
             raise
         if not isinstance(records, list):
-            raise TeamError("lista de miembros no válida", "bad_members")
+            raise TeamError(tr("teams.invalid_member_list"), "bad_members")
         me, org = state["user"]["id"], org or coll.get("org")
         start = 0
         if head is None and records:
@@ -1135,12 +1130,12 @@ class Team:
             if not trusted:
                 last = records[-1].get("body") if isinstance(records[-1], dict) else None
                 raise self._untrusted(api, (last or {}).get("by"), org) if isinstance(last, dict) and \
-                    isinstance(last.get("by"), str) else TeamError("lista de miembros no válida", "bad_members")
+                    isinstance(last.get("by"), str) else TeamError(tr("teams.invalid_member_list"), "bad_members")
             start = trusted[-1]
             legacy = coll.get("members") or {}
             body = records[start]["body"]
             if legacy and (legacy.get(body["by"]) or {}).get("permission") not in (None, "manage"):
-                raise TeamError("lista de miembros firmada por quien no la gestionaba", "bad_members")
+                raise TeamError(tr("teams.member_list_signed_by_someone"), "bad_members")
         for index, record in enumerate(records[start:]):
             body = record.get("body") if isinstance(record, dict) else None
             first = head is None and index == 0
@@ -1149,21 +1144,21 @@ class Team:
                     or not isinstance(body.get("seq"), int) or not isinstance(body.get("key_version"), int) \
                     or (not first and (body["seq"] != head["seq"] + 1 or body.get("prev") != head["hash"]
                                        or body["key_version"] < head["key_version"])):
-                raise TeamError("lista de miembros no válida", "bad_members")
+                raise TeamError(tr("teams.invalid_member_list"), "bad_members")
             by = body.get("by")
             signer = self._signer(state, by)
             if signer is None:
                 raise self._untrusted(api, by, org)
             if not signed_by(signer["signing_public_key"], record.get("signature"), MEMBERS_SIG + _canonical(body)):
-                raise TeamError("lista de miembros con una firma que no es válida", "bad_members")
+                raise TeamError(tr("teams.member_list_with_invalid_signature"), "bad_members")
             before = body["members"] if first else head["members"]
             leaving = by not in body["members"] and all(before.get(u) == p for u, p in body["members"].items())
             if before.get(by) != "manage" and not leaving:
-                raise TeamError("lista de miembros firmada por quien no la gestiona", "bad_members")
+                raise TeamError(tr("teams.member_list_signed_by_someone_2"), "bad_members")
             head = self._head(record, None if first else head)
         coll["manifest"] = head
         if head and me not in head["members"]:
-            raise TeamError("Ya no estás en la lista firmada de esta colección", "bad_members")
+            raise TeamError(tr("teams.you_re_no_longer_on"), "bad_members")
         return head
 
     def _signed_rows(self, coll, rows):
@@ -1174,8 +1169,7 @@ class Team:
             return rows
         extra = [r for r in rows if head["members"].get(r.get("user_id")) != r.get("permission")]
         if extra:
-            raise TeamError("El servidor muestra a " + ", ".join(_label(r) for r in extra[:5]) + " en una colección "
-                            "sin que nadie que la gestiona lo haya firmado", "bad_members",
+            raise TeamError(tr("teams.server_shows_unsigned", people=", ".join(_label(r) for r in extra[:5])), "bad_members",
                             data={"people": [r.get("user_id") for r in extra]})
         return rows
 
@@ -1256,7 +1250,7 @@ class Team:
         for attempt in range(2):
             listed = next((c for c in api.call("GET", "/collections") if c["id"] == cid), None)
             if listed is None:
-                raise TeamError("Ya no tienes acceso a esa colección", "not_found")
+                raise TeamError(tr("teams.you_no_longer_have_access"), "not_found")
             head = self._verify_members(api, state, cid, coll, listed.get("org_id"))
             self._learn_key(api, state, coll, cid, listed)
             data = api.call("GET", f"/collections/{cid}/items?since=0")
@@ -1267,8 +1261,7 @@ class Team:
                                                  item["key_version"], item["ciphertext"])
             members = self._signed_rows(coll, api.call("GET", f"/collections/{cid}/members"))
             if any(m["user_id"] in removed for m in members):
-                raise TeamError("El servidor sigue dando acceso a quien acabas de quitar: la colección no se "
-                                "vuelve a cifrar",
+                raise TeamError(tr("teams.server_still_gives_access_person"),
                                 "bad_server")
             version, key = listed["key_version"] + 1, os.urandom(32)
             grants = {m["user_id"]: make_grant(state["keys"], me, cid, version, m["user_id"],
@@ -1305,7 +1298,7 @@ class Team:
         version, me = listed["key_version"], state["user"]["id"]
         if str(version) not in coll.setdefault("keys", {}):
             if version < int(coll.get("key_version") or 0):
-                raise TeamError("El servidor ofrece una clave antigua de la colección: no se usará", "bad_grant")
+                raise TeamError(tr("teams.server_offers_old_key_collection"), "bad_grant")
             granter_id = listed["grant"]["granted_by"]
             granter = self._peer_keys(api, state, granter_id, fresh=False) if granter_id == me else \
                 state["pinned"].get(granter_id)
@@ -1316,7 +1309,7 @@ class Team:
                 m["user_id"] == granter_id and m["permission"] == "manage"
                 for m in api.call("GET", f"/collections/{cid}/members"))
             if granter_id != me and not manages:
-                raise TeamError("La clave de una colección la firma alguien que no la gestiona: no se usará", "bad_grant")
+                raise TeamError(tr("teams.collection_key_is_signed_by"), "bad_grant")
             key = open_grant(state["keys"], me, cid, version, listed["grant"], granter["signing_public_key"])
             coll["keys"] = {str(version): b64(key)}
         return unb64(coll["keys"][str(version)])
@@ -1326,23 +1319,22 @@ class Team:
         try:
             return unb64(coll["keys"][str(version)])
         except KeyError:
-            raise TeamError("Falta la clave de una versión antigua de la colección", "missing_key") from None
+            raise TeamError(tr("teams.key_old_version_collection_is"), "missing_key") from None
 
     # ------------------------------------------------------------------ sharing entries
 
     def share_entry(self, entry_id, cid):
         entry = self.vault.get(entry_id)
         if entry.get("shared"):
-            raise TeamError("Esta credencial ya está compartida", "invalid")
+            raise TeamError(tr("teams.this_credential_is_already_shared"), "invalid")
         if entry.get("draft"):
-            raise TeamError("Añade la clave antes de compartirla", "invalid")
+            raise TeamError(tr("teams.add_key_before_sharing_it"), "invalid")
         state = self.vault.team()
         coll = self._collection(state, cid, SHARE_WRITE)
         with self._api(state) as api:
             if coll.get("needs_rekey"):
                 if coll.get("permission") != "manage":
-                    raise TeamError("Esta colección se tiene que volver a cifrar porque alguien salió de ella. "
-                                    "Espera a que quien la gestiona sincronice.", "needs_rekey")
+                    raise TeamError(tr("teams.this_collection_has_be_re"), "needs_rekey")
                 self._rekey(api, state, cid, *self._gone(api, state, cid))
             iid, content = str(uuid.uuid4()), shared_content(entry)
             plain = sign_item(state["keys"], state["user"]["id"], cid, iid,
@@ -1371,7 +1363,7 @@ class Team:
                 name = self.share_entry(entry_id, cid)["collection_name"]
                 shared.append(entry_id)
             except KeyError:
-                failed.append({"id": entry_id, "error": "Ya no existe"})
+                failed.append({"id": entry_id, "error": tr("teams.it_no_longer_exists")})
             except TeamError as exc:
                 if exc.code in ("offline", "reconnect", "not_found", "forbidden", "needs_rekey"):
                     if not shared:
@@ -1385,7 +1377,7 @@ class Team:
         entry = self.vault.get(entry_id)
         shared = entry.get("shared")
         if not shared:
-            raise TeamError("Esta credencial no está compartida", "invalid")
+            raise TeamError(tr("teams.this_credential_isn_shared"), "invalid")
         state = self.vault.team()
         cid = shared["collection"]
         coll = self._collection(state, cid, SHARE_WRITE)
@@ -1414,10 +1406,9 @@ class Team:
             shared = entry.get("shared") or {}
             pending = shared.get("pending_policy")
             if not pending:
-                raise TeamError("Esta credencial no tiene cambios pendientes", "not_found")
+                raise TeamError(tr("teams.this_credential_has_no_pending"), "not_found")
             if not accept and shared.get("permission") not in SHARE_WRITE:
-                raise TeamError("Solo quien puede editar la credencial puede rechazar el cambio. Mientras tanto se "
-                                "sigue usando como estaba.", "forbidden")
+                raise TeamError(tr("teams.only_someone_who_can_edit"), "forbidden")
             if accept:
                 approval = (entry.get("policy") or {}).get("approval", "session")
                 entry = {**effective_content(entry), "id": entry["id"], "shared": shared}
@@ -1507,7 +1498,7 @@ class Team:
         # Nobody (and no permission) the signed list does not have: checked before anything here changes.
         rows = self._signed_rows(coll, api.call("GET", f"/collections/{cid}/members"))
         if head and head["members"].get(state["user"]["id"]) != row["permission"]:
-            raise TeamError("permiso propio que nadie ha firmado", "bad_members")
+            raise TeamError(tr("teams.own_permission_that_nobody_has"), "bad_members")
         coll.update(org=row["org_id"], name=str(info.get("name") or ""), key_version=row["key_version"],
                     permission=row["permission"], needs_rekey=bool(row["needs_rekey"]))
         if coll.pop("gone", None):  # listed again: what was held because it had disappeared stays
@@ -1602,7 +1593,7 @@ class Team:
                 known["revision"] = item["revision"]
             name = self.vault.get(local_id).get("name") or local_id
             notes.setdefault("unsigned", []).append(name)
-            self._sync_error(notes, cid, coll.get("name"), TeamError("borrado sin firma", "unsigned"))
+            self._sync_error(notes, cid, coll.get("name"), TeamError(tr("teams.unsigned_deletion"), "unsigned"))
             return None
         return {"iid": iid, "revision": item["revision"], "by": self._name_of(state, coll, by), "at": item.get("updated"),
                 "seq": record["seq"], "local_id": local_id}
@@ -1654,7 +1645,7 @@ class Team:
         state = self.vault.team()
         coll = (state.get("collections") or {}).get(cid)
         if not coll or not coll.get("held"):
-            raise TeamError("No hay borrados pendientes en esa colección", "not_found")
+            raise TeamError(tr("teams.there_are_no_pending_deletions"), "not_found")
         held, notes = coll["held"], {"removed": [], "conflicts": []}
         if coll.get("gone"):
             self._drop_collection(state, cid, notes, keep=not apply)
@@ -1714,17 +1705,17 @@ class Team:
             edited = local is not None and known is not None and content_hash(effective_content(local)) != known["hash"]
             if item["key_version"] < coll["key_version"]:
                 # Every live item is re-encrypted at a re-key: an older key is someone who left (or the server).
-                raise TeamError("está cifrado con una clave antigua de la colección", "old_key")
+                raise TeamError(tr("teams.is_encrypted_with_old_key"), "old_key")
             plain = open_item(self._key(coll, item["key_version"]), cid, iid, item["key_version"], item["ciphertext"])
             content = {k: v for k, v in dict(plain["entry"]).items() if k not in ("shared", "updated", "secret_since")}
             for local_only in ("approval", "ai_totp"):  # the user's own choices on this PC, never a teammate's
                 (content.get("policy") or {}).pop(local_only, None)
             if not ID_RE.match(str(content.get("id", ""))):
-                raise TeamError("identificador no válido", "invalid_item")
+                raise TeamError(tr("teams.invalid_identifier"), "invalid_item")
             digest, seq = content_hash(content), _seq(plain)
             if known and (seq < known.get("seq", 0) or (seq == known.get("seq", 0) and seq and digest != known["hash"])):
                 # Each write counts up: an older version served again (a revoked key, say) is not taken back.
-                raise TeamError("es una versión anterior a la que ya tienes", "rollback")
+                raise TeamError(tr("teams.is_older_version_than_one"), "rollback")
             if (coll.get("held") or {}).pop(iid, None) is not None and local:
                 local["shared"].pop("pending_delete", None)  # written again after the deletion: it stays
             if local is None and known and digest == known["hash"]:
@@ -1739,7 +1730,7 @@ class Team:
             signer = self._item_signer(state, cid, iid, plain, coll.get("manifest"))
             if coll.get("manifest") and signer is None:
                 notes.setdefault("unsigned", []).append(content.get("name") or content["id"])
-                raise TeamError("versión sin una firma válida de alguien que pueda editar", "unsigned")
+                raise TeamError(tr("teams.version_without_valid_signature_from"), "unsigned")
             by = signer or item.get("updated_by")
             author = {"id": by, "name": self._name_of(state, coll, by), **({"verified": True} if signer else {})}
             shared = self._shared_block(state, cid, iid, item["revision"], author, item.get("updated"))

@@ -10,6 +10,8 @@ import hmac
 import re
 import struct
 import time
+
+from .i18n import tr
 from urllib.parse import parse_qs, unquote, urlsplit
 
 ALGORITHMS = {"SHA1": hashlib.sha1, "SHA256": hashlib.sha256, "SHA512": hashlib.sha512}
@@ -23,13 +25,13 @@ class TotpError(ValueError):
 def _seed(text):
     cleaned = re.sub(r"[\s-]+", "", str(text or "")).upper().rstrip("=")
     if not cleaned or not re.fullmatch(r"[A-Z2-7]+", cleaned):
-        raise TotpError("El código 2FA no es válido: pega la URI otpauth:// o la clave en base32 que te dio la web")
+        raise TotpError(tr("totp.2fa_code_isn_valid_paste"))
     try:
         key = base64.b32decode(cleaned + "=" * (-len(cleaned) % 8))
     except ValueError:
-        raise TotpError("El código 2FA no es válido: la clave en base32 está incompleta") from None
+        raise TotpError(tr("totp.2fa_code_isn_valid_base32")) from None
     if len(key) < 5:
-        raise TotpError("El código 2FA es demasiado corto")
+        raise TotpError(tr("totp.2fa_code_is_too_short"))
     return key
 
 
@@ -40,20 +42,20 @@ def parse(value):
         return {**DEFAULTS, "key": _seed(text), "issuer": "", "account": ""}
     parts = urlsplit(text)
     if parts.netloc.lower() != "totp":
-        raise TotpError("Solo se admiten códigos por tiempo (TOTP); este es de otro tipo")
+        raise TotpError(tr("totp.only_time_based_codes_totp"))
     query = {k.lower(): v[-1] for k, v in parse_qs(parts.query).items()}
     label = unquote(parts.path.lstrip("/"))
     issuer, _, account = label.rpartition(":")
     algorithm = (query.get("algorithm") or "SHA1").upper()
     if algorithm not in ALGORITHMS:
-        raise TotpError(f"Algoritmo de 2FA no compatible: {algorithm}")
+        raise TotpError(tr("totp.unsupported_2fa_algorithm", algorithm=algorithm))
     try:
         digits = int(query.get("digits") or 6)
         period = int(query.get("period") or 30)
     except ValueError:
-        raise TotpError("El código 2FA tiene parámetros no válidos") from None
+        raise TotpError(tr("totp.2fa_code_has_invalid_parameters")) from None
     if digits not in (6, 7, 8) or not 10 <= period <= 300:
-        raise TotpError("El código 2FA tiene parámetros no válidos")
+        raise TotpError(tr("totp.2fa_code_has_invalid_parameters"))
     return {"key": _seed(query.get("secret")), "algorithm": algorithm, "digits": digits, "period": period,
             "issuer": query.get("issuer") or issuer.strip(), "account": account.strip()}
 

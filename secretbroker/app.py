@@ -16,8 +16,9 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from . import __version__, client, generator, integrations, links, native_host, paths, platform, resident, scanner, templates
+from . import __version__, client, generator, i18n, integrations, links, native_host, paths, platform, resident, scanner, templates
 from .client import BrokerError, BrokerUnavailable
+from .i18n import tr
 
 hello = platform.biometric  # Windows Hello; elsewhere is_supported() is False (TODO: Touch ID, fprintd)
 WEB_DIR = Path(__file__).with_name("web")
@@ -99,12 +100,26 @@ class Api:
                 "hello_supported": hello.is_supported(), "templates": templates.export(), "providers": links.catalog(),
                 "prefs": integrations.load_prefs(), "integrations": integrations.status(),
                 "start_with_windows": resident.start_with_windows(), "session_unlock_here": self.has_session_unlock(),
-                "os": platform.NAME, "os_label": platform.OS_LABEL}
+                "os": platform.NAME, "os_label": platform.OS_LABEL, "languages": i18n.available()}
 
     def set_pref(self, key, value):
-        if key in ("palette", "auto_scan", "scan_folders"):
+        if key in ("palette", "auto_scan", "scan_folders") or (key == "language" and (value is None or i18n.valid(value))):
             integrations.set_pref(key, value)
         return True
+
+    # ----- language (see docs/I18N.md)
+
+    def locale(self, code):
+        """The page's messages in `code` (web/locales/<code>.json), or None."""
+        return i18n.page_catalog(code)
+
+    def set_language(self, code):
+        """The language the page shows: the app's own texts follow it (the service's answers, the icon next to
+        the clock). Returns what info() has that depends on it."""
+        if i18n.valid(code):
+            i18n.set_default(code)
+            client.LANG = code
+        return {"templates": templates.export(), "providers": links.catalog()}
 
     def connect_claude_code(self):
         return self._integration(integrations.connect_claude_code)
@@ -151,7 +166,7 @@ class Api:
         params = {"id": entry_id, "copy": bool(copy)}
         if auto:
             if not self._presence:
-                return {"ok": False, "code": "proof_required", "error": "Verifica tu identidad"}
+                return {"ok": False, "code": "proof_required", "error": tr("app.verify_your_identity")}
             try:
                 result = client.request("totp_code", {**params, "proof": {"kind": "presence", "token": self._presence}})
             except BrokerError as exc:
@@ -210,7 +225,7 @@ class Api:
                 status = client.request("status", timeout=10)
                 if not (status["hello_enrolled"] and hello.is_supported()):
                     # `weak`: opened with the Windows session, so the page says this is asked once.
-                    return {"ok": False, "code": "proof_required", "error": "Verifica tu identidad", "weak": weak}
+                    return {"ok": False, "code": "proof_required", "error": tr("app.verify_your_identity"), "weak": weak}
                 proof = self._hello_proof(op, params)
             if proof is not None:
                 params["proof"] = proof
@@ -227,7 +242,7 @@ class Api:
                 self._presence = result.pop("presence")
             return {"ok": True, "result": result}
         except hello.HelloCancelled:
-            return {"ok": False, "code": "hello_cancelled", "error": "Verificación cancelada"}
+            return {"ok": False, "code": "hello_cancelled", "error": tr("app.verification_cancelled")}
         except hello.HelloError as exc:
             return {"ok": False, "code": "hello_failed", "error": str(exc)}
         except BrokerError as exc:
@@ -330,15 +345,15 @@ class Api:
         the value never reaches this process or the page. A copy is left next to it (…secretbroker.bak)."""
         path = Path(str(location))
         if not self._scan_session:
-            return {"ok": False, "code": "session_expired", "error": "Verifica tu identidad para ver en qué archivos están tus claves"}
+            return {"ok": False, "code": "session_expired", "error": tr("service.verify_your_identity_see_which")}
         if not _redactable(path):
-            return {"ok": False, "code": "invalid", "error": "En este archivo no se puede borrar desde aquí: edítalo tú"}
+            return {"ok": False, "code": "invalid", "error": tr("app.this_file_can_be_edited")}
         for _ in range(3):  # Claude Code may be writing to its conversation: start again if it changed meanwhile
             try:
                 before = path.stat()
                 data = path.read_bytes()
             except OSError as exc:
-                return {"ok": False, "code": "error", "error": f"No se pudo leer el archivo: {exc.strerror or exc}"}
+                return {"ok": False, "code": "error", "error": tr("app.couldn_read_file", value=exc.strerror or exc)}
             parts, count, start = [], 0, 0
             while start < len(data):
                 end = min(len(data), start + REDACT_CHUNK_BYTES)
@@ -362,16 +377,14 @@ class Api:
                     os.replace(temporary, path)
                 except OSError as exc:
                     path.with_name(path.name + ".secretbroker.tmp").unlink(missing_ok=True)
-                    return {"ok": False, "code": "error", "error": "No se pudo escribir el archivo (puede que esté abierto en "
-                            f"otro programa: ciérralo y vuelve a intentarlo): {exc.strerror or exc}"}
+                    return {"ok": False, "code": "error", "error": tr("app.couldn_write_file_it_may", value=exc.strerror or exc)}
             done = self.call("exposure_redacted", {"session": self._scan_session, "id": entry_id, "location": str(path),
                                                    "count": count})
             if done["ok"]:
                 done["result"] = {"count": count, "report": done["result"],
                                   "backup": str(path.with_name(path.name + REDACT_BACKUP_SUFFIX)) if count else None}
             return done
-        return {"ok": False, "code": "busy", "error": "El archivo no para de cambiar (¿hay una conversación abierta?): "
-                "ciérrala y vuelve a intentarlo"}
+        return {"ok": False, "code": "busy", "error": tr("app.file_keeps_changing_is_conversation")}
 
     def delete_redaction_backup(self, location):
         """Delete a copy left by redact_finding, once the user is happy with the result."""
@@ -406,7 +419,7 @@ class Api:
         except platform.InstallCancelled:
             return {"ok": False, "code": "cancelled", "error": "Cancelado"}
         except OSError as exc:
-            return {"ok": False, "code": "error", "error": f"No se pudo abrir el instalador: {exc}"}
+            return {"ok": False, "code": "error", "error": tr("app.couldn_open_installer", exc=exc)}
         if after == "restart":
             threading.Timer(1.5, self._restart).start()
         return {"ok": True, "result": result["result"]["version"]}
@@ -461,7 +474,7 @@ class Api:
         try:
             public_key = hello.create_key()
         except hello.HelloCancelled:
-            return {"ok": False, "code": "hello_cancelled", "error": "Verificación cancelada"}
+            return {"ok": False, "code": "hello_cancelled", "error": tr("app.verification_cancelled")}
         except hello.HelloError as exc:
             return {"ok": False, "code": "hello_failed", "error": str(exc)}
         return self.call("enroll_hello", {"public_key": base64.b64encode(public_key).decode()}, proof)
@@ -559,7 +572,7 @@ class Api:
             return
         if not self._hidden_once and self._tray:
             self._hidden_once = True
-            self._tray.notify("SecretBroker sigue activo", "Está junto al reloj para atender a la IA. Ciérralo desde ese icono.")
+            self._tray.notify(tr("app.secretbroker_is_still_running"), tr("app.it_next_clock_serve_ai"))
 
     def quit(self):
         self._quitting = True
@@ -603,7 +616,7 @@ class Api:
         """Copy the encrypted vault into the chosen folder (OneDrive, a USB drive...), keeping the last ones."""
         folder = integrations.load_prefs().get("backup_folder")
         if not folder:
-            return {"ok": False, "error": "Elige primero una carpeta"}
+            return {"ok": False, "error": tr("app.choose_folder_first")}
         self._backup_tried = time.time()
         result = self.call("backup")
         if not result["ok"]:
@@ -616,7 +629,7 @@ class Api:
             for old in sorted(target.glob("SecretBroker_*.sbbackup"))[:-BACKUPS_KEPT]:
                 old.unlink()
         except OSError as exc:
-            return {"ok": False, "error": f"No se pudo escribir en {folder}: {exc.strerror or exc}"}
+            return {"ok": False, "error": tr("app.couldn_write", folder=folder, value=exc.strerror or exc)}
         integrations.set_pref("last_backup", datetime.now().isoformat(timespec="seconds"))
         return {"ok": True, "result": {"entries": result["result"]["entries"]}}
 
@@ -631,7 +644,7 @@ class Api:
         try:
             text = Path(path).read_text(encoding="utf-8")
         except (OSError, UnicodeError) as exc:
-            return {"ok": False, "error": f"No se pudo leer el archivo: {exc}"}
+            return {"ok": False, "error": tr("app.couldn_read_file_2", exc=exc)}
         if proof is None and client.request("status")["state"] == "no_vault":
             proof = {"kind": "none"}  # a new PC: there is no vault to protect yet (the service ignores it)
         return self.call("restore", {"vault": text, "master_password": master_password}, proof)
@@ -695,9 +708,9 @@ class Api:
         try:
             data = Path(path).read_bytes()
         except OSError as exc:
-            return {"ok": False, "code": "invalid", "error": f"No se pudo leer el archivo: {exc.strerror or exc}"}
+            return {"ok": False, "code": "invalid", "error": tr("app.couldn_read_file", value=exc.strerror or exc)}
         if len(data) > 3 * 1024 * 1024:
-            return {"ok": False, "code": "invalid", "error": "El archivo es demasiado grande (máximo 3 MB)"}
+            return {"ok": False, "code": "invalid", "error": tr("app.file_is_too_big_3")}
         try:
             text = data.decode("utf-8-sig")
         except UnicodeDecodeError:
@@ -721,11 +734,11 @@ class Api:
     def delete_import_source(self):
         """Delete the file just imported: it holds every password in clear."""
         if not self._import_path:
-            return {"ok": False, "error": "No hay ningún archivo que borrar"}
+            return {"ok": False, "error": tr("app.there_no_file_delete")}
         try:
             Path(self._import_path).unlink(missing_ok=True)
         except OSError as exc:
-            return {"ok": False, "error": f"No se pudo borrar: {exc.strerror or exc}"}
+            return {"ok": False, "error": tr("app.couldn_delete", value=exc.strerror or exc)}
         self._import_path = None
         return {"ok": True}
 
@@ -735,7 +748,7 @@ class Api:
         names = {"encrypted": ("SecretBroker-exportacion.sbexport", "Exportación cifrada (*.sbexport)"),
                  "json": ("SecretBroker-SIN-CIFRAR.json", "JSON (*.json)"), "csv": ("SecretBroker-SIN-CIFRAR.csv", "CSV (*.csv)")}
         if fmt not in names:
-            return {"ok": False, "code": "invalid", "error": "Formato no válido"}
+            return {"ok": False, "code": "invalid", "error": tr("app.invalid_format")}
         chosen = self._window.create_file_dialog(webview.SAVE_DIALOG, directory=str(Path.home() / "Documents"),
                                                  save_filename=names[fmt][0], file_types=(names[fmt][1],)) if self._window else None
         if not chosen:
@@ -747,7 +760,7 @@ class Api:
         try:
             target.write_text(result["result"].pop("content"), encoding="utf-8")
         except OSError as exc:
-            return {"ok": False, "code": "error", "error": f"No se pudo escribir {target}: {exc.strerror or exc}"}
+            return {"ok": False, "code": "error", "error": tr("app.couldn_write_2", target=target, value=exc.strerror or exc)}
         return {"ok": True, "result": {"path": str(target), "entries": result["result"]["entries"]}}
 
 
@@ -847,6 +860,9 @@ def main():
         resident.signal_running_instance()
         return
     _start_logging()
+    language = integrations.load_prefs().get("language")
+    i18n.set_default(language if i18n.valid(language) else i18n.system_language())  # until the page says
+    client.LANG = i18n.language()
     background = "--background" in sys.argv
     # Keep the page running at full speed while hidden: it answers the AI's requests.
     os.environ.setdefault("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",

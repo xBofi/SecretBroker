@@ -21,6 +21,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 from . import __version__, platform
+from .i18n import tr
 
 REPO = "xBofi/SecretBroker"
 RELEASES_URL = f"https://github.com/{REPO}/releases"
@@ -56,18 +57,18 @@ def sign(private_key_b64, version, data):
 def verify(version, data, signature_b64, public_key_b64=None):
     public_key_b64 = public_key_b64 or PUBLIC_KEY
     if not public_key_b64:
-        raise UpdateError("Esta versión no tiene clave de firma: no puede actualizarse sola")
+        raise UpdateError(tr("update.this_version_has_no_signing"))
     try:
         Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key_b64)).verify(
             base64.b64decode(signature_b64.strip()), signed_message(version, hashlib.sha256(data).digest()))
     except (InvalidSignature, ValueError):
-        raise UpdateError("La firma del instalador no es válida: no se instalará") from None
+        raise UpdateError(tr("update.installer_signature_isn_valid_it")) from None
 
 
 def _get(client, url, **kwargs):
     response = client.get(url, **kwargs)
     if response.status_code != 200:
-        raise UpdateError(f"GitHub respondió HTTP {response.status_code}")
+        raise UpdateError(tr("update.github_answered_http", status_code=response.status_code))
     return response
 
 
@@ -93,23 +94,23 @@ def _download(client, url):
     # GitHub answers asset downloads with a redirect to its storage host: follow it only there.
     for _ in range(3):
         if not _allowed_download(url):
-            raise UpdateError("Descarga desde un sitio no permitido")
+            raise UpdateError(tr("update.download_from_site_that_isn"))
         response = client.get(url)
         if response.is_redirect:
             url = response.headers["location"]
             continue
         if response.status_code != 200:
-            raise UpdateError(f"La descarga respondió HTTP {response.status_code}")
+            raise UpdateError(tr("update.download_answered_http", status_code=response.status_code))
         if len(response.content) > MAX_INSTALLER_BYTES:
-            raise UpdateError("El instalador es demasiado grande")
+            raise UpdateError(tr("update.installer_is_too_big"))
         return response.content
-    raise UpdateError("Demasiadas redirecciones")
+    raise UpdateError(tr("update.too_many_redirects"))
 
 
 def download(latest, folder):
     """Download and verify the installer of `latest` into `folder`. Returns its path."""
     if parse_version(latest["version"]) <= parse_version(__version__):
-        raise UpdateError("No hay ninguna versión más nueva")
+        raise UpdateError(tr("update.there_no_newer_version"))
     with httpx.Client(timeout=TIMEOUT * 4, follow_redirects=False) as client:
         signature = _download(client, latest["signature"]).decode("ascii", errors="replace")
         data = _download(client, latest["installer"]["url"])

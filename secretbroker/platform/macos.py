@@ -24,6 +24,7 @@ from pathlib import Path
 
 from .. import hello as biometric  # noqa: F401  TODO(macos): Touch ID; until then is_supported() is False
 from ._common import INTERFACE, ProtectError, key_file, open_sealed, seal, write_private
+from ..i18n import tr
 
 NAME = "macos"
 OS_LABEL = "macOS"
@@ -101,7 +102,7 @@ def protect_for_service(data, entropy, folder):
 def unprotect_for_service(blob, entropy, folder):
     path = Path(folder) / SERVICE_KEY_FILE
     if not path.exists():
-        raise ProtectError("Falta la clave de este equipo")
+        raise ProtectError(tr("linux.this_computer_key_is_missing"))
     return open_sealed(key_file(path), blob, entropy)
 
 
@@ -110,7 +111,7 @@ def protect_for_user(data, entropy):
 
 
 def unprotect_for_user(blob, entropy):
-    raise ProtectError("macOS: abrir con la sesión todavía no está disponible")  # TODO(macos): Keychain
+    raise ProtectError(tr("macos.macos_opening_with_session_isn"))  # TODO(macos): Keychain
 
 
 # --------------------------------------------------------------------------- processes

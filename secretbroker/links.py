@@ -9,7 +9,7 @@ import json
 import re
 from urllib.parse import quote, urlsplit
 
-from . import exposure
+from . import exposure, i18n
 
 
 def _link(label, url, hint=""):
@@ -219,7 +219,12 @@ def search_link(entry):
 
 
 def for_entry(entry):
-    """{"provider", "kind": {"label", "help"} | None, "links": [...]} for API keys of a known provider."""
+    """{"provider", "kind": {"label", "help"} | None, "links": [...]} for API keys of a known provider, in the
+    language of the request (messages links.*)."""
+    return i18n.localize("links", _for_entry(entry))
+
+
+def _for_entry(entry):
     if entry["template"] not in ("api_key", "generic"):
         return None
     console = console_kind(entry)
@@ -245,4 +250,4 @@ def catalog():
     providers.append({"provider": "Cloudflare", "links": _cloudflare_links(None, None, None)})
     providers.append({"provider": "Cloudflare AI Gateway", "links": _cloudflare_links("ai_gateway", None, None),
                       "help": CF_KINDS["ai_gateway"][1]})
-    return sorted(providers, key=lambda p: p["provider"].lower())
+    return i18n.localize("links", sorted(providers, key=lambda p: p["provider"].lower()))
