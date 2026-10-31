@@ -32,15 +32,19 @@ def prelogin(ctx):
 
 
 def _check_signup(ctx, address, token):
-    """Who may create an account. Returns the signup-token hash to consume, if one was used."""
+    """Who may create an account. Returns the signup-token hash to consume, if one was used.
+
+    E-mail ownership is not verified, so an SB_ADMIN_EMAILS address always needs a signup token (from the
+    `secretbroker-server create-invite` command), in every mode: otherwise whoever registers it first is admin."""
     settings = ctx.settings
-    if settings.signups == "open" or address in settings.admin_emails:
+    admin = address in settings.admin_emails
+    if settings.signups == "open" and not admin:
         return None
-    if settings.signups == "closed":
+    if settings.signups == "closed" and not admin:
         raise ApiError(403, "signups_closed", "Este servidor no admite cuentas nuevas.")
     if token:
         try:
-            invite_id = uuid_id(token)
+            invite_id = None if admin else uuid_id(token)
         except ApiError:
             invite_id = None
         if invite_id and ctx.conn.execute("SELECT 1 FROM invites WHERE id = ? AND email = ?",
@@ -50,6 +54,9 @@ def _check_signup(ctx, address, token):
         if ctx.conn.execute("SELECT 1 FROM signup_tokens WHERE token_hash = ? AND used_by IS NULL AND expires > ?",
                             (digest, now_epoch())).fetchone():
             return digest
+    if admin:
+        raise ApiError(403, "invite_required", "Para crear la cuenta de administrador necesitas un código de "
+                       "invitación: genéralo en el servidor con «secretbroker-server create-invite».")
     raise ApiError(403, "invite_required", "Necesitas una invitación para crear una cuenta en este servidor.")
 
 
@@ -139,15 +146,31 @@ def revoke_device(ctx):
     return {}
 
 
-@route("POST", "/accounts/password")
+@route("POST", "/accounts/password", tx=False)
 def change_password(ctx):
-    data = body(ctx.body, {"kdf": kdf, "auth_hash": b64(32), "private_blob": sealed(BLOB_MAX)})
+    """New password (and re-wrapped keys). Needs the current one, so a stolen session cannot take the account;
+    wrong guesses count against the same limits as logins. 403, not 401: the session itself is fine."""
+    data = body(ctx.body, {"current_auth_hash": b64(32), "kdf": kdf, "auth_hash": b64(32),
+                           "private_blob": sealed(BLOB_MAX)})
+    server, address = ctx.server, ctx.user["email"]
+    wait = max(server.ip_throttle.retry_after(ctx.ip), server.email_throttle.retry_after(address))
+    if wait:
+        raise rate_limited(wait)
+    row = ctx.db.conn().execute("SELECT auth_salt, auth_verifier FROM users WHERE id = ?", (ctx.uid,)).fetchone()
+    if not security.verify(data["current_auth_hash"], row["auth_salt"], row["auth_verifier"]):
+        server.ip_throttle.fail(ctx.ip)
+        server.email_throttle.fail(address)
+        with ctx.db.tx(write=True) as conn:
+            event(conn, None, ctx.uid, "password.fail", ctx.uid)
+        raise ApiError(403, "invalid_credentials", "La contraseña actual no es correcta.")
+    server.email_throttle.reset(address)
     salt = security.new_salt()
-    ctx.conn.execute("UPDATE users SET kdf = ?, auth_salt = ?, auth_verifier = ?, private_blob = ? WHERE id = ?",
+    with ctx.db.tx(write=True) as conn:
+        conn.execute("UPDATE users SET kdf = ?, auth_salt = ?, auth_verifier = ?, private_blob = ? WHERE id = ?",
                      (json.dumps(data["kdf"]), salt, security.verifier(data["auth_hash"], salt),
                       json.dumps(data["private_blob"]), ctx.uid))
-    ctx.conn.execute("DELETE FROM sessions WHERE user_id = ? AND id != ?", (ctx.uid, ctx.session_id))
-    event(ctx.conn, None, ctx.uid, "password.change", ctx.uid)
+        conn.execute("DELETE FROM sessions WHERE user_id = ? AND id != ?", (ctx.uid, ctx.session_id))
+        event(conn, None, ctx.uid, "password.change", ctx.uid)
     return {}
 
 

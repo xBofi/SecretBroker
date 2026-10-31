@@ -61,6 +61,11 @@ TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_i
                    "team_revoke", "team_share_entry", "team_unshare_entry", "team_accept_change")
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore") \
     + TEAM_CHANGE_OPS  # what the app that unlocked may do with one click
+# Team operations that can send credentials or keys to someone else's account. "Open with my Windows session"
+# needs no proof, and anything running as the user (the AI's shell too) could use it to get a one-click token,
+# so after such an unlock these need Hello or a password once; from then on they are one click again.
+TEAM_EXPORT_OPS = ("team_connect", "team_invite", "team_accept_invite", "team_confirm_member", "team_set_role",
+                   "team_grant", "team_share_entry")
 # Operations that may change a shared credential: the team sync runs soon after them to push it.
 TEAM_PUSH_OPS = {"save_entry", "delete_entry", "replace_key", "rotate", "update_credential", "ai_rotate", "ai_delete"}
 TEAM_SYNC_SECONDS = 300
@@ -119,7 +124,7 @@ class Service:
         self._challenges = {}
         self._approvals = {}
         self._grants = {}      # secret id -> monotonic expiry of "don't ask again" (None: until locked)
-        self._presence = None  # (token, expiry): the app that unlocked may approve without a password
+        self._presence = None  # (token, expiry, strong): the app that unlocked may approve without a password
         self._last_activity = time.monotonic()
         self._gui_seen = 0.0
         self._failures = 0
@@ -131,7 +136,7 @@ class Service:
         self._uses = collections.defaultdict(collections.deque)  # secret id -> monotonic times of recent uses
         self._server = None
         self.updates = update.Checker()
-        self.team = teams.Team(self.vault)
+        self.team = teams.Team(self.vault, on_removed=self._entry_removed)
         self._team_lock = threading.Lock()   # one team operation or sync at a time
         self._team_wake = threading.Event()  # set to sync now instead of waiting for the next round
         self._team_info = {"state": "idle"}
@@ -213,6 +218,9 @@ class Service:
                 presence = self._presence
             if presence and presence[1] > time.monotonic() and hmac.compare_digest(
                     str(proof.get("token", "")).encode(), presence[0].encode()):
+                if op in TEAM_EXPORT_OPS and not presence[2]:
+                    raise ServiceError("Confirma que eres tú una vez (Windows Hello o contraseña) para compartir "
+                                       "con otras personas", "proof_required")
                 return kind
             raise ServiceError("La verificación ha caducado; inténtalo de nuevo", "proof_invalid")
         if kind not in allowed:
@@ -328,7 +336,7 @@ class Service:
                 self._verify_proof("unlock", params, ("master_password",))
             else:
                 self._verify_proof("unlock", params, ("hello", "windows_password"))
-            return self._unlocked_result()
+            return self._unlocked_result(strong=proof.get("kind") != "session")
         if proof.get("kind") == "session":
             self._check_session_token(proof.get("token"))
             self.vault.unlock_with_device()
@@ -351,12 +359,13 @@ class Service:
         self._seal_audit_log()
         self._audit("vault", "unlock", proof.get("kind", ""), "ok")
         self._team_wake.set()  # sync in the background: unlocking never waits for the network
-        return self._unlocked_result()
+        return self._unlocked_result(strong=proof.get("kind") != "session")
 
-    def _unlocked_result(self):
+    def _unlocked_result(self, strong=True):
         # Whoever unlocked may look for copies of the secrets and approve the AI's requests without
         # proving it again (see op_exposure_begin and _verify_proof), until the vault is locked.
-        return {**self.op_status({}), "exposure_session": self._new_scan_session(), "presence": self._new_presence()}
+        return {**self.op_status({}), "exposure_session": self._new_scan_session(),
+                "presence": self._new_presence(strong)}
 
     def _check_session_token(self, token):
         """The app keeps this token protected with the user's Windows login (DPAPI): whoever is
@@ -440,10 +449,12 @@ class Service:
         self._audit("vault", "ai_permissions", detail, "ok")
         return self.op_ai_permissions({})
 
-    def _gate(self, capability, entry, action, detail):
+    def _gate(self, capability, entry, action, detail, strict=False):
         """Apply the user's choice for one of the AI's capabilities. Returns True if the user was
-        asked (and agreed), so the caller can skip the credential's own approval."""
+        asked (and agreed), so the caller can skip the credential's own approval. `strict`: at least ask."""
         level = self._ai_level(capability)
+        if strict and level in ("free", "notify"):
+            level = "ask"
         if level == "off":
             raise ServiceError(f"El usuario no permite a la IA: {AI_CAPABILITIES[capability][1].lower()}. "
                                "Pídele que lo haga en la app SecretBroker o que cambie el permiso en «Acceso de la IA».",
@@ -493,10 +504,11 @@ class Service:
                                "template": entry["template"], "kind": "approved", "until": until})
         return result
 
-    def _new_presence(self):
+    def _new_presence(self, strong=True):
+        """`strong`: the user proved it (password or Hello), not just the Windows session (TEAM_EXPORT_OPS)."""
         token = secrets.token_urlsafe(32)
         with self._lock:
-            self._presence = (token, time.monotonic() + 24 * 3600)
+            self._presence = (token, time.monotonic() + 24 * 3600, strong)
         return token
 
     def _approval_seconds(self):
@@ -593,13 +605,18 @@ class Service:
         self._verify_proof("delete_entry", params)
         self._require_team_write(self.vault.get(params["id"]))
         self.vault.delete(params["id"])
-        self._update_exposure(lambda data: data.get("entries", {}).pop(params["id"], None))
-        self._update_destinations(lambda data: data.get("entries", {}).pop(params["id"], None))
-        self._update_retired(lambda data: data.get("entries", {}).pop(params["id"], None))
-        with self._lock:
-            self._forget_grants(params["id"])
+        self._entry_removed(params["id"])
         self._audit(params["id"], "delete", "", "ok")
         return True
+
+    def _entry_removed(self, entry_id):
+        """Forget what this PC kept about a deleted credential, so nothing carries over to a later one
+        with the same id (approvals, GitHub destinations, exposure and retired-key records)."""
+        self._update_exposure(lambda data: data.get("entries", {}).pop(entry_id, None))
+        self._update_destinations(lambda data: data.get("entries", {}).pop(entry_id, None))
+        self._update_retired(lambda data: data.get("entries", {}).pop(entry_id, None))
+        with self._lock:
+            self._forget_grants(entry_id)
 
     def op_reveal(self, params):
         self._verify_proof("reveal", params)
@@ -1240,7 +1257,8 @@ class Service:
         detail = "\n".join(line for _, line in changes)
         capability = "create" if entry.get("draft") else "edit_config" if risky else "edit_notes"
         try:
-            self._gate(capability, entry, "edit", detail)
+            # What the AI writes on a team credential reaches every teammate's AI: the user always confirms it.
+            self._gate(capability, entry, "edit", detail, strict=bool(entry.get("shared")))
         except ServiceError as exc:
             self._audit(entry["id"], "edit", detail, "denied" if exc.code == "denied" else "error", str(exc))
             raise
@@ -1709,6 +1727,9 @@ class Service:
                          "Hasta que lo aceptes se sigue usando como estaba.")
         for item in notes["rotate"]:
             self._notify(f"Rota las claves de {item['collection']}", f"{', '.join(item['people'])} tenía acceso.")
+        for name in notes.get("trust", []):
+            self._notify(f"Confirma la huella de {name}", "Hasta entonces no se usan las claves de colección que "
+                         "firma ni se le da ninguna. Ábrelo en Equipo.")
         for entry_id in notes["conflicts"]:
             self._notify("Conflicto al sincronizar", f"Alguien cambió la credencial a la vez. Tu versión está en {entry_id}.")
             self._audit(entry_id, "team_conflict", "tu versión, guardada aparte", "error")
@@ -1716,17 +1737,19 @@ class Service:
             self._notify("Credenciales nuevas del equipo", ", ".join(notes["added"]))
 
     def _team_call(self, op, params, action, change=True):
-        if change:
-            self._verify_proof(op, params)
+        kind = self._verify_proof(op, params) if change else "presence"
         if not self.vault.is_unlocked:
             raise VaultLocked()
         with self._team_lock:
             try:
-                return action()
+                result = action()
             except teams.TeamError as exc:
                 if exc.code == "reconnect":
                     self._team_info = {**self._team_info, "state": "reconnect", "error": str(exc)}
                 raise
+        if kind != "presence" and isinstance(result, dict):
+            result = {**result, "presence": self._new_presence()}  # proved it: one click again from now on
+        return result
 
     def op_team_status(self, params):
         status = self.team.status()

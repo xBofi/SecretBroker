@@ -95,14 +95,18 @@ class Api:
         set up; otherwise (or if cancelled) the UI is asked to collect a password proof."""
         params = dict(params or {})
         try:
+            weak = False  # opened with the Windows session: sharing with others needs Hello or a password once
             if op in PRESENCE_OPS and proof is None and self._presence:
                 try:
                     return {"ok": True, "result": client.request(op, {**params, "proof": {"kind": "presence", "token": self._presence}})}
                 except BrokerError as exc:
-                    if exc.code != "proof_invalid":
+                    if exc.code == "proof_required":
+                        weak = True
+                    elif exc.code != "proof_invalid":
                         raise
-                    self._presence = None
-            if op in PROOF_OPS and proof is None:
+                    else:
+                        self._presence = None
+            if (op in PROOF_OPS or weak) and proof is None:
                 status = client.request("status", timeout=10)
                 if not (status["hello_enrolled"] and hello.is_supported()):
                     return {"ok": False, "code": "proof_required", "error": "Verifica tu identidad"}
@@ -112,7 +116,8 @@ class Api:
             result = client.request(op, params)
             if op in ("unlock", "exposure_begin", "restore", "create_vault") and isinstance(result, dict):
                 self._scan_session = result.pop("exposure_session", None) or result.get("session") or self._scan_session
-            if op in ("unlock", "approve", "restore", "create_vault") and isinstance(result, dict) and result.get("presence"):
+            if (op in ("unlock", "approve", "restore", "create_vault") or op in TEAM_CHANGE_OPS) \
+                    and isinstance(result, dict) and result.get("presence"):
                 self._presence = result.pop("presence")
             return {"ok": True, "result": result}
         except hello.HelloCancelled:

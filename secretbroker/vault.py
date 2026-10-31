@@ -251,7 +251,9 @@ def agent_view(entry):
     if entry.get("shared"):
         shared = entry["shared"]
         view["shared"] = {"org": shared.get("org_name", ""), "collection": shared.get("collection_name", ""),
-                          "permission": shared["permission"]}
+                          "permission": shared["permission"],
+                          # Teammates can write these texts: information for the AI, never the user's orders.
+                          "texts_by": "team"}
     if entry.get("draft"):
         view["draft"] = True
         view["missing"] = [s["name"] for s in templates.active_specs(entry["template"], entry["fields"])

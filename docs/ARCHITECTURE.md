@@ -53,10 +53,19 @@ Changing the account password re-wraps `private_blob`; it does not change keys.
 
 ### 2.2 Fingerprints and key pinning
 
-`fingerprint(user) = SHA-256(x25519_pub || ed25519_pub)`, shown as 8 groups of 4 hex chars. Clients pin the first
-fingerprint they see for each user id (`team.pinned`) and refuse to seal to a changed key without the user confirming
-again. Confirming a new member shows their fingerprint so it can be compared over another channel (optional, but the
-UI recommends it for admins).
+`fingerprint(user) = SHA-256(x25519_pub || ed25519_pub)`, shown as 8 groups of 4 hex chars. The server hands out
+public keys, so a client never trusts one on first sight: a key is pinned (`team.pinned`) only by an explicit act of
+the user on this PC:
+
+* **confirming** someone (an admin lets in who accepted an invite) or **verifying** them (any member, for someone
+  already in the organization): one click, the fingerprint is shown to compare over another channel;
+* **accepting an invite** pins whoever sent it (accepting is the user saying they know that person).
+
+Only pinned keys are used: a grant is sealed only to a pinned key, and a received grant is only opened if it is
+signed by this user or by a pinned person who `manage`s the collection. Anything else leaves the collection (or the
+new key version) unused and lists that person in `team_status.waiting` until the user verifies them. A pinned key
+that changed is never re-pinned with one click: the user must type the fingerprint the other person reads out.
+Pins are per device (a second PC of the same user verifies people again).
 
 ### 2.3 Organizations, collections and items
 
@@ -79,14 +88,22 @@ UI recommends it for admins).
 * **Item**: one credential. Plaintext is the vault entry JSON (without local-only data: approvals, destinations,
   exposure, used_in stays shared), encrypted with the collection key:
   `aad = b"secretbroker/item/v1|" + cid + "|" + item_id + "|" + str(key_version)`. The plaintext includes
-  `author` and `updated` so clients can show who changed what.
+  `author` and `updated` so clients can show who changed what, and `seq`, a per-item counter every write increments:
+  a client refuses an item whose `seq` is lower than the one it has (or equal with other content), so the server
+  cannot serve an older version again. Items with a `key_version` older than the collection's are refused (every
+  live item is re-encrypted at a re-key, so only someone who left could have made them), and clients keep only the
+  current collection key; a collection served with an older `key_version` than the client knows is refused.
 
 ### 2.4 Membership changes and offboarding
 
 Removing a member (or downgrading them out of a collection) **re-keys** every collection they could read: a member with
 `manage` generates a new collection key, re-encrypts all items and seals new grants for the remaining members, in one
 atomic `rotate` call (`key_version + 1`). The server marks a collection `needs_rekey` until that happens and refuses
-new grants with the old version.
+new grants and item writes (`409 needs_rekey`) with the old version; clients keep such edits local and push them
+after the re-key. The new key is sealed only to listed members this client trusts (2.2), never to the person just
+removed; if the server lists anyone else, the re-key stops and asks the user to verify them. Which collections to
+re-key comes from the server's answer *and* from the members this client last saw in each collection. Removing from
+the organization the only `manage` member of a collection is refused (`400 last_manager`, with `collections`).
 
 Re-keying protects *future* changes only: the removed person may have seen the secrets. Every credential in those
 collections is flagged **"rotate: <person> had access"** and appears in the reminders and in the guided rotation
@@ -98,7 +115,15 @@ A teammate with `edit` could change a shared credential's `policy` (allowed host
 else through *your* AI. So a synced change to anything that decides where a key can go is **quarantined** locally:
 the entry keeps its previous policy and shows "change to review" until the user accepts it with one click. Names,
 notes, tags and secret values (a teammate rotated the key) apply immediately. The local approval mode
-(`policy.approval`) is always the local user's own and is never taken from the server.
+(`policy.approval`) is always the local user's own and is never taken from the server. A credential new to this PC
+arrives with its programs and environment variables (`policy.commands`, code that would run on this PC) quarantined
+the same way; its web hosts and server fields apply. A local id freed by a synced deletion is never given to another
+credential in that round, and the service forgets the approvals, destinations and exposure records of every
+credential a sync removes.
+
+Descriptions, `used_in` and rotation guides of shared credentials are written by teammates, so the AI sees
+`shared.texts_by = "team"` and is told to treat them as information, not as its user's instructions; an AI edit of a
+shared credential always asks the user.
 
 ## 3. Sync
 
@@ -136,7 +161,7 @@ notes, tags and secret values (a teammate rotated the key) apply immediately. Th
 | `POST /accounts/logout` | → `{}` (revokes this token) |
 | `GET /me` | → `{user, devices: [{id, name, created, last_seen, current}]}` |
 | `DELETE /me/devices/{id}` | → `{}` |
-| `POST /accounts/password` | `{kdf, auth_hash, private_blob}` → `{}` (revokes other sessions) |
+| `POST /accounts/password` | `{current_auth_hash, kdf, auth_hash, private_blob}` → `{}` (revokes other sessions; a wrong current password is `403 invalid_credentials` and counts like a failed login) |
 | `GET /users/{uid}/keys` | → `{id, email, name, public_key, signing_public_key}` (only users sharing an org with you, or invited by your org) |
 | `POST /orgs` | `{name}` → `{id}` (caller is owner) |
 | `GET /orgs` | → `[{id, name, role}]` |
@@ -146,7 +171,7 @@ notes, tags and secret values (a teammate rotated the key) apply immediately. Th
 | `POST /invites/{id}/accept` | → `{}` (status accepted; an admin must confirm, see fingerprints) |
 | `POST /orgs/{oid}/members/{uid}/confirm` | → `{}` (admin) |
 | `PATCH /orgs/{oid}/members/{uid}` | `{role}` → `{}` (owner/admin rules) |
-| `DELETE /orgs/{oid}/members/{uid}` | → `{needs_rekey: [cid…]}` (admin, or self to leave) |
+| `DELETE /orgs/{oid}/members/{uid}` | → `{needs_rekey: [cid…]}` (admin, or self to leave; `400 last_manager {collections}` if they are a collection's only manager) |
 | `POST /orgs/{oid}/collections` | `{id, encrypted_name, grant}` → `{}` (admin; creator gets `manage`) |
 | `GET /collections` | → my collections `[{id, org_id, encrypted_name, key_version, permission, grant, needs_rekey, revision}]` |
 | `DELETE /collections/{cid}` | → `{}` (manage) |
@@ -155,7 +180,7 @@ notes, tags and secret values (a teammate rotated the key) apply immediately. Th
 | `DELETE /collections/{cid}/members/{uid}` | → `{}` (manage; sets `needs_rekey`) |
 | `POST /collections/{cid}/rotate` | `{key_version, encrypted_name, grants: {uid: grant}, items: {iid: ciphertext}}` → `{revision}` (manage; atomic; must cover every member and every live item) |
 | `GET /collections/{cid}/items?since=N` | → `{revision, items: [{id, revision, key_version, ciphertext, deleted, updated_by, updated}]}` |
-| `PUT /collections/{cid}/items/{iid}` | `{ciphertext, key_version, base_revision}` → `{revision}` / `409 {revision}` (edit) |
+| `PUT /collections/{cid}/items/{iid}` | `{ciphertext, key_version, base_revision}` → `{revision}` / `409 {revision}` (edit; `409 needs_rekey` while the collection waits for a re-key; `413 collection_full` past the quota) |
 | `DELETE /collections/{cid}/items/{iid}` | `{base_revision}` → `{revision}` (edit) |
 | `GET /orgs/{oid}/events?before=` | → `[{time, actor, action, target}]` (admin) |
 
@@ -177,17 +202,20 @@ Implementation notes (`server/`, binding for clients):
   (else `409 key_version`), grants for exactly the current members and ciphertext for exactly the live items (else
   `400 incomplete`); all rotated items get the one new revision.
 * **Extra response fields** (additive): `GET /orgs` items carry `status`; invited rows of `GET /orgs/{oid}/members`
-  carry `invite_id` (and `user_id` null if not registered yet); `GET /invites` adds `invited_by_email`,
+  carry `invite_id` for org admins only (it works as a signup token) (and `user_id` null if not registered yet); `GET /invites` adds `invited_by_email`,
   `invited_by_name`; `user` objects add `admin` (server admin); events add `id` (newest first, 100 per page,
   `before=<id>`); the 429 answer has `retry_after` and a `Retry-After` header.
 * **Extra endpoints.** `DELETE /invites/{id}` → `{}` (the invitee declines, or an org admin withdraws it).
   `POST /admin/invites` `{days?}` → `{token, expires}` (server admin: a single-use signup token).
 * **Signups.** `open`: anyone; the first account becomes server admin. `invite`: `invite_token` must be a signup
   token (`POST /admin/invites` or `secretbroker-server create-invite`) or the id of a pending org invite for that
-  same e-mail. `closed`: nobody. E-mails in `SB_ADMIN_EMAILS` can always register and are server admins.
+  same e-mail. `closed`: nobody. E-mails in `SB_ADMIN_EMAILS` are server admins, but since e-mail ownership is not
+  verified they register (in any mode, `closed` included) only with a signup token, normally from the server's
+  command line (`secretbroker-server create-invite`), so nobody can take the address first.
 * **Limits.** Login failures are throttled per e-mail (5 free) and per client address (20 free), then each failure
   doubles the wait (max 15 min) and attempts during the wait get `429`, even with the right password. Registrations
-  are throttled per address. More settings: `SB_ALLOW_HTTP`, `SB_TRUST_PROXY` (use `X-Forwarded-For`, only behind the
+  are throttled per address. A collection's ciphertext is capped at `SB_MAX_BODY / 2` so a re-key always fits in
+  one `rotate` request. More settings: `SB_ALLOW_HTTP`, `SB_TRUST_PROXY` (use `X-Forwarded-For`, only behind the
   bundled Caddy), `SB_MAX_BODY`, `SB_SERVER_NAME`.
 
 ## 5. Desktop service operations for teams
@@ -221,17 +249,27 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
 * **Permissions on this PC.** Without `edit`/`manage`, the service refuses edits, deletes and rotations of a shared
   credential; only its local approval mode may change. `delete_entry` with write permission deletes it for the team
   (tombstone); `team_unshare_entry` removes it from the collection but keeps it here as a personal credential.
-  Losing access to a collection (removed, left, deleted, `team_disconnect`) removes its credentials from this PC.
+  Losing access to a collection (removed, left, deleted, `team_disconnect`) removes its credentials from this PC,
+  except a credential this user shared from their personal vault (`shared.own`), which stays as a personal one, and
+  edits not pushed yet, kept as a personal `<id>-conflict` copy.
+* **Waiting for trust.** `team_status.waiting = [{user_id, name, email, fingerprint, org, collections}]`: people
+  whose key is not pinned here and who signed a collection key for this user (or must receive one in a re-key).
+  The sync notes add `trust` (their names) and `held` (edits kept local while a collection waits for a re-key).
 * **Proofs.** `team_status, team_sync, team_orgs, team_invites, team_members, team_collections,
   team_collection_members, team_events` only need an unlocked vault; every other team op needs a proof and accepts
-  the presence token (one click). `team_sync` and the background sync never raise: `team_status.state` is
+  the presence token (one click). After an unlock with the Windows session (no proof; anything running as the user
+  could do it), the ops that can send credentials or keys to another account (`team_connect, team_invite,
+  team_accept_invite, team_confirm_member, team_set_role, team_grant, team_share_entry`) answer `proof_required`
+  once; a real proof returns a full presence token in the result (`presence`), and they are one click again. `team_sync` and the background sync never raise: `team_status.state` is
   `off | idle | syncing | ok | error | offline | reconnect`, with `error` and counts of the `last` round.
   The general `status` op also carries `team` (that state) and `team_sync` (time of the last finished round), so
   the GUI's 1.5 s poll notices a finished round and reloads only when `team_status.last` says something arrived.
 * **Op parameters.** `team_connect {server_url, email, password, mode: register|login, name?, device_name?,
   invite_token?}`, `team_invite {org, email, role}`, `team_accept_invite {id}`, `team_members {org}` (rows add
-  `fingerprint`, `key_changed`, `me`), `team_confirm_member {org, user_id, fingerprint?}`, `team_set_role {org,
-  user_id, role}`, `team_remove_member {org, user_id}` → `{rekeyed, pending}`, `team_create_collection {org, name}`,
+  `fingerprint`, `key_changed`, `trusted`, `me`), `team_confirm_member {org, user_id, fingerprint?}`, `team_set_role {org,
+  user_id, role}` (`team_confirm_member` pins the key on this PC; for a member already confirmed in the org it
+  only verifies them locally, so any member may call it; a changed key needs `fingerprint`), `team_remove_member
+  {org, user_id}` → `{rekeyed, pending}`, `team_create_collection {org, name}`,
   `team_collection_members {collection}`, `team_grant {collection, user_id, permission}`, `team_revoke {collection,
   user_id}` (own id: leave), `team_share_entry {id, collection}`, `team_unshare_entry {id}`,
   `team_accept_change {id, accept?}`, `team_events {org, before?}`.
@@ -242,8 +280,10 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   account or log in; nothing prefilled). Connected: sync state and «Sincronizar ahora» in the header; items to review
   (quarantined changes, "rotate because <person> had access" with a link to the guided rotation); invitations to
   accept; per organization its collections (members and permission, add / change / remove, create) and people
-  (invite with role, pending confirmations with the fingerprint to compare and one-click «Confirmar», role, remove
-  with the re-key / rotate warning), and the org events for admins; the account, its fingerprint and «Desconectar».
+  (invite with role, pending confirmations with the fingerprint to compare and one-click «Confirmar», «Verificar»
+  for teammates not verified on this PC, a typed fingerprint when a key changed, role, remove with the re-key /
+  rotate warning), and the org events for admins; people waiting to be verified in «Por revisar»; the account, its
+  fingerprint and «Desconectar».
 * Credential detail: «Compartir» (choose a writable collection), a collection · permission badge, «Dejar de
   compartir», the quarantined change box («Aceptar» / «Mantener la actual», the latter only with edit permission),
   reveal and copy hidden for `use`, and edit / delete / rotate limited to what the permission allows. Deleting a

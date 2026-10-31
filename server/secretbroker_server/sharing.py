@@ -17,6 +17,11 @@ NAME_MAX = 1024
 WRITE = ("manage", "edit")
 
 
+def collection_quota(settings):
+    """All of a collection's ciphertext must fit in one rotate request, with room left for the grants."""
+    return settings.max_body // 2
+
+
 def access(conn, cid, uid):
     """The collection as seen by a confirmed member; anyone else gets 404."""
     row = conn.execute(
@@ -208,9 +213,17 @@ def put_item(ctx):
     if data["key_version"] != row["key_version"]:
         raise ApiError(409, "key_version", "La colección cambió de clave. Sincroniza y repite.",
                        key_version=row["key_version"])
+    if row["needs_rekey"]:
+        # Someone who left still holds this key: nothing new is written with it until a manager re-keys.
+        raise ApiError(409, "needs_rekey", "Hay que cambiar la clave de la colección antes de guardar cambios. "
+                       "Lo hace quien la gestiona al sincronizar.")
     current = item["revision"] if item else 0
     if data["base_revision"] != current:
         raise conflict(current)
+    stored = ctx.conn.execute("SELECT COALESCE(SUM(LENGTH(ciphertext)), 0) FROM items WHERE collection_id = ? "
+                              "AND id != ? AND deleted = 0", (cid, iid)).fetchone()[0]
+    if stored + len(dump(data["ciphertext"])) > collection_quota(ctx.settings):
+        raise ApiError(413, "collection_full", "La colección está llena: reparte sus credenciales en otra.")
     revision = _bump(ctx.conn, cid)
     ctx.conn.execute(
         "INSERT INTO items (collection_id, id, revision, key_version, ciphertext, deleted, updated_by, updated) "

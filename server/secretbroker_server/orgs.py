@@ -56,15 +56,17 @@ def list_orgs(ctx):
 @route("GET", "/orgs/{oid}/members")
 def list_members(ctx):
     oid = path_id(ctx.params["oid"])
-    membership(ctx.conn, oid, ctx.uid)
+    caller = membership(ctx.conn, oid, ctx.uid)
     rows = ctx.conn.execute("SELECT u.id, u.email, u.name, m.role, m.status FROM org_members m JOIN users u "
                             "ON u.id = m.user_id WHERE m.org_id = ? ORDER BY u.email", (oid,)).fetchall()
     members = [{"user_id": r["id"], "email": r["email"], "name": r["name"], "role": r["role"], "status": r["status"]}
                for r in rows]
     invites = ctx.conn.execute("SELECT i.id, i.email, i.role, u.id AS user_id, u.name FROM invites i LEFT JOIN users u "
                                "ON u.email = i.email WHERE i.org_id = ? ORDER BY i.email", (oid,)).fetchall()
+    # The invite id doubles as a signup token for that e-mail (SB_SIGNUPS=invite): only admins see it.
+    admin = caller["role"] in ADMIN_ROLES
     members += [{"user_id": r["user_id"], "email": r["email"], "name": r["name"] or "", "role": r["role"],
-                 "status": "invited", "invite_id": r["id"]} for r in invites]
+                 "status": "invited", **({"invite_id": r["id"]} if admin else {})} for r in invites]
     return members
 
 
@@ -178,6 +180,15 @@ def remove_member(ctx):
     cids = [r[0] for r in ctx.conn.execute(
         "SELECT c.id FROM collections c JOIN collection_members cm ON cm.collection_id = c.id "
         "WHERE c.org_id = ? AND cm.user_id = ? ORDER BY c.id", (oid, uid)).fetchall()]
+    # Without a manager nobody could re-key, grant or delete the collection again: hand it over first.
+    orphans = [r[0] for r in ctx.conn.execute(
+        "SELECT cm.collection_id FROM collection_members cm JOIN collections c ON c.id = cm.collection_id "
+        "WHERE c.org_id = ? AND cm.user_id = ? AND cm.permission = 'manage' AND NOT EXISTS (SELECT 1 FROM "
+        "collection_members o WHERE o.collection_id = cm.collection_id AND o.permission = 'manage' "
+        "AND o.user_id != cm.user_id) ORDER BY cm.collection_id", (oid, uid)).fetchall()]
+    if orphans:
+        raise ApiError(400, "last_manager", "Es la única persona que gestiona alguna colección. Antes, da permiso "
+                       "de gestionar a otra persona en esas colecciones (o bórralas).", collections=orphans)
     for cid in cids:
         ctx.conn.execute("DELETE FROM collection_members WHERE collection_id = ? AND user_id = ?", (cid, uid))
         ctx.conn.execute("UPDATE collections SET needs_rekey = 1 WHERE id = ?", (cid,))

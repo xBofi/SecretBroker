@@ -300,6 +300,12 @@ def connected(state):
     return bool(state.get("token") and state.get("keys") and state.get("user"))
 
 
+def _seq(plain):
+    """The write counter inside an item's plaintext (0 for items written before it existed)."""
+    seq = plain.get("seq", 0)
+    return seq if isinstance(seq, int) and not isinstance(seq, bool) and seq >= 0 else 0
+
+
 def _label(person):
     return (person or {}).get("name") or (person or {}).get("email") or SOMEONE
 
@@ -307,8 +313,11 @@ def _label(person):
 class Team:
     """Team operations on one vault. The service runs them one at a time, with the vault unlocked."""
 
-    def __init__(self, vault):
+    def __init__(self, vault, on_removed=None):
         self.vault = vault
+        self.on_removed = on_removed  # called with the id of each credential a sync removes from this PC
+        self._freed = set()       # ids removed in this sync round: never handed to another credential
+        self._removed_ids = []
 
     # ------------------------------------------------------------------ account
 
@@ -322,7 +331,10 @@ class Team:
                 "device": state.get("device"), "last_sync": state.get("last_sync"),
                 "orgs": len(state.get("orgs") or {}), "collections": len(state.get("collections") or {}),
                 "shared": len(entries), "pending_changes": sum(1 for e in entries if e["shared"].get("pending_policy")),
-                "needs_rekey": sum(1 for c in (state.get("collections") or {}).values() if c.get("needs_rekey"))}
+                "needs_rekey": sum(1 for c in (state.get("collections") or {}).values() if c.get("needs_rekey")),
+                "waiting": [{k: p.get(k) for k in ("user_id", "name", "email", "fingerprint", "org")}
+                            | {"collections": len(p.get("collections") or [])}
+                            for p in (state.get("waiting") or {}).values()]}
 
     def connect(self, server_url, email, password, mode, name="", device_name="", invite_token=None):
         """Link (mode "register") or log in to a team account. The only time the account password is used."""
@@ -376,13 +388,15 @@ class Team:
                     api.call("POST", "/accounts/logout")
             except TeamError:
                 pass  # offline or already expired: the token is forgotten anyway
-        removed = 0
-        for entry in self.vault.entries():
+        notes = {"removed": [], "conflicts": []}
+        for cid in list(state.get("collections") or {}):
+            notes["removed"] += self._drop_collection(state, cid, notes)
+        for entry in self.vault.entries():  # anything left without a known collection
             if entry.get("shared"):
-                self.vault.delete(entry["id"])
-                removed += 1
+                self._leave(entry, False, notes)
         self.vault.set_team({})
-        return {"removed": removed}
+        self._flush_removed()
+        return {"removed": len(notes["removed"]), "kept": len(notes.get("kept", [])) + len(notes["conflicts"])}
 
     def _api(self, state):
         if not connected(state):
@@ -394,23 +408,41 @@ class Team:
 
     # ------------------------------------------------------------------ people and their keys (2.2)
 
+    @staticmethod
+    def _fetch_keys(api, uid):
+        data = api.call("GET", f"/users/{uid}/keys")
+        return {"public_key": data["public_key"], "signing_public_key": data["signing_public_key"],
+                "email": data.get("email"), "name": data.get("name"),
+                "fp": fingerprint(data["public_key"], data["signing_public_key"])}
+
     def _peer_keys(self, api, state, uid, fresh=True):
-        """A person's public keys, checked against the fingerprint pinned the first time they were seen."""
+        """A person's public keys, only once this user trusts them (pinned by confirming or verifying that
+        person, or by accepting their invite), and checked against that pinned fingerprint. Keys the server
+        hands out are never trusted on first sight: they decide who gets collection keys (2.2)."""
         if uid == state["user"]["id"]:
             return {"public_key": state["public_key"], "signing_public_key": state["signing_public_key"],
                     "email": state["user"]["email"], "name": state["user"]["name"]}
         pinned = state["pinned"].get(uid)
-        if pinned and not fresh:
+        if not pinned:
+            raise self._untrusted(api, uid)
+        if not fresh:
             return pinned
-        data = api.call("GET", f"/users/{uid}/keys")
-        found = {"public_key": data["public_key"], "signing_public_key": data["signing_public_key"],
-                 "email": data.get("email"), "name": data.get("name"),
-                 "fp": fingerprint(data["public_key"], data["signing_public_key"])}
-        if pinned and pinned["fp"] != found["fp"]:
+        found = self._fetch_keys(api, uid)
+        if pinned["fp"] != found["fp"]:
             raise TeamError(f"La clave de {_label(found)} ha cambiado desde que la confirmaste. Compara su huella "
                             "con esa persona y vuelve a confirmarla antes de compartir nada con ella.", "key_changed")
-        state["pinned"][uid] = found
-        return found
+        return pinned
+
+    def _untrusted(self, api, uid, org=None):
+        """The error for someone whose key this user has not confirmed yet, with what the app needs to ask."""
+        try:
+            person = self._fetch_keys(api, uid)
+        except TeamError:
+            person = {}
+        return TeamError(f"Antes confirma la huella de {_label(person)} en Equipo › Personas: así nadie, ni el "
+                         "servidor, puede colarse con otra clave.", "untrusted",
+                         data={"user_id": uid, "name": person.get("name"), "email": person.get("email"),
+                               "fingerprint": person.get("fp"), "org": org})
 
     # ------------------------------------------------------------------ organizations
 
@@ -438,20 +470,33 @@ class Team:
             return api.call("GET", "/invites")
 
     def accept_invite(self, invite_id):
-        with self._api(self.vault.team()) as api:
+        """Join an organization. Whoever sent the invite is trusted from now on (their key is pinned): accepting
+        it is this user saying they know that person. Anyone else is confirmed by hand (confirm_member)."""
+        state = self.vault.team()
+        with self._api(state) as api:
+            invite = next((i for i in api.call("GET", "/invites") if i.get("id") == invite_id), None)
             api.call("POST", f"/invites/{invite_id}/accept")
+            by = (invite or {}).get("invited_by")
+            if by and by != state["user"]["id"] and by not in state["pinned"]:
+                try:
+                    state["pinned"][by] = self._fetch_keys(api, by)
+                except TeamError:
+                    pass  # confirmed by hand later, if they grant anything
+        self.vault.set_team(state)
         self.orgs()
         return {}
 
     def members(self, oid):
-        """Members with their key fingerprints, and whether each one still matches the pinned one."""
+        """Members with their key fingerprints, whether this user trusts each one (`trusted`: pinned with the
+        same fingerprint) and whether a pinned key has changed since."""
         state = self.vault.team()
         with self._api(state) as api:
             rows = api.call("GET", f"/orgs/{oid}/members")
             for row in rows:
-                row["fingerprint"], row["key_changed"] = None, False
+                row["fingerprint"], row["key_changed"], row["trusted"] = None, False, False
                 if not row.get("user_id"):
                     continue
+                row["me"] = row["user_id"] == state["user"]["id"]
                 try:
                     data = api.call("GET", f"/users/{row['user_id']}/keys")
                 except TeamError:
@@ -459,18 +504,19 @@ class Team:
                 row["fingerprint"] = fingerprint(data["public_key"], data["signing_public_key"])
                 pinned = state["pinned"].get(row["user_id"])
                 row["key_changed"] = bool(pinned and pinned["fp"] != row["fingerprint"])
-                row["me"] = row["user_id"] == state["user"]["id"]
+                row["trusted"] = row["me"] or bool(pinned and not row["key_changed"])
         return rows
 
     def confirm_member(self, oid, uid, expected_fingerprint=None):
-        """Let someone who accepted an invite in. With a fingerprint (read out by that person), it must match;
-        confirming also pins their key, or re-pins it after they changed it."""
+        """Trust someone's key on this PC, and let them into the organization if they are waiting for an admin.
+        With a fingerprint (typed by this user, as read out by that person) it must match. A key that changed
+        since it was pinned is only re-pinned with that typed fingerprint: one click is not enough there."""
         state = self.vault.team()
         with self._api(state) as api:
-            data = api.call("GET", f"/users/{uid}/keys")
-            found = {"public_key": data["public_key"], "signing_public_key": data["signing_public_key"],
-                     "email": data.get("email"), "name": data.get("name"),
-                     "fp": fingerprint(data["public_key"], data["signing_public_key"])}
+            row = next((r for r in api.call("GET", f"/orgs/{oid}/members") if r.get("user_id") == uid), None)
+            if row is None or row.get("status") not in ("accepted", "confirmed"):
+                raise TeamError("Esa persona no está en la organización", "not_found")
+            found = self._fetch_keys(api, uid)
             if expected_fingerprint and not _same_fingerprint(expected_fingerprint, found["fp"]):
                 raise TeamError(f"La huella no coincide con la de {_label(found)}. No la confirmes: alguien podría "
                                 "estar haciéndose pasar por esa persona.", "fingerprint_mismatch")
@@ -478,8 +524,10 @@ class Team:
             if pinned and pinned["fp"] != found["fp"] and not expected_fingerprint:
                 raise TeamError(f"La clave de {_label(found)} ha cambiado. Pídele su huella y escríbela para "
                                 "confirmarla.", "key_changed")
-            api.call("POST", f"/orgs/{oid}/members/{uid}/confirm")
+            if row["status"] == "accepted":
+                api.call("POST", f"/orgs/{oid}/members/{uid}/confirm")
         state["pinned"][uid] = found
+        state.get("waiting", {}).pop(uid, None)
         self.vault.set_team(state)
         return {"fingerprint": found["fp"]}
 
@@ -496,7 +544,12 @@ class Team:
             result = api.call("DELETE", f"/orgs/{oid}/members/{uid}")
             if uid == state["user"]["id"]:
                 return {"left": True, "rekeyed": [], "pending": result.get("needs_rekey") or []}
-            rekeyed, pending = self._rekey_after(api, state, result.get("needs_rekey") or [], [person])
+            # The server's list, plus every collection this PC knows they were in: an empty or short answer
+            # must not leave them with a working key.
+            known = [cid for cid, c in sorted(state["collections"].items())
+                     if c.get("org") == oid and uid in (c.get("members") or {})]
+            cids = list(dict.fromkeys([*(result.get("needs_rekey") or []), *known]))
+            rekeyed, pending = self._rekey_after(api, state, cids, [person], [uid])
         self.vault.set_team(state)
         return {"rekeyed": rekeyed, "pending": pending}
 
@@ -508,12 +561,18 @@ class Team:
             row = None
         return _label(row or state["pinned"].get(uid))
 
-    def _rekey_after(self, api, state, cids, people):
+    def _rekey_after(self, api, state, cids, people, removed):
         rekeyed, pending = [], []
         for cid in cids:
             coll = state["collections"].get(cid)
             if coll and coll.get("permission") == "manage":
-                self._rekey(api, state, cid, people)
+                try:
+                    self._rekey(api, state, cid, people, removed)
+                except TeamError as exc:
+                    if exc.code != "not_found":
+                        raise
+                    pending.append(cid)  # gone from the server meanwhile: the next sync drops it here
+                    continue
                 rekeyed.append(cid)
             else:
                 pending.append(cid)
@@ -587,7 +646,7 @@ class Team:
                 except TeamError as exc:
                     if exc.code != "needs_rekey" or attempt:
                         raise
-                    self._rekey(api, state, cid, self._gone(api, state, cid))
+                    self._rekey(api, state, cid, *self._gone(api, state, cid))
             coll.setdefault("members", {})[uid] = {"name": _label(state["pinned"].get(uid)), "permission": permission}
         self.vault.set_team(state)
         self._refresh_entries(state, cid)
@@ -607,19 +666,24 @@ class Team:
             if uid == me:
                 self._drop_collection(state, cid)
             else:
-                self._rekey(api, state, cid, [person])
+                self._rekey(api, state, cid, [person], [uid])
         self.vault.set_team(state)
+        self._flush_removed()
         return {}
 
     def _gone(self, api, state, cid):
-        """Who left a collection since this PC last looked (for the 'rotate because…' reminder)."""
+        """Who left a collection since this PC last looked: (names for the 'rotate because…' reminder, ids)."""
         coll = state["collections"][cid]
         current = {r["user_id"] for r in api.call("GET", f"/collections/{cid}/members")}
-        return sorted({_label(m) for uid, m in (coll.get("members") or {}).items() if uid not in current}) or [SOMEONE]
+        gone = {uid: m for uid, m in (coll.get("members") or {}).items() if uid not in current}
+        return sorted({_label(m) for m in gone.values()}) or [SOMEONE], sorted(gone)
 
-    def _rekey(self, api, state, cid, people):
+    def _rekey(self, api, state, cid, people, removed=()):
         """A new collection key, every live item re-encrypted and a grant per remaining member, in one atomic call;
-        then every credential in it is flagged 'rotate because <people> had access' (2.4)."""
+        then every credential in it is flagged 'rotate because <people> had access' (2.4).
+
+        The member list comes from the server, so the new key is only sealed to people this user trusts
+        (_peer_keys refuses anyone not confirmed on this PC) and never to someone just removed."""
         coll = state["collections"][cid]
         for attempt in range(2):
             listed = next((c for c in api.call("GET", "/collections") if c["id"] == cid), None)
@@ -633,6 +697,9 @@ class Team:
                     live[item["id"]] = open_item(self._key(coll, item["key_version"]), cid, item["id"],
                                                  item["key_version"], item["ciphertext"])
             members = api.call("GET", f"/collections/{cid}/members")
+            if any(m["user_id"] in removed for m in members):
+                raise TeamError("El servidor sigue dando acceso a quien acabas de quitar: no se cambia la clave",
+                                "bad_server")
             version, key = listed["key_version"] + 1, os.urandom(32)
             grants = {m["user_id"]: make_grant(state["keys"], state["user"]["id"], cid, version, m["user_id"],
                                                self._peer_keys(api, state, m["user_id"])["public_key"], key)
@@ -647,18 +714,30 @@ class Team:
             except TeamError as exc:
                 if exc.code not in ("incomplete", "key_version") or attempt:
                     raise
-        coll["keys"][str(version)] = b64(key)
+        coll["keys"] = {str(version): b64(key)}
         coll.update(key_version=version, needs_rekey=False,
                     members={m["user_id"]: {"name": _label(m), "permission": m["permission"]} for m in members})
         self._flag(cid, people)
         return version
 
     def _learn_key(self, api, state, coll, cid, listed):
-        version = listed["key_version"]
+        """The collection's current key. A new one is only taken from a grant signed by this user or by someone
+        they trust who manages the collection; anything else (a key the server made up, an old version
+        served again) is refused. Older keys are dropped: nothing may be read or written with them again."""
+        version, me = listed["key_version"], state["user"]["id"]
         if str(version) not in coll.setdefault("keys", {}):
-            granter = self._peer_keys(api, state, listed["grant"]["granted_by"], fresh=False)
-            coll["keys"][str(version)] = b64(open_grant(state["keys"], state["user"]["id"], cid, version,
-                                                        listed["grant"], granter["signing_public_key"]))
+            if version < int(coll.get("key_version") or 0):
+                raise TeamError("El servidor ofrece una clave antigua de la colección: no se usará", "bad_grant")
+            granter_id = listed["grant"]["granted_by"]
+            granter = self._peer_keys(api, state, granter_id, fresh=False) if granter_id == me else \
+                state["pinned"].get(granter_id)
+            if granter is None:
+                raise self._untrusted(api, granter_id, listed.get("org_id"))
+            if granter_id != me and not any(m["user_id"] == granter_id and m["permission"] == "manage"
+                                            for m in api.call("GET", f"/collections/{cid}/members")):
+                raise TeamError("La clave de una colección la firma alguien que no la gestiona: no se usará", "bad_grant")
+            key = open_grant(state["keys"], me, cid, version, listed["grant"], granter["signing_public_key"])
+            coll["keys"] = {str(version): b64(key)}
         return unb64(coll["keys"][str(version)])
 
     @staticmethod
@@ -683,16 +762,18 @@ class Team:
                 if coll.get("permission") != "manage":
                     raise TeamError("Esta colección está pendiente de cambiar de clave (alguien salió de ella). "
                                     "Espera a que quien la gestiona sincronice.", "needs_rekey")
-                self._rekey(api, state, cid, self._gone(api, state, cid))
+                self._rekey(api, state, cid, *self._gone(api, state, cid))
             iid, content = str(uuid.uuid4()), shared_content(entry)
-            plain = {"entry": content, "author": self._me(state), "updated": now_iso()}
+            plain = {"entry": content, "author": self._me(state), "updated": now_iso(), "seq": 1}
             revision = api.call("PUT", f"/collections/{cid}/items/{iid}", {
                 "ciphertext": seal_item(self._key(coll, coll["key_version"]), cid, iid, coll["key_version"], plain),
                 "key_version": coll["key_version"], "base_revision": 0})["revision"]
-        coll["items"][iid] = {"revision": revision, "hash": content_hash(content), "content": content}
+        coll["items"][iid] = {"revision": revision, "hash": content_hash(content), "content": content, "seq": 1}
         with self.vault.mutex:
             entry = self.vault.get(entry_id)
-            entry["shared"] = self._shared_block(state, cid, iid, revision, self._me(state), plain["updated"])
+            # `own`: it was this user's before it was shared, so it stays here if the collection goes away.
+            entry["shared"] = {**self._shared_block(state, cid, iid, revision, self._me(state), plain["updated"]),
+                               "own": True}
             self.vault.put(entry, replaces=entry_id)
         self.vault.set_team(state)
         return {"item": iid, "collection": cid, "collection_name": coll.get("name", "")}
@@ -753,8 +834,10 @@ class Team:
     def sync(self):
         """Pull every collection, push local changes, re-key where needed. Returns what happened."""
         notes = {"added": [], "updated": [], "removed": [], "conflicts": [], "quarantined": [], "pushed": [],
-                 "rotate": [], "errors": []}
+                 "rotate": [], "trust": [], "held": [], "errors": []}
         state = self.vault.team()
+        self._freed = set()
+        waiting = {}
         with self._api(state) as api:
             state["orgs"] = {r["id"]: {"name": r["name"], "role": r["role"], "status": r.get("status")}
                              for r in api.call("GET", "/orgs")}
@@ -765,14 +848,24 @@ class Team:
                 except TeamError as exc:
                     if exc.code in ("reconnect", "offline"):
                         raise
-                    notes["errors"].append(f"{(state['collections'].get(row['id']) or {}).get('name') or 'Colección'}: {exc}")
+                    if exc.code == "untrusted":
+                        # A key from (or for) someone not confirmed on this PC: the user confirms them first.
+                        person = waiting.setdefault(exc.data["user_id"], {**exc.data, "collections": []})
+                        person["org"] = person.get("org") or row.get("org_id")
+                        person["collections"].append(row["id"])
+                        if len(person["collections"]) == 1:
+                            notes["trust"].append(_label(person))
+                    else:
+                        notes["errors"].append(f"{(state['collections'].get(row['id']) or {}).get('name') or 'Colección'}: {exc}")
                 except (InvalidTag, ValueError, KeyError, TypeError):
                     notes["errors"].append("Una colección no se pudo descifrar")
                 self.vault.set_team(state)
             for cid in [cid for cid in state["collections"] if cid not in {r["id"] for r in listed}]:
-                notes["removed"] += self._drop_collection(state, cid)
+                notes["removed"] += self._drop_collection(state, cid, notes)
+        state["waiting"] = waiting
         state["last_sync"] = now_iso()
         self.vault.set_team(state)
+        self._flush_removed()
         return notes
 
     def _sync_collection(self, api, state, row, notes):
@@ -788,9 +881,10 @@ class Team:
                     permission=row["permission"], needs_rekey=bool(row["needs_rekey"]))
         state["collections"][cid] = coll
         if coll["needs_rekey"] and coll["permission"] == "manage":
+            # Safe even if the server asked for it falsely: the new key only goes to people trusted here.
             self._pull(api, state, cid, notes)
-            people = self._gone(api, state, cid)
-            self._rekey(api, state, cid, people)
+            people, gone = self._gone(api, state, cid)
+            self._rekey(api, state, cid, people, gone)
             notes["rotate"].append({"collection": coll["name"], "people": people})
         else:
             coll["members"] = {m["user_id"]: {"name": _label(m), "permission": m["permission"]}
@@ -831,24 +925,30 @@ class Team:
             if item["deleted"]:
                 coll["items"].pop(iid, None)
                 if local:
-                    if edited:
-                        notes["conflicts"].append(self._conflict_copy(local))
-                    self.vault.delete(local["id"])
-                    notes["removed"].append(local.get("name") or local["id"])
+                    self._leave(local, edited, notes)
                 return
+            if item["key_version"] < coll["key_version"]:
+                # Every live item is re-encrypted at a re-key: an older key is someone who left (or the server).
+                raise TeamError("está cifrado con una clave antigua de la colección", "old_key")
             plain = open_item(self._key(coll, item["key_version"]), cid, iid, item["key_version"], item["ciphertext"])
             content = {k: v for k, v in dict(plain["entry"]).items() if k not in ("shared", "updated", "secret_since")}
             (content.get("policy") or {}).pop("approval", None)
             if not ID_RE.match(str(content.get("id", ""))):
                 raise TeamError("identificador no válido", "invalid")
-            digest = content_hash(content)
+            digest, seq = content_hash(content), _seq(plain)
+            if known and (seq < known.get("seq", 0) or (seq == known.get("seq", 0) and seq and digest != known["hash"])):
+                # Each write counts up: an older version served again (a revoked key, say) is not taken back.
+                raise TeamError("es una versión anterior a la que ya tienes", "rollback")
             author = {"id": item.get("updated_by"),
                       "name": _label(members.get(item.get("updated_by")) or state["pinned"].get(item.get("updated_by"))
                                      or (state["user"] if item.get("updated_by") == state["user"]["id"] else None))}
             shared = self._shared_block(state, cid, iid, item["revision"], author, item.get("updated"))
+            if local is None and known and digest == known["hash"]:
+                coll["items"][iid] = {**known, "revision": item["revision"], "seq": seq}
+                return  # deleted here and not pushed yet: the tombstone goes out with the next push
             if local and known and digest == known["hash"]:
                 # Unchanged on the server (our own push coming back, or a re-key): local edits stay to be pushed.
-                coll["items"][iid] = {**known, "revision": item["revision"]}
+                coll["items"][iid] = {**known, "revision": item["revision"], "seq": seq}
                 local["shared"].update(revision=item["revision"])
                 self.vault.put(local, replaces=local["id"])
                 return
@@ -857,11 +957,12 @@ class Team:
             entry = copy.deepcopy(content)
             if local is None:
                 entry["id"] = self._unique_id(content["id"])
+                entry = self._new_from_team(entry, content, shared, author, notes)
                 entry["policy"] = {**(entry.get("policy") or {}), "approval": "session"}
                 notes["added"].append(entry.get("name") or entry["id"])
             else:
                 entry["id"] = local["id"]
-                for key in ("rotate",):
+                for key in ("rotate", "own"):
                     if local["shared"].get(key):
                         shared[key] = local["shared"][key]
                 lines = widening_changes(local, content)
@@ -874,7 +975,39 @@ class Team:
                 notes["updated"].append(entry.get("name") or entry["id"])
             entry["shared"] = shared
             self.vault.put(entry, replaces=local["id"] if local else None)
-            coll["items"][iid] = {"revision": item["revision"], "hash": digest, "content": content}
+            coll["items"][iid] = {"revision": item["revision"], "hash": digest, "content": content, "seq": seq}
+
+    def _new_from_team(self, entry, content, shared, author, notes):
+        """A credential new to this PC runs nothing here until the user says so: the programs and variables
+        it brings (code that would run on this PC) wait as a change to review. Webs and servers apply."""
+        commands = (content.get("policy") or {}).get("commands") or {}
+        if not (commands.get("allowed") or commands.get("env")):
+            return entry
+        base = {**entry, "policy": {k: v for k, v in (content.get("policy") or {}).items() if k != "commands"}}
+        entry = self._quarantine(base, content, shared, author, widening_changes(base, content))
+        notes["quarantined"].append(entry.get("name") or entry["id"])
+        return entry
+
+    def _leave(self, local, edited, notes):
+        """A shared credential leaves this PC (deleted for the team, or no access any more). An unpushed edit
+        is kept as a personal copy, and one that was this user's before sharing it stays as a personal one."""
+        if edited and not local["shared"].get("own"):
+            notes["conflicts"].append(self._conflict_copy(local))
+        if local["shared"].get("own"):
+            self.vault.put({k: v for k, v in local.items() if k != "shared"}, replaces=local["id"])
+            notes.setdefault("kept", []).append(local.get("name") or local["id"])
+            return
+        self.vault.delete(local["id"])
+        self._freed.add(local["id"])
+        self._removed_ids.append(local["id"])
+        notes["removed"].append(local.get("name") or local["id"])
+
+    def _flush_removed(self):
+        """Tell the service which credentials left this PC (outside the vault lock), so it forgets their
+        approvals, destinations and exposure records."""
+        removed, self._removed_ids = self._removed_ids, []
+        for entry_id in removed if self.on_removed else ():
+            self.on_removed(entry_id)
 
     @staticmethod
     def _quarantine(local, content, shared, author, lines):
@@ -907,7 +1040,9 @@ class Team:
         return entry["id"]
 
     def _unique_id(self, wanted):
-        taken = {e["id"] for e in self.vault.entries()}
+        """A free local id; one that a synced deletion just freed is never reused (approvals, GitHub
+        destinations and .secretbroker files still point at it)."""
+        taken = {e["id"] for e in self.vault.entries()} | self._freed
         if wanted not in taken:
             return wanted
         n = 2
@@ -918,6 +1053,13 @@ class Team:
     def _push(self, api, state, cid, notes):
         coll = state["collections"][cid]
         version, me = coll["key_version"], self._me(state)
+        if coll.get("needs_rekey"):
+            # Someone who left still holds this key: edits wait here until a manager re-keys (2.4).
+            held = [e.get("name") or e["id"] for e in self.vault.entries()
+                    if (e.get("shared") or {}).get("collection") == cid
+                    and (coll["items"].get(e["shared"]["item"]) or {}).get("hash") != content_hash(effective_content(e))]
+            notes.setdefault("held", []).extend(held)
+            return
         present = set()
         for entry in self.vault.entries():
             shared = entry.get("shared") or {}
@@ -930,7 +1072,8 @@ class Team:
             digest = content_hash(content)
             if known and known["hash"] == digest:
                 continue
-            plain = {"entry": content, "author": me, "updated": now_iso()}
+            seq = (known or {}).get("seq", 0) + 1
+            plain = {"entry": content, "author": me, "updated": now_iso(), "seq": seq}
             try:
                 revision = api.call("PUT", f"/collections/{cid}/items/{iid}", {
                     "ciphertext": seal_item(self._key(coll, version), cid, iid, version, plain), "key_version": version,
@@ -939,11 +1082,11 @@ class Team:
                 if exc.code == "conflict":
                     self._pull(api, state, cid, notes)  # the server wins; the local edit is kept as a copy
                     continue
-                if exc.code == "key_version":
-                    notes["errors"].append(f"{coll.get('name')}: la colección cambió de clave; se reintentará")
+                if exc.code in ("key_version", "needs_rekey"):
+                    notes.setdefault("held", []).append(entry.get("name") or entry["id"])  # after the re-key
                     continue
                 raise
-            coll["items"][iid] = {"revision": revision, "hash": digest, "content": content}
+            coll["items"][iid] = {"revision": revision, "hash": digest, "content": content, "seq": seq}
             notes["pushed"].append(entry.get("name") or entry["id"])
             with self.vault.mutex:
                 try:
@@ -990,12 +1133,19 @@ class Team:
                     shared.update(wanted)
                     self.vault.put(entry, replaces=entry["id"])
 
-    def _drop_collection(self, state, cid):
-        """No access any more (removed, or the collection was deleted): its credentials leave this PC."""
-        removed = []
-        for entry in self.vault.entries():
-            if (entry.get("shared") or {}).get("collection") == cid:
-                self.vault.delete(entry["id"])
-                removed.append(entry.get("name") or entry["id"])
+    def _drop_collection(self, state, cid, notes=None):
+        """No access any more (removed, or the collection was deleted): its credentials leave this PC, except
+        what was this user's own before sharing it and edits not pushed yet (kept as personal copies)."""
+        notes = notes if notes is not None else {"removed": [], "conflicts": []}
+        before = list(notes["removed"])
+        coll = state["collections"].get(cid) or {}
+        with self.vault.mutex:
+            for entry in self.vault.entries():
+                if (entry.get("shared") or {}).get("collection") == cid:
+                    known = (coll.get("items") or {}).get(entry["shared"]["item"])
+                    edited = known is not None and content_hash(effective_content(entry)) != known["hash"]
+                    self._leave(entry, edited, notes)
         state["collections"].pop(cid, None)
-        return removed
+        added = notes["removed"][len(before):]
+        del notes["removed"][len(before):]
+        return added

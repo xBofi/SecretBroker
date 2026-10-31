@@ -2118,7 +2118,7 @@ async function renderTeam(content) {
         el('p', {}, 'Todo sigue funcionando con lo que ya tienes en este PC. Vuelve a entrar para recibir y enviar cambios.')),
       el('button', { class: 'btn primary', onclick: () => reconnectTeam(rerender) }, 'Volver a entrar')) : null,
     problem ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, problem)) : null,
-    teamAttentionGroup(),
+    teamAttentionGroup(rerender),
     invites.ok && invites.result.length ? teamInvitesGroup(invites.result, rerender) : null,
     orgs.ok ? null : el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, orgs.error)),
     orgs.ok && !orgList.length ? teamCreateOrg(rerender) : null,
@@ -2133,7 +2133,7 @@ function teamAccountGroup() {
   const team = state.team;
   const disconnect = () => confirmModal({
     title: '¿Desconectar la cuenta del equipo?',
-    text: `Se quitan de este PC las ${team.shared} credenciales del equipo; siguen en el servidor para los demás. Tus credenciales personales no cambian.`,
+    text: `Se quitan de este PC las ${team.shared} credenciales del equipo; siguen en el servidor para los demás. Las que compartiste tú desde tu bóveda y los cambios sin enviar se quedan como personales.`,
     warning: 'Para volver a conectarte necesitarás la contraseña de la cuenta.',
     action: 'Desconectar',
     danger: true,
@@ -2156,11 +2156,35 @@ function teamAccountGroup() {
     copyButton(team.fingerprint)));
 }
 
-function teamAttentionGroup() {
+// Someone whose key is not confirmed on this PC signed a collection key (or must get one): nothing is used
+// or sent until the user compares their fingerprint and confirms it with one click.
+function teamWaitingRow(person, rerender) {
+  const label = person.name || person.email || 'Alguien';
+  const button = el('button', { class: 'btn primary' }, 'Verificar');
+  button.addEventListener('click', async () => {
+    const result = await teamAct('team_confirm_member', { org: person.org, user_id: person.user_id }, `Para confirmar a ${label}.`, button);
+    if (!result.ok) return;
+    toast(`Huella de ${label} verificada`);
+    await api().call('team_sync');
+    await loadEntries();
+    rerender();
+  });
+  return el('div', { class: 'member' },
+    el('div', { class: 'access-row' }, el('div', { class: 'meta' }, el('div', { class: 'title' }, label),
+      el('div', { class: 'subtitle' }, `Comparte contigo ${person.collections === 1 ? 'una colección' : `${person.collections} colecciones`}. Verifica su huella para recibirlas.`)),
+    button),
+    person.fingerprint ? el('div', { class: 'fingerprint-box' }, el('div', { class: 'k' }, 'Su huella'),
+      el('div', { class: 'fingerprint selectable' }, person.fingerprint),
+      el('p', { class: 'help' }, 'Compárala con la suya (Equipo › Tu huella) por teléfono o en persona. Si no coincide, no la verifiques: alguien podría hacerse pasar por esa persona.')) : null);
+}
+
+function teamAttentionGroup(rerender) {
   const items = teamAttention();
-  if (!items.length) return null;
+  const waiting = (state.team && state.team.waiting) || [];
+  if (!items.length && !waiting.length) return null;
   const open = (entry) => { state.view = 'credentials'; state.selected = entry.id; state.tag = null; state.collection = null; renderMain(); };
   return el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Por revisar'),
+    waiting.map((person) => teamWaitingRow(person, rerender)),
     items.map((entry) => {
       const reminder = (state.reminders || {})[entry.id];
       const rotate = reminder && reminder.kind === 'team_access';
@@ -2255,14 +2279,21 @@ function teamMembersGroup(org, members, admin, rerender) {
     const pending = m.status === 'accepted';
     const status = m.status === 'invited' ? 'Invitación enviada' : pending ? 'Pendiente de confirmar' : ROLE_LABELS[m.role] || m.role;
     const controls = [];
-    if (admin && !m.me && (pending || m.key_changed) && m.fingerprint) {
-      const confirm = el('button', { class: 'btn primary' }, 'Confirmar');
+    // Confirming pins their key on this PC. Admins let in who is waiting; anyone verifies a teammate they will
+    // share with. A key that changed is only re-confirmed by typing the fingerprint the person reads out:
+    // the one shown here comes from the server, so sending it back would prove nothing.
+    const verify = !m.me && m.fingerprint && (m.key_changed || (pending && admin) || (m.status === 'confirmed' && !m.trusted));
+    const typed = m.key_changed ? el('input', { class: 'input mono', placeholder: 'La huella que te lee esa persona', autocomplete: 'off', spellcheck: 'false' }) : null;
+    if (verify) {
+      const confirm = el('button', { class: 'btn primary' }, pending ? 'Confirmar' : 'Verificar');
       confirm.addEventListener('click', async () => {
-        const result = await teamAct('team_confirm_member', { org: org.id, user_id: m.user_id, fingerprint: m.fingerprint },
-          `Para confirmar a ${label}.`, confirm);
+        if (typed && !typed.value.trim()) { typed.focus(); toast('Escribe la huella que te lee esa persona', 'error'); return; }
+        const params = { org: org.id, user_id: m.user_id };
+        if (typed) params.fingerprint = typed.value.trim();
+        const result = await teamAct('team_confirm_member', params, `Para confirmar a ${label}.`, confirm);
         if (!result.ok) return;
-        toast(`${label} confirmado`);
-        rerender();
+        toast(pending ? `${label} confirmado` : `Huella de ${label} verificada`);
+        api().call('team_sync').then(rerender);
       });
       controls.push(confirm);
     } else if (admin && !m.me && m.status === 'confirmed' && (iAmOwner || m.role !== 'owner')) {
@@ -2285,11 +2316,14 @@ function teamMembersGroup(org, members, admin, rerender) {
         el('div', { class: 'meta' }, el('div', { class: 'title' }, label, m.me ? el('span', { class: 'faint' }, ' · tú') : null),
           el('div', { class: 'subtitle' }, [m.name ? m.email : null, status].filter(Boolean).join(' · '))),
         controls),
-      admin && !m.me && (pending || m.key_changed) && m.fingerprint ? el('div', { class: 'fingerprint-box' },
-        m.key_changed ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, 'Su clave ha cambiado desde que la confirmaste. No le compartas nada hasta comparar la huella.')) : null,
-        el('div', { class: 'k' }, 'Su huella'),
-        el('div', { class: 'fingerprint selectable' }, m.fingerprint),
-        el('p', { class: 'help' }, 'Pídele que te lea la suya (la ve en Equipo › Tu huella) por teléfono o en persona. Si coinciden, confirma: así nadie, ni el servidor, puede hacerse pasar por esa persona.')) : null);
+      verify ? el('div', { class: 'fingerprint-box' },
+        m.key_changed
+          ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, 'Su clave ha cambiado desde que la confirmaste. No le compartas nada hasta comparar la huella: pídele que te la lea y escríbela aquí.'))
+          : el('div', { class: 'k' }, 'Su huella'),
+        typed || el('div', { class: 'fingerprint selectable' }, m.fingerprint),
+        el('p', { class: 'help' }, pending || m.key_changed
+          ? 'Pídele que te lea la suya (la ve en Equipo › Tu huella) por teléfono o en persona. Si coinciden, confirma: así nadie, ni el servidor, puede hacerse pasar por esa persona.'
+          : 'Aún no la has verificado en este PC. Hasta entonces no le das acceso a nada ni se usan las claves que firme. Compárala con la suya (Equipo › Tu huella) por teléfono o en persona.')) : null);
   };
 
   const email = el('input', { class: 'input', type: 'email', placeholder: 'e-mail de la persona' });

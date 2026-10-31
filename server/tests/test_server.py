@@ -182,7 +182,16 @@ def test_accounts(base):
     check(alice.call("GET", "/me", token=laptop).status_code == 401, "revoked device token stops working")
     tablet = alice.login("Tablet").json()["token"]
     new_hash = rand(32)
-    alice.ok("POST", "/accounts/password", {"kdf": kdf(), "auth_hash": new_hash, "private_blob": box(200)})
+    stolen = alice.call("POST", "/accounts/password", {"current_auth_hash": rand(32), "kdf": kdf(),
+                                                       "auth_hash": rand(32), "private_blob": box(200)})
+    check(stolen.status_code == 403 and stolen.json()["code"] == "invalid_credentials"
+          and alice.call("GET", "/me", token=tablet).status_code == 200,
+          "a session alone cannot change the password: the current one is required")
+    check(alice.call("POST", "/accounts/password", {"kdf": kdf(), "auth_hash": rand(32),
+                                                    "private_blob": box(200)}).status_code == 400,
+          "the current password is a required field")
+    alice.ok("POST", "/accounts/password", {"current_auth_hash": alice.auth_hash, "kdf": kdf(), "auth_hash": new_hash,
+                                            "private_blob": box(200)})
     check(alice.call("GET", "/me", token=tablet).status_code == 401, "password change signs out other devices")
     check(alice.call("GET", "/me").status_code == 200, "password change keeps this device")
     check(alice.login().status_code == 401, "old password no longer works")
@@ -241,6 +250,10 @@ def test_orgs_and_items(base, alice):
         alice.ok("POST", f"/orgs/{oid}/members/{person.id}/confirm", {})
     check(bob.call("POST", f"/orgs/{oid}/invites", {"email": "f@example.com", "role": "member"}).status_code == 403,
           "plain member cannot invite")
+    alice.ok("POST", f"/orgs/{oid}/invites", {"email": "later@example.com", "role": "member"})
+    seen = lambda person: next(m for m in person.ok("GET", f"/orgs/{oid}/members") if m["email"] == "later@example.com")
+    check("invite_id" not in seen(bob) and seen(alice)["invite_id"],
+          "only admins see invite ids (they work as signup tokens for that e-mail)")
 
     cid = str(uuid.uuid4())
     check(bob.call("POST", f"/orgs/{oid}/collections", {"id": cid, "encrypted_name": box(),
@@ -292,6 +305,17 @@ def test_orgs_and_items(base, alice):
                   {"ciphertext": box(), "key_version": 1, "base_revision": 0})["revision"]
     check(r4 == 4, "revisions are collection-wide")
 
+    # A collection whose only manager is removed from the org could never be re-keyed again.
+    solo = str(uuid.uuid4())
+    alice.ok("PATCH", f"/orgs/{oid}/members/{dave.id}", {"role": "admin"})
+    dave.ok("POST", f"/orgs/{oid}/collections", {"id": solo, "encrypted_name": box(), "grant": dave.grant()})
+    refused = alice.call("DELETE", f"/orgs/{oid}/members/{dave.id}")
+    check(refused.status_code == 400 and refused.json()["code"] == "last_manager"
+          and refused.json()["collections"] == [solo] and dave.ok("GET", f"/collections/{solo}/members"),
+          "removing a collection's only manager from the org is refused")
+    dave.ok("DELETE", f"/collections/{solo}")
+    alice.ok("PATCH", f"/orgs/{oid}/members/{dave.id}", {"role": "member"})
+
     # Offboarding: carol leaves the org; the collection needs a new key before anyone else gets it.
     removed = alice.ok("DELETE", f"/orgs/{oid}/members/{carol.id}")
     check(removed["needs_rekey"] == [cid], "removing a member reports the collections to re-key")
@@ -301,6 +325,10 @@ def test_orgs_and_items(base, alice):
     blocked = alice.call("PUT", f"/collections/{cid}/members/{outsider.id}",
                          {"permission": "view", "grant": alice.grant()})
     check(blocked.status_code == 409 and blocked.json()["code"] == "needs_rekey", "no new grants until re-keyed")
+    stale_write = bob.call("PUT", f"/collections/{cid}/items/{item2}", {"ciphertext": box(), "key_version": 1,
+                                                                         "base_revision": 4})
+    check(stale_write.status_code == 409 and stale_write.json()["code"] == "needs_rekey",
+          "no item is written with the key the removed member holds")
 
     grants = {uid: alice.grant() for uid in (alice.id, bob.id, dave.id)}
     rot = f"/collections/{cid}/rotate"
@@ -357,6 +385,35 @@ def test_orgs_and_items(base, alice):
     check(bob.ok("GET", "/collections") == [], "deleted collection is gone")
 
 
+def cli_token(settings):
+    """What `secretbroker-server create-invite` prints."""
+    from secretbroker_server.accounts import create_token
+    from secretbroker_server.db import Database
+    db = Database(settings.db_path)
+    with db.tx(write=True) as conn:
+        token, _ = create_token(conn, None, 1)
+    db.close()
+    return token
+
+
+def test_quota():
+    print("Collection size")
+    base, stop, _ = start(max_body=64 * 1024)
+    try:
+        owner = Api(base).signup("owner@example.com")
+        oid = owner.ok("POST", "/orgs", {"name": "Q"})["id"]
+        cid = str(uuid.uuid4())
+        owner.ok("POST", f"/orgs/{oid}/collections", {"id": cid, "encrypted_name": box(), "grant": owner.grant()})
+        put = lambda: owner.call("PUT", f"/collections/{cid}/items/{uuid.uuid4()}",
+                                 {"ciphertext": box(6 * 1024), "key_version": 1, "base_revision": 0})
+        codes = [put().status_code for _ in range(3)]
+        full = put()
+        check(codes == [200] * 3 and full.status_code == 413 and full.json()["code"] == "collection_full",
+              "a collection never grows past what one rotate request can carry")
+    finally:
+        stop()
+
+
 def test_invite_signups():
     print("Invite-only signups")
     base, stop, settings = start(signups="invite", admin_emails=frozenset({"root@example.com"}))
@@ -364,7 +421,12 @@ def test_invite_signups():
         stranger = Api(base)
         response = stranger.register("stranger@example.com")
         check(response.status_code == 403 and response.json()["code"] == "invite_required", "no invite, no account")
-        root = Api(base).signup("root@example.com")
+        check(Api(base).register("root@example.com").status_code == 403,
+              "an SB_ADMIN_EMAILS address cannot be taken without a token from the server's command line")
+        root = Api(base)
+        check(root.register("root@example.com", cli_token(settings)).status_code == 200, "with it, it can")
+        root.token = root.login().json()["token"]
+        check(root.ok("GET", "/me")["user"]["admin"], "and is server admin")
         token = root.ok("POST", "/admin/invites", {"days": 2})["token"]
         check(stranger.register("stranger@example.com", token).status_code == 200, "a signup token lets you in")
         check(Api(base).register("again@example.com", token).status_code == 403, "signup tokens are single use")
@@ -382,9 +444,12 @@ def test_invite_signups():
               "many failures from one address are throttled")
     finally:
         stop()
-    base, stop, _ = start(signups="closed")
+    base, stop, settings = start(signups="closed", admin_emails=frozenset({"ops@example.com"}))
     try:
         check(Api(base).register("x@example.com").json()["code"] == "signups_closed", "closed server refuses signups")
+        check(Api(base).register("ops@example.com").status_code == 403, "even an admin e-mail needs a token")
+        check(Api(base).register("ops@example.com", cli_token(settings)).status_code == 200,
+              "the operator registers the admin e-mail with a command-line token")
     finally:
         stop()
 
@@ -401,6 +466,7 @@ def main():
     finally:
         stop()
     test_invite_signups()
+    test_quota()
     print("\nAll good." if not failures else f"\n{failures} check(s) failed.")
     sys.exit(1 if failures else 0)
 
