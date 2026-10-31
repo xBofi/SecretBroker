@@ -68,6 +68,12 @@ it asks whether to delete the vault (the default is to keep it).
 - AI-readable notes per credential, so the agent knows what each one is for without seeing it.
 - `sb run`, `sb import`, `sb check`: run your own apps with secrets from the vault instead of a `.env` file.
 
+### Browser autofill
+- An extension for Chrome, Edge, Brave and Firefox fills logins and 2FA codes, only on the site each one was saved
+  for (registrable domain, so lookalike phishing domains get nothing) and only after your click or Ctrl+Shift+L.
+  It offers to save new and changed passwords, never fills team credentials marked "use only", and talks to the
+  app through native messaging (no open port). Install and connect it from Ajustes › Navegador.
+
 ### Rotation
 - One-click rotation through the provider API where possible (Cloudflare, GitLab), re-uploading the new key to the
   GitHub Actions secrets it was pushed to.

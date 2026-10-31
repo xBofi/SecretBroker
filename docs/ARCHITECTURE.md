@@ -105,6 +105,56 @@ with its bearer token, and Codex (`~/.codex/config.toml`, stdio), keeping the re
   and keys never tested, and returns `scanned`, `checked` and `complete`: without a search for copies and a check
   with the providers the app shows "Sin datos aún" instead of a score.
 
+### 1.3 Browser autofill
+
+A Manifest V3 extension (`extension/`, one source for Chrome, Edge, Brave and Firefox; see `extension/README.md`)
+fills web logins. It never opens or uses a network port: the browser starts `secretbroker/native_host.py` through a
+launcher (native messaging, 4-byte length + JSON on stdin/stdout), and the host relays to the service with
+`client.request`, adding `_ext = {origin, pair, key, browser}`. `origin` comes from the browser's command line
+(`chrome-extension://<id>/`, or Firefox's extension id), so the extension cannot choose it.
+
+* **Ops** (`service.EXTENSION_OPS`, never in `AI_OPS`; the service refuses `_ext` on any other op):
+  `ext_hello` → `{state, paired, browser, pending: {code}?}`; `ext_pair {name}` → `{pending, code}`;
+  `ext_logins {url, frame_url?}` → `{host, domain, secure, frame, logins: [{id, name, username, site, exact, can_fill,
+  why, totp, collection}]}` (never a value); `ext_search {query}` → web logins to open their site (not fillable from
+  there); `ext_fill {id, url, frame_url?, what: login | totp | username | password, copy?}` → the values;
+  `ext_save_check {url, username, password}` → `{action: new | update | none, id?, name}`; `ext_save` (same, `name?`).
+  The host relays only these (`hello pair logins search fill save_check save`) plus `open_app`, which it does itself.
+* **Who may ask.** `origin` must be in `native_host.ALLOWED_ORIGINS` (the id pinned by `key` in the manifest, store
+  ids to be added). Except `ext_hello` / `ext_pair`, the browser must be **connected**: the extension makes a random
+  `{pair, key}` (kept in `storage.local`); `ext_pair` queues a request with a 6-digit code (5 min), which the app
+  shows (`status.browser_pairing`) with the same code the popup shows, and `browser_pair_answer {id, accept}` (in
+  `PROVEN_OPS`: one click, but after a session unlock Hello or a password once) stores `sha256(key)`, the origin and
+  the name in `data/browsers.json` (outside the vault, so a locked vault can still say "connected but locked").
+  `browser_status` lists them (with `last_seen`, in memory), `browser_forget {id}` removes one.
+* **Matching** (`secretbroker/autofill.py`, vendored Public Suffix List in `secretbroker/data/`, private section
+  included). A web login's addresses are `fields.url` plus `entry.autofill.sites`; `entry.autofill.match` is
+  `domain` (default: same registrable domain, any subdomain), `host` (exact host) or `never`. IP addresses,
+  `localhost`, single-label names and public suffixes only match themselves. A saved port must match; an `https`
+  login is never offered on `http` (except loopback). A frame is only served if it is of the top page's registrable
+  domain (`frame` error otherwise); the extension sends `frame_url` from `sender.url`, the top URL from `tab.url`.
+  `ext_fill` re-checks the match, so asking for another site's id gets `mismatch`.
+* **Permissions.** Team credentials with `use` are listed with `can_fill: false, why: "use_only"` and refused by
+  `ext_fill` (`forbidden`, audited as denied): filling would hand the value to the page. Saving never changes a
+  credential this user may not write (`can_write_shared`); `ext_save` is in `TEAM_PUSH_OPS`.
+* **Activity.** Fills, copies and saves are audited with `actor: "browser"` and `client: "Navegador · <browser>"`
+  (`browser_fill`, `browser_copy`, `browser_save`, `browser_pair`, `browser_forget`); Actividad has a «Navegador»
+  filter. Asking which logins a page has does not count as activity for the inactivity lock; a fill or save does.
+  After the inactivity lock, with "open with my Windows session" on, the host reopens the vault like the AI does
+  (`client.reopen_with_session`), never after «Bloquear».
+* **In the extension.** Nothing is filled on page load: only after a trusted click in its menu (closed shadow
+  root) or popup, or the `fill-login` command; values go only to the frame that will be filled (`tabs.sendMessage`
+  with `frameId`), which fills only visible, enabled fields in a frame of a usable size; for a sub-frame the top
+  page must show a visible iframe of that origin. After a form is sent (trusted submit, click or Enter) it asks
+  `ext_save_check`; the offer (with the typed values) waits in `storage.session` for 5 minutes and is saved only
+  when the user clicks «Guardar» / «Actualizar» in the page's bar or the popup.
+* **Registration.** `native_host.register()` writes a launcher (`secretbroker-host.cmd`: the bundled `python.exe -I`)
+  and two host manifests in `%LOCALAPPDATA%\SecretBroker\native-host`, and the HKCU keys of Chrome, Chromium, Edge,
+  Brave and Firefox. The installer runs it as the desktop user and the app again at every start (not for test
+  instances); uninstalling removes the keys. On Linux and macOS, `register()` / `install_manifests(launcher)` write
+  the manifests into each browser's per-user folder. The installer copies `extension/` to `{app}\extension`;
+  Ajustes › Navegador opens the browser's extensions page and that folder until the extension is in the stores.
+
 ## 2. Team cryptography
 
 All primitives already exist in `secretbroker/crypto.py` (scrypt, HKDF-SHA256, AES-256-GCM, X25519 `seal_to`/`open_from`)

@@ -6,6 +6,7 @@ import json
 import logging
 import logging.handlers
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -15,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from . import __version__, client, generator, hello, integrations, links, paths, resident, scanner, templates, winsec
+from . import __version__, client, generator, hello, integrations, links, native_host, paths, resident, scanner, templates, winsec
 from .client import BrokerError, BrokerUnavailable
 
 WEB_DIR = Path(__file__).with_name("web")
@@ -55,6 +56,14 @@ OPENING_OPS = ("unlock", "create_vault", "restore")
 # A login's current 2FA code (see service.op_totp_code): one click too.
 PRESENCE_OPS += ("totp_code",)
 PROOF_OPS.add("totp_code")
+# Connecting a browser to fill logins (see service.op_browser_pair_answer): one click too.
+PRESENCE_OPS += ("browser_pair_answer",)
+PROOF_OPS.add("browser_pair_answer")
+# Browsers the extension supports: (id, name, executable, its extensions page). Chromium-based ones load the
+# extension unpacked until it is in their stores; Firefox only temporarily, until it is on addons.mozilla.org.
+BROWSERS = (("chrome", "Chrome", "chrome.exe", "chrome://extensions/"), ("edge", "Edge", "msedge.exe", "edge://extensions/"),
+            ("brave", "Brave", "brave.exe", "brave://extensions/"),
+            ("firefox", "Firefox", "firefox.exe", "about:debugging#/runtime/this-firefox"))
 # Where a secret found in clear may be removed in place (see exposure.REDACTABLE_SOURCES): conversations
 # of Claude Code and Codex, and shell histories. A copy of the file is kept next to it, just in case.
 REDACT_BACKUP_SUFFIX = ".secretbroker.bak"
@@ -395,6 +404,38 @@ class Api:
             return {"ok": False, "code": "error", "error": f"No se pudo abrir el instalador: {exc}"}
         return {"ok": True, "result": result["result"]["version"]}
 
+    # ----- browser extension (see native_host.py)
+
+    def browser_info(self):
+        """For Ajustes › Navegador: the browsers connected (from the service), which browsers are installed and can
+        start the native host, and the extension's folder (to load it until it is in the stores)."""
+        try:
+            status = client.request("browser_status", timeout=10)
+        except (BrokerError, BrokerUnavailable):
+            status = {"paired": [], "pending": []}
+        registered = native_host.registered() if sys.platform == "win32" else {}
+        folder = native_host.extension_dir()
+        return {"ok": True, "result": {
+            **status, "extension_dir": str(folder) if folder else None,
+            "browsers": [{"id": b, "name": name, "installed": bool(_browser_exe(exe)), "registered": registered.get(b, False)}
+                         for b, name, exe, _ in BROWSERS]}}
+
+    def open_browser_page(self, browser_id):
+        """Open a browser on its extensions page (a page the default browser can't be told to open)."""
+        for b, _, exe, page in BROWSERS:
+            path = _browser_exe(exe) if b == browser_id else None
+            if path:
+                subprocess.Popen([path, page], close_fds=True)
+                return True
+        return False
+
+    def show_extension_folder(self):
+        folder = native_host.extension_dir()
+        if not folder:
+            return False
+        subprocess.Popen(["explorer", str(folder)])
+        return True
+
     def open_link(self, url):
         """Open a provider page (API keys, billing...) in the default browser."""
         if not isinstance(url, str) or not url.startswith("https://"):
@@ -678,6 +719,22 @@ class Api:
         return {"ok": True, "result": {"path": str(target), "entries": result["result"]["entries"]}}
 
 
+def _browser_exe(name):
+    """The full path of an installed browser (chrome.exe, msedge.exe…), or None. Browsers register it in App Paths."""
+    if sys.platform != "win32":
+        return shutil.which(name.removesuffix(".exe"))
+    import winreg
+    for root in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+        try:
+            with winreg.OpenKey(root, rf"Software\Microsoft\Windows\CurrentVersion\App Paths\{name}") as key:
+                path = str(winreg.QueryValueEx(key, "")[0]).strip('"')
+            if Path(path).is_file():
+                return path
+        except OSError:
+            continue
+    return None
+
+
 def _redactable(path):
     """Is this one of the AI conversations or shell histories the scan reads (text, not a database)?"""
     try:
@@ -866,6 +923,8 @@ def _start_resident(api):
 
     _step("watcher", watch)
     _step("MCP over HTTP", lambda: resident.serve_mcp(api.show))
+    if not paths.instance_suffix():  # never a test instance: it would point the browsers at it
+        threading.Thread(target=lambda: _step("browser extension host", native_host.register), daemon=True).start()
     if paths.is_installed():
         _step("start with Windows", lambda: resident.set_start_with_windows(resident.start_with_windows()))
     threading.Thread(target=lambda: _step("Claude Code connection", integrations.upgrade_claude_code), daemon=True).start()

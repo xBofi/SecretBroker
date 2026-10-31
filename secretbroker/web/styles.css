@@ -404,6 +404,18 @@ details.advanced > .inner { padding: 6px 0 4px 24px; display: flex; flex-directi
   padding: 10px 12px; border-radius: var(--radius); background: color-mix(in srgb, var(--tone) 11%, transparent); }
 .warning.is-danger { --tone: var(--danger); }
 .warning > .icon { color: var(--tone); margin-top: 1px; }
+.warning.subtle { --tone: var(--muted); }
+/* Ajustes › Navegador: installing the extension and a browser asking to connect */
+.install-steps { margin: 12px 0; padding-left: 22px; display: flex; flex-direction: column; gap: 12px; }
+.install-steps li { padding-left: 4px; }
+.install-steps li > .btn { margin-top: 8px; }
+.install-folder { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.install-folder code { flex: 1 0 100%; font-family: var(--font-mono); font-size: var(--fs-sm); background: var(--bg-subtle);
+  border-radius: var(--radius-sm); padding: 8px 10px; overflow-wrap: anywhere; }
+.pair-code { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px; margin: 12px 0;
+  border-radius: var(--radius); background: var(--bg-subtle); }
+.pair-code .code { font: var(--fw-semibold) 28px/1.2 var(--font-mono); letter-spacing: .14em; }
+.setting.browser-row { padding-left: 4px; }
 .guide-steps { margin: 6px 0 12px; padding-left: 20px; font-size: var(--fs-md); line-height: 1.5; }
 .guide-steps li + li { margin-top: 4px; }
 

@@ -45,6 +45,11 @@ function Remove-OwnerIntegrations {
     $env:APPDATA = Join-Path $profileDir "AppData\Roaming"
     $env:LOCALAPPDATA = Join-Path $profileDir "AppData\Local"
     Invoke-Native { & $Python -I -c "from secretbroker import integrations; integrations.remove_all()" } | Write-Host
+    # The browser extension's native messaging host (native_host.register wrote these under the owner's HKCU).
+    foreach ($key in "Google\Chrome", "Chromium", "Microsoft\Edge", "BraveSoftware\Brave-Browser", "Mozilla") {
+        Remove-Item "Registry::HKEY_USERS\$sid\Software\$key\NativeMessagingHosts\com.secretbroker.autofill" -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Remove-Item (Join-Path $env:LOCALAPPDATA "SecretBroker\native-host") -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 try {
