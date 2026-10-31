@@ -93,6 +93,13 @@
     "one": "{count} anmodning",
     "other": "{count} anmodninger"
   },
+  "ai_change.rotation_guide": "Rotationsvejledning",
+  "ai_change.sources": "kilder: {sources}",
+  "ai_change.steps": {
+    "one": "{count} trin",
+    "other": "{count} trin"
+  },
+  "ai_change.test_request": "Testforespørgsel",
   "ai_client_list.not_installed": "Ikke installeret: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Vi fandt ingen kompatibel AI installeret på denne pc.",
   "ai_client_use.connected_no_requests_yet": "Forbundet · ingen anmodninger endnu",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Forbundet i {names}. Udfylder brugernavn, adgangskode og 2FA-koder kun på adgangsoplysningernes eget websted.",
   "browser_settings_group.connected_on": "Forbundet den {value}",
   "browser_settings_group.connected_used": "Forbundet · brugt {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Skift+L udfylder login til det åbne websted; Ctrl+Skift+Y åbner udvidelsen. Du kan ændre dem på browserens side med genveje til udvidelser.",
   "browser_settings_group.disconnect": "Afbryd {name}?",
   "browser_settings_group.disconnected": "{name} afbrudt",
   "browser_settings_group.fills_in_passwords_in_names": "Udfylder dine adgangskoder i {names}, kun på det websted, hvor du gemte dem, og kun når du beder om det.",
   "browser_settings_group.keyboard_shortcut": "Tastaturgenvej",
+  "browser_settings_group.shortcuts_text": "Alt+Skift+L udfylder login til det åbne websted; Ctrl+Skift+Y åbner udvidelsen. Du kan ændre dem på browserens side med genveje til udvidelser.",
   "browser_settings_group.won_be_able_fill_in": "Den kan ikke udfylde dine adgangskoder, før du klikker på »Forbind« i udvidelsen igen.",
   "cadence_text.doesn_remind_you_rotate": "Minder dig ikke om at rotere.",
   "cadence_text.next_time_around": ": næste gang omkring {value}",

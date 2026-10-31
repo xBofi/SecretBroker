@@ -93,6 +93,13 @@
     "one": "{count} istek",
     "other": "{count} istek"
   },
+  "ai_change.rotation_guide": "Döndürme kılavuzu",
+  "ai_change.sources": "kaynaklar: {sources}",
+  "ai_change.steps": {
+    "one": "{count} adım",
+    "other": "{count} adım"
+  },
+  "ai_change.test_request": "Test isteği",
   "ai_client_list.not_installed": "Yüklü değil: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Bu bilgisayarda yüklü uyumlu bir YZ bulamadık.",
   "ai_client_use.connected_no_requests_yet": "Bağlı · henüz istek yok",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Bağlı olduğu tarayıcılar: {names}. Kullanıcı adını, parolayı ve 2FA kodlarını yalnızca her kimlik bilgisinin kendi sitesinde doldurur.",
   "browser_settings_group.connected_on": "Bağlanma: {value}",
   "browser_settings_group.connected_used": "Bağlı · son kullanım {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Shift+L açık sitedeki girişi doldurur; Ctrl+Shift+Y uzantıyı açar. Bunları tarayıcının uzantı kısayolları sayfasında değiştirebilirsiniz.",
   "browser_settings_group.disconnect": "{name} bağlantısı kesilsin mi?",
   "browser_settings_group.disconnected": "{name} bağlantısı kesildi",
   "browser_settings_group.fills_in_passwords_in_names": "Parolalarınızı {names} içinde doldurur; yalnızca onları kaydettiğiniz sitede ve yalnızca siz istediğinizde.",
   "browser_settings_group.keyboard_shortcut": "Klavye kısayolu",
+  "browser_settings_group.shortcuts_text": "Alt+Shift+L açık sitedeki girişi doldurur; Ctrl+Shift+Y uzantıyı açar. Bunları tarayıcının uzantı kısayolları sayfasında değiştirebilirsiniz.",
   "browser_settings_group.won_be_able_fill_in": "Uzantıda yeniden “Bağlan”a tıklayana kadar parolalarınızı dolduramaz.",
   "cadence_text.doesn_remind_you_rotate": "Yenilemeyi hatırlatmaz.",
   "cadence_text.next_time_around": ": bir sonraki yaklaşık {value}",

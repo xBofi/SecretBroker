@@ -42,17 +42,23 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
-// The fill shortcut as the user has it (they can change it in the browser's shortcuts page).
+// The fill shortcut as the user has it (they can change it in the browser's shortcuts page). Empty when the browser
+// did not give it the suggested one (another extension, or the browser itself, already uses that key).
 let fillShortcut = '';
-ext.commands.getAll().then((commands) => {
+const shortcutKnown = ext.commands.getAll().then((commands) => {
   const command = commands.find((c) => c.name === 'fill-login');
   fillShortcut = (command && command.shortcut) || '';
-  const kbd = document.querySelector('.hint kbd.shortcut');
-  if (kbd) kbd.textContent = fillShortcut;
 }).catch(() => {});
 
 function shortcut() {
   return fillShortcut;
+}
+
+// The browser's page to choose extension shortcuts (Firefox opens its own from the API).
+function openShortcuts() {
+  if (ext.commands.openShortcutSettings) ext.commands.openShortcutSettings();
+  else ext.tabs.create({ url: 'chrome://extensions/shortcuts' });
+  window.close();
 }
 
 document.getElementById('open-app').addEventListener('click', () => { ask({ type: 'open_app' }); window.close(); });
@@ -72,7 +78,7 @@ function message(text, error = false) {
 let pairTimer = null;
 
 async function render() {
-  const answer = await ask({ type: 'state' });
+  const [answer] = await Promise.all([ask({ type: 'state' }), shortcutKnown]);
   const hello = answer && answer.hello;
   if (!hello || !hello.ok) {
     if (hello && hello.code === 'no_host') {
@@ -153,8 +159,7 @@ function offerBox(offer) {
 async function copy(login, what) {
   const result = await ask({ type: 'copy', id: login.id, what });
   if (!result || !result.ok) { message((result && result.error) || msg('couldn_copy'), true); return; }
-  const value = what === 'totp' ? result.result.totp : what === 'username' ? result.result.username : result.result.password;
-  await navigator.clipboard.writeText(value || '');
+  if (!result.result.copied) await navigator.clipboard.writeText(result.result[what] || '');  // an older SecretBroker
   message({ username: msg('username_copied'), password: msg('password_copied'), totp: msg('2fa_code_copied') }[what]);
 }
 
@@ -243,9 +248,12 @@ function renderLogins(answer) {
     siteLine(list, answer.page && answer.page.host),
     el('div', { class: 'search-wrap' }, icon('search'), search),
     matches, results,
-    el('div', { class: 'hints' },
-      first ? el('div', { class: 'hint' }, el('span', {}, msg('enter_fills_first', { name: first.name })), el('kbd', {}, '↵')) : null,
-      el('div', { class: 'hint' }, el('span', {}, msg('fill_in_without_opening_this')), el('kbd', { class: 'shortcut' }, shortcut() || 'Ctrl+Shift+L')))].filter(Boolean));
+    // How to fill without this window: only where there is something to fill, and only the shortcut the browser gave.
+    first ? el('div', { class: 'hints' },
+      el('div', { class: 'hint' }, el('span', {}, msg('enter_fills_first', { name: first.name })), el('kbd', {}, '↵')),
+      el('div', { class: 'hint' }, el('span', {}, msg('fill_in_without_opening_this')), shortcut()
+        ? el('kbd', { class: 'shortcut' }, shortcut())
+        : el('button', { class: 'link', onclick: openShortcuts }, msg('choose_shortcut')))) : null].filter(Boolean));
   // Enter in the empty search box fills in the first login for this site, as the hint says.
   search.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && first && !search.value.trim()) { event.preventDefault(); fillLogin(first, null); }

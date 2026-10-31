@@ -20,6 +20,9 @@
   "check_that_secretbroker_shows_this": {
     "message": "Iċċekkja li SecretBroker juri l-istess kodiċi u kklikkja “Qabbad”."
   },
+  "choose_shortcut": {
+    "message": "Agħżel shortcut"
+  },
   "cmd_fill": {
     "message": "Imla l-login għal dan is-sit"
   },

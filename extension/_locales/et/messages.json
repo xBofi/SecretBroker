@@ -20,6 +20,9 @@
   "check_that_secretbroker_shows_this": {
     "message": "Kontrolli, et SecretBroker näitab sama koodi, ja klõpsa „Ühenda“."
   },
+  "choose_shortcut": {
+    "message": "Vali kiirklahv"
+  },
   "cmd_fill": {
     "message": "Täida selle veebisaidi sisselogimine"
   },

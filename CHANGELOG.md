@@ -28,8 +28,9 @@ shares credentials with your team, end-to-end encrypted.
 
 ### Browser autofill
 - A SecretBroker extension for **Chrome, Edge, Brave and Firefox** fills logins and 2FA codes: a button in login
-  fields, a toolbar popup, **Ctrl+Shift+L** to fill and **Ctrl+Shift+Y** for the popup, and «Save this login?» after
-  you sign in somewhere new or change a password.
+  fields, a toolbar popup, **Alt+Shift+L** to fill and **Ctrl+Shift+Y** for the popup, and «Save this login?» after
+  you sign in somewhere new or change a password. (Chrome and Edge no longer give Ctrl+Shift+L to extensions; if a
+  browser leaves the shortcut unset, the popup offers «Choose a shortcut» instead of naming a key that does nothing.)
 - Phishing resistant: a login is only offered on the site it was saved for (registrable domain), never on page load,
   never into hidden fields or frames of another site. Team credentials marked «use only» are never filled.
 - It talks to the app through native messaging, never a network port. Connect it from **Settings › Browser** with
@@ -38,7 +39,15 @@ shares credentials with your team, end-to-end encrypted.
   with a note when it isn't installed yet).
 - The menu in login fields and the popup show each site's own icon (fetched from the site itself and cached by the
   extension, never through an icon service that would learn which sites you have), and how to fill from the
-  keyboard: ↑ ↓ and Enter in the menu, Enter in the popup, Ctrl+Shift+L anywhere.
+  keyboard: ↑ ↓ and Enter in the menu, Enter in the popup, Alt+Shift+L anywhere.
+- Tested in a real Edge and Chrome for Testing with the extension, its native host and the app
+  (`tests/test_browser.py`): connecting, filling user, password and 2FA code, nothing on lookalike domains or in
+  another site's frame, saving and updating a login only after the click, «use only» team logins refused, the
+  locked vault, site icons, light and dark. Fixed on the way: copying a password from the popup now goes through
+  SecretBroker like in the app (out of clipboard history and the cloud clipboard, cleared after 30 seconds); «Save»
+  no longer says «It's no longer pending» when the page finished loading at the same moment; the menu in a login
+  field scrolls instead of running off a small window or frame; Chromium builds connect as «Chromium», not
+  «Browser».
 
 ### Teams (preview)
 - Organizations, shared collections and per-person permissions (manage, edit, view, use-only), synced through a
@@ -65,6 +74,9 @@ shares credentials with your team, end-to-end encrypted.
 ### Approvals and everyday use
 - Your master password once per session, then one click. Approvals say which AI is asking, for which credential and
   why, and make «Allow for 24 hours» the recommended button with «Just this once» right next to it.
+- When the AI asks to change a credential's settings (its name, notes, allowed websites, programs, variables…), the
+  approval lists each change in your language, not in Spanish.
+- The Windows file dialogs (backups, imports, exports, .env files) name their file types in your language.
 - The list stays fresh when the AI or a teammate changes something, and two edits to the same credential no longer
   overwrite each other silently.
 - Rotations resume where they stopped, and database passwords can be applied by the service.

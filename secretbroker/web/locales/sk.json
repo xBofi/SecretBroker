@@ -97,6 +97,15 @@
     "many": "{count} požiadavky",
     "other": "{count} požiadaviek"
   },
+  "ai_change.rotation_guide": "Návod na rotáciu",
+  "ai_change.sources": "zdroje: {sources}",
+  "ai_change.steps": {
+    "one": "{count} krok",
+    "few": "{count} kroky",
+    "many": "{count} kroku",
+    "other": "{count} krokov"
+  },
+  "ai_change.test_request": "Testovacia požiadavka",
   "ai_client_list.not_installed": "Nenainštalované: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Na tomto počítači sme nenašli žiadnu kompatibilnú AI.",
   "ai_client_use.connected_no_requests_yet": "Pripojené · zatiaľ bez požiadaviek",
@@ -190,11 +199,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Pripojené v: {names}. Vypĺňa používateľské meno, heslo a kódy 2FA len na stránke príslušného poverenia.",
   "browser_settings_group.connected_on": "Pripojené {value}",
   "browser_settings_group.connected_used": "Pripojené · použité {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Shift+L vyplní prihlásenie na otvorenej stránke; Ctrl+Shift+Y otvorí rozšírenie. Zmeniť ich môžete na stránke klávesových skratiek rozšírení v prehliadači.",
   "browser_settings_group.disconnect": "Odpojiť {name}?",
   "browser_settings_group.disconnected": "{name} odpojený",
   "browser_settings_group.fills_in_passwords_in_names": "Vypĺňa vaše heslá v prehliadačoch {names}, len na webe, kde ste ich uložili, a len keď o to požiadate.",
   "browser_settings_group.keyboard_shortcut": "Klávesová skratka",
+  "browser_settings_group.shortcuts_text": "Alt+Shift+L vyplní prihlásenie na otvorenej stránke; Ctrl+Shift+Y otvorí rozšírenie. Zmeniť ich môžete na stránke klávesových skratiek rozšírení v prehliadači.",
   "browser_settings_group.won_be_able_fill_in": "Nebude môcť vypĺňať vaše heslá, kým v rozšírení znova nekliknete na „Pripojiť“.",
   "cadence_text.doesn_remind_you_rotate": "Nepripomína výmenu.",
   "cadence_text.next_time_around": ": nabudúce približne {value}",

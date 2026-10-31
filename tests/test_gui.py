@@ -887,9 +887,49 @@ def dialog_shots(page, lang):
     page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
     wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
     line = page.js("changeLine({ kind: 'field', field: 'host', template: 'ssh', old: 'a.example', new: 'b.example' })")
-    label = page.js("TEMPLATES.ssh.fields.find((f) => f.name === 'host').label")
+    label = page.js("fieldLabel('ssh', TEMPLATES.ssh.fields.find((f) => f.name === 'host'))")
     check(line == f"{label}: a.example → b.example" and (lang == "es" or "Servidor" not in line),
           f"a teammate's change is worded in {lang} ({line})")
+    clipped |= ai_edit_approval(page, lang)
+    return clipped
+
+
+def ai_edit_approval(page, lang):
+    """The AI asks to change a credential's settings: the approval lists the changes in the page's language (the
+    service sends them structured), and a request from an older service (Spanish lines only) is translated too."""
+    from secretbroker import client
+    done = {}
+
+    def edit():
+        try:
+            client.request("update_credential", {
+                "secret_id": "echo-api", "name": "Echo API (staging)", "tags": ["staging"], "rotate_every_days": 90,
+                "allowed_hosts": ["127.0.0.1", "staging.echo.test"], "commands": ["curl"], "env_vars": {"ECHO_KEY": "{{value}}"}})
+        except client.BrokerError as exc:
+            done["code"] = exc.code
+
+    caller = threading.Thread(target=edit)
+    caller.start()
+    check(wait_for(lambda: page.js("!!document.querySelector('.modal.approval .request-detail')"), 20), f"the AI's edit asks first ({lang})")
+    page.settled()
+    detail = page.js("document.querySelector('.modal.approval .request-detail').innerText")
+    words = page.js("""[t('common.name'), t('show_form.websites_where_can_use'), t('show_form.programs_that_can_use'),
+      t('show_form.environment_variables'), t('common.tags'), t('common.remind_me_rotate'), t('every_label.every_days', { days: 90 })]""")
+    check(all(w in detail for w in words) and "staging.echo.test" in detail and "Echo API (staging)" in detail,
+          f"each change is worded in {lang}: {detail!r}")
+    clipped = set(page.js(CLIPPED) or [])
+    if lang == "en":
+        leaks = spanish_leaks(page)
+        spanish = [w for w in ("Nombre:", "Webs permitidas", "Programas:", "Etiquetas", "Rotar cada") if w in detail]
+        check(not leaks and not spanish, f"no Spanish in the AI's edit approval ({(leaks + spanish)[:5]})")
+        legacy = page.js("aiEditLines({ detail: 'Nombre: «Echo»\\nWebs permitidas: a.example, b.example\\nVariables: X={{value}}' })")
+        check(legacy == ["Name: «Echo»", "Websites where it can use it: a.example, b.example", "Environment variables: X={{value}}"],
+              f"a request from an older service (Spanish lines) is shown in English too: {legacy}")
+    calm_shot(page, f"{lang}-16-ai-edit-approval")
+    page.js("api().call('deny', { id: state.approvalOpen.id })")
+    caller.join(20)
+    check(done.get("code") == "denied", f"denied, nothing changed ({done})")
+    wait_for(lambda: page.js("!document.querySelector('.modal.approval')"), 10)
     return clipped
 
 

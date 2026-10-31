@@ -20,6 +20,9 @@
   "check_that_secretbroker_shows_this": {
     "message": "确认 SecretBroker 显示的是同一个代码，然后点击“连接”。"
   },
+  "choose_shortcut": {
+    "message": "选择快捷键"
+  },
   "cmd_fill": {
     "message": "填充此网站的登录信息"
   },

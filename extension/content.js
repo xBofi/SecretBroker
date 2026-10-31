@@ -333,9 +333,12 @@
     const width = 300;
     const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
     const below = window.innerHeight - rect.bottom;
+    const above = below < 220 && rect.top > below;
     menu.style.left = `${Math.round(left)}px`;
-    if (below < 220 && rect.top > below) { menu.style.top = ''; menu.style.bottom = `${Math.round(window.innerHeight - rect.top + 4)}px`; }
+    if (above) { menu.style.top = ''; menu.style.bottom = `${Math.round(window.innerHeight - rect.top + 4)}px`; }
     else { menu.style.bottom = ''; menu.style.top = `${Math.round(rect.bottom + 4)}px`; }
+    // Never taller than the room there is (a small window, or a form in a frame): it scrolls instead of being cut off.
+    menu.style.maxHeight = `${Math.round(Math.max(96, Math.min(340, (above ? rect.top : below) - 12)))}px`;
   }
 
   function initial(name) {

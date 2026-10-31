@@ -129,7 +129,12 @@ launcher (native messaging, 4-byte length + JSON on stdin/stdout), and the host 
   why, totp, collection}]}` (never a value); `ext_search {query}` → web logins to open their site (not fillable from
   there); `ext_fill {id, url, frame_url?, what: login | totp | username | password, copy?}` → the values;
   `ext_save_check {url, username, password}` → `{action: new | update | none, id?, name}`; `ext_save` (same, `name?`).
-  The host relays only these (`hello pair logins search fill save_check save`) plus `open_app`, which it does itself.
+  The host relays only these (`hello pair logins search fill save_check save`) plus `open_app` and `copy {id, url,
+  frame_url?, what: username | password | totp}`, which it does itself: `copy` asks `ext_fill` with `copy` and puts
+  the value on the clipboard like the app (`platform.copy_to_clipboard`: out of clipboard history and the cloud
+  clipboard, cleared after 30 s, or when the browser closes the host), answering `{copied, clear_seconds}` without
+  the value. The extension's tab state (`storage.session`) is changed through one queue per tab, so concurrent
+  messages (a page loading while «save?» is answered) don't overwrite each other.
 * **Who may ask.** `origin` must be in `native_host.ALLOWED_ORIGINS` (the id pinned by `key` in the manifest, store
   ids to be added). Except `ext_hello` / `ext_pair`, the browser must be **connected**: the extension makes a random
   `{pair, key}` (kept in `storage.local`); `ext_pair` queues a request with a 6-digit code (5 min), which the app

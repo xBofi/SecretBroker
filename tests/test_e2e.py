@@ -31,7 +31,7 @@ from nacl.public import PrivateKey, SealedBox  # noqa: E402
 
 from secretbroker import actions, cli, client, crypto, exposure, links, platform, rotation, update  # noqa: E402
 from secretbroker.client import BrokerError, BrokerUnavailable  # noqa: E402
-from secretbroker.service import Service  # noqa: E402
+from secretbroker.service import Service, change_line_text  # noqa: E402
 
 REAL_CHECK_ALIVE = exposure.check_alive  # some sections replace it with a fake
 
@@ -480,6 +480,38 @@ def main():
                  "denied", "widening where a stored key may go needs the user's OK")
     gui.join()
     check(decisions and decisions[-1][0] == "edit" and "evil.example.com" in decisions[-1][1], "the request shows the change")
+    check(decisions[-1][2].get("changes") == [{"kind": "allowed_hosts", "values": ["evil.example.com"]}],
+          f"…and sends it structured, for the app to word in its language: {decisions[-1][2].get('changes')}")
+    decisions.clear()
+    gui = threading.Thread(target=fake_gui, args=("deny",))
+    gui.start()
+    expect_error(lambda: client.request("update_credential", {
+        "secret_id": "echo-api", "name": "Echo API 2", "tags": ["pruebas"], "rotate_every_days": 0, "check_every_hours": -1,
+        "used_in": ["pro: servidor"], "allowed_hosts": ["127.0.0.1", "api.echo.test"], "commands": ["curl"],
+        "env_vars": {"ECHO_KEY": "{{value}}"}, "fields": {"base_url": "https://api.echo.test/v2"}}), "denied",
+        "an edit of several settings waits for the user")
+    gui.join()
+    changes = (decisions[-1][2].get("changes") if decisions else None) or []
+    by_kind = {(c["kind"], c.get("key") or c.get("field")): c for c in changes}
+    check(by_kind.get(("setting", "name"), {}).get("value") == "Echo API 2"
+          and by_kind.get(("setting", "tags"), {}).get("value") == ["pruebas"]
+          and by_kind.get(("setting", "rotate_every_days"), {}).get("value") == 0
+          and by_kind.get(("setting", "check_every_hours"), {}).get("value") == -1
+          and by_kind.get(("setting", "used_in"), {}).get("value") == ["pro: servidor"]
+          and by_kind.get(("field", "base_url"), {}).get("new") == "https://api.echo.test/v2"
+          and by_kind.get(("field", "base_url"), {}).get("template") == "api_key"
+          and by_kind.get(("allowed_hosts", None), {}).get("values") == ["127.0.0.1", "api.echo.test"]
+          and by_kind.get(("programs", None), {}).get("values") == ["curl"]
+          and by_kind.get(("env_vars", None), {}).get("values") == ["ECHO_KEY={{value}}"],
+          f"every setting the AI edits comes structured (kind/key/value, field/template/old/new): {changes}")
+    check(len(changes) == len(decisions[-1][1].split("\n")) and API_KEY not in json.dumps(changes),
+          "one structured change per line of the detail, and no secret in them")
+    from secretbroker import i18n as sb_i18n
+    with sb_i18n.using("en"):
+        english = [change_line_text(c) for c in changes]
+    check(all(not any(word in line for word in ("Nombre", "Webs permitidas", "Programas", "Etiquetas", "nunca")) for line in english)
+          and "Name: «Echo API 2»" in english and "Websites where it can use it: 127.0.0.1, api.echo.test" in english,
+          f"the service words them in the app's language too (notices): {english}")
     check(next(e for e in client.request("entries") if e["id"] == "echo-api")["policy"]["http"]["allowed_hosts"] == ["127.0.0.1"],
           "a denied change is not applied")
     expect_error(lambda: client.request("update_credential", {"secret_id": "echo-api", "fields": {"value": "x"}}), "invalid",

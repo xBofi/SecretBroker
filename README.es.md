@@ -62,7 +62,7 @@ Descarga `SecretBroker-<versión>-macos-arm64.pkg` (Apple silicon) o `-macos-x86
 
 ### Extensión del navegador
 
-Rellena usuarios, contraseñas y códigos 2FA en **Chrome, Edge, Brave y Firefox**, solo en la web donde se guardó cada login (dominio registrable: un dominio parecido de *phishing* no recibe nada) y solo tras tu clic o Ctrl+Shift+L. Ofrece guardar los logins nuevos y los cambios de contraseña, nunca rellena las credenciales de equipo marcadas «Solo uso» y habla con la app por *native messaging* (sin puertos abiertos). Mientras no esté en las tiendas de extensiones se carga desde la carpeta de la app, sin terminal:
+Rellena usuarios, contraseñas y códigos 2FA en **Chrome, Edge, Brave y Firefox**, solo en la web donde se guardó cada login (dominio registrable: un dominio parecido de *phishing* no recibe nada) y solo tras tu clic o Alt+Mayús+L. Ofrece guardar los logins nuevos y los cambios de contraseña, nunca rellena las credenciales de equipo marcadas «Solo uso» y habla con la app por *native messaging* (sin puertos abiertos). Mientras no esté en las tiendas de extensiones se carga desde la carpeta de la app, sin terminal:
 
 1. En la app, **Ajustes › Navegador › Instalar la extensión** abre la página de extensiones del navegador y la carpeta.
 2. **Chrome, Edge, Brave**: activa el *Modo de desarrollador*, pulsa *Cargar descomprimida* y elige la carpeta. **Firefox**: `about:debugging` › *Este Firefox* › *Cargar complemento temporal…* › `manifest.json`, y permite el acceso a todos los sitios desde el botón de extensiones. Firefox la olvida al cerrarse hasta que esté en addons.mozilla.org.

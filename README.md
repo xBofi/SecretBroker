@@ -110,7 +110,7 @@ Until the extension is published in the browser stores, it is loaded from the ap
 
 ### Browser autofill
 - An extension for Chrome, Edge, Brave and Firefox fills logins and 2FA codes, only on the site each one was saved
-  for (registrable domain, so lookalike phishing domains get nothing) and only after your click or Ctrl+Shift+L.
+  for (registrable domain, so lookalike phishing domains get nothing) and only after your click or Alt+Shift+L.
   It offers to save new and changed passwords, never fills team credentials marked "use only", and talks to the
   app through native messaging (no open port). Install and connect it from Settings › Browser (see
   [Browser extension](#browser-extension)).

@@ -20,6 +20,9 @@
   "check_that_secretbroker_shows_this": {
     "message": "Check that SecretBroker shows this same code and click “Connect”."
   },
+  "choose_shortcut": {
+    "message": "Choose a shortcut"
+  },
   "cmd_fill": {
     "message": "Fill in the login for this website"
   },

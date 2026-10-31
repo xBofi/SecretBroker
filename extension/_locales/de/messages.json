@@ -20,6 +20,9 @@
   "check_that_secretbroker_shows_this": {
     "message": "Prüfe, ob SecretBroker denselben Code anzeigt, und klicke auf „Verbinden“."
   },
+  "choose_shortcut": {
+    "message": "Tastenkürzel wählen"
+  },
   "cmd_fill": {
     "message": "Anmeldung für diese Website ausfüllen"
   },

@@ -93,6 +93,13 @@
     "one": "{count} päring",
     "other": "{count} päringut"
   },
+  "ai_change.rotation_guide": "Roteerimisjuhend",
+  "ai_change.sources": "allikad: {sources}",
+  "ai_change.steps": {
+    "one": "{count} samm",
+    "other": "{count} sammu"
+  },
+  "ai_change.test_request": "Testpäring",
   "ai_client_list.not_installed": "Pole paigaldatud: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Me ei leidnud selles arvutis ühtegi ühilduvat TI-d.",
   "ai_client_use.connected_no_requests_yet": "Ühendatud · päringuid veel pole",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Ühendatud: {names}. Täidab kasutajanime, parooli ja 2FA-koodid ainult iga mandaadi enda veebisaidil.",
   "browser_settings_group.connected_on": "Ühendatud: {value}",
   "browser_settings_group.connected_used": "Ühendatud · kasutatud {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Shift+L täidab avatud veebisaidi sisselogimise; Ctrl+Shift+Y avab laienduse. Saad neid muuta brauseri laienduste kiirklahvide lehel.",
   "browser_settings_group.disconnect": "Kas ühendada {name} lahti?",
   "browser_settings_group.disconnected": "{name} lahti ühendatud",
   "browser_settings_group.fills_in_passwords_in_names": "Täidab su paroolid brauserites {names}, ainult veebisaidil, kuhu sa need salvestasid, ja ainult siis, kui sa seda palud.",
   "browser_settings_group.keyboard_shortcut": "Kiirklahv",
+  "browser_settings_group.shortcuts_text": "Alt+Shift+L täidab avatud veebisaidi sisselogimise; Ctrl+Shift+Y avab laienduse. Saad neid muuta brauseri laienduste kiirklahvide lehel.",
   "browser_settings_group.won_be_able_fill_in": "See ei saa sinu paroole täita, kuni klõpsad laienduses uuesti „Ühenda“.",
   "cadence_text.doesn_remind_you_rotate": "Vahetamist ei tuletata meelde.",
   "cadence_text.next_time_around": ": järgmine kord umbes {value}",

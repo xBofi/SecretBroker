@@ -93,6 +93,13 @@
     "one": "{count} kérés",
     "other": "{count} kérés"
   },
+  "ai_change.rotation_guide": "Rotációs útmutató",
+  "ai_change.sources": "források: {sources}",
+  "ai_change.steps": {
+    "one": "{count} lépés",
+    "other": "{count} lépés"
+  },
+  "ai_change.test_request": "Tesztkérés",
   "ai_client_list.not_installed": "Nincs telepítve: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Nem találtunk kompatibilis MI-t ezen a gépen.",
   "ai_client_use.connected_no_requests_yet": "Csatlakoztatva · még nincs kérés",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Csatlakoztatva: {names}. A felhasználónevet, a jelszót és a 2FA-kódot csak az adott hitelesítő adat webhelyén tölti ki.",
   "browser_settings_group.connected_on": "Csatlakoztatva: {value}",
   "browser_settings_group.connected_used": "Csatlakoztatva · használva: {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "A Ctrl+Shift+L kitölti a megnyitott webhely bejelentkezési adatait; a Ctrl+Shift+Y megnyitja a bővítményt. Ezeket a böngésző bővítményekhez tartozó billentyűparancsok oldalán módosíthatod.",
   "browser_settings_group.disconnect": "Leválasztod: {name}?",
   "browser_settings_group.disconnected": "{name} leválasztva",
   "browser_settings_group.fills_in_passwords_in_names": "Kitölti a jelszavaidat ezekben: {names} – csak azon a webhelyen, ahol elmentetted őket, és csak amikor kéred.",
   "browser_settings_group.keyboard_shortcut": "Billentyűparancs",
+  "browser_settings_group.shortcuts_text": "A Alt+Shift+L kitölti a megnyitott webhely bejelentkezési adatait; a Ctrl+Shift+Y megnyitja a bővítményt. Ezeket a böngésző bővítményekhez tartozó billentyűparancsok oldalán módosíthatod.",
   "browser_settings_group.won_be_able_fill_in": "Nem tudja kitölteni a jelszavaidat, amíg újra a „Csatlakozás” gombra nem kattintasz a bővítményben.",
   "cadence_text.doesn_remind_you_rotate": "Nem emlékeztet a rotálására.",
   "cadence_text.next_time_around": ": legközelebb nagyjából ekkor: {value}",

@@ -11,6 +11,7 @@
 - [ ] `tests\test_e2e.py`
 - [ ] `tests\test_personal.py` / `tests\test_teams.py` (if touched)
 - [ ] `tests\test_gui.py` (if the interface changed)
+- [ ] `tests\test_browser.py` (if the extension or its native host changed)
 - [ ] `server/tests/test_server.py` (if the server changed)
 - [ ] Other:
 

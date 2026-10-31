@@ -93,6 +93,13 @@
     "one": "{count} richiesta",
     "other": "{count} richieste"
   },
+  "ai_change.rotation_guide": "Guida alla rotazione",
+  "ai_change.sources": "fonti: {sources}",
+  "ai_change.steps": {
+    "one": "{count} passaggio",
+    "other": "{count} passaggi"
+  },
+  "ai_change.test_request": "Richiesta di prova",
   "ai_client_list.not_installed": "Non installati: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Non abbiamo trovato nessuna IA compatibile installata su questo PC.",
   "ai_client_use.connected_no_requests_yet": "Connessa · ancora nessuna richiesta",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Connessa in {names}. Compila nome utente, password e codici 2FA solo sul sito di ogni credenziale.",
   "browser_settings_group.connected_on": "Connessa su {value}",
   "browser_settings_group.connected_used": "Connessa · usata {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Maiusc+L compila l’accesso per il sito aperto; Ctrl+Maiusc+Y apre l’estensione. Puoi cambiarle nella pagina delle scorciatoie delle estensioni del browser.",
   "browser_settings_group.disconnect": "Disconnettere {name}?",
   "browser_settings_group.disconnected": "{name} disconnesso",
   "browser_settings_group.fills_in_passwords_in_names": "Compila le tue password in {names}, solo sul sito dove le hai salvate e solo quando lo chiedi tu.",
   "browser_settings_group.keyboard_shortcut": "Scorciatoia da tastiera",
+  "browser_settings_group.shortcuts_text": "Alt+Maiusc+L compila l’accesso per il sito aperto; Ctrl+Maiusc+Y apre l’estensione. Puoi cambiarle nella pagina delle scorciatoie delle estensioni del browser.",
   "browser_settings_group.won_be_able_fill_in": "Non potrà compilare le tue password finché non fai di nuovo clic su «Connetti» nell’estensione.",
   "cadence_text.doesn_remind_you_rotate": "Non ti ricorda di ruotarla.",
   "cadence_text.next_time_around": ": la prossima volta, verso il {value}",

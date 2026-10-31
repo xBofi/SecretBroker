@@ -20,6 +20,9 @@
   "check_that_secretbroker_shows_this": {
     "message": "Kontroller at SecretBroker viser den samme koden, og klikk på «Koble til»."
   },
+  "choose_shortcut": {
+    "message": "Velg en hurtigtast"
+  },
   "cmd_fill": {
     "message": "Fyll ut påloggingen for dette nettstedet"
   },

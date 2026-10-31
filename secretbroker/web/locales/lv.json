@@ -95,6 +95,14 @@
     "one": "{count} pieprasījums",
     "other": "{count} pieprasījumi"
   },
+  "ai_change.rotation_guide": "Rotācijas ceļvedis",
+  "ai_change.sources": "avoti: {sources}",
+  "ai_change.steps": {
+    "zero": "{count} soļu",
+    "one": "{count} solis",
+    "other": "{count} soļi"
+  },
+  "ai_change.test_request": "Testa pieprasījums",
   "ai_client_list.not_installed": "Nav instalēts: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Šajā datorā netika atrasts neviens saderīgs MI.",
   "ai_client_use.connected_no_requests_yet": "Savienots · pieprasījumu vēl nav",
@@ -186,11 +194,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Savienots: {names}. Aizpilda lietotājvārdu, paroli un 2FA kodus tikai attiecīgo piekļuves datu vietnē.",
   "browser_settings_group.connected_on": "Savienots: {value}",
   "browser_settings_group.connected_used": "Savienots · izmantots {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Shift+L aizpilda atvērtās vietnes pieteikšanās datus; Ctrl+Shift+Y atver paplašinājumu. Tos var mainīt pārlūka paplašinājumu īsinājumtaustiņu lapā.",
   "browser_settings_group.disconnect": "Atvienot {name}?",
   "browser_settings_group.disconnected": "{name} atvienots",
   "browser_settings_group.fills_in_passwords_in_names": "Aizpilda jūsu paroles pārlūkos {names} — tikai vietnē, kur tās saglabājāt, un tikai tad, kad jūs to lūdzat.",
   "browser_settings_group.keyboard_shortcut": "Īsinājumtaustiņš",
+  "browser_settings_group.shortcuts_text": "Alt+Shift+L aizpilda atvērtās vietnes pieteikšanās datus; Ctrl+Shift+Y atver paplašinājumu. Tos var mainīt pārlūka paplašinājumu īsinājumtaustiņu lapā.",
   "browser_settings_group.won_be_able_fill_in": "Tas nevarēs aizpildīt jūsu paroles, līdz paplašinājumā atkal noklikšķināsiet „Savienot”.",
   "cadence_text.doesn_remind_you_rotate": "Par nomaiņu netiek atgādināts.",
   "cadence_text.next_time_around": ": nākamreiz ap {value}",

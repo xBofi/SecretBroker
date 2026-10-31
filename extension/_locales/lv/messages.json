@@ -20,6 +20,9 @@
   "check_that_secretbroker_shows_this": {
     "message": "Pārbaudiet, vai SecretBroker rāda šo pašu kodu, un noklikšķiniet uz „Savienot”."
   },
+  "choose_shortcut": {
+    "message": "Izvēlēties īsinājumtaustiņu"
+  },
   "cmd_fill": {
     "message": "Aizpildīt šīs vietnes pieteikšanās datus"
   },

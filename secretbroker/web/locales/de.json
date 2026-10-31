@@ -93,6 +93,13 @@
     "one": "{count} Anfrage",
     "other": "{count} Anfragen"
   },
+  "ai_change.rotation_guide": "Rotationsanleitung",
+  "ai_change.sources": "Quellen: {sources}",
+  "ai_change.steps": {
+    "one": "{count} Schritt",
+    "other": "{count} Schritte"
+  },
+  "ai_change.test_request": "Testanfrage",
   "ai_client_list.not_installed": "Nicht installiert: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Wir haben auf diesem PC keine kompatible KI gefunden.",
   "ai_client_use.connected_no_requests_yet": "Verbunden · noch keine Anfragen",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Verbunden in {names}. Füllt Benutzername, Passwort und 2FA-Codes nur auf der Website der jeweiligen Zugangsdaten aus.",
   "browser_settings_group.connected_on": "Verbunden am {value}",
   "browser_settings_group.connected_used": "Verbunden · verwendet {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Strg+Umschalt+L füllt die Anmeldung für die geöffnete Website aus; Strg+Umschalt+Y öffnet die Erweiterung. Du kannst das auf der Seite für Erweiterungs-Tastenkürzel des Browsers ändern.",
   "browser_settings_group.disconnect": "{name} trennen?",
   "browser_settings_group.disconnected": "{name} getrennt",
   "browser_settings_group.fills_in_passwords_in_names": "Füllt deine Passwörter in {names} aus, nur auf der Website, auf der du sie gespeichert hast, und nur, wenn du es willst.",
   "browser_settings_group.keyboard_shortcut": "Tastenkürzel",
+  "browser_settings_group.shortcuts_text": "Alt+Umschalt+L füllt die Anmeldung für die geöffnete Website aus; Strg+Umschalt+Y öffnet die Erweiterung. Du kannst das auf der Seite für Erweiterungs-Tastenkürzel des Browsers ändern.",
   "browser_settings_group.won_be_able_fill_in": "Sie kann deine Passwörter erst wieder ausfüllen, wenn du in der Erweiterung erneut auf „Verbinden“ klickst.",
   "cadence_text.doesn_remind_you_rotate": "Erinnert dich nicht ans Rotieren.",
   "cadence_text.next_time_around": ": nächstes Mal etwa am {value}",

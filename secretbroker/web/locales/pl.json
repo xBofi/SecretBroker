@@ -97,6 +97,15 @@
     "many": "{count} żądań",
     "other": "{count} żądania"
   },
+  "ai_change.rotation_guide": "Instrukcja rotacji",
+  "ai_change.sources": "źródła: {sources}",
+  "ai_change.steps": {
+    "one": "{count} krok",
+    "few": "{count} kroki",
+    "many": "{count} kroków",
+    "other": "{count} kroku"
+  },
+  "ai_change.test_request": "Żądanie testowe",
   "ai_client_list.not_installed": "Niezainstalowane: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Nie znaleźliśmy na tym komputerze żadnej zgodnej AI.",
   "ai_client_use.connected_no_requests_yet": "Połączono · jeszcze bez żądań",
@@ -190,11 +199,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Połączono w: {names}. Wypełnia nazwę użytkownika, hasło i kody 2FA tylko na stronie danego poświadczenia.",
   "browser_settings_group.connected_on": "Połączono {value}",
   "browser_settings_group.connected_used": "Połączono · użyto {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Shift+L wypełnia dane logowania na otwartej stronie; Ctrl+Shift+Y otwiera rozszerzenie. Możesz je zmienić na stronie skrótów rozszerzeń przeglądarki.",
   "browser_settings_group.disconnect": "Odłączyć {name}?",
   "browser_settings_group.disconnected": "Rozłączono: {name}",
   "browser_settings_group.fills_in_passwords_in_names": "Wypełnia Twoje hasła w przeglądarkach {names}, tylko na stronie, na której je zapisano, i tylko wtedy, gdy o to poprosisz.",
   "browser_settings_group.keyboard_shortcut": "Skrót klawiszowy",
+  "browser_settings_group.shortcuts_text": "Alt+Shift+L wypełnia dane logowania na otwartej stronie; Ctrl+Shift+Y otwiera rozszerzenie. Możesz je zmienić na stronie skrótów rozszerzeń przeglądarki.",
   "browser_settings_group.won_be_able_fill_in": "Nie będzie mogło wypełniać twoich haseł, dopóki ponownie nie klikniesz „Połącz” w rozszerzeniu.",
   "cadence_text.doesn_remind_you_rotate": "Nie przypomina o wymianie.",
   "cadence_text.next_time_around": ": następnym razem około {value}",

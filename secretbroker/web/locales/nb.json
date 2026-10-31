@@ -93,6 +93,13 @@
     "one": "{count} forespørsel",
     "other": "{count} forespørsler"
   },
+  "ai_change.rotation_guide": "Rotasjonsveiledning",
+  "ai_change.sources": "kilder: {sources}",
+  "ai_change.steps": {
+    "one": "{count} trinn",
+    "other": "{count} trinn"
+  },
+  "ai_change.test_request": "Testforespørsel",
   "ai_client_list.not_installed": "Ikke installert: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Vi fant ingen kompatibel KI installert på denne PC-en.",
   "ai_client_use.connected_no_requests_yet": "Tilkoblet · ingen forespørsler ennå",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Tilkoblet i {names}. Fyller ut brukernavn, passord og 2FA-koder bare på nettstedet til hver oppføring.",
   "browser_settings_group.connected_on": "Tilkoblet {value}",
   "browser_settings_group.connected_used": "Tilkoblet · brukt {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Shift+L fyller ut påloggingen for det åpne nettstedet; Ctrl+Shift+Y åpner utvidelsen. Du kan endre dem på siden for utvidelsessnarveier i nettleseren.",
   "browser_settings_group.disconnect": "Koble fra {name}?",
   "browser_settings_group.disconnected": "{name} koblet fra",
   "browser_settings_group.fills_in_passwords_in_names": "Fyller inn passordene dine i {names}, bare på nettstedet der du lagret dem, og bare når du ber om det.",
   "browser_settings_group.keyboard_shortcut": "Hurtigtast",
+  "browser_settings_group.shortcuts_text": "Alt+Shift+L fyller ut påloggingen for det åpne nettstedet; Ctrl+Shift+Y åpner utvidelsen. Du kan endre dem på siden for utvidelsessnarveier i nettleseren.",
   "browser_settings_group.won_be_able_fill_in": "Den kan ikke fylle ut passordene dine før du klikker på «Koble til» i utvidelsen igjen.",
   "cadence_text.doesn_remind_you_rotate": "Minner deg ikke på å rotere den.",
   "cadence_text.next_time_around": ": neste gang rundt {value}",

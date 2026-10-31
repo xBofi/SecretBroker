@@ -64,6 +64,7 @@ function browserName() {
   if (/Firefox\//.test(navigator.userAgent)) return 'Firefox';
   if (brands.some((b) => /Opera/i.test(b))) return 'Opera';
   if (brands.some((b) => /Chrome/i.test(b))) return 'Chrome';
+  if (brands.some((b) => /Chromium/i.test(b))) return 'Chromium';  // Linux distributions' Chromium, Chrome for Testing
   return msg('browser');
 }
 
@@ -104,7 +105,22 @@ async function setTabState(tabId, data) {
   await ext.storage.session.set({ [`tab:${tabId}`]: data });
 }
 
-ext.tabs.onRemoved.addListener((tabId) => ext.storage.session.remove(`tab:${tabId}`));
+// Changes to a tab's state, one at a time: messages are handled concurrently, and a page that loads (reporting its
+// form) while the answer to «save?» arrives would otherwise write back a copy without the offer (then «Save» finds
+// nothing pending). `change` edits the state it is given and must not wait for SecretBroker.
+const tabQueues = new Map();
+function changeTabState(tabId, change) {
+  const run = (tabQueues.get(tabId) || Promise.resolve()).then(async () => {
+    const state = await tabState(tabId);
+    const result = change(state);
+    await setTabState(tabId, state);
+    return result;
+  });
+  tabQueues.set(tabId, run.catch(() => {}));
+  return run;
+}
+
+ext.tabs.onRemoved.addListener((tabId) => { tabQueues.delete(tabId); ext.storage.session.remove(`tab:${tabId}`); });
 
 async function offerFor(tabId) {
   const data = await tabState(tabId);
@@ -189,7 +205,7 @@ async function submitted(tab, sender, data) {
   const host = new URL(sender.url).host;
   if (!data.password) {
     // The first step of a two-step login (only the user name): remember it for the password step.
-    if (username) { state.username = { value: username, host, at: Date.now() }; await setTabState(tab.id, state); }
+    if (username) await changeTabState(tab.id, (s) => { s.username = { value: username, host, at: Date.now() }; });
     return;
   }
   if (!username && state.username && state.username.at > Date.now() - USERNAME_MINUTES * 60000) username = state.username.value;
@@ -197,18 +213,20 @@ async function submitted(tab, sender, data) {
   if (sender.frameId !== 0) params.frame_url = sender.url;
   const answer = await native('save_check', params);
   if (!answer.ok || answer.result.action === 'none') return;
-  state.offer = { id: crypto.randomUUID(), plan: answer.result, username, password: data.password, url: tab.url,
+  const offer = { id: crypto.randomUUID(), plan: answer.result, username, password: data.password, url: tab.url,
     frame_url: params.frame_url || null, host: answer.result.host, expires: Date.now() + OFFER_MINUTES * 60000 };
-  await setTabState(tab.id, state);
-  ext.tabs.sendMessage(tab.id, { type: 'offer', offer: publicOffer(state.offer) }, { frameId: 0 }).catch(() => {});
+  await changeTabState(tab.id, (s) => { s.offer = offer; });
+  ext.tabs.sendMessage(tab.id, { type: 'offer', offer: publicOffer(offer) }, { frameId: 0 }).catch(() => {});
 }
 
 async function answerOffer(tabId, id, save, name) {
-  const state = await tabState(tabId);
-  const offer = state.offer;
-  if (!offer || offer.id !== id || offer.expires < Date.now()) return { ok: false, error: msg('it_no_longer_pending') };
-  delete state.offer;
-  await setTabState(tabId, state);
+  const offer = await changeTabState(tabId, (state) => {
+    const pending = state.offer;
+    if (!pending || pending.id !== id || pending.expires < Date.now()) return null;
+    delete state.offer;
+    return pending;
+  });
+  if (!offer) return { ok: false, error: msg('it_no_longer_pending') };
   if (!save) return { ok: true, result: { saved: false } };
   const params = { url: offer.url, username: offer.username, password: offer.password };
   if (offer.frame_url) params.frame_url = offer.frame_url;
@@ -316,11 +334,11 @@ async function onMessage(message, sender) {
     if (!isWebPage(tab.url)) return { ok: false };
     switch (message.type) {
       case 'fields': {
-        const state = await tabState(tab.id);
-        state.frames = state.frames || {};
-        if (message.has) state.frames[frame.frameId] = { url: sender.url, fields: true };
-        else delete state.frames[frame.frameId];
-        await setTabState(tab.id, state);
+        await changeTabState(tab.id, (state) => {
+          state.frames = state.frames || {};
+          if (message.has) state.frames[frame.frameId] = { url: sender.url, fields: true };
+          else delete state.frames[frame.frameId];
+        });
         return { ok: true };
       }
       case 'logins': {
@@ -368,11 +386,14 @@ async function onMessage(message, sender) {
       if (!tab || !isWebPage(tab.url)) return { ok: false, error: msg('open_website_you_want_sign') };
       return fill(tab, await loginFrame(tab), message.id, message.what === 'totp' ? 'totp' : 'login');
     case 'copy': {
+      // SecretBroker puts it on the clipboard itself, like the app: out of clipboard history and cleared after a while.
+      // An older SecretBroker without «copy» hands the value over, and the popup copies it.
       if (!tab || !isWebPage(tab.url)) return { ok: false };
       const frame = await loginFrame(tab);
-      const params = { url: tab.url, id: message.id, what: message.what, copy: true };
+      const params = { url: tab.url, id: message.id, what: message.what };
       if (frame.frameId !== 0) params.frame_url = frame.url;
-      return native('fill', params);
+      const answer = await native('copy', params);
+      return answer.ok || answer.code !== 'unknown_op' ? answer : native('fill', { ...params, copy: true });
     }
     case 'search':
       return native('search', { query: message.query, url: tab && isWebPage(tab.url) ? tab.url : '' });

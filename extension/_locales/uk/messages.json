@@ -20,6 +20,9 @@
   "check_that_secretbroker_shows_this": {
     "message": "Перевірте, що SecretBroker показує той самий код, і натисніть «Підключити»."
   },
+  "choose_shortcut": {
+    "message": "Вибрати комбінацію клавіш"
+  },
   "cmd_fill": {
     "message": "Заповнити вхід для цього сайту"
   },

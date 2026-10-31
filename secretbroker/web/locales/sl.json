@@ -97,6 +97,15 @@
     "few": "{count} zahteve",
     "other": "{count} zahtev"
   },
+  "ai_change.rotation_guide": "Navodila za rotacijo",
+  "ai_change.sources": "viri: {sources}",
+  "ai_change.steps": {
+    "one": "{count} korak",
+    "two": "{count} koraka",
+    "few": "{count} koraki",
+    "other": "{count} korakov"
+  },
+  "ai_change.test_request": "Preskusna zahteva",
   "ai_client_list.not_installed": "Ni nameščeno: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "V tem računalniku nismo našli nobene združljive UI.",
   "ai_client_use.connected_no_requests_yet": "Povezano · še brez zahtev",
@@ -190,11 +199,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Povezano v {names}. Uporabniško ime, geslo in kode 2FA izpolni samo na spletnem mestu posamezne poverilnice.",
   "browser_settings_group.connected_on": "Povezano: {value}",
   "browser_settings_group.connected_used": "Povezano · uporabljeno {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Shift+L izpolni prijavo za odprto spletno mesto; Ctrl+Shift+Y odpre razširitev. Spremenite ju lahko na strani bližnjic za razširitve v brskalniku.",
   "browser_settings_group.disconnect": "Želite prekiniti povezavo z {name}?",
   "browser_settings_group.disconnected": "{name} prekinjen",
   "browser_settings_group.fills_in_passwords_in_names": "Izpolnjuje vaša gesla v brskalnikih {names}, samo na spletnem mestu, kjer ste jih shranili, in samo ko to zahtevate.",
   "browser_settings_group.keyboard_shortcut": "Bližnjica na tipkovnici",
+  "browser_settings_group.shortcuts_text": "Alt+Shift+L izpolni prijavo za odprto spletno mesto; Ctrl+Shift+Y odpre razširitev. Spremenite ju lahko na strani bližnjic za razširitve v brskalniku.",
   "browser_settings_group.won_be_able_fill_in": "Vaših gesel ne bo mogla izpolnjevati, dokler v razširitvi znova ne kliknete »Poveži«.",
   "cadence_text.doesn_remind_you_rotate": "Ne opominja vas na rotacijo.",
   "cadence_text.next_time_around": ": naslednjič približno {value}",

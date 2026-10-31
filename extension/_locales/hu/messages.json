@@ -20,6 +20,9 @@
   "check_that_secretbroker_shows_this": {
     "message": "Ellenőrizd, hogy a SecretBroker ugyanezt a kódot mutatja-e, és kattints a „Csatlakozás” gombra."
   },
+  "choose_shortcut": {
+    "message": "Billentyűparancs választása"
+  },
   "cmd_fill": {
     "message": "A webhely bejelentkezési adatainak kitöltése"
   },

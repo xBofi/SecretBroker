@@ -2800,6 +2800,7 @@ function eventDetail(e) {
   }
   const saved = { creada: t('activity_detail.created'), modificada: t('activity_detail.changed'), 'clave añadida': t('activity_detail.key_added') };
   if (e.action === 'save' && saved[detail]) return saved[detail];
+  if (e.action === 'edit') return aiEditLines({ detail })[0];  // the first line of an AI's edit, in the app's words
   return detail;
 }
 
@@ -3245,6 +3246,42 @@ function isTextChange(change) {
   return typeof change === 'string' ? change.startsWith('Instrucciones') : change.kind === 'description';
 }
 
+// The AI's edits of a credential (service._describe_changes): {kind: setting, key, value} for its context, and
+// allowed_hosts / programs / env_vars with the whole new list. Requests from before 0.16 only have the Spanish
+// `detail`: each known start of a line is translated (AI_EDIT_LINES), the rest shown as it is.
+const AI_EDIT_LINES = [
+  ['Nombre: ', 'common.name'], ['Notas para la IA: ', 'common.instructions_for_ai'], ['Etiquetas: ', 'common.tags'],
+  ['Caduca: ', 'common.expires'], ['Rotar cada (días): ', 'common.remind_me_rotate'], ['Guía de rotación: ', 'ai_change.rotation_guide'],
+  ['Dónde se usa: ', 'common.where_used'], ['Comprobar cada (horas): ', 'common.check_that_works'],
+  ['Petición de prueba: ', 'ai_change.test_request'], ['Webs permitidas: ', 'show_form.websites_where_can_use'],
+  ['Programas: ', 'show_form.programs_that_can_use'], ['Variables: ', 'show_form.environment_variables'],
+];
+const SETTING_LABELS = { name: 'common.name', description: 'common.instructions_for_ai', tags: 'common.tags', expires: 'common.expires',
+  rotate_every_days: 'common.remind_me_rotate', rotation_guide: 'ai_change.rotation_guide', used_in: 'common.where_used',
+  check_every_hours: 'common.check_that_works', test_request: 'ai_change.test_request' };
+const LIST_KINDS = { allowed_hosts: 'show_form.websites_where_can_use', programs: 'show_form.programs_that_can_use', env_vars: 'show_form.environment_variables' };
+
+function settingValue(key, value) {
+  if (value === null || value === undefined || value === '') return '—';
+  if (key === 'tags') return listJoin(value);
+  if (key === 'used_in') return value.join('; ');
+  if (key === 'expires') return /^\d{4}-\d\d-\d\d$/.test(value) ? fmtDate(`${value}T00:00:00`, { dateStyle: 'medium' }) : value;
+  if (key === 'rotate_every_days') return value ? t('every_label.every_days', { days: value }) : lowerFirst(t('common.never'));
+  if (key === 'check_every_hours') return checkLabel(value);
+  if (key === 'rotation_guide') return [tn('ai_change.steps', value.steps || 0), (value.sources || []).length ? t('ai_change.sources', { sources: value.sources.join(', ') }) : ''].filter(Boolean).join('; ');
+  if (key === 'test_request') return `${value.method} ${value.url} → HTTP ${value.status}`;
+  return `«${String(value).slice(0, 200)}»`;
+}
+
+// The lines of an AI's request to edit a credential, in the app's language.
+function aiEditLines(request) {
+  if (Array.isArray(request.changes) && request.changes.length) return request.changes.map(changeLine);
+  return (request.detail || '').split('\n').map((line) => {
+    const known = AI_EDIT_LINES.find(([start]) => line.startsWith(start));
+    return known ? `${t(known[1])}: ${line.slice(known[0].length)}` : line;
+  });
+}
+
 function changeLine(change) {
   if (typeof change === 'string') {
     const known = CHANGE_LINES.find(([start]) => change.startsWith(start));
@@ -3252,8 +3289,10 @@ function changeLine(change) {
   }
   if (change.kind === 'field') {
     const spec = ((TEMPLATES[change.template] || {}).fields || []).find((f) => f.name === change.field);
-    return `${spec ? spec.label : change.field}: ${change.old || '—'} → ${change.new || '—'}`;
+    return `${spec ? fieldLabel(change.template, spec) : change.field}: ${change.old || '—'} → ${change.new || '—'}`;
   }
+  if (change.kind === 'setting') return `${SETTING_LABELS[change.key] ? t(SETTING_LABELS[change.key]) : change.key}: ${settingValue(change.key, change.value)}`;
+  if (LIST_KINDS[change.kind]) return `${t(LIST_KINDS[change.kind])}: ${(change.values || []).join(', ') || '—'}`;
   const value = change.values ? listJoin(change.values)
     : change.kind === 'template' ? (TEMPLATES[change.new] || {}).label || change.new : change.new;
   return CHANGE_KINDS[change.kind] ? `${t(CHANGE_KINDS[change.kind])}: ${value}` : String(value ?? '');
@@ -4405,7 +4444,7 @@ function browserSettingsGroup() {
         ? el('div', { style: 'display:flex;gap:12px;align-items:center' }, el('span', { class: 'state-text ok' }, icon('check', 'sm'), t('browser_settings_group.connected')), installButton)
         : installButton),
       ...rows,
-      setting(t('browser_settings_group.keyboard_shortcut'), t('browser_settings_group.ctrl_shift_l_fills_in'), null));
+      setting(t('browser_settings_group.keyboard_shortcut'), t('browser_settings_group.shortcuts_text'), null));
   };
   draw();
   return group;
@@ -4912,7 +4951,7 @@ function looksDestructive(detail) {
 
 // The exact action, in monospace, with the host it goes to marked.
 function actionBlock(request) {
-  const detail = request.detail || '';
+  const detail = request.action === 'edit' ? aiEditLines(request).join('\n') : request.detail || '';
   const host = request.host;
   const at = host ? detail.indexOf(host) : -1;
   const lineEnd = detail.indexOf('\n');

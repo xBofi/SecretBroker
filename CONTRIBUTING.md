@@ -42,12 +42,14 @@ first failure. All tests use temporary vaults and **fake** credentials.
 | `.venv\Scripts\python.exe tests\test_personal.py` | Personal-use features, when present |
 | `.venv\Scripts\python.exe tests\test_teams.py` | Desktop side of team sharing against a local server, when present |
 | `.venv\Scripts\python.exe tests\test_gui.py` | The real app window, tray, approvals and MCP over HTTP, with a separate test vault. Saves screenshots. Needs a desktop session. |
+| `.venv\Scripts\python.exe tests\test_browser.py` | The browser extension in a real Microsoft Edge (or Chrome for Testing), with its native host and the app, against local test sites. Saves screenshots. Skips without a supported browser. |
 | `.venv\Scripts\python.exe tests\test_ssh.py` | SSH against a local test server |
 | `.venv\Scripts\python.exe tests\test_exposure.py` | Exposure scanning against a fake user profile (needs `git`) |
 | `python server/tests/test_server.py` | Team server API (any OS) |
 
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs the end-to-end, personal and team tests on Windows and
-the server tests on Linux. Please run `test_gui.py` too when you change the app's interface.
+the server tests on Linux. Please run `test_gui.py` too when you change the app's interface, and `test_browser.py` when you change the
+extension or its native host.
 
 ## Code style
 

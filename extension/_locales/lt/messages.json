@@ -20,6 +20,9 @@
   "check_that_secretbroker_shows_this": {
     "message": "Patikrinkite, ar SecretBroker rodo tą patį kodą, ir spustelėkite „Prijungti“."
   },
+  "choose_shortcut": {
+    "message": "Pasirinkti spartųjį klavišą"
+  },
   "cmd_fill": {
     "message": "Užpildyti šios svetainės prisijungimą"
   },

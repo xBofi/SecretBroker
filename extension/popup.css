@@ -38,7 +38,7 @@ svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width:
 .brand { font-weight: var(--fw-semibold); flex: 1; }
 .icon-btn { border: 0; background: none; width: 30px; height: 30px; border-radius: var(--radius-sm); display: grid; place-items: center; color: var(--muted); cursor: pointer; }
 .icon-btn:hover { background: var(--fill); color: var(--text); }
-.icon-btn:focus-visible, .btn:focus-visible, .row:focus-visible, .search:focus-visible { outline: 2px solid var(--interactive); outline-offset: 1px; }
+.icon-btn:focus-visible, .btn:focus-visible, .row:focus-visible, .search:focus-visible, .hint .link:focus-visible { outline: 2px solid var(--interactive); outline-offset: 1px; }
 
 main { padding: 12px 12px 14px; }
 .site { display: flex; align-items: center; gap: 8px; padding: 0 4px 10px; color: var(--muted); font-size: var(--fs-sm); }
@@ -94,6 +94,8 @@ main { padding: 12px 12px 14px; }
 .empty { color: var(--muted); font-size: var(--fs-sm); padding: 6px 4px 2px; }
 .hints { padding: 10px 4px 0; margin-top: 6px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
 .hint { color: var(--faint); font-size: var(--fs-xs); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hint .link { border: 0; background: none; padding: 0; font: inherit; color: var(--interactive); cursor: pointer; }
+.hint .link:hover { text-decoration: underline; }
 kbd { font: var(--fs-xs) var(--font-mono); background: var(--fill); border-radius: 4px; padding: 1px 5px; color: var(--muted); }
 .message { font-size: var(--fs-sm); padding: 8px 10px; border-radius: var(--radius-sm); margin-top: 8px; background: var(--fill); }
 .message.error { color: var(--danger); }

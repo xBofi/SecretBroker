@@ -97,6 +97,15 @@
     "many": "{count} užklausos",
     "other": "{count} užklausų"
   },
+  "ai_change.rotation_guide": "Rotacijos vadovas",
+  "ai_change.sources": "šaltiniai: {sources}",
+  "ai_change.steps": {
+    "one": "{count} žingsnis",
+    "few": "{count} žingsniai",
+    "many": "{count} žingsnio",
+    "other": "{count} žingsnių"
+  },
+  "ai_change.test_request": "Bandomoji užklausa",
   "ai_client_list.not_installed": "Neįdiegta: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Šiame kompiuteryje neradome jokio suderinamo DI.",
   "ai_client_use.connected_no_requests_yet": "Prijungta · užklausų dar nėra",
@@ -190,11 +199,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Prijungta: {names}. Naudotojo vardą, slaptažodį ir 2FA kodus pildo tik kiekvieno kredencialo svetainėje.",
   "browser_settings_group.connected_on": "Prijungta: {value}",
   "browser_settings_group.connected_used": "Prijungta · naudota {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Shift+L užpildo atidarytos svetainės prisijungimą; Ctrl+Shift+Y atidaro plėtinį. Juos galite pakeisti naršyklės plėtinių sparčiųjų klavišų puslapyje.",
   "browser_settings_group.disconnect": "Atjungti {name}?",
   "browser_settings_group.disconnected": "{name} atjungta",
   "browser_settings_group.fills_in_passwords_in_names": "Užpildo jūsų slaptažodžius naršyklėse {names}, tik toje svetainėje, kurioje juos išsaugojote, ir tik kai paprašote.",
   "browser_settings_group.keyboard_shortcut": "Spartusis klavišas",
+  "browser_settings_group.shortcuts_text": "Alt+Shift+L užpildo atidarytos svetainės prisijungimą; Ctrl+Shift+Y atidaro plėtinį. Juos galite pakeisti naršyklės plėtinių sparčiųjų klavišų puslapyje.",
   "browser_settings_group.won_be_able_fill_in": "Jis negalės pildyti jūsų slaptažodžių, kol plėtinyje vėl nespustelėsite „Prijungti“.",
   "cadence_text.doesn_remind_you_rotate": "Apie keitimą nepriminama.",
   "cadence_text.next_time_around": ": kitą kartą apie {value}",

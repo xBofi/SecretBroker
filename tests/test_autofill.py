@@ -34,6 +34,50 @@ def check(condition, message):
     failures += not condition
 
 
+
+def _clipboard(read):
+    import ctypes
+    from ctypes import wintypes
+    user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+    user32.GetClipboardData.restype = wintypes.HANDLE
+    user32.RegisterClipboardFormatW.argtypes = [wintypes.LPCWSTR]
+    kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
+    kernel32.GlobalLock.restype = ctypes.c_void_p
+    kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+    if not user32.OpenClipboard(None):
+        return None
+    try:
+        return read(user32, kernel32, ctypes)
+    finally:
+        user32.CloseClipboard()
+
+
+def clipboard_text():
+    """What the Windows clipboard holds as text ("" when empty)."""
+    def read(user32, kernel32, ctypes):
+        handle = user32.GetClipboardData(13)  # CF_UNICODETEXT
+        if not handle:
+            return ""
+        try:
+            return ctypes.wstring_at(kernel32.GlobalLock(handle))
+        finally:
+            kernel32.GlobalUnlock(handle)
+    return _clipboard(read)
+
+
+def clipboard_flag(name):
+    """The DWORD of a registered clipboard format («CanIncludeInClipboardHistory»…), None if it isn't there."""
+    def read(user32, kernel32, ctypes):
+        handle = user32.GetClipboardData(user32.RegisterClipboardFormatW(name))
+        if not handle:
+            return None
+        try:
+            return ctypes.c_uint32.from_address(kernel32.GlobalLock(handle)).value
+        finally:
+            kernel32.GlobalUnlock(handle)
+    return _clipboard(read)
+
+
 # --------------------------------------------------------------------------------------------- domain matching
 
 def matches(saved, page, mode="domain"):
@@ -292,6 +336,21 @@ def check_host():
               "the current 2FA code, without the password")
         reply = host.ask("fill", {"url": "https://example.com", "id": "example", "what": "password", "copy": True}, pair)
         check(reply["ok"] and reply["result"] == {"password": "fake-pass-1"}, "copying only the password")
+        reply = host.ask("copy", {"url": "https://example.com", "id": "example", "what": "password"}, pair)
+        check(reply["ok"] and reply["result"] == {"copied": "password", "clear_seconds": 30} and "fake-pass-1" not in json.dumps(reply),
+              "«copy»: the host puts it on the clipboard itself, the extension never gets the value")
+        if sys.platform == "win32":
+            check(clipboard_text() == "fake-pass-1" and clipboard_flag("CanIncludeInClipboardHistory") == 0
+                  and clipboard_flag("CanUploadToCloudClipboard") == 0,
+                  "on the clipboard, kept out of clipboard history and the cloud clipboard")
+            host_copy = Host(CHROME, "--parent-window=0")
+            host_copy.ask("copy", {"url": "https://example.com", "id": "example", "what": "username"}, pair)
+            host_copy.close()  # the browser closes before the 30 s
+            check(clipboard_text() == "", "a host that the browser closes clears what it copied")
+        reply = host.ask("copy", {"url": "https://example.com", "id": "example", "what": "login"}, pair)
+        check(not reply["ok"] and reply["code"] == "invalid", "«copy» takes one field only")
+        reply = host.ask("copy", {"url": "https://evil.example.net", "id": "example", "what": "password"}, pair)
+        check(not reply["ok"] and reply["code"] == "mismatch", "and never for another site")
         events = client.request("audit", {"limit": 30})
         fills = [e for e in events if e["action"] in ("browser_fill", "browser_copy")]
         check(fills and all(e["actor"] == "browser" and e.get("client", "").startswith("Navegador") for e in fills),

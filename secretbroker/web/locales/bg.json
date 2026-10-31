@@ -93,6 +93,13 @@
     "one": "{count} заявка",
     "other": "{count} заявки"
   },
+  "ai_change.rotation_guide": "Ръководство за ротация",
+  "ai_change.sources": "източници: {sources}",
+  "ai_change.steps": {
+    "one": "{count} стъпка",
+    "other": "{count} стъпки"
+  },
+  "ai_change.test_request": "Тестова заявка",
   "ai_client_list.not_installed": "Не е инсталиран: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Не открихме съвместим ИИ, инсталиран на този компютър.",
   "ai_client_use.connected_no_requests_yet": "Свързан · все още няма заявки",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Свързано в {names}. Попълва потребителско име, парола и кодове за 2FA само на уебсайта на съответния запис.",
   "browser_settings_group.connected_on": "Свързано в {value}",
   "browser_settings_group.connected_used": "Свързано · използвано {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Shift+L попълва данните за вход за отворения уебсайт; Ctrl+Shift+Y отваря разширението. Можете да ги смените на страницата с клавишни комбинации за разширения в браузъра.",
   "browser_settings_group.disconnect": "Изключване на {name}?",
   "browser_settings_group.disconnected": "{name} е изключен",
   "browser_settings_group.fills_in_passwords_in_names": "Попълва паролите ви в {names}, само в сайта, в който сте ги запазили, и само когато поискате.",
   "browser_settings_group.keyboard_shortcut": "Клавишна комбинация",
+  "browser_settings_group.shortcuts_text": "Alt+Shift+L попълва данните за вход за отворения уебсайт; Ctrl+Shift+Y отваря разширението. Можете да ги смените на страницата с клавишни комбинации за разширения в браузъра.",
   "browser_settings_group.won_be_able_fill_in": "Няма да може да попълва паролите ви, докато не щракнете отново „Свързване“ в разширението.",
   "cadence_text.doesn_remind_you_rotate": "Не ви напомня да го ротирате.",
   "cadence_text.next_time_around": ": следващия път около {value}",

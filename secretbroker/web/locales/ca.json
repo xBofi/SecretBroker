@@ -93,6 +93,13 @@
     "one": "{count} petició",
     "other": "{count} peticions"
   },
+  "ai_change.rotation_guide": "Guia de rotació",
+  "ai_change.sources": "fonts: {sources}",
+  "ai_change.steps": {
+    "one": "{count} pas",
+    "other": "{count} passos"
+  },
+  "ai_change.test_request": "Petició de prova",
   "ai_client_list.not_installed": "No instal·lats: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "No hem trobat cap IA compatible instal·lada en aquest PC.",
   "ai_client_use.connected_no_requests_yet": "Connectada · encara cap petició",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Connectada a {names}. Emplena l'usuari, la contrasenya i els codis 2FA només al lloc web de cada credencial.",
   "browser_settings_group.connected_on": "Connectada a {value}",
   "browser_settings_group.connected_used": "Connectada · utilitzada {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Maj+L emplena l'inici de sessió del lloc web obert; Ctrl+Maj+Y obre l'extensió. Pots canviar-les a la pàgina de dreceres d'extensions del navegador.",
   "browser_settings_group.disconnect": "Vols desconnectar {name}?",
   "browser_settings_group.disconnected": "{name} desconnectat",
   "browser_settings_group.fills_in_passwords_in_names": "Emplena les teves contrasenyes a {names}, només al lloc web on les vas desar i només quan ho demanes.",
   "browser_settings_group.keyboard_shortcut": "Drecera de teclat",
+  "browser_settings_group.shortcuts_text": "Alt+Maj+L emplena l'inici de sessió del lloc web obert; Ctrl+Maj+Y obre l'extensió. Pots canviar-les a la pàgina de dreceres d'extensions del navegador.",
   "browser_settings_group.won_be_able_fill_in": "No podrà emplenar les teves contrasenyes fins que tornis a fer clic a «Connecta» a l'extensió.",
   "cadence_text.doesn_remind_you_rotate": "No et recorda que l'has de rotar.",
   "cadence_text.next_time_around": ": la propera vegada, cap al {value}",

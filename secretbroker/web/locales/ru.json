@@ -97,6 +97,15 @@
     "many": "{count} запросов",
     "other": "{count} запроса"
   },
+  "ai_change.rotation_guide": "Инструкция по ротации",
+  "ai_change.sources": "источники: {sources}",
+  "ai_change.steps": {
+    "one": "{count} шаг",
+    "few": "{count} шага",
+    "many": "{count} шагов",
+    "other": "{count} шага"
+  },
+  "ai_change.test_request": "Тестовый запрос",
   "ai_client_list.not_installed": "Не установлены: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "На этом ПК не найден ни один совместимый ИИ.",
   "ai_client_use.connected_no_requests_yet": "Подключён · запросов пока нет",
@@ -190,11 +199,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Подключено в {names}. Заполняет имя пользователя, пароль и коды 2FA только на сайте каждой записи.",
   "browser_settings_group.connected_on": "Подключено {value}",
   "browser_settings_group.connected_used": "Подключено · использовалось {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Shift+L заполняет вход на открытом сайте; Ctrl+Shift+Y открывает расширение. Их можно изменить на странице сочетаний клавиш для расширений браузера.",
   "browser_settings_group.disconnect": "Отключить {name}?",
   "browser_settings_group.disconnected": "{name} отключён",
   "browser_settings_group.fills_in_passwords_in_names": "Заполняет ваши пароли в {names} — только на сайте, где вы их сохранили, и только когда вы просите.",
   "browser_settings_group.keyboard_shortcut": "Сочетание клавиш",
+  "browser_settings_group.shortcuts_text": "Alt+Shift+L заполняет вход на открытом сайте; Ctrl+Shift+Y открывает расширение. Их можно изменить на странице сочетаний клавиш для расширений браузера.",
   "browser_settings_group.won_be_able_fill_in": "Оно не сможет заполнять ваши пароли, пока вы снова не нажмёте «Подключить» в расширении.",
   "cadence_text.doesn_remind_you_rotate": "Не напоминает сменить ключ.",
   "cadence_text.next_time_around": ": в следующий раз — около {value}",

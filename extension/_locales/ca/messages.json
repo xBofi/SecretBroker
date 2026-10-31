@@ -20,6 +20,9 @@
   "check_that_secretbroker_shows_this": {
     "message": "Comprova que SecretBroker mostra aquest mateix codi i fes clic a «Connecta»."
   },
+  "choose_shortcut": {
+    "message": "Tria una drecera"
+  },
   "cmd_fill": {
     "message": "Emplena l'inici de sessió d'aquest lloc web"
   },

@@ -25,7 +25,8 @@ Nothing reaches users until someone opens the draft on GitHub, reads it and clic
 updater only looks at published releases (`/releases/latest`), picks the asset of its own system (and on a Mac,
 of its processor: `platform.INSTALLER_RE`) and installs it only if its `.sig` verifies.
 
-Before tagging, run `tests/test_gui.py` on a Windows desktop (it opens the real app; CI cannot).
+Before tagging, run `tests/test_gui.py` and `tests/test_browser.py` on a Windows desktop (they open the real app and a
+real browser; CI cannot).
 
 ## Builds without the owner's accounts are unsigned
 

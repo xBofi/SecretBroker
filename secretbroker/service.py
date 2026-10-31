@@ -556,9 +556,10 @@ class Service:
         self._audit("vault", "ai_permissions", detail, "ok")
         return self.op_ai_permissions({})
 
-    def _gate(self, capability, entry, action, detail, strict=False):
+    def _gate(self, capability, entry, action, detail, strict=False, changes=None):
         """Apply the user's choice for one of the AI's capabilities. Returns True if the user was
-        asked (and agreed), so the caller can skip the credential's own approval. `strict`: at least ask."""
+        asked (and agreed), so the caller can skip the credential's own approval. `strict`: at least ask.
+        `changes`: `detail` structured (_describe_changes), for the app to word in its language."""
         level = self._ai_level(capability)
         if strict and level in ("free", "notify"):
             level = "ask"
@@ -566,11 +567,11 @@ class Service:
             raise ServiceError(tr("service.user_doesn_allow_ai_ask", value=_capability_label(capability)[0].lower() + _capability_label(capability)[1:]),
                                "forbidden")
         if level == "ask":
-            self._ask_user(entry, action, detail, allow_session=False, strong=capability in STRONG_APPROVALS)
+            self._ask_user(entry, action, detail, allow_session=False, strong=capability in STRONG_APPROVALS, changes=changes)
             return True
         if level == "notify":
             self._notify(tr(f"service.ai_did_{capability}", name=entry.get("name", entry.get("id"))),
-                         detail.splitlines()[0] if detail else "")
+                         change_line_text(changes[0]) if changes else detail.splitlines()[0] if detail else "")
         return False
 
     # ------------------------------------------------------------------ notices for the user
@@ -1660,12 +1661,13 @@ class Service:
             self._require_team_write(entry)
         if not changes:
             return {"credential": agent_view(entry), "changed": []}
-        risky = [line for key, line in changes if key not in CONTEXT_KEYS]
-        detail = "\n".join(line for _, line in changes)
+        risky = [line for key, line, _ in changes if key not in CONTEXT_KEYS]
+        detail = "\n".join(line for _, line, _ in changes)
         capability = "create" if entry.get("draft") else "edit_config" if risky else "edit_notes"
         try:
             # What the AI writes on a team credential reaches every teammate's AI: the user always confirms it.
-            self._gate(capability, entry, "edit", detail, strict=bool(entry.get("shared")))
+            self._gate(capability, entry, "edit", detail, strict=bool(entry.get("shared")),
+                       changes=[change for _, _, change in changes])
         except ServiceError as exc:
             self._audit(entry["id"], "edit", detail, "denied" if exc.code == "denied" else "error", str(exc))
             raise
@@ -1673,7 +1675,7 @@ class Service:
             self._forget_grants(entry["id"])  # the user approved it going to the old places only
         self.vault.put(updated, replaces=entry["id"])
         self._audit(entry["id"], "edit", detail, "ok")
-        return {"credential": agent_view(self.vault.get(entry["id"])), "changed": [line for _, line in changes]}
+        return {"credential": agent_view(self.vault.get(entry["id"])), "changed": [line for _, line, _ in changes]}
 
     def op_check_env(self, params):
         """`sb check`: is every credential a project's .secretbroker names ready? No values involved."""
@@ -2467,7 +2469,7 @@ class Service:
             uses.append(now)
             return bool(limit) and len(uses) > limit
 
-    def _ask_user(self, entry, action, detail, allow_session, grant_ids=None, allow_once=True, strong=False):
+    def _ask_user(self, entry, action, detail, allow_session, grant_ids=None, allow_once=True, strong=False, changes=None):
         """Show the request in the app and wait for the user's answer. `strong`: it deletes, rotates or widens
         where a key goes, so after a Windows-session unlock approving it needs a proof once (op_approve)."""
         if time.monotonic() - self._gui_seen > GUI_SEEN_SECONDS:
@@ -2481,7 +2483,7 @@ class Service:
             "id": uuid.uuid4().hex, "secret_id": entry["id"], "secret_name": entry.get("name", entry["id"]),
             "template": entry["template"], "action": action, "detail": detail,
             "allow_session": allow_session, "allow_once": allow_once, "secret_ids": grant_ids or [entry["id"]],
-            "strong": bool(strong),
+            "strong": bool(strong), **({"changes": changes} if changes else {}),
             "created": now.isoformat(timespec="seconds"),
             "expires": (now + timedelta(seconds=APPROVAL_TIMEOUT_SECONDS)).isoformat(timespec="seconds"),
             "client": getattr(_ACTOR, "client", None), "reason": reason, "host": getattr(_ACTOR, "host", None),
@@ -2890,8 +2892,24 @@ TEST_QUESTION = ("La app no sabe cómo probar esta clave. Busca en la documentac
 CHANGE_LABELS["test_request"] = "Petición de prueba"
 
 
+def _setting_value(key, value):
+    """A context setting as the structured change keeps it (JSON, no secrets): the page words it."""
+    if value in (None, "", []):
+        return None
+    if key == "rotation_guide":
+        return {"steps": len(value.get("create") or []), "sources": list(value.get("sources") or [])}
+    if key == "test_request":
+        return {k: value.get(k) for k in ("method", "url", "status")}
+    if key in ("name", "description"):
+        return str(value)[:300]
+    return value
+
+
 def _describe_changes(old, new):
-    """[(key, human-readable line)] of what differs between two versions of an entry (no secrets)."""
+    """[(key, line, change)] of what differs between two versions of an entry (no secrets). `line` is Spanish, for the
+    activity log and the AI (like the service's other audit details); `change` is the same, structured
+    ({kind: setting | field | allowed_hosts | programs | env_vars, …}), for the approval card, which words it in the
+    app's language (change_line_text here, changeLine in the page)."""
     changes = []
     for key in CONTEXT_KEYS:
         if old.get(key) != new.get(key):
@@ -2906,24 +2924,56 @@ def _describe_changes(old, new):
                 value = {0: "nunca", CHECK_ONCE: "solo una vez"}.get(new[key], str(new[key]))
             elif key == "test_request" and new.get(key):
                 value = f"{new[key]['method']} {new[key]['url']} → HTTP {new[key]['status']}"
-            changes.append((key, f"{CHANGE_LABELS[key]}: «{value[:200]}»"))
+            changes.append((key, f"{CHANGE_LABELS[key]}: «{value[:200]}»",
+                            {"kind": "setting", "key": key, "value": _setting_value(key, new.get(key))}))
     labels = {s["name"]: s["label"] for s in templates.field_specs(old["template"])}
     for name in sorted(set(old["fields"]) | set(new["fields"])):
-        if name in templates.SECRET_FIELDS or name in templates.secret_field_names(old["template"]) \
-                or old["fields"].get(name) == new["fields"].get(name):
+        if name in templates.SECRET_FIELDS or name in templates.secret_field_names(old["template"])                 or old["fields"].get(name) == new["fields"].get(name):
             continue
-        changes.append((name, f"{labels.get(name, name)}: {old['fields'].get(name) or '—'} → {new['fields'].get(name) or '—'}"))
+        changes.append((name, f"{labels.get(name, name)}: {old['fields'].get(name) or '—'} → {new['fields'].get(name) or '—'}",
+                        {"kind": "field", "field": name, "template": old["template"],
+                         "old": old["fields"].get(name) or "", "new": new["fields"].get(name) or ""}))
     old_policy, new_policy = old.get("policy") or {}, new.get("policy") or {}
     hosts = lambda p: (p.get("http") or {}).get("allowed_hosts") or []
     if hosts(old_policy) != hosts(new_policy):
-        changes.append(("hosts", f"Webs permitidas: {', '.join(hosts(new_policy)) or '—'}"))
+        changes.append(("hosts", f"Webs permitidas: {', '.join(hosts(new_policy)) or '—'}",
+                        {"kind": "allowed_hosts", "values": list(hosts(new_policy))}))
     commands = lambda p: p.get("commands") or {}
     if commands(old_policy).get("allowed", []) != commands(new_policy).get("allowed", []):
-        changes.append(("commands", f"Programas: {', '.join(commands(new_policy).get('allowed', [])) or '—'}"))
+        allowed = list(commands(new_policy).get("allowed", []))
+        changes.append(("commands", f"Programas: {', '.join(allowed) or '—'}", {"kind": "programs", "values": allowed}))
     if commands(old_policy).get("env", {}) != commands(new_policy).get("env", {}):
-        env = commands(new_policy).get("env", {})
-        changes.append(("env", "Variables: " + (", ".join(f"{k}={v}" for k, v in env.items()) or "—")))
+        env = [f"{k}={v}" for k, v in commands(new_policy).get("env", {}).items()]
+        changes.append(("env", "Variables: " + (", ".join(env) or "—"), {"kind": "env_vars", "values": env}))
     return changes
+
+
+def change_line_text(change):
+    """One structured change of _describe_changes in the language of the request (for a notice)."""
+    kind = change.get("kind")
+    if kind == "field":
+        template = change.get("template")
+        specs = i18n.localize("templates", templates.field_specs(template)) if template in templates.TEMPLATES else []
+        label = next((s["label"] for s in specs if s["name"] == change.get("field")), change.get("field"))
+        return f"{label}: {change.get('old') or '—'} → {change.get('new') or '—'}"
+    if kind in ("allowed_hosts", "programs", "env_vars"):
+        return f"{tr('service.change_' + kind)}: {', '.join(change.get('values') or []) or '—'}"
+    key, value = change.get("key"), change.get("value")
+    if value is None:
+        text = "—"
+    elif key in ("tags", "used_in"):
+        text = ", ".join(value)
+    elif key == "rotate_every_days":
+        text = tr("service.change_every_days", days=value) if value else tr("service.change_never")
+    elif key == "check_every_hours":
+        text = tr("service.change_never") if value == 0 else tr("service.change_once") if value == CHECK_ONCE             else tr("service.change_every_hours", count=value)
+    elif key == "rotation_guide":
+        text = tr("service.change_steps", count=value.get("steps", 0))
+    elif key == "test_request":
+        text = f"{value.get('method')} {value.get('url')} → HTTP {value.get('status')}"
+    else:
+        text = f"«{str(value)[:200]}»"
+    return f"{tr('service.change_' + str(key))}: {text}"
 
 
 def _normalized(content):

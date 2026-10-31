@@ -42,6 +42,10 @@ PLURALS = {
 RARE = {code: ("many",) for code in "es fr it pt ca".split()}
 # Messages that are a bare separator: a no-break space is a valid one («12 345» in French, Swedish, Russian…).
 SEPARATORS = {"health.thousands_separator"}
+# Names of file types in the system's file dialogs (app._file_types): pywebview takes letters, digits, spaces and
+# (turned into ʼ) apostrophes only, so a hyphen or a dot there would be lost.
+FILE_TYPES = {"app.all_files", "app.backup_files", "app.env_files", "app.export_encrypted_file_type", "app.manager_exports"}
+FILE_TYPE = re.compile(r"^[\w '’]+$")
 PLACEHOLDER = re.compile(r"(?<!\{)\{(\w+)\}(?!\})")
 EXT_PLACEHOLDER = re.compile(r"\$(\w+)\$")
 CODE_KEY = re.compile(r"\btn?\('([a-z0-9_]+(?:\.[a-z0-9_]+)+)'")
@@ -93,6 +97,8 @@ def check_message(lang, key, ref, value):
     if isinstance(ref, str) and isinstance(value, str) and value.strip() and (
             not _joins(lang, ref[:1], value[:1]) or not _joins(lang, ref[-1:], value[-1:])):
         problems.append(f"{key}: keep the space at the start or end like English (it joins this text to the next)")
+    if key in FILE_TYPES and isinstance(value, str) and not FILE_TYPE.match(value):
+        problems.append(f"{key}: a file type name takes only letters, digits, spaces and apostrophes (no «-», «.», «(»)")
     want, got = placeholders(ref), placeholders(value)
     if want != got:
         extra, lost = sorted(got - want), sorted(want - got)

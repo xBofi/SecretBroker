@@ -2,8 +2,13 @@
 
 Fills the logins saved in SecretBroker in Chrome, Edge, Brave and Firefox: a SecretBroker button in login and 2FA
 fields with the logins saved for that site, a popup (search, fill, copy user / password / 2FA code, open the app),
-the shortcut **Ctrl+Shift+L** (fill) and **Ctrl+Shift+Y** (open the popup), and "Save this login?" after a form is
+the shortcut **Alt+Shift+L** (fill) and **Ctrl+Shift+Y** (open the popup), and "Save this login?" after a form is
 sent. One Manifest V3 source for every browser.
+
+The fill shortcut was Ctrl+Shift+L, but Chrome and Edge 156 do not give that key to extensions any more
+(`tests/test_browser.py` checks the shortcut each browser assigns). When a browser leaves it unset
+(another extension already has it), the popup shows «Choose a shortcut» (the browser's `extensions/shortcuts`
+page) instead of naming a key that does nothing.
 
 How it works and why it is safe: [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) section 1.3 and
 [docs/THREAT_MODEL.md](../docs/THREAT_MODEL.md) section 3.8. In short:
@@ -38,11 +43,46 @@ In the app, **Settings › Browser › Install the extension** opens the browser
   sites (Manifest V3 host permissions are optional there): allow it from the extensions button, or the fields
   will not get the SecretBroker button.
 
-Then open the extension and press **Conectar**: the app shows the same 6-digit code and connects it with one click.
+Then open the extension and press **Connect**: the app shows the same 6-digit code and connects it with one click.
 
 On Linux and macOS, the packages (`.deb` `postinst`, `.pkg` `postinstall`) run `native_host.register()` as each
 desktop account, and the app runs it again at every start: it writes a launcher and the host manifest into each
 browser's per-user folder (`~/.config/...` on Linux, `~/Library/Application Support/...` on macOS).
+
+## Testing it in a real browser
+
+`tests/test_browser.py` runs Microsoft Edge (or, with `SB_BROWSER=chrome SB_CHROME=<chrome.exe>`, Chrome for
+Testing or Chromium: stable Chrome ignores `--load-extension` since version 137) with this folder unpacked, the
+native host registered for the user (the previous registration is put back at the end), the desktop app and a
+throwaway vault, against local test sites (`shop.localhost`, a lookalike `shop-login.localhost`, `127.0.0.1`, a page
+framing another site, a sign-up form). It drives the browser through the DevTools protocol with real input events, so
+the extension's `isTrusted` checks apply, and saves screenshots of the popup, the in-page menu and the save bar in
+light and dark. It skips when no such browser is installed.
+
+What it covers: connecting from the popup and the app (same code, one click; the popup closes when the app comes to
+the front, and opened again shows the same code), the popup listing the site's logins with its icon, copying a
+password (put on the clipboard by the native host, out of clipboard history), filling user and password from the
+popup and from the field's menu, the 2FA code, the fill shortcut the browser assigned (and «Choose a shortcut» when
+there is none), nothing offered or handed over on a lookalike domain or another host, nothing in a frame of another
+site, «Save this login?» and «Update the password?» storing only after the click, «use only» team logins listed but
+never filled, the locked vault (menu, popup, «Unlock» bringing the app forward), disconnecting from the app. It
+passes in Edge 156 and Chrome for Testing 156.
+
+Not covered by it, still checked by hand before a release:
+
+- **Firefox**: it has no `--load-extension`; a temporary add-on is loaded from `about:debugging`, and WebDriver BiDi
+  (`webExtension.install`) would be the way to automate it. Its native messaging manifest differs (extension id,
+  not origin) and is covered by `tests/test_autofill.py` only.
+- **Brave** and **Chrome stable**: the same Chromium code as Edge and Chrome for Testing; Brave was not installed on
+  the test PC, and stable Chrome refuses unpacked extensions from the command line.
+- **macOS and Linux**: the test registers the native host in the Windows registry; on the other systems the host
+  manifests are covered by `tests/test_autofill.py` and `tests/test_platform.py`, and Command+Shift+L (the macOS
+  shortcut) is unverified.
+- **The keyboard shortcut** as a key press: DevTools input reaches the page, not the browser's command handler; the
+  test calls the handler the shortcut runs.
+- **The stores** (below): not published yet.
+- How often the popup closes while connecting depends on whether Windows lets the app take the focus; the test
+  accepts both and checks that reopening the popup shows the same pending code.
 
 ## Publishing to the stores (needs the owner's developer accounts)
 

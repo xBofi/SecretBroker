@@ -93,6 +93,13 @@
     "one": "{count} eskaera",
     "other": "{count} eskaera"
   },
+  "ai_change.rotation_guide": "Errotazio-gida",
+  "ai_change.sources": "iturriak: {sources}",
+  "ai_change.steps": {
+    "one": "urrats {count}",
+    "other": "{count} urrats"
+  },
+  "ai_change.test_request": "Proba-eskaera",
   "ai_client_list.not_installed": "Instalatu gabe: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Ez dugu AA bateragarririk aurkitu ordenagailu honetan instalatuta.",
   "ai_client_use.connected_no_requests_yet": "Konektatuta · oraindik eskaerarik ez",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Konektatuta: {names}. Erabiltzaile-izena, pasahitza eta 2FA kodeak kredentzial bakoitzaren webgunean soilik betetzen ditu.",
   "browser_settings_group.connected_on": "Konektatuta: {value}",
   "browser_settings_group.connected_used": "Konektatuta · erabilia {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Maius+L sakatuta, irekitako webgunearen saio-hasiera betetzen da; Ctrl+Maius+Y sakatuta, luzapena irekitzen da. Nabigatzailearen luzapenen lasterbideen orrian alda ditzakezu.",
   "browser_settings_group.disconnect": "{name} deskonektatu nahi duzu?",
   "browser_settings_group.disconnected": "{name} deskonektatuta",
   "browser_settings_group.fills_in_passwords_in_names": "Zure pasahitzak betetzen ditu {names} nabigatzaileetan, gorde zenituen webgunean bakarrik eta zuk eskatzen duzunean bakarrik.",
   "browser_settings_group.keyboard_shortcut": "Lasterbidea",
+  "browser_settings_group.shortcuts_text": "Alt+Maius+L sakatuta, irekitako webgunearen saio-hasiera betetzen da; Ctrl+Maius+Y sakatuta, luzapena irekitzen da. Nabigatzailearen luzapenen lasterbideen orrian alda ditzakezu.",
   "browser_settings_group.won_be_able_fill_in": "Ezin izango ditu zure pasahitzak bete luzapenean berriro «Konektatu» sakatu arte.",
   "cadence_text.doesn_remind_you_rotate": "Ez dizu gogorarazten txandakatu behar duzula.",
   "cadence_text.next_time_around": ": hurrengoa, {value} inguruan",

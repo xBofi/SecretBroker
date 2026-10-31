@@ -93,6 +93,13 @@
     "one": "{count} requête",
     "other": "{count} requêtes"
   },
+  "ai_change.rotation_guide": "Guide de rotation",
+  "ai_change.sources": "sources : {sources}",
+  "ai_change.steps": {
+    "one": "{count} étape",
+    "other": "{count} étapes"
+  },
+  "ai_change.test_request": "Requête de test",
   "ai_client_list.not_installed": "Non installé : {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Aucune IA compatible n’est installée sur ce PC.",
   "ai_client_use.connected_no_requests_yet": "Connectée · aucune requête pour l’instant",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Connectée dans {names}. Remplit le nom d’utilisateur, le mot de passe et les codes 2FA uniquement sur le site de chaque identifiant.",
   "browser_settings_group.connected_on": "Connectée sur {value}",
   "browser_settings_group.connected_used": "Connectée · utilisée {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Maj+L remplit la connexion du site ouvert ; Ctrl+Maj+Y ouvre l’extension. Tu peux les changer sur la page des raccourcis d’extensions du navigateur.",
   "browser_settings_group.disconnect": "Déconnecter {name} ?",
   "browser_settings_group.disconnected": "{name} déconnecté",
   "browser_settings_group.fills_in_passwords_in_names": "Remplit tes mots de passe dans {names}, uniquement sur le site où tu les as enregistrés et uniquement quand tu le demandes.",
   "browser_settings_group.keyboard_shortcut": "Raccourci clavier",
+  "browser_settings_group.shortcuts_text": "Alt+Maj+L remplit la connexion du site ouvert ; Ctrl+Maj+Y ouvre l’extension. Tu peux les changer sur la page des raccourcis d’extensions du navigateur.",
   "browser_settings_group.won_be_able_fill_in": "Elle ne pourra plus remplir tes mots de passe tant que tu n’auras pas recliqué sur « Connecter » dans l’extension.",
   "cadence_text.doesn_remind_you_rotate": "Ne te rappelle pas de le renouveler.",
   "cadence_text.next_time_around": ", prochaine fois vers le {value}",

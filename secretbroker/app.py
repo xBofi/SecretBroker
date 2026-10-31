@@ -6,6 +6,7 @@ import json
 import logging
 import logging.handlers
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -75,6 +76,22 @@ POSIX_BROWSER_COMMANDS = {"chrome.exe": ("google-chrome", "google-chrome-stable"
 # of Claude Code and Codex, and shell histories. A copy of the file is kept next to it, just in case.
 REDACT_BACKUP_SUFFIX = ".secretbroker.bak"
 REDACT_CHUNK_BYTES = 1024 * 1024
+
+
+ALL_FILES = (None, "*.*")
+
+
+def _file_types(*filters):
+    """pywebview file dialog filters, «Label (*.a;*.b)», with the label in the app's language. pywebview takes only
+    letters, digits and spaces in a label: an apostrophe becomes the letter apostrophe (ʼ, «dʼentorn»), any other
+    sign a space. `filters`: (label, patterns); a None label is «All files»."""
+    result = []
+    for label, patterns in filters:
+        label = tr("app.all_files") if label is None else label
+        label = re.sub(r"['’]", "ʼ", label)
+        label = " ".join(re.sub(r"[^\w ]", " ", label).split()) or "Files"
+        result.append(f"{label} ({patterns})")
+    return tuple(result)
 
 
 class Api:
@@ -640,7 +657,7 @@ class Api:
         import webview
         folder = integrations.load_prefs().get("backup_folder") or str(_default_backup_folder())
         chosen = self._window.create_file_dialog(webview.OPEN_DIALOG, directory=folder if Path(folder).is_dir() else "",
-                                                 file_types=("Copia de SecretBroker (*.sbbackup)", "Todos los archivos (*.*)")) if self._window else None
+                                                 file_types=_file_types((tr("app.backup_files"), "*.sbbackup"), ALL_FILES)) if self._window else None
         return chosen[0] if chosen else None
 
     def restore_backup(self, path, master_password, proof=None):
@@ -701,8 +718,8 @@ class Api:
 
     def pick_import_file(self):
         import webview
-        chosen = self._window.create_file_dialog(webview.OPEN_DIALOG, directory=str(Path.home() / "Downloads"), file_types=(
-            "Exportaciones (*.csv;*.json;*.sbexport)", "Todos los archivos (*.*)")) if self._window else None
+        chosen = self._window.create_file_dialog(webview.OPEN_DIALOG, directory=str(Path.home() / "Downloads"), file_types=_file_types(
+            (tr("app.manager_exports"), "*.csv;*.json;*.sbexport"), ALL_FILES)) if self._window else None
         return chosen[0] if chosen else None
 
     def import_file(self, path, fmt="auto", selected=None, password=None, proof=None):
@@ -755,12 +772,8 @@ class Api:
         if not self._window:
             return None
         patterns = "*.env;*.local;*.development;*.production;*.staging;*.test;*.example"
-        try:
-            chosen = self._window.create_file_dialog(webview.OPEN_DIALOG, directory=str(Path.home()), file_types=(
-                f"{tr('app.env_files')} ({patterns})", f"{tr('app.all_files')} (*.*)"))
-        except ValueError:  # a translated description pywebview doesn't take as a filter name
-            chosen = self._window.create_file_dialog(webview.OPEN_DIALOG, directory=str(Path.home()),
-                                                     file_types=(f"Env ({patterns})", "All (*.*)"))
+        chosen = self._window.create_file_dialog(webview.OPEN_DIALOG, directory=str(Path.home()), file_types=_file_types(
+            (tr("app.env_files"), patterns), ALL_FILES))
         return chosen[0] if chosen else None
 
     def env_preview(self, path):
@@ -818,12 +831,12 @@ class Api:
         """Ask where to save, have the service build the file and write it there."""
         import webview
         plain = tr("app.export_unencrypted_file_name")
-        names = {"encrypted": (tr("app.export_encrypted_file_name") + ".sbexport", tr("app.export_encrypted_file_type")),
-                 "json": (plain + ".json", "JSON (*.json)"), "csv": (plain + ".csv", "CSV (*.csv)")}
+        names = {"encrypted": (tr("app.export_encrypted_file_name") + ".sbexport", (tr("app.export_encrypted_file_type"), "*.sbexport")),
+                 "json": (plain + ".json", ("JSON", "*.json")), "csv": (plain + ".csv", ("CSV", "*.csv"))}
         if fmt not in names:
             return {"ok": False, "code": "invalid", "error": tr("app.invalid_format")}
         chosen = self._window.create_file_dialog(webview.SAVE_DIALOG, directory=str(Path.home() / "Documents"),
-                                                 save_filename=names[fmt][0], file_types=(names[fmt][1],)) if self._window else None
+                                                 save_filename=names[fmt][0], file_types=_file_types(names[fmt][1])) if self._window else None
         if not chosen:
             return {"ok": False, "code": "cancelled", "error": tr("app.cancelled")}
         target = Path(chosen if isinstance(chosen, str) else chosen[0])

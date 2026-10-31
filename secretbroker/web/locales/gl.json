@@ -93,6 +93,13 @@
     "one": "{count} petición",
     "other": "{count} peticións"
   },
+  "ai_change.rotation_guide": "Guía de rotación",
+  "ai_change.sources": "fontes: {sources}",
+  "ai_change.steps": {
+    "one": "{count} paso",
+    "other": "{count} pasos"
+  },
+  "ai_change.test_request": "Petición de proba",
   "ai_client_list.not_installed": "Non instaladas: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Non atopamos ningunha IA compatible instalada neste PC.",
   "ai_client_use.connected_no_requests_yet": "Conectada · aínda sen peticións",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Conectada en {names}. Enche o usuario, o contrasinal e os códigos 2FA só no sitio web de cada credencial.",
   "browser_settings_group.connected_on": "Conectada en {value}",
   "browser_settings_group.connected_used": "Conectada · usada {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Maiús+L enche o inicio de sesión do sitio web aberto; Ctrl+Maiús+Y abre a extensión. Podes cambialos na páxina de atallos de extensións do navegador.",
   "browser_settings_group.disconnect": "Desconectar {name}?",
   "browser_settings_group.disconnected": "{name} desconectado",
   "browser_settings_group.fills_in_passwords_in_names": "Enche os teus contrasinais en {names}, só no sitio web onde os gardaches e só cando ti o pides.",
   "browser_settings_group.keyboard_shortcut": "Atallo de teclado",
+  "browser_settings_group.shortcuts_text": "Alt+Maiús+L enche o inicio de sesión do sitio web aberto; Ctrl+Maiús+Y abre a extensión. Podes cambialos na páxina de atallos de extensións do navegador.",
   "browser_settings_group.won_be_able_fill_in": "Non poderá encher os teus contrasinais ata que volvas premer «Conectar» na extensión.",
   "cadence_text.doesn_remind_you_rotate": "Non che lembra rotala.",
   "cadence_text.next_time_around": ": a próxima vez, cara ao {value}",

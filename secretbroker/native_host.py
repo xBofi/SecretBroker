@@ -18,7 +18,7 @@ import struct
 import sys
 from pathlib import Path
 
-from . import __version__, client, paths
+from . import __version__, client, paths, platform
 from .i18n import tr
 
 HOST_NAME = "com.secretbroker.autofill"
@@ -27,8 +27,12 @@ CHROME_EXTENSION_IDS = ("cekklnambceaikefialdjijgolamnnab",)
 FIREFOX_EXTENSION_IDS = ("autofill@secretbroker",)
 ALLOWED_ORIGINS = tuple(f"chrome-extension://{i}/" for i in CHROME_EXTENSION_IDS) + \
     tuple(f"moz-extension:{i}" for i in FIREFOX_EXTENSION_IDS)
-# What the extension may ask for (service op ext_<name>), plus open_app, which the host does itself.
+# What the extension may ask for (service op ext_<name>), plus open_app and copy, which the host does itself.
 RELAYED = ("hello", "pair", "logins", "search", "fill", "save_check", "save")
+# «Copy» in the popup: the host asks for the value (ext_fill, copy) and puts it on the clipboard like the app does,
+# out of clipboard history and the cloud clipboard and cleared after a while; the extension never gets the value.
+CLIPBOARD_CLEAR_SECONDS = 30
+COPY_FIELDS = ("username", "password", "totp")
 REOPEN_OPS = ("logins", "fill")  # after the inactivity lock, with the Windows session unlock: open it again
 MAX_MESSAGE = 1024 * 1024
 
@@ -227,9 +231,16 @@ def answer(message, origin):
         if op == "open_app":
             client.launch_app()
             return {**reply, "ok": True, "result": True}
-        if op not in RELAYED:
+        if op not in RELAYED and op != "copy":
             raise client.BrokerError(tr("service.unknown_operation", op=op), "unknown_op")
         params = message.get("params") if isinstance(message.get("params"), dict) else {}
+        if op == "copy":
+            if params.get("what") not in COPY_FIELDS:
+                raise client.BrokerError(tr("service.what_fill_in_login_totp"), "invalid")
+            op, params = "fill", {**params, "copy": True}
+            copying = params["what"]
+        else:
+            copying = None
         pair = message.get("pair") if isinstance(message.get("pair"), dict) else {}
         params = {**params, "_ext": {"origin": origin, "pair": str(pair.get("id") or ""), "key": str(pair.get("key") or ""),
                                      "browser": str(message.get("browser") or "")[:40], "host_version": __version__}}
@@ -239,11 +250,30 @@ def answer(message, origin):
             if exc.code != "locked" or op not in REOPEN_OPS or not _reopen():
                 raise
             result = client.request("ext_" + op, params, timeout=30)
+        if copying:
+            platform.copy_to_clipboard(str(result.get(copying) or ""), True, CLIPBOARD_CLEAR_SECONDS)
+            if sys.platform == "win32":
+                import ctypes
+                copied_at[0] = ctypes.windll.user32.GetClipboardSequenceNumber()
+            result = {"copied": copying, "clear_seconds": CLIPBOARD_CLEAR_SECONDS}
         return {**reply, "ok": True, "result": result}
     except client.BrokerError as exc:
         return {**reply, "ok": False, "code": exc.code, "error": str(exc)}
     except client.BrokerUnavailable as exc:
         return {**reply, "ok": False, "code": "unavailable", "error": str(exc)}
+
+
+def _clear_copied():
+    """The browser closed the host before the clipboard was cleared: clear it now if it still holds what was copied."""
+    if copied_at[0] and sys.platform == "win32":
+        import ctypes
+        user32 = ctypes.windll.user32
+        if user32.GetClipboardSequenceNumber() == copied_at[0] and user32.OpenClipboard(None):
+            user32.EmptyClipboard()
+            user32.CloseClipboard()
+
+
+copied_at = [0]  # the clipboard's sequence number after the last copy (Windows), to clear it on exit
 
 
 def _reopen():
@@ -271,6 +301,7 @@ def main(argv=None):
         except ValueError:
             return 1
         if message is None:
+            _clear_copied()
             return 0
         write_message(stdout, answer(message, origin))
 

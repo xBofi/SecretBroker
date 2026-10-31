@@ -97,6 +97,15 @@
     "many": "{count} запитів",
     "other": "{count} запиту"
   },
+  "ai_change.rotation_guide": "Інструкція з ротації",
+  "ai_change.sources": "джерела: {sources}",
+  "ai_change.steps": {
+    "one": "{count} крок",
+    "few": "{count} кроки",
+    "many": "{count} кроків",
+    "other": "{count} кроку"
+  },
+  "ai_change.test_request": "Тестовий запит",
   "ai_client_list.not_installed": "Не встановлено: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "На цьому ПК не знайдено жодного сумісного ШІ.",
   "ai_client_use.connected_no_requests_yet": "Підключено · запитів ще немає",
@@ -190,11 +199,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Підключено в {names}. Заповнює ім'я користувача, пароль і коди 2FA лише на сайті кожного запису.",
   "browser_settings_group.connected_on": "Підключено {value}",
   "browser_settings_group.connected_used": "Підключено · використано {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Shift+L заповнює вхід на відкритому сайті; Ctrl+Shift+Y відкриває розширення. Їх можна змінити на сторінці комбінацій клавіш для розширень браузера.",
   "browser_settings_group.disconnect": "Відключити {name}?",
   "browser_settings_group.disconnected": "{name} від’єднано",
   "browser_settings_group.fills_in_passwords_in_names": "Заповнює ваші паролі в {names} — лише на сайті, де ви їх зберегли, і лише коли ви просите.",
   "browser_settings_group.keyboard_shortcut": "Комбінація клавіш",
+  "browser_settings_group.shortcuts_text": "Alt+Shift+L заповнює вхід на відкритому сайті; Ctrl+Shift+Y відкриває розширення. Їх можна змінити на сторінці комбінацій клавіш для розширень браузера.",
   "browser_settings_group.won_be_able_fill_in": "Воно не зможе заповнювати ваші паролі, доки ви знову не натиснете «Підключити» в розширенні.",
   "cadence_text.doesn_remind_you_rotate": "Не нагадує змінити ключ.",
   "cadence_text.next_time_around": ": наступного разу — приблизно {value}",

@@ -93,6 +93,13 @@
     "one": "{count} förfrågan",
     "other": "{count} förfrågningar"
   },
+  "ai_change.rotation_guide": "Rotationsguide",
+  "ai_change.sources": "källor: {sources}",
+  "ai_change.steps": {
+    "one": "{count} steg",
+    "other": "{count} steg"
+  },
+  "ai_change.test_request": "Testbegäran",
   "ai_client_list.not_installed": "Inte installerad: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Vi hittade ingen kompatibel AI installerad på den här datorn.",
   "ai_client_use.connected_no_requests_yet": "Ansluten · inga förfrågningar än",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Ansluten i {names}. Fyller i användarnamn, lösenord och 2FA-koder bara på varje posts webbplats.",
   "browser_settings_group.connected_on": "Ansluten {value}",
   "browser_settings_group.connected_used": "Ansluten · använd {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Skift+L fyller i inloggningen för den öppna webbplatsen; Ctrl+Skift+Y öppnar tillägget. Du kan ändra dem på webbläsarens sida för tilläggets kortkommandon.",
   "browser_settings_group.disconnect": "Koppla från {name}?",
   "browser_settings_group.disconnected": "{name} frånkopplad",
   "browser_settings_group.fills_in_passwords_in_names": "Fyller i dina lösenord i {names}, bara på webbplatsen där du sparade dem och bara när du ber om det.",
   "browser_settings_group.keyboard_shortcut": "Kortkommando",
+  "browser_settings_group.shortcuts_text": "Alt+Skift+L fyller i inloggningen för den öppna webbplatsen; Ctrl+Skift+Y öppnar tillägget. Du kan ändra dem på webbläsarens sida för tilläggets kortkommandon.",
   "browser_settings_group.won_be_able_fill_in": "Den kan inte fylla i dina lösenord förrän du klickar på ”Anslut” i tillägget igen.",
   "cadence_text.doesn_remind_you_rotate": "Påminner dig inte om att rotera den.",
   "cadence_text.next_time_around": ": nästa gång runt {value}",

@@ -93,6 +93,13 @@
     "one": "{count} pedido",
     "other": "{count} pedidos"
   },
+  "ai_change.rotation_guide": "Guia de rotação",
+  "ai_change.sources": "fontes: {sources}",
+  "ai_change.steps": {
+    "one": "{count} passo",
+    "other": "{count} passos"
+  },
+  "ai_change.test_request": "Pedido de teste",
   "ai_client_list.not_installed": "Não instalados: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Não encontrámos nenhuma IA compatível instalada neste PC.",
   "ai_client_use.connected_no_requests_yet": "Ligada · ainda sem pedidos",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Ligada em {names}. Preenche o nome de utilizador, a palavra-passe e os códigos 2FA só no site de cada credencial.",
   "browser_settings_group.connected_on": "Ligada em {value}",
   "browser_settings_group.connected_used": "Ligada · usada {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Shift+L preenche o início de sessão do site aberto; Ctrl+Shift+Y abre a extensão. Podes alterá-los na página de atalhos de extensões do navegador.",
   "browser_settings_group.disconnect": "Desligar {name}?",
   "browser_settings_group.disconnected": "{name} desligado",
   "browser_settings_group.fills_in_passwords_in_names": "Preenche as tuas palavras-passe em {names}, só no site onde as guardaste e só quando pedes.",
   "browser_settings_group.keyboard_shortcut": "Atalho de teclado",
+  "browser_settings_group.shortcuts_text": "Alt+Shift+L preenche o início de sessão do site aberto; Ctrl+Shift+Y abre a extensão. Podes alterá-los na página de atalhos de extensões do navegador.",
   "browser_settings_group.won_be_able_fill_in": "Não vai poder preencher as tuas palavras-passe até voltares a clicar em «Ligar» na extensão.",
   "cadence_text.doesn_remind_you_rotate": "Não te lembra de a rodar.",
   "cadence_text.next_time_around": ": da próxima vez, por volta de {value}",

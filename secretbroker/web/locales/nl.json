@@ -93,6 +93,13 @@
     "one": "{count} verzoek",
     "other": "{count} verzoeken"
   },
+  "ai_change.rotation_guide": "Rotatiehandleiding",
+  "ai_change.sources": "bronnen: {sources}",
+  "ai_change.steps": {
+    "one": "{count} stap",
+    "other": "{count} stappen"
+  },
+  "ai_change.test_request": "Testverzoek",
   "ai_client_list.not_installed": "Niet geïnstalleerd: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "We hebben geen compatibele AI op deze pc gevonden.",
   "ai_client_use.connected_no_requests_yet": "Gekoppeld · nog geen verzoeken",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Gekoppeld in {names}. Vult gebruikersnaam, wachtwoord en 2FA-codes alleen in op de website van de betreffende inloggegevens.",
   "browser_settings_group.connected_on": "Gekoppeld op {value}",
   "browser_settings_group.connected_used": "Gekoppeld · gebruikt {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Shift+L vult de aanmelding in voor de geopende website; Ctrl+Shift+Y opent de extensie. Je kunt ze wijzigen op de pagina met sneltoetsen voor extensies van de browser.",
   "browser_settings_group.disconnect": "{name} ontkoppelen?",
   "browser_settings_group.disconnected": "{name} losgekoppeld",
   "browser_settings_group.fills_in_passwords_in_names": "Vult je wachtwoorden in in {names}, alleen op de website waar je ze hebt opgeslagen en alleen als jij erom vraagt.",
   "browser_settings_group.keyboard_shortcut": "Sneltoets",
+  "browser_settings_group.shortcuts_text": "Alt+Shift+L vult de aanmelding in voor de geopende website; Ctrl+Shift+Y opent de extensie. Je kunt ze wijzigen op de pagina met sneltoetsen voor extensies van de browser.",
   "browser_settings_group.won_be_able_fill_in": "Ze kan je wachtwoorden pas weer invullen als je in de extensie opnieuw op ‘Koppelen’ klikt.",
   "cadence_text.doesn_remind_you_rotate": "Herinnert je niet aan roteren.",
   "cadence_text.next_time_around": ": volgende keer rond {value}",

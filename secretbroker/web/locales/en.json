@@ -93,6 +93,13 @@
     "one": "{count} request",
     "other": "{count} requests"
   },
+  "ai_change.rotation_guide": "Rotation guide",
+  "ai_change.sources": "sources: {sources}",
+  "ai_change.steps": {
+    "one": "{count} step",
+    "other": "{count} steps"
+  },
+  "ai_change.test_request": "Test request",
   "ai_client_list.not_installed": "Not installed: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "We didn't find any compatible AI installed on this PC.",
   "ai_client_use.connected_no_requests_yet": "Connected · no requests yet",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Connected in {names}. Fills in username, password and 2FA codes only on each credential's website.",
   "browser_settings_group.connected_on": "Connected on {value}",
   "browser_settings_group.connected_used": "Connected · used {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Ctrl+Shift+L fills in the login for the open website; Ctrl+Shift+Y opens the extension. You can change them on the browser's extension shortcuts page.",
   "browser_settings_group.disconnect": "Disconnect {name}?",
   "browser_settings_group.disconnected": "{name} disconnected",
   "browser_settings_group.fills_in_passwords_in_names": "Fills in your passwords in {names}, only on the website where you saved them and only when you ask.",
   "browser_settings_group.keyboard_shortcut": "Keyboard shortcut",
+  "browser_settings_group.shortcuts_text": "Alt+Shift+L fills in the login for the open website; Ctrl+Shift+Y opens the extension. You can change them on the browser's extension shortcuts page.",
   "browser_settings_group.won_be_able_fill_in": "It won't be able to fill in your passwords until you click “Connect” in the extension again.",
   "cadence_text.doesn_remind_you_rotate": "Doesn't remind you to rotate it.",
   "cadence_text.next_time_around": ": next time, around {value}",

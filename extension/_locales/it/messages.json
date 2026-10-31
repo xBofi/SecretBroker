@@ -20,6 +20,9 @@
   "check_that_secretbroker_shows_this": {
     "message": "Verifica che SecretBroker mostri lo stesso codice e fai clic su «Connetti»."
   },
+  "choose_shortcut": {
+    "message": "Scegli una scorciatoia"
+  },
   "cmd_fill": {
     "message": "Compila l’accesso per questo sito"
   },

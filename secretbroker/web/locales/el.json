@@ -93,6 +93,13 @@
     "one": "{count} αίτημα",
     "other": "{count} αιτήματα"
   },
+  "ai_change.rotation_guide": "Οδηγός εναλλαγής",
+  "ai_change.sources": "πηγές: {sources}",
+  "ai_change.steps": {
+    "one": "{count} βήμα",
+    "other": "{count} βήματα"
+  },
+  "ai_change.test_request": "Δοκιμαστικό αίτημα",
   "ai_client_list.not_installed": "Δεν είναι εγκατεστημένα: {names}.",
   "ai_client_list.we_didn_find_any_compatible": "Δεν βρήκαμε καμία συμβατή ΤΝ εγκατεστημένη σε αυτόν τον υπολογιστή.",
   "ai_client_use.connected_no_requests_yet": "Συνδεδεμένο · κανένα αίτημα ακόμα",
@@ -182,11 +189,11 @@
   "browser_settings_group.connected_in_fills_in_username": "Συνδεδεμένη σε {names}. Συμπληρώνει όνομα χρήστη, κωδικό πρόσβασης και κωδικούς 2FA μόνο στον ιστότοπο κάθε διαπιστευτηρίου.",
   "browser_settings_group.connected_on": "Συνδεδεμένη σε {value}",
   "browser_settings_group.connected_used": "Συνδεδεμένη · χρήση {when}",
-  "browser_settings_group.ctrl_shift_l_fills_in": "Το Ctrl+Shift+L συμπληρώνει τα στοιχεία σύνδεσης για τον ανοιχτό ιστότοπο· το Ctrl+Shift+Y ανοίγει την επέκταση. Μπορείτε να τα αλλάξετε στη σελίδα συντομεύσεων επεκτάσεων του προγράμματος περιήγησης.",
   "browser_settings_group.disconnect": "Αποσύνδεση του {name};",
   "browser_settings_group.disconnected": "Το {name} αποσυνδέθηκε",
   "browser_settings_group.fills_in_passwords_in_names": "Συμπληρώνει τους κωδικούς σας σε {names}, μόνο στον ιστότοπο όπου τους αποθηκεύσατε και μόνο όταν το ζητάτε.",
   "browser_settings_group.keyboard_shortcut": "Συντόμευση πληκτρολογίου",
+  "browser_settings_group.shortcuts_text": "Το Alt+Shift+L συμπληρώνει τα στοιχεία σύνδεσης για τον ανοιχτό ιστότοπο· το Ctrl+Shift+Y ανοίγει την επέκταση. Μπορείτε να τα αλλάξετε στη σελίδα συντομεύσεων επεκτάσεων του προγράμματος περιήγησης.",
   "browser_settings_group.won_be_able_fill_in": "Δεν θα μπορεί να συμπληρώνει τους κωδικούς σας μέχρι να πατήσετε ξανά «Σύνδεση» στην επέκταση.",
   "cadence_text.doesn_remind_you_rotate": "Δεν σας υπενθυμίζει να κάνετε εναλλαγή.",
   "cadence_text.next_time_around": ": την επόμενη φορά, γύρω στις {value}",
