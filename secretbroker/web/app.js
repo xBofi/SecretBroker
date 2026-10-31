@@ -4101,7 +4101,7 @@ const EXTENSION_STEPS = {
   firefox: () => [
     ['Abre la página de complementos en depuración de Firefox.', 'open'],
     ['Pulsa «Cargar complemento temporal…» y elige el archivo manifest.json de esta carpeta:', 'folder'],
-    ['Abre el icono de SecretBroker y pulsa «Conectar». Aquí te pediremos confirmarlo con un clic.'],
+    ['En el botón de extensiones de la barra, abre SecretBroker y permite que acceda a todas las webs (Firefox lo pide aparte), y pulsa «Conectar». Aquí te pediremos confirmarlo con un clic.'],
   ],
 };
 

@@ -34,7 +34,9 @@ In the app, **Ajustes › Navegador › Instalar la extensión** opens the brows
   the native host allows.
 - Firefox: `about:debugging` › *This Firefox* › *Load Temporary Add-on…* › `manifest.json`. Firefox removes temporary
   add-ons when it closes, and release Firefox only installs permanently what Mozilla signed: until it is on
-  addons.mozilla.org it has to be loaded again after each restart.
+  addons.mozilla.org it has to be loaded again after each restart. Firefox also asks separately for access to all
+  sites (Manifest V3 host permissions are optional there): allow it from the extensions button, or the fields
+  will not get the SecretBroker button.
 
 Then open the extension and press **Conectar**: the app shows the same 6-digit code and connects it with one click.
 
