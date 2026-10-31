@@ -11,7 +11,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-ROOT = Path(tempfile.mkdtemp(prefix="secretbroker-exposure-test-"))
+ROOT = Path(tempfile.mkdtemp(prefix="secretbroker-exposure-test-")).resolve()  # the scanner reports resolved paths (/private/var on macOS, long names on Windows)
 PROFILE = ROOT / "profile"
 for name in ("SECRETBROKER_HOME", "USERPROFILE", "HOME", "APPDATA", "LOCALAPPDATA"):
     os.environ[name] = str({"SECRETBROKER_HOME": ROOT / "broker", "APPDATA": PROFILE / "AppData" / "Roaming",
