@@ -38,6 +38,14 @@ PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal", "rotat
              "enable_session_unlock", "resume_ai", "set_ai_permissions", "backup", "restore",
              "change_master_password", "set_settings", "remove_hello", "exposure_begin",
              "import_file", "export_vault", *TEAM_CHANGE_OPS}
+# Rotations (see service.ROTATION_OPS): one click too.
+ROTATION_OPS = ("rotation_begin", "rotation_discard", "rotation_apply", "rotation_secret", "retry_uploads", "set_test_request")
+PRESENCE_OPS += ROTATION_OPS
+PROOF_OPS |= set(ROTATION_OPS)
+# Where a secret found in clear may be removed in place (see exposure.REDACTABLE_SOURCES): conversations
+# of Claude Code and Codex, and shell histories. A copy of the file is kept next to it, just in case.
+REDACT_BACKUP_SUFFIX = ".secretbroker.bak"
+REDACT_CHUNK_BYTES = 1024 * 1024
 
 
 class Api:
@@ -217,6 +225,78 @@ class Api:
         else:
             subprocess.Popen(["explorer", "/select,", str(path)])
         return True
+
+    def ignore_finding(self, entry_id, location, ignore=True):
+        """Ignore one place where a secret was found (kept by the service with the finding)."""
+        return self.call("exposure_ignore", {"session": self._scan_session, "id": entry_id, "location": location,
+                                             "ignore": bool(ignore)})
+
+    def redact_finding(self, entry_id, location):
+        """Remove a secret from a Claude Code / Codex conversation or a shell history, in place. This app
+        reads the file (the service account cannot) and the service returns it with the secret replaced:
+        the value never reaches this process or the page. A copy is left next to it (…secretbroker.bak)."""
+        path = Path(str(location))
+        if not self._scan_session:
+            return {"ok": False, "code": "session_expired", "error": "Verifica tu identidad para ver en qué archivos están tus claves"}
+        if not _redactable(path):
+            return {"ok": False, "code": "invalid", "error": "En este archivo no se puede borrar desde aquí: edítalo tú"}
+        for _ in range(3):  # Claude Code may be writing to its conversation: start again if it changed meanwhile
+            try:
+                before = path.stat()
+                data = path.read_bytes()
+            except OSError as exc:
+                return {"ok": False, "code": "error", "error": f"No se pudo leer el archivo: {exc.strerror or exc}"}
+            parts, count, start = [], 0, 0
+            while start < len(data):
+                end = min(len(data), start + REDACT_CHUNK_BYTES)
+                newline = data.rfind(b"\n", start, end) if end < len(data) else -1
+                end = newline + 1 if newline > start else end  # whole lines: a secret is never split
+                result = self.call("exposure_redact", {"session": self._scan_session, "id": entry_id, "location": str(path),
+                                                       "data": base64.b64encode(data[start:end]).decode("ascii")})
+                if not result["ok"]:
+                    return result
+                parts.append(base64.b64decode(result["result"]["data"]))
+                count += result["result"]["count"]
+                start = end
+            if count:
+                try:
+                    if path.stat().st_mtime_ns != before.st_mtime_ns or path.stat().st_size != before.st_size:
+                        continue
+                    backup = path.with_name(path.name + REDACT_BACKUP_SUFFIX)
+                    backup.write_bytes(data)
+                    temporary = path.with_name(path.name + ".secretbroker.tmp")
+                    temporary.write_bytes(b"".join(parts))
+                    os.replace(temporary, path)
+                except OSError as exc:
+                    path.with_name(path.name + ".secretbroker.tmp").unlink(missing_ok=True)
+                    return {"ok": False, "code": "error", "error": "No se pudo escribir el archivo (puede que esté abierto en "
+                            f"otro programa: ciérralo y vuelve a intentarlo): {exc.strerror or exc}"}
+            done = self.call("exposure_redacted", {"session": self._scan_session, "id": entry_id, "location": str(path),
+                                                   "count": count})
+            if done["ok"]:
+                done["result"] = {"count": count, "report": done["result"],
+                                  "backup": str(path.with_name(path.name + REDACT_BACKUP_SUFFIX)) if count else None}
+            return done
+        return {"ok": False, "code": "busy", "error": "El archivo no para de cambiar (¿hay una conversación abierta?): "
+                "ciérrala y vuelve a intentarlo"}
+
+    def delete_redaction_backup(self, location):
+        """Delete a copy left by redact_finding, once the user is happy with the result."""
+        path = Path(str(location))
+        if not path.name.endswith(REDACT_BACKUP_SUFFIX) or not _redactable(path.with_name(path.name[:-len(REDACT_BACKUP_SUFFIX)])):
+            return False
+        existed = path.exists()
+        path.unlink(missing_ok=True)
+        return existed
+
+    def copy_rotation_secret(self, entry_id, what="value", proof=None):
+        """Copy the new password of a rotation in progress (or the command that sets it) to the clipboard;
+        the page never gets it."""
+        result = self.call("rotation_secret", {"id": entry_id, "what": what}, proof)
+        if result["ok"]:
+            _copy_to_clipboard(result.pop("result"))
+            result["result"] = CLIPBOARD_CLEAR_SECONDS
+        return result
 
     def update_status(self, force=False):
         return self.call("update_status", {"force": bool(force)})
@@ -490,6 +570,16 @@ class Api:
         except OSError as exc:
             return {"ok": False, "code": "error", "error": f"No se pudo escribir {target}: {exc.strerror or exc}"}
         return {"ok": True, "result": {"path": str(target), "entries": result["result"]["entries"]}}
+
+
+def _redactable(path):
+    """Is this one of the AI conversations or shell histories the scan reads (text, not a database)?"""
+    try:
+        target = path.resolve()
+        return any(source in ("ai", "history") and found.suffix.lower() in (".jsonl", ".txt", "") and found.resolve() == target
+                   for source, found in scanner.fixed_files())
+    except (OSError, ValueError):
+        return False
 
 
 def _default_backup_folder():

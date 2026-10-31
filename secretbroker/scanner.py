@@ -16,13 +16,13 @@ import sys
 import time
 from pathlib import Path
 
-from . import client
+from . import client, paths
 
 BLOCK_BYTES = 1024 * 1024
 BATCH_BYTES = 2 * 1024 * 1024           # raw bytes per request (base64 keeps it under the service limit)
 MAX_PROJECT_FILE_BYTES = 5 * 1024 * 1024
 MAX_FILES_PER_FOLDER = 50_000
-CACHE_FILE = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SecretBroker" / "scan_cache.json"
+CACHE_FILE = paths.user_dir() / "scan_cache.json"  # a separate instance (SECRETBROKER_HOME) keeps its own
 CREATE_NO_WINDOW = 0x08000000
 
 SKIP_DIRS = {
@@ -68,7 +68,9 @@ class ScanCancelled(Exception):
 
 
 def _home():
-    return Path.home()
+    # A separate instance (SECRETBROKER_HOME, like the GUI test) may search another profile.
+    profile = os.environ.get("SECRETBROKER_PROFILE") if os.environ.get("SECRETBROKER_HOME") else None
+    return Path(profile) if profile else Path.home()
 
 
 def _appdata():
@@ -118,6 +120,8 @@ def fixed_files():
     files += [("config", p) for p in _glob(home / ".ssh", "*")]
     files += [("history", p) for p in _glob(appdata / "Microsoft/Windows/PowerShell/PSReadLine", "*_history.txt")]
     files += [("history", home / name) for name in HISTORY_FILES]
+    # The copy the app leaves when it removes a secret from one of these (app.REDACT_BACKUP_SUFFIX) still has it.
+    files += [(source, path.with_name(path.name + ".secretbroker.bak")) for source, path in files if source in ("ai", "history")]
     return [(source, path) for source, path in files if path.is_file()]
 
 

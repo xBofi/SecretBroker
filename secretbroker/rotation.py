@@ -12,13 +12,16 @@ one. The guides of known providers come from their own documentation; for other 
 can research one and store it with the credential (marked as written by the AI).
 """
 
+import os
 import re
+import subprocess
+import sys
 from datetime import date, timedelta
 
 import httpx
 
-from . import exposure, links, templates
-from .inject import ActionError
+from . import actions, exposure, links, templates
+from .inject import ActionError, Redactor
 
 TIMEOUT = 30
 GITLAB_LIFETIME_DAYS = 364  # gitlab.com caps token lifetime at a year
@@ -263,9 +266,11 @@ def clean_paired_id(entry, value):
 
 # ----------------------------------------------------------------------------- databases
 #
-# Nothing connects to the database from here: the app generates the password and gives the exact
-# command (or the panel of a managed database). The old password stops working at once, so every
-# place that uses it has to get the new one.
+# The service can apply the new password itself with the engine's own client (psql, mysql, sqlcmd,
+# redis-cli) when it is installed and the credential allows it: it connects with the current
+# password, changes it, and logs in with the new one before anything is saved. Otherwise the app
+# gives the exact command (or the panel of a managed database). The old password stops working at
+# once, so every place that uses it has to get the new one.
 
 DB_COMMANDS = {
     "postgresql": """ALTER ROLE "{user}" WITH PASSWORD '{password}';""",
@@ -306,6 +311,160 @@ def _database(entry):
     return engine, [], False
 
 
+APPLY_TIMEOUT = 60
+CREATE_NO_WINDOW = 0x08000000
+
+
+class ApplyError(Exception):
+    """`code`: no_client (nothing was tried), failed (nothing changed) or unverified (changed, not confirmed)."""
+
+    def __init__(self, message, code="failed"):
+        super().__init__(message)
+        self.code = code
+
+
+def _sql_text(value):
+    return value.replace("'", "''")
+
+
+def _redis_quote(value):
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _pg(fields, password):
+    argv = ["psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-h", fields["host"], "-p", fields.get("port") or "5432",
+            "-U", fields["username"], "-d", fields.get("database") or "postgres", "-f", "-"]
+    return argv, {"PGPASSWORD": password, "PGCONNECT_TIMEOUT": "15"}
+
+
+def _pg_change(fields, old, new):
+    return f"""ALTER ROLE "{fields['username'].replace('"', '""')}" WITH PASSWORD '{_sql_text(new)}';\n"""
+
+
+def _mysql(fields, password):
+    argv = ["mysql", "--batch", "--connect-timeout=15", "-h", fields["host"], "-P", fields.get("port") or "3306",
+            "-u", fields["username"], *([fields["database"]] if fields.get("database") else [])]
+    return argv, {"MYSQL_PWD": password}
+
+
+def _mysql_change(fields, old, new):
+    # CURRENT_USER(): the account it logged in as, whatever its host part is.
+    return f"ALTER USER CURRENT_USER() IDENTIFIED BY '{_sql_text(new.replace(chr(92), chr(92) * 2))}';\n"
+
+
+def _sqlcmd(fields, password):
+    argv = ["sqlcmd", "-b", "-l", "15", "-S", f"{fields['host']},{fields.get('port') or '1433'}", "-U", fields["username"],
+            *(["-d", fields["database"]] if fields.get("database") else [])]
+    return argv, {"SQLCMDPASSWORD": password}
+
+
+def _sqlcmd_change(fields, old, new):
+    login = fields["username"].replace("]", "]]")
+    return f"ALTER LOGIN [{login}] WITH PASSWORD = N'{_sql_text(new)}' OLD_PASSWORD = N'{_sql_text(old)}';\nGO\n"
+
+
+def _redis(fields, password):
+    argv = ["redis-cli", "--no-auth-warning", "-h", fields["host"], "-p", fields.get("port") or "6379",
+            *(["--user", fields["username"]] if fields.get("username") else [])]
+    return argv, {"REDISCLI_AUTH": password}
+
+
+def _redis_change(fields, old, new):
+    return f"ACL SETUSER {_redis_quote(fields.get('username') or 'default')} resetpass {_redis_quote('>' + new)}\n"
+
+
+# engine: (client, connect(fields, password) -> (argv, env), change(fields, old, new) -> its stdin, a check's
+# stdin, and what a success prints when the exit code does not tell (redis-cli exits 0 on errors)).
+DB_CLIENTS = {
+    "postgresql": ("psql", _pg, _pg_change, "SELECT 1;\n", None),
+    "mysql": ("mysql", _mysql, _mysql_change, "SELECT 1;\n", None),
+    "sqlserver": ("sqlcmd", _sqlcmd, _sqlcmd_change, "SELECT 1;\nGO\n", None),
+    "redis": ("redis-cli", _redis, _redis_change, "PING\n", ("OK", "PONG")),
+}
+
+
+def _run_client(argv, env, stdin):
+    """Run a database client found on PATH (never a path given), the SQL on its standard input so no
+    password is on a command line. Returns (exit code, output). Replaced in tests."""
+    executable = actions._resolve_executable(argv[0])
+    if os.path.splitext(executable)[1].lower() in (".bat", ".cmd") and any(actions.CMD_METACHARS & set(a) for a in argv[1:]):
+        raise ActionError("Un dato de la credencial tiene caracteres especiales de cmd.exe: no se puede usar con un script .bat/.cmd")
+    completed = subprocess.run([executable, *argv[1:]], input=stdin.encode("utf-8"), capture_output=True,
+                               env={**os.environ, **env}, timeout=APPLY_TIMEOUT,
+                               creationflags=CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+    return completed.returncode, (completed.stdout + completed.stderr).decode("utf-8", errors="replace")
+
+
+def apply_info(entry):
+    """{"client", "available", "reason"}: can the service change this database's password by itself?"""
+    fields = entry["fields"]
+    engine = fields.get("engine") or "postgresql"
+    if engine not in DB_CLIENTS or _database(entry)[2]:
+        return {"client": None, "available": False,
+                "reason": "Este tipo de base de datos no se puede cambiar desde aquí: hazlo tú con los pasos."}
+    client = DB_CLIENTS[engine][0]
+    allowed = {c.lower() for c in ((entry.get("policy") or {}).get("commands") or {}).get("allowed", [])}
+    if client not in allowed:
+        return {"client": client, "available": False,
+                "reason": f"La credencial no permite usar «{client}»: añádelo a sus programas permitidos (Editar) o hazlo tú."}
+    try:
+        actions._resolve_executable(client)
+    except ActionError:
+        return {"client": client, "available": False,
+                "reason": f"«{client}» no está instalado en este PC (o no está en el PATH): instálalo o hazlo tú."}
+    return {"client": client, "available": True, "reason": ""}
+
+
+def apply_database(entry, new_password, run=None):
+    """Change the password in the database with its own client, then log in with the new one.
+    Returns the client used; raises ApplyError (see its codes)."""
+    info = apply_info(entry)
+    if not info["available"]:
+        raise ApplyError(info["reason"], "no_client")
+    if any(c in new_password for c in "\r\n\0"):
+        raise ApplyError("La contraseña nueva no puede tener saltos de línea")
+    run = run or _run_client
+    fields = entry["fields"]
+    old = fields.get("password") or ""
+    client, connect, change, check, success = DB_CLIENTS[fields.get("engine") or "postgresql"]
+    newer = {**entry, "fields": {**fields, "password": new_password}}
+
+    def attempt(password, stdin):
+        argv, env = connect(fields, password)
+        try:
+            code, output = run(argv, env, stdin)
+        except ActionError as exc:
+            raise ApplyError(str(exc), "no_client") from None
+        except (OSError, subprocess.SubprocessError) as exc:
+            return False, type(exc).__name__
+        ok = code == 0 and (not success or any(line.strip() in success for line in output.splitlines()))
+        return ok, Redactor(newer)(Redactor(entry)(output)).strip()[-300:]
+
+    ok, output = attempt(old, change(fields, old, new_password))
+    if not ok:
+        raise ApplyError(f"{client} no pudo cambiarla y no se ha cambiado nada: {output or 'sin detalles'}")
+    ok, output = attempt(new_password, check)
+    if not ok:
+        raise ApplyError(f"La base de datos aceptó el cambio, pero no se pudo entrar con la nueva: {output or 'sin detalles'}",
+                         "unverified")
+    return client
+
+
+def db_command(entry, password):
+    """The guide's command with `password` in it, for a person who applies it themselves."""
+    command = _database_guide(entry).get("command")
+    if not command:
+        return None
+    engine = entry["fields"].get("engine") or "postgresql"
+    if engine == "mongodb":
+        quoted = password.replace("\\", "\\\\").replace('"', '\\"')
+    elif engine == "redis":
+        quoted = password
+    else:
+        quoted = _sql_text(password)
+    return command.replace("{password}", quoted)
+
+
 def _database_guide(entry):
     fields = entry["fields"]
     name, found, panel_only = _database(entry)
@@ -316,7 +475,7 @@ def _database_guide(entry):
     where = f"{fields.get('host') or 'el servidor'}" + (f" (base de datos {fields['database']})" if fields.get("database") else "")
     steps = (["Abre el panel (enlace de abajo) y cambia la contraseña del usuario "
               f"{fields.get('username') or ''} con la que te da el panel; pégala en el paso siguiente."] if panel_only else
-             ["Genera la contraseña nueva aquí abajo (o escribe la tuya).",
+             ["Copia la contraseña nueva de aquí abajo (o escribe la tuya): ya está guardada como pendiente.",
               f"Conéctate a {where} con la contraseña actual (la puedes copiar en la credencial) "
               + ("y ejecuta el comando, o cámbiala en el panel (enlace de abajo)." if found and command else
                  "y ejecuta el comando." if command else "y cámbiala como se haga en esa base de datos."),
@@ -325,7 +484,8 @@ def _database_guide(entry):
             "warning": "En cuanto la cambies, la actual deja de funcionar: todo lo que la usa (develop, pre, pro…) "
                        "fallará hasta que le pongas la nueva. Hazlo cuando puedas actualizar todos esos sitios seguidos.",
             "links": found, "sources": [], "generate": not panel_only, "paired": None, "testable": False,
-            "command": command, "command_note": DB_COMMAND_NOTES.get(engine, "") if command else ""}
+            "command": command, "command_note": DB_COMMAND_NOTES.get(engine, "") if command else "",
+            "apply": None if panel_only else apply_info(entry)}
 
 
 def guide(entry):
@@ -337,7 +497,7 @@ def guide(entry):
         return None
     details = info(entry) or {}
     provider = details.get("provider")
-    testable = exposure.provider_for(entry) is not None
+    testable = exposure.testable(entry)
     if provider in GUIDES:
         known = GUIDES[provider]
         provider_links = (links.for_entry(entry) or {}).get("links") or []

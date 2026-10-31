@@ -298,8 +298,11 @@ function openOverlays() {
   return [...document.getElementById('modal-root').children].filter((n) => n.classList.contains('overlay'));
 }
 
-function openModal({ title, body, footer, wide = false, onClose, lead }) {
+// `confirmClose()`: for dialogs with work in progress (a rotation), the question to ask before the
+// X, Esc or a click outside closes it; null closes at once.
+function openModal({ title, body, footer, wide = false, onClose, lead, confirmClose }) {
   let closed = false;
+  let asking = false;
   const close = () => {
     if (closed) return;
     closed = true;
@@ -314,17 +317,29 @@ function openModal({ title, body, footer, wide = false, onClose, lead }) {
     }
     if (onClose) onClose();
   };
+  const dismiss = () => {
+    const question = confirmClose && !closed && confirmClose();
+    if (!question) { close(); return; }
+    if (asking) return;
+    asking = true;
+    const keep = el('button', { class: 'btn' }, 'Seguir');
+    const discard = el('button', { class: 'btn primary' }, 'Descartar');
+    const ask = openModal({ title: '¿Descartar?', body: el('p', { class: 'muted' }, question), footer: [el('div', { class: 'spacer' }), keep, discard],
+      onClose: () => { asking = false; } });
+    keep.addEventListener('click', () => ask.close());
+    discard.addEventListener('click', () => { ask.close(); close(); });
+  };
   const root = document.getElementById('modal-root');
   const fading = root.querySelector(':scope > .scrim-out');
   if (fading) fading.remove();
   const overlay = el('div', { class: `overlay ${fading ? 'continued' : ''}` },
     el('div', { class: `modal ${wide ? 'wide' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
       el('div', { class: 'modal-head' }, lead || null, el('h2', { title }, title),
-        el('button', { class: 'btn icon-only', onclick: close, title: 'Cerrar (Esc)' }, icon('x'))),
+        el('button', { class: 'btn icon-only', onclick: dismiss, title: 'Cerrar (Esc)' }, icon('x'))),
       el('div', { class: 'modal-body' }, body),
       footer ? el('div', { class: 'modal-foot' }, footer) : null));
-  overlay.addEventListener('mousedown', (event) => { if (event.target === overlay) close(); });
-  overlay.addEventListener('dismiss', close);
+  overlay.addEventListener('mousedown', (event) => { if (event.target === overlay) dismiss(); });
+  overlay.addEventListener('dismiss', dismiss);
   root.append(overlay);
   return { close, overlay };
 }
@@ -797,8 +812,9 @@ function renderCredentials(content) {
       el('div', { class: 'subtitle' }, subtitleOf(entry))),
     entry.draft ? el('span', { class: 'draft-badge' }, 'Falta la clave')
       : entry.shared && entry.shared.pending_change ? el('span', { class: 'draft-badge', title: 'Un compañero ha cambiado adónde puede ir esta clave' }, 'Revisar cambio')
-      : state.reminders && state.reminders[entry.id] ? el('span', { class: `draft-badge ${reminderTone(state.reminders[entry.id])}`, title: reminderText(state.reminders[entry.id]) }, reminderShort(state.reminders[entry.id]))
-        : levelDot(entry.id))));
+      : rotationBadge(entry) || (state.reminders && state.reminders[entry.id]
+        ? el('span', { class: `draft-badge ${reminderTone(state.reminders[entry.id])}`, title: reminderText(state.reminders[entry.id]) }, reminderShort(state.reminders[entry.id]))
+        : levelDot(entry.id)))));
     if (!items.length) list.append(el('p', { class: 'muted', style: 'padding:12px 10px' }, 'Ninguna coincide.'));
   };
 
@@ -815,15 +831,29 @@ function reminderTone(r) {
 }
 
 function reminderShort(r) {
-  return { expired: 'Caducada', expiring: `Caduca en ${r.days} d`, old: 'Clave antigua', old_alive: 'Borra la anterior', team_access: 'Rótala' }[r.kind];
+  return { expired: 'Caducada', expiring: `Caduca en ${r.days} d`, old: 'Clave antigua', old_alive: 'Anula la anterior', team_access: 'Rótala' }[r.kind];
+}
+
+function daysText(n) { return `${n} ${n === 1 ? 'día' : 'días'}`; }
+
+function joinNames(names) {
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}` : names[0] || 'Una persona';
 }
 
 function reminderText(r) {
-  if (r.kind === 'team_access') return `${r.people.join(', ')} tenía acceso a esta credencial del equipo y ya no está. ${r.can_rotate ? 'Rótala' : 'Pide a quien la gestiona que la rote'} por si la vio.`;
-  if (r.kind === 'old_alive') return `Rotaste la clave, pero la anterior sigue funcionando. Bórrala en ${r.provider || 'la web del proveedor'}.`;
-  if (r.kind === 'expired') return `Caducó hace ${r.days} día(s). Crea una clave nueva o rótala.`;
-  if (r.kind === 'expiring') return `Caduca en ${r.days} día(s). Rótala antes de que deje de funcionar.`;
-  return `La clave tiene ${r.days} días. Conviene rotarla de vez en cuando.`;
+  if (r.kind === 'team_access') return `${joinNames(r.people)} ${r.people.length > 1 ? 'tenían' : 'tenía'} acceso a esta credencial del equipo y ya no está. ${r.can_rotate ? 'Rótala' : 'Pide a quien la gestiona que la rote'} por si la vio.`;
+  if (r.kind === 'old_alive') return `Rotaste la clave, pero la anterior sigue funcionando. Anúlala en ${r.provider || 'la web del proveedor'}.`;
+  if (r.kind === 'expired') return `Caducó hace ${daysText(r.days)}. Crea una clave nueva o rótala.`;
+  if (r.kind === 'expiring') return `Caduca en ${daysText(r.days)}. Rótala antes de que deje de funcionar.`;
+  return `La clave tiene ${daysText(r.days)}. Conviene rotarla de vez en cuando.`;
+}
+
+// A rotation left halfway, or what it could not finish: shown before any other reminder in the list.
+function rotationBadge(entry) {
+  if (entry.pending_rotation) return el('span', { class: 'draft-badge', title: 'Hay una contraseña nueva preparada que aún no se ha guardado como la actual' }, 'Rotación a medias');
+  if ((entry.failed_uploads || []).length) return el('span', { class: 'draft-badge is-danger', title: `No se pudo subir a ${entry.failed_uploads.map((u) => u.label).join(', ')}` }, 'Subida fallida');
+  if (entry.retired) return el('span', { class: 'draft-badge', title: 'Clave nueva activa · falta anular la anterior' }, 'Anula la anterior');
+  return null;
 }
 
 function activeSpecs(templateId, fields) {
@@ -902,18 +932,21 @@ function renderDetail(panel) {
       canShare ? el('button', { class: 'btn ghost', onclick: () => shareEntry(entry) }, icon('share', 'sm'), 'Compartir') : null,
       el('button', { class: 'btn', onclick: () => openEditor(entry) }, 'Editar'),
       canWrite(entry) ? el('button', { class: 'btn icon-only', title: 'Eliminar', onclick: () => deleteEntry(entry) }, icon('trash', 'sm')) : null),
+    entry.draft ? null : statusStrip(entry),
     entry.draft ? draftSection(entry, () => renderMain()) : null,
     entry.shared && entry.shared.pending_change ? pendingChangeBox(entry) : null,
-    reminder ? el('div', { class: `warning ${reminderTone(reminder)}` }, icon('clock', 'sm'), el('span', {}, reminderText(reminder),
-      reminder.kind === 'team_access' && reminder.can_rotate && entry.rotation
-        ? [' ', el('button', { class: 'link small', onclick: () => rotateGuided(entry) }, 'Rotar con ayuda')] : null)) : null,
+    reminder && reminder.kind === 'team_access' ? el('div', { class: `warning ${reminderTone(reminder)}` }, icon('clock', 'sm'), el('span', {}, reminderText(reminder),
+      reminder.can_rotate && entry.rotation
+        ? [' ', el('button', { class: 'link small', onclick: () => rotateWithHelp(entry) }, 'Rotar con ayuda')] : null)) : null,
+    pendingRotationBox(entry),
+    failedUploadsBox(entry),
+    entry.retired && canWrite(entry) ? retiredBox(entry) : null,
     (entry.tags || []).length || entry.expires ? el('div', { class: 'tag-line' },
       (entry.tags || []).map((t) => el('span', { class: 'tag static' }, t)),
       entry.expires ? el('span', { class: 'muted small' }, `Caduca el ${entry.expires}`) : null) : null,
     el('div', { class: 'section' }, props),
     entry.description ? el('div', { class: 'section' }, el('h3', {}, 'Notas para la IA'), el('p', { class: 'notes selectable muted' }, entry.description)) : null,
     providerSection(entry),
-    exposureSection(entry),
     rotationSection(entry),
     sharedSection(entry),
     el('div', { class: 'section' },
@@ -929,7 +962,7 @@ function describePermissions(entry) {
   if (http.allowed_hosts && http.allowed_hosts.length) items.push(['globe', `Peticiones a ${http.allowed_hosts.join(', ')}`]);
   if (entry.template === 'ssh') items.push(['server', `Comandos y archivos en ${entry.fields.host}`]);
   const commands = policy.commands || {};
-  if (commands.allowed && commands.allowed.length) items.push(['terminal', `Ejecutar ${commands.allowed.join(', ')} en este equipo`]);
+  if (commands.allowed && commands.allowed.length) items.push(['terminal', `Ejecutar ${commands.allowed.join(', ')} en este PC`]);
   if (!items.length) return [];
   const approval = policy.approval || 'session';
   items.push(['fingerprint', { session: 'Te pregunta una vez por sesión', always: 'Te pregunta cada vez', never: 'No te pregunta' }[approval]]);
@@ -979,21 +1012,59 @@ function destinationLabel(d) {
 
 const ROTATE_EVERY = [[null, 'Ajuste general'], [30, '30 días'], [60, '2 meses'], [90, '3 meses'], [180, '6 meses'], [365, '1 año'], [0, 'Nunca']];
 
+// «cada año», «cada 6 meses», «cada 30 días».
 function everyLabel(days) {
-  const found = ROTATE_EVERY.find(([d]) => d === days);
-  return found ? found[1].toLowerCase() : `${days} días`;
+  if (days % 365 === 0) return days === 365 ? 'cada año' : `cada ${days / 365} años`;
+  if (days % 30 === 0 && days >= 60) return `cada ${days / 30} meses`;
+  return days === 1 ? 'cada día' : `cada ${days} días`;
+}
+
+// Days between rotation reminders for this credential (0: never), and whether it is the general setting.
+function rotateEvery(entry) {
+  const own = entry.rotate_every_days;
+  const general = own === null || own === undefined;
+  return { days: general ? (state.status.rotate_reminder_days ?? 365) : own, general };
 }
 
 function cadenceText(entry) {
-  const own = entry.rotate_every_days;
-  const days = own === null || own === undefined ? (state.status.rotate_reminder_days ?? 365) : own;
-  if (!days) return own === 0 ? 'No te recuerda rotarla.' : 'Los recordatorios de rotación están desactivados en Ajustes.';
-  let text = `Te recuerda rotarla cada ${everyLabel(days)}${own === null || own === undefined ? ' (ajuste general)' : ''}`;
+  const { days, general } = rotateEvery(entry);
+  if (!days) return general ? 'Los recordatorios de rotación están desactivados en Ajustes.' : 'No te recuerda rotarla.';
+  let text = `Te recuerda rotarla ${everyLabel(days)}${general ? ' (ajuste general)' : ''}`;
   if (entry.secret_since) {
     const due = new Date(new Date(entry.secret_since).getTime() + days * 86400000);
     text += `: la próxima vez, hacia el ${due.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`;
   }
   return `${text}. Puedes cambiarlo al editarla.`;
+}
+
+// «en 3 meses», «en 12 días», «en un año», «mañana».
+function inTime(days) {
+  if (days <= 1) return days === 1 ? 'mañana' : 'hoy';
+  if (days < 45) return `en ${days} días`;
+  if (days < 330) return `en ${Math.round(days / 30)} meses`;
+  const years = Math.max(1, Math.round(days / 365));
+  return years === 1 ? 'en un año' : `en ${years} años`;
+}
+
+// «hoy a las 10:02», «ayer a las 18:40», «el 3 oct a las 10:02».
+function atText(iso) {
+  const text = whenText(iso);
+  const day = text.slice(0, -6);
+  return `${['hoy', 'ayer'].includes(day) ? day : `el ${day}`} a las ${text.slice(-5)}`;
+}
+
+function capitalized(text) { return text.charAt(0).toUpperCase() + text.slice(1); }
+
+// «hoy 10:02», «ayer 18:40», «3 oct 10:02».
+function whenText(iso) {
+  if (!iso) return '';
+  const date = new Date(iso);
+  const time = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const today = new Date();
+  const yesterday = new Date(Date.now() - 86400000);
+  if (date.toDateString() === today.toDateString()) return `hoy ${time}`;
+  if (date.toDateString() === yesterday.toDateString()) return `ayer ${time}`;
+  return `${date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} ${time}`;
 }
 
 // How often each key is tested with its provider: hours, -1 once per value, 0 never, null the general setting.
@@ -1036,9 +1107,135 @@ function checkCadenceText(entry) {
   const own = entry.check_every_hours;
   const hours = own === null || own === undefined ? (state.status.check_every_hours ?? 24) : own;
   const general = own === null || own === undefined ? ' (ajuste general)' : '';
-  if (hours === 0) return `No se comprueba sola${general}. Puedes hacerlo con «Comprobar claves».`;
-  if (hours === -1) return `Se comprueba solo una vez cada clave nueva${general}.`;
-  return `Se comprueba ${checkLabel(hours)}${general}.`;
+  if (hours === 0) return `No se prueba sola${general}. Puedes hacerlo con «Revisar ahora» en Salud.`;
+  if (hours === -1) return `Se prueba solo una vez cada clave nueva${general}.`;
+  return `Se prueba ${checkLabel(hours)}${general}.`;
+}
+
+// What a credential needs at a glance, under its name: copies found, when to rotate it, where it is used
+// and when it was last tested. Each chip opens what it talks about.
+function statusStrip(entry) {
+  const chips = [];
+  const chip = (level, text, title, onclick) => {
+    const button = el('button', { class: `status-chip is-${level}`, title, onclick: () => onclick(button) },
+      el('span', { class: 'level-dot' }), el('span', {}, text));
+    chips.push(button);
+  };
+  const item = exposureOf(entry.id);
+  if (item) {
+    const text = { exposed: 'Expuesta', warning: item.found_before ? 'Estuvo expuesta' : 'Revisar', ok: 'Sin copias conocidas', unknown: 'Sin buscar copias' }[item.level];
+    chip(item.level, text, item.reasons.map((r) => r.text).join(' ') || 'Ver las copias encontradas', () => openHealth(entry.id));
+  }
+  const writable = canWrite(entry);
+  if (entry.pending_rotation) {
+    chip('warning', 'Rotación a medias', 'Hay una contraseña nueva preparada que aún no se ha guardado como la actual', () => rotateWithHelp(entry));
+  } else if (entry.retired) {
+    chip('warning', 'Falta anular la anterior', 'Clave nueva activa · falta anular la anterior', () => document.querySelector('.retired-box')?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+  } else if (entry.secret_since && (entry.rotation || canChangePassword(entry) || entry.guide)) {
+    const reminder = state.reminders && state.reminders[entry.id];
+    const { days } = rotateEvery(entry);
+    const age = Math.floor((Date.now() - new Date(entry.secret_since).getTime()) / 86400000);
+    const due = days ? days - age : null;
+    const late = reminder && ['old', 'expired', 'expiring'].includes(reminder.kind);
+    const text = late ? (reminder.kind === 'old' ? 'Toca rotarla' : reminderShort(reminder))
+      : due !== null ? `Rotar ${inTime(due)}` : `Puesta ${ageText(age)}`;
+    chip(late ? 'warning' : 'neutral', text, `${late ? reminderText(reminder) : `Valor puesto ${ageText(age)}.`} ${cadenceText(entry)}`,
+      () => (writable ? rotateWithHelp(entry) : toast('La rota quien gestiona la colección del equipo')));
+  }
+  if (entry.rotation || entry.template === 'database' || (entry.used_in || []).length) {
+    const n = (entry.used_in || []).length;
+    chip(n ? 'neutral' : 'unknown', n ? `Usada en ${n} ${n === 1 ? 'sitio' : 'sitios'}` : 'Sin sitios apuntados',
+      n ? entry.used_in.join(' · ') : 'Apunta dónde se usa: al rotarla, la app te pedirá cambiarla en cada sitio', () => usedInModal(entry));
+  }
+  if (item && item.checkable) {
+    const alive = item.alive;
+    const checked = alive && alive.checked;
+    const level = !alive ? 'unknown' : alive.status === 'ok' ? 'ok' : alive.status === 'invalid' ? 'exposed' : 'warning';
+    const text = !alive ? 'Sin probar' : alive.status === 'ok' ? `Funciona · ${whenText(checked)}`
+      : alive.status === 'invalid' ? `No funciona · ${whenText(checked)}` : `Sin respuesta · ${whenText(checked)}`;
+    chip(level, text, `${alive && alive.message ? `${alive.message}. ` : ''}${checkCadenceText(entry)} Pulsa para probarla ahora.`, (button) => checkOne(entry, button));
+  } else if (['api_key', 'generic'].includes(entry.template) && writable) {
+    chip('unknown', 'No se puede probar', 'La app no sabe cómo probar esta clave: dile qué petición la prueba', () => testRequestModal(entry));
+  }
+  return chips.length ? el('div', { class: 'status-strip' }, chips) : null;
+}
+
+function openHealth(focus) {
+  state.view = 'exposure';
+  state.healthFocus = focus || null;
+  renderMain();
+}
+
+async function checkOne(entry, button) {
+  busy(button, true);
+  const result = await api().check_exposure(entry.id);
+  busy(button, false);
+  if (!result.ok) { toast(result.error, 'error'); return; }
+  state.exposure = result.result;
+  renderMain();
+  const alive = (exposureOf(entry.id) || {}).alive;
+  if (!alive) toast('No se pudo probar');
+  else if (alive.status === 'ok') toast(`Funciona: ${alive.provider} la acepta`);
+  else toast(alive.message || 'No se pudo probar', 'error');
+}
+
+function usedInModal(entry) {
+  const places = entry.used_in || [];
+  const modal = openModal({
+    title: `Dónde se usa ${entry.name}`,
+    body: [places.length ? el('ul', { class: 'used-in' }, places.map((p) => el('li', {}, p)))
+      : el('p', { class: 'muted' }, 'No está apuntado dónde se usa.'),
+    el('p', { class: 'help' }, 'Al rotarla, la app te pide cambiarla en cada uno de estos sitios. La IA también los apunta cuando configura uno.')],
+    footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, 'Cerrar'),
+      canWrite(entry) ? el('button', { class: 'btn primary', onclick: () => { modal.close(); openEditor(entry); } }, places.length ? 'Cambiar' : 'Apuntarlos') : null],
+  });
+}
+
+// How to test a key the app does not know: a read-only request to one of its allowed hosts.
+function testRequestModal(entry) {
+  const test = entry.test_request || {};
+  const base = (entry.fields.base_url || entry.fields.url || '').replace(/\/+$/, '');
+  const shown = test.url && base && test.url.startsWith(base) ? test.url.slice(base.length) || '/' : test.url || '';
+  const method = el('select', { class: 'input', style: 'width:auto' }, ['GET', 'HEAD'].map((m) => el('option', { value: m, selected: (test.method || 'GET') === m }, m)));
+  const url = el('input', { class: 'input mono', value: shown, placeholder: base ? '/v1/me' : 'https://api.ejemplo.com/v1/me', spellcheck: 'false' });
+  const status = el('input', { class: 'input', type: 'number', min: '200', max: '399', value: String(test.status || 200), style: 'width:90px' });
+  const errorText = el('div', { class: 'error-text' });
+  const save = el('button', { class: 'btn primary' }, 'Guardar y probar');
+  const remove = entry.test_request ? el('button', { class: 'btn ghost' }, 'Quitar') : null;
+  const ask = `Busca en la documentación de la API de «${entry.name}» una petición GET de solo lectura que necesite la clave y guárdala en SecretBroker como test_request de ${entry.id}`;
+  const modal = openModal({
+    title: `Cómo probar ${entry.name}`,
+    body: [
+      el('p', { class: 'muted' }, 'Una petición que solo lee (GET o HEAD) a su API, con la clave puesta como la pone la credencial. Si responde lo esperado, la clave funciona.'),
+      el('div', { class: 'field' }, el('label', {}, 'Petición'),
+        el('div', { style: 'display:flex;gap:8px' }, method, el('div', { style: 'flex:1' }, url)),
+        el('div', { class: 'help' }, base ? `Una ruta de ${base} o una dirección completa de sus webs permitidas.` : 'Una dirección completa de sus webs permitidas.')),
+      el('div', { class: 'field' }, el('label', {}, 'Respuesta de una clave que funciona'), el('div', { style: 'display:flex;gap:8px;align-items:center' }, el('span', { class: 'muted' }, 'HTTP'), status)),
+      el('div', { class: 'help' }, '¿No sabes cuál? Pídeselo a la IA: ', el('button', { class: 'link small', onclick: async () => { await api().copy_text(ask); toast('Copiado: pégaselo a la IA'); } }, 'copiar la petición para la IA')),
+      errorText,
+    ],
+    footer: [remove, el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, 'Cancelar'), save],
+  });
+  const send = async (button, value) => {
+    errorText.textContent = '';
+    busy(button, true);
+    const result = await withProof((p) => api().call('set_test_request', { id: entry.id, test: value, check: !!value }, p), `Para cambiar cómo se prueba ${entry.name}.`);
+    busy(button, false);
+    if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
+    modal.close();
+    await loadEntries();
+    renderMain();
+    const check = result.result.check;
+    if (!value) toast('Prueba quitada');
+    else if (check && check.status === 'ok') toast('Guardada: la clave funciona');
+    else toast(`Guardada, pero ${check ? check.message : 'no se pudo probar'}`, 'error');
+  };
+  save.addEventListener('click', () => {
+    if (!url.value.trim()) { errorText.textContent = 'Escribe la ruta o la dirección que hay que pedir.'; return; }
+    send(save, { method: method.value, url: url.value.trim(), status: Number(status.value) || 200 });
+  });
+  if (remove) remove.addEventListener('click', () => send(remove, {}));
+  setTimeout(() => url.focus(), 50);
 }
 
 function rotationSection(entry) {
@@ -1050,29 +1247,63 @@ function rotationSection(entry) {
   }
   const destinations = entry.destinations || [];
   const guide = entry.guide || {};
+  const apply = guide.apply || {};
   const apiButton = rotation.supported
     ? el('button', { class: 'btn', onclick: () => rotateEntry(entry) }, icon('rotate', 'sm'), 'Rotar clave') : null;
   const guidedButton = el('button', { class: rotation.supported ? 'btn ghost' : 'btn', onclick: () => rotateGuided(entry) },
     rotation.supported ? null : icon('rotate', 'sm'), rotation.supported ? 'Rotar a mano' : 'Rotar con ayuda');
+  const testButton = ['api_key', 'generic'].includes(entry.template) && !rotation.supported && guide.kind !== 'database'
+    && (!guide.testable || entry.test_request)
+    ? el('button', { class: 'btn ghost', onclick: () => testRequestModal(entry) }, entry.test_request ? 'Cambiar la prueba' : 'Cómo probarla') : null;
   const ask = `Busca en la documentación oficial cómo se rota la clave de «${entry.name}» y guarda la guía en SecretBroker`;
+  // One line: what the app does for this one.
+  const line = rotation.supported
+    ? `${rotation.provider} da una clave nueva y anula la actual${destinations.length ? `; se vuelve a subir a ${destinations.length === 1 ? destinationLabel(destinations[0]) : `${destinations.length} sitios`}` : ''}.`
+    : guide.kind === 'database'
+      ? (apply.available ? `La app la cambia en la base de datos con ${apply.client} y comprueba que entra con la nueva.`
+        : `La app genera la nueva y te da ${guide.command ? 'el comando' : 'los pasos'}${guide.links && guide.links.length ? ' o el panel' : ''}.`)
+      : `Con ayuda: la creas en su web y la pegas aquí${guide.testable ? '; se prueba antes de guardarla' : ''}.`;
   return el('div', { class: 'section' },
-    el('h3', {}, 'Rotación'),
-    entry.retired ? retiredBox(entry) : null,
-    el('p', { class: 'help' }, rotation.supported
-      ? `Pide a ${rotation.provider} una clave nueva y anula la actual, sin que nadie la vea.`
-      : guide.kind === 'database'
-        ? `${rotation.reason} La app genera la nueva, te da ${guide.command ? 'el comando' : 'los pasos'}${guide.links && guide.links.length ? ' o el enlace al panel' : ''} y la lista de sitios donde ponerla.`
-        : `${rotation.reason} La app te guía: creas la clave nueva en su web, la pegas aquí y se prueba, se guarda y se sube donde haga falta.`),
-    usedInList(entry),
-    rotation.supported && destinations.length
-      ? el('p', { class: 'help' }, 'Después se vuelve a subir a: ', destinations.map(destinationLabel).join(', '))
-      : null,
-    el('p', { class: 'help' }, cadenceText(entry)),
-    guide.source === 'ai' ? el('p', { class: 'help' }, icon('sparkles', 'sm'), ` Guía escrita por la IA${guide.written ? ` el ${guide.written}` : ''}: comprueba los enlaces antes de seguirla.`) : null,
-    guide.source === 'generic' ? el('div', { class: 'help' },
-      'No hay una guía para este proveedor. Puedes pedírsela a la IA: ',
-      el('div', { class: 'prop' }, el('div', { class: 'v selectable', style: 'white-space:normal' }, ask), el('div', { class: 'actions' }, copyButton(ask)))) : null,
-    el('div', { style: 'margin-top:8px;display:flex;gap:8px' }, apiButton, guidedButton));
+    el('h3', {}, 'Rotación', guide.source === 'ai'
+      ? el('span', { class: 'chip', title: `Guía escrita por la IA${guide.written ? ` el ${guide.written}` : ''}: comprueba los enlaces antes de seguirla.` }, 'Guía de la IA') : null),
+    el('p', { class: 'help' }, line,
+      guide.source === 'generic' ? [' ', el('button', { class: 'link small', title: ask, onclick: async () => { await api().copy_text(ask); toast('Copiado: pégaselo a la IA'); } }, 'Pedir una guía a la IA')] : null),
+    el('div', { style: 'margin-top:8px;display:flex;gap:8px;flex-wrap:wrap' }, apiButton, guidedButton, testButton));
+}
+
+// A rotation left halfway: the new password is kept in the vault (it may already be set somewhere).
+function pendingRotationBox(entry) {
+  const pending = entry.pending_rotation;
+  if (!pending || !canWrite(entry)) return null;
+  return el('div', { class: 'draft-box' },
+    el('div', { class: 'warning is-warning' }, icon('alert', 'sm'), el('span', {}, `Rotación a medias: ${atText(pending.since)} se preparó una ${entry.template === 'database' || canChangePassword(entry) ? 'contraseña' : 'clave'} nueva que aún no se ha guardado como la actual.`)),
+    el('div', { style: 'margin-top:8px;display:flex;gap:8px' },
+      el('button', { class: 'btn', onclick: () => rotateWithHelp(entry) }, 'Terminar la rotación')));
+}
+
+// Places a rotated secret could not be uploaded to: they still have the old one.
+function failedUploadsBox(entry) {
+  const failed = entry.failed_uploads || [];
+  if (!failed.length) return null;
+  const retry = el('button', { class: 'btn' }, 'Reintentar subida');
+  retry.addEventListener('click', () => retryUploads(entry, retry));
+  return el('div', { class: 'draft-box is-danger' },
+    el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, `No se pudo subir la nueva a ${failed.map((u) => u.label).join(', ')}: ahí sigue la anterior.`)),
+    el('p', { class: 'help' }, failed[0].error),
+    el('div', { style: 'margin-top:8px;display:flex;gap:8px' }, retry));
+}
+
+async function retryUploads(entry, button) {
+  busy(button, true);
+  const result = await withProof((p) => api().call('retry_uploads', { id: entry.id }, p), `Para subir de nuevo ${entry.name}.`);
+  busy(button, false);
+  if (!result.ok) { if (result.code !== 'cancelled') toast(result.error, 'error'); return null; }
+  await loadEntries();
+  renderMain();
+  const failed = result.result.uploads.filter((u) => !u.ok);
+  if (failed.length) toast(`Sigue sin poder subirse a ${failed.map((u) => u.label).join(', ')}: ${failed[0].error}`, 'error');
+  else toast('Subida de nuevo');
+  return result.result;
 }
 
 // After a rotation by hand, the old key is kept until it is confirmed dead at the provider.
@@ -1080,7 +1311,6 @@ function retiredBox(entry) {
   const retired = entry.retired;
   const guide = entry.guide || {};
   const where = retired.provider || 'la web del proveedor';
-  const status = el('span', {});
   const refresh = async () => { await loadEntries(); renderMain(); };
   const checkButton = retired.checkable ? el('button', { class: 'btn', onclick: async () => {
     busy(checkButton, true);
@@ -1088,7 +1318,7 @@ function retiredBox(entry) {
     busy(checkButton, false);
     if (!result.ok) { toast(result.error, 'error'); return; }
     if (result.result.status === 'done') { toast('La clave anterior ya no funciona: rotación completa'); refresh(); }
-    else if (result.result.status === 'alive') toast(`La clave anterior sigue funcionando: bórrala en ${where}`, 'error');
+    else if (result.result.status === 'alive') toast(`La clave anterior sigue funcionando: anúlala en ${where}`, 'error');
     else toast(result.result.message || 'No se pudo comprobar', 'error');
   } }, 'Comprobar') : null;
   const forget = el('button', { class: 'btn ghost', onclick: async () => {
@@ -1096,47 +1326,30 @@ function retiredBox(entry) {
     if (!result.ok) { toast(result.error, 'error'); return; }
     toast('Rotación completa');
     refresh();
-  } }, 'Ya la he borrado');
-  return el('div', { class: 'draft-box', style: 'margin-bottom:10px' },
-    el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, retired.status === 'alive'
-      ? `La clave anterior sigue funcionando. Bórrala en ${where} para terminar la rotación.`
-      : `Falta borrar la clave anterior en ${where}.`)),
-    (entry.used_in || []).length ? el('p', { class: 'help' }, `Antes, asegúrate de que ya usan la nueva: ${entry.used_in.join('; ')}.`) : null,
-    guide.revoke ? el('p', { class: 'help' }, guide.revoke) : null,
+  } }, 'Ya la he anulado');
+  return el('div', { class: 'draft-box retired-box' },
+    el('div', { class: 'warning is-warning' }, icon('alert', 'sm'), el('span', {}, retired.status === 'alive'
+      ? `Clave nueva activa, pero la anterior sigue funcionando: anúlala en ${where}.`
+      : `Clave nueva activa · falta anular la anterior en ${where}.`)),
+    el('p', { class: 'help' }, guide.revoke || 'Bórrala o revócala en la misma página donde creaste la nueva.',
+      (entry.used_in || []).length ? ` Antes, comprueba que ya usan la nueva: ${entry.used_in.join('; ')}.` : ''),
     guide.links && guide.links.length ? linkList(guide.links.slice(0, 1)) : null,
-    el('div', { style: 'margin-top:8px;display:flex;gap:8px' }, checkButton, forget, status));
-}
-
-function usedInList(entry) {
-  const places = entry.used_in || [];
-  return el('div', { class: 'help' }, places.length
-    ? [el('div', {}, 'Se usa en:'), el('ul', { class: 'used-in' }, places.map((p) => el('li', {}, p)))]
-    : 'No está apuntado dónde se usa. Añádelo al editarla (o pídeselo a la IA): al rotarla, la app te pedirá cambiarla en cada sitio.');
-}
-
-// A random password with nothing to escape in a connection URL, SQL or a shell: letters and digits
-// from the browser's CSPRNG, without modulo bias (32 of 62 characters ≈ 190 bits).
-function randomPassword(length = 32) {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let out = '';
-  while (out.length < length) {
-    for (const byte of crypto.getRandomValues(new Uint8Array(length * 2))) {
-      if (byte < 248 && out.length < length) out += alphabet[byte % 62];
-    }
-  }
-  return out;
+    el('div', { style: 'margin-top:8px;display:flex;gap:8px' }, checkButton, forget));
 }
 
 function guideSteps(steps) {
   return el('ol', { class: 'guide-steps' }, steps.map((text) => el('li', {}, text)));
 }
 
+// The guided rotation. A new password is kept by the service from the moment it is shown (pending), so
+// closing, locking or Esc never lose one that is already set somewhere; reopening offers to finish it.
 function rotateGuided(entry) {
   const guide = entry.guide || { create: [], links: [], sources: [] };
   const known = guide.provider || (entry.rotation && entry.rotation.provider);
   const provider = known || 'el proveedor';
   const site = known ? `la web de ${known}` : 'la web del servicio';
   const database = guide.kind === 'database';
+  const apply = guide.apply || {};
   const exposureBefore = exposureOf(entry.id);  // its findings are for the old value: gone once it changes
   const suggested = `${entry.id}-${new Date().toISOString().slice(0, 7)}`;
   const env = Object.keys(((entry.policy || {}).commands || {}).env || {});
@@ -1146,27 +1359,75 @@ function rotateGuided(entry) {
   ];
   const titles = database
     ? ['Dónde se usa', 'Cambia la contraseña', 'Ponla en cada sitio']
-    : ['Dónde se usa', 'Crea la clave nueva', guide.generate ? 'El secreto nuevo' : 'Pega la clave nueva', 'Ponla en cada sitio', 'Borra la clave anterior'];
+    : ['Dónde se usa', 'Crea la clave nueva', guide.generate ? 'El secreto nuevo' : 'Pega la clave nueva', 'Ponla en cada sitio', 'Anula la clave anterior'];
   const body = el('div', {});
   const foot = el('div', { style: 'display:contents' });
-  let changed = false;
   let places = [...(entry.used_in || [])];
+  let pending = entry.pending_rotation;  // {since, generated}: a new one kept by the service, never its value
+  let saved = false;  // the new one is the current one
+  let finished = false;
+  let current = 1;  // the step shown: from the second one on, something may already be done at the provider
   const modal = openModal({
     title: `Rotar ${entry.name}`, wide: true, body, footer: [foot],
-    onClose: async () => { if (changed) { await loadEntries(); renderMain(); } },
+    confirmClose: () => (finished || (current === 1 && !pending && !saved) ? null
+      : pending ? `La ${database ? 'contraseña' : 'clave'} nueva queda guardada aquí como pendiente: cuando vuelvas a «Rotar con ayuda», podrás terminar.`
+        : saved ? 'La nueva ya está guardada y funcionando. Si cierras ahora, la credencial te recordará lo que falta.'
+          : database ? 'Aún no se ha cambiado nada.' : 'Si ya creaste la clave nueva en el proveedor, tendrás que pegarla otra vez.'),
   });
-  const show = (step, nodes, buttons) => {
+  // The credential behind the dialog shows each step as it happens.
+  const refresh = async () => { await loadEntries(); renderMain(); };
+  const show = (step, nodes, buttons, title) => {
+    current = step;
     body.replaceChildren(el('div', {},
       el('div', { class: 'steps', style: 'margin-bottom:14px' }, titles.map((_, i) => el('span', { class: i < step ? 'done' : '' }))),
-      el('h3', {}, `${step} · ${titles[step - 1]}`), nodes));
+      el('h3', {}, title || `${step} · ${titles[step - 1]}`), nodes));
     foot.replaceChildren(el('div', { class: 'spacer' }), ...buttons.filter(Boolean));
   };
   const line = (ok, text) => el('div', { class: 'perm' }, icon(ok ? 'check' : 'alert', 'sm'), el('span', {}, text));
-  const generated = () => {
-    if (database) return randomPassword();
-    const bytes = crypto.getRandomValues(new Uint8Array(48));
-    return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const done = (message, kind) => { finished = true; modal.close(); toast(message, kind); };
+
+  // The new one prepared: generated by the service (it never reaches this page) or typed by the user.
+  const begin = async (params, errorText) => {
+    const result = await withProof((p) => api().call('rotation_begin', { id: entry.id, ...params }, p),
+      `Para preparar la ${database ? 'contraseña' : 'clave'} nueva de ${entry.name}.`);
+    if (!result.ok) { if (result.code !== 'cancelled' && errorText) errorText.textContent = result.error; return false; }
+    pending = result.result.pending_rotation;
+    refresh();
+    return true;
   };
+  const copyPending = async (what) => {
+    const result = await withProof((p) => api().copy_rotation_secret(entry.id, what, p), `Para copiar la ${database ? 'contraseña' : 'clave'} nueva de ${entry.name}.`);
+    if (result.ok) toast(`Copiad${what === 'command' ? 'o' : 'a'} · se borra del portapapeles en ${result.result} s`);
+    else if (result.code !== 'cancelled') toast(result.error, 'error');
+  };
+  const masked = '••••••••••••';
+  const pendingBox = (label, what = 'value') => el('div', { class: 'prop' },
+    el('div', { style: 'min-width:0' }, el('div', { class: 'k' }, label), what === 'command'
+      ? el('div', { class: 'v mono', style: 'white-space:normal' }, guide.command.replace('{password}', masked))
+      : el('div', { class: 'v secret' }, masked)),
+    el('div', { class: 'actions' }, el('button', { class: 'btn icon-only', title: 'Copiar', onclick: () => copyPending(what) }, icon('copy', 'sm'))));
+
+  // 0 · A rotation left halfway: did the new one get set where it lives?
+  function resume() {
+    const errorText = el('div', { class: 'error-text' });
+    const yes = el('button', { class: 'btn primary' }, database || canChangePassword(entry) ? 'Sí, ya la cambié: guardar' : 'Guardarla como la actual');
+    yes.addEventListener('click', () => save(yes, errorText, { pending: true }));
+    const discard = el('button', { class: 'btn', onclick: async () => {
+      const result = await withProof((p) => api().call('rotation_discard', { id: entry.id }, p), `Para descartar la nueva de ${entry.name}.`);
+      if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
+      pending = null;
+      refresh();
+      where();
+    } }, 'No, descartarla');
+    const applyButton = database && apply.available ? el('button', { class: 'btn', onclick: () => applyNow(applyButton, errorText) }, 'Aplicarla ahora') : null;
+    show(0, [
+      el('p', { class: 'muted' }, `${capitalized(atText(pending.since))} se preparó una ${database ? 'contraseña' : 'clave'} nueva y no se llegó a guardar como la actual. `
+        + `Si ya la pusiste en ${database ? 'la base de datos' : 'su sitio'}, guárdala ahora: la que hay aquí ya no funcionaría.`),
+      pendingBox(database ? 'Contraseña nueva' : 'Clave nueva', 'value'),
+      database && guide.command ? pendingBox('Comando con la contraseña nueva', 'command') : null,
+      errorText,
+    ], [discard, applyButton, yes], 'Rotación a medias: ¿ya la cambiaste?');
+  }
 
   // 1 · Every place that will need the new one: asked first, kept with the credential for next time.
   function where() {
@@ -1187,8 +1448,8 @@ function rotateGuided(entry) {
     render();
     show(1, [
       el('p', { class: 'muted' }, database
-        ? 'En cuanto cambies la contraseña, la actual deja de funcionar en todos los sitios que la usan. Apúntalos todos: develop, pre, pro, cada servidor, Vercel, CI, otros proyectos…'
-        : 'Cuando tengas la nueva, habrá que ponerla en cada sitio que la usa antes de borrar la anterior. Apúntalos todos: develop, pre, pro, cada servidor, Vercel, CI, otros proyectos…'),
+        ? 'En cuanto cambie la contraseña, la actual deja de funcionar en todos los sitios que la usan. Apúntalos todos: develop, pre, pro, cada servidor, Vercel, CI, otros proyectos…'
+        : 'Cuando tengas la nueva, habrá que ponerla en cada sitio que la usa antes de anular la anterior. Apúntalos todos: develop, pre, pro, cada servidor, Vercel, CI, otros proyectos…'),
       list,
       el('div', { style: 'display:flex;gap:8px;margin-top:8px' }, input, el('button', { class: 'btn', onclick: add }, 'Añadir')),
       automatic.length ? el('p', { class: 'help', style: 'margin-top:10px' }, `De esto se encarga la app: ${automatic.join('; ')}.`) : null,
@@ -1204,51 +1465,92 @@ function rotateGuided(entry) {
       `Para guardar la ${database ? 'contraseña' : 'clave'} nueva de ${entry.name}.`);
     busy(button, false);
     if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
-    changed = true;
-    update(result.result, aiApplies);
+    pending = null;
+    saved = true;
+    refresh();
+    update(result.result, aiApplies ? 'ai' : 'user');
   };
 
-  // 2 · Databases: a new password and the exact command (or the panel). Nothing connects from here.
-  function change() {
-    const group = passwordInput({ placeholder: guide.generate ? 'Genera una o escribe la tuya' : 'Pega la que te ha dado el panel' });
+  const applyNow = async (button, errorText, manual) => {
+    errorText.textContent = '';
+    busy(button, true);
+    const result = await withProof((p) => api().call('rotation_apply', { id: entry.id, used_in: places }, p), `Para cambiar la contraseña de ${entry.name}.`);
+    busy(button, false);
+    if (!result.ok) {
+      if (result.code === 'cancelled') return;
+      errorText.textContent = result.code === 'unverified'
+        ? `${result.error} La nueva sigue guardada aquí como pendiente: prueba a conectarte con ella y, si entra, pulsa «Ya la he cambiado: guardar».`
+        : `${result.error} No se ha cambiado nada: puedes hacerlo tú.`;
+      if (manual) manual();
+      refresh();
+      return;
+    }
+    pending = null;
+    saved = true;
+    refresh();
+    update(result.result, 'service');
+  };
+
+  // 2 · Databases: the service changes it itself when it can; otherwise the exact command (or the panel).
+  async function change() {
     const errorText = el('div', { class: 'error-text' });
-    const commandBox = el('div', {});
-    const renderCommand = () => {
-      if (!guide.command) { commandBox.replaceChildren(); return; }
-      const password = group.input.value;
-      const quoted = guide.command.startsWith('db.') ? JSON.stringify(password).slice(1, -1) : password.replace(/'/g, "''");
-      const shown = guide.command.replace('{password}', password ? '•'.repeat(12) : 'CONTRASEÑA_NUEVA');
-      commandBox.replaceChildren(el('div', { class: 'prop' }, el('div', { style: 'min-width:0' },
-        el('div', { class: 'k' }, 'Comando (al copiarlo lleva la contraseña)'), el('div', { class: 'v mono selectable', style: 'white-space:normal' }, shown)),
-        password ? el('div', { class: 'actions' }, copyButton(guide.command.replace('{password}', quoted))) : null),
-        guide.command_note ? el('p', { class: 'help' }, guide.command_note) : null);
-    };
-    group.input.addEventListener('input', renderCommand);
-    const generate = guide.generate ? el('button', { class: 'btn', onclick: () => {
-      group.input.value = generated();
-      renderCommand();
-      toast('Generada: 32 letras y números aleatorios');
-    } }, 'Generar una') : null;
+    if (guide.generate && !pending) {
+      show(2, [el('div', { class: 'spinner' })], []);
+      if (!await begin({ generate: true }, errorText)) { show(2, [errorText], [el('button', { class: 'btn', onclick: where }, 'Atrás')]); return; }
+    }
     const saveButton = el('button', { class: 'btn primary' }, 'Ya la he cambiado: guardar');
     const aiButton = guide.command ? el('button', { class: 'btn', title: 'Se guarda ya y la IA la aplica con sb run, sin verla' }, 'Guardar y que la aplique la IA') : null;
-    const submit = (button, ai) => {
+    // A managed database whose panel makes the password: the user pastes it, and it is kept at once.
+    const pasted = guide.generate ? null : passwordInput({ placeholder: 'Pega la que te ha dado el panel' });
+    if (pasted) pasted.input.addEventListener('change', () => { if (pasted.input.value) begin({ value: pasted.input.value }, errorText); });
+    const submit = async (button, ai) => {
       errorText.textContent = '';
-      if (!group.input.value.trim()) { errorText.textContent = 'Primero genera o escribe la contraseña nueva.'; return; }
-      save(button, errorText, { value: group.input.value }, ai);
+      if (pasted) {
+        if (!pasted.input.value) { errorText.textContent = 'Pega la contraseña que te ha dado el panel.'; return; }
+        save(button, errorText, { value: pasted.input.value }, ai);
+      } else save(button, errorText, { pending: true }, ai);
     };
     saveButton.addEventListener('click', () => submit(saveButton, false));
     if (aiButton) aiButton.addEventListener('click', () => submit(aiButton, true));
-    renderCommand();
+    const own = el('button', { class: 'link small', onclick: () => {
+      const typed = passwordInput({ placeholder: 'Tu contraseña nueva' });
+      const use = el('button', { class: 'btn', onclick: async () => {
+        if (!typed.input.value) return;
+        if (await begin({ value: typed.input.value }, errorText)) { toast('Guardada como pendiente'); change(); }
+      } }, 'Usar esta');
+      own.replaceWith(el('div', { style: 'display:flex;gap:8px;margin-top:6px' }, el('div', { style: 'flex:1' }, typed), use));
+      setTimeout(() => typed.input.focus(), 50);
+    } }, 'Prefiero escribir la mía');
+    const manualNodes = [
+      guideSteps(guide.create || []),
+      guide.command ? pendingBox('Comando (al copiarlo lleva la contraseña nueva)', 'command') : null,
+      guide.command_note ? el('p', { class: 'help' }, guide.command_note) : null,
+      guide.links && guide.links.length ? linkList(guide.links) : null,
+    ];
+    const manualBox = el('div', { class: 'manual-box' });
+    const manualButtons = [el('button', { class: 'btn', onclick: where }, 'Atrás'), aiButton, saveButton];
+    const showManual = () => {
+      manualBox.replaceChildren(...manualNodes.filter(Boolean));
+      foot.replaceChildren(el('div', { class: 'spacer' }), ...manualButtons.filter(Boolean));
+    };
+    const canApply = apply.available && guide.generate;
+    const applyButton = canApply ? el('button', { class: 'btn primary' }, 'Aplicar ahora') : null;
+    if (applyButton) applyButton.addEventListener('click', () => applyNow(applyButton, errorText, showManual));
     show(2, [
       guide.warning ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, guide.warning)) : null,
-      guideSteps(guide.create || []),
-      el('div', { class: 'field' }, el('label', {}, 'Contraseña nueva'),
-        el('div', { style: 'display:flex;gap:8px' }, el('div', { style: 'flex:1' }, group), generate),
-        el('div', { class: 'help' }, 'La IA no la ve. Guárdala aquí solo después de cambiarla en la base de datos.')),
-      commandBox,
-      guide.links && guide.links.length ? linkList(guide.links) : null,
+      pasted ? [guideSteps(guide.create || []), el('div', { class: 'field' }, el('label', {}, 'Contraseña nueva'), pasted,
+        el('div', { class: 'help' }, 'Se guarda aquí como pendiente en cuanto la pegas: no se pierde aunque cierres.')),
+      guide.links && guide.links.length ? linkList(guide.links) : null]
+        : [pendingBox('Contraseña nueva · guardada aquí, aún sin aplicar'),
+          el('div', { class: 'help' }, '32 letras y números aleatorios. La IA no la ve. ', own)],
+      canApply ? el('p', { class: 'muted', style: 'margin-top:10px' }, `La app se conecta con la actual, la cambia con ${apply.client} y comprueba que entra con la nueva antes de guardarla.`)
+        : !pasted && apply.reason ? el('p', { class: 'help', style: 'margin-top:10px' }, apply.reason) : null,
+      pasted ? null : manualBox,
       errorText,
-    ], [el('button', { class: 'btn', onclick: where }, 'Atrás'), aiButton, saveButton]);
+    ], canApply
+      ? [el('button', { class: 'btn', onclick: where }, 'Atrás'), el('button', { class: 'btn', onclick: showManual }, 'Lo hago yo'), applyButton]
+      : [el('button', { class: 'btn', onclick: where }, 'Atrás'), aiButton, saveButton]);
+    if (!canApply && !pasted) manualBox.replaceChildren(...manualNodes.filter(Boolean));
   }
 
   // 2 · API keys: where to create the new one.
@@ -1256,7 +1558,7 @@ function rotateGuided(entry) {
   let idChoice = null;  // 'same' | 'new': the user must say it, never assumed
   const oldId = paired ? paired.value : '';
   const create = () => show(2, [
-    el('p', { class: 'muted' }, `Créala en ${site}. La actual sigue funcionando hasta que la borres, así que no se corta nada.`),
+    el('p', { class: 'muted' }, `Créala en ${site}. La actual sigue funcionando hasta que la anules, así que no se corta nada.`),
     guide.warning ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, guide.warning)) : null,
     guideSteps(guide.create || []),
     el('div', { class: 'prop' }, el('div', { style: 'min-width:0' }, el('div', { class: 'k' }, 'Nombre sugerido para la clave'),
@@ -1267,17 +1569,17 @@ function rotateGuided(entry) {
   ], [el('button', { class: 'btn', onclick: where }, 'Atrás'),
     el('button', { class: 'btn primary', onclick: paste }, 'Ya la tengo')]);
 
-  // 3 · Paste it: tested before it replaces the current one.
+  // 3 · Paste it: tested before it replaces the current one (when it can be tested).
   function paste() {
     const group = passwordInput({ placeholder: 'Pega aquí la clave nueva' });
     const errorText = el('div', { class: 'error-text' });
-    const saveButton = el('button', { class: 'btn primary' }, 'Probar y guardar');
+    const saveButton = el('button', { class: 'btn primary' }, guide.testable ? 'Probar y guardar' : 'Guardar');
     const idInput = el('input', { class: 'input mono', placeholder: paired && paired.hint ? paired.hint : '', spellcheck: 'false' });
     saveButton.addEventListener('click', () => {
       errorText.textContent = '';
       const value = group.input.value.trim();
-      if (!value) { errorText.textContent = 'Pega la clave nueva.'; return; }
-      const params = { value };
+      if (!value && !pending) { errorText.textContent = 'Pega la clave nueva.'; return; }
+      const params = value ? { value } : { pending: true };
       if (paired) {
         if (!idChoice) { errorText.textContent = `Indica si el ${paired.label} es el mismo o ha cambiado.`; return; }
         params.paired_id = idChoice === 'same' ? oldId : idInput.value.trim();
@@ -1301,47 +1603,62 @@ function rotateGuided(entry) {
       choice('same', paired.value ? `Es el mismo (${paired.value}): solo he creado un secreto nuevo.` : 'Es el mismo: solo he creado un secreto nuevo.'),
       choice('new', `Ha cambiado: he creado ${guide.provider === 'Microsoft Entra' ? 'otra app' : 'otro cliente'} nuevo.`),
       idField) : null;
-    const generate = guide.generate ? el('button', { class: 'btn', onclick: () => {
-      group.input.value = generated();
-      toast('Generado: 48 bytes aleatorios');
-    } }, 'Generar uno aleatorio') : null;
-    show(3, [
-      el('div', { class: 'field' }, el('label', {}, 'Clave nueva'), group,
+    // A secret of the user's own: generated and kept by the service, then copied to where it is used.
+    const field = el('div', { class: 'field' });
+    const renderField = () => field.replaceChildren(pending
+      ? [pendingBox('Secreto nuevo · guardado aquí, aún sin aplicar'), el('div', { class: 'help' }, 'Cópialo a donde se usa y guárdalo. La IA no lo ve.')]
+      : [el('label', {}, 'Clave nueva'), group,
         el('div', { class: 'help' }, guide.testable
-          ? `Se prueba con ${known} antes de sustituir la actual: si no funciona, no se cambia nada. La IA no la ve.`
-          : 'Esta clave no se puede probar desde aquí: comprueba que la has copiado entera. La IA no la ve.')),
-      generate,
-      idQuestion,
-      errorText,
-    ], [el('button', { class: 'btn', onclick: create }, 'Atrás'), saveButton]);
-    setTimeout(() => group.input.focus(), 50);
+          ? `Se prueba con ${known || 'su API'} antes de sustituir la actual: si no funciona, no se cambia nada. La IA no la ve.`
+          : 'Esta clave no se puede probar desde aquí: comprueba que la has copiado entera. La IA no la ve.')]);
+    renderField();
+    const generate = guide.generate ? el('button', { class: 'btn', onclick: async () => {
+      if (await begin({ generate: true }, errorText)) { renderField(); toast('Generado y guardado como pendiente: 48 bytes aleatorios'); }
+    } }, pending ? 'Generar otro' : 'Generar uno aleatorio') : null;
+    show(3, [field, generate, idQuestion, errorText], [el('button', { class: 'btn', onclick: create }, 'Atrás'), saveButton]);
+    if (!pending) setTimeout(() => group.input.focus(), 50);
   }
 
-  // Put it in every place: each one ticked before the old one is deleted (or, for a database, before finishing).
-  function update(result, aiApplies = false) {
+  // Put it in every place: each one ticked before the old one is revoked (or, for a database, before finishing).
+  // `how`: user (said it is changed), service (the app changed it and logged in with it) or ai (the AI will apply it).
+  function update(result, how) {
     const check = result.check;
     const applyPrompt = `Aplica en la base de datos la contraseña nueva de «${entry.name}» (${entry.id}), que ya está guardada en SecretBroker: `
       + `${(guide.command || '').replace("'{password}'", '<la nueva>').replace('"{password}"', '<la nueva>').replace('{password}', '<la nueva>')} `
       + `Usa sb run o run_command con {{password}}, sin verla, y comprueba después que se conecta con ella.`;
     const step = database ? 3 : 4;
     const next = el('button', { class: 'btn primary', onclick: () => {
-      if (database) { modal.close(); toast('Rotación completa'); } else revoke(result.entry.retired, result.id_changed);
+      if (!database) revoke(result.entry.retired, result.id_changed);
+      else if (how === 'ai') done('Contraseña nueva guardada · falta que la IA la aplique en la base de datos');
+      else done('Rotación completa');
     } }, database ? 'Terminar' : 'Siguiente');
     const left = el('div', { class: 'help' });
     const boxes = places.map(() => el('input', { type: 'checkbox' }));
     const sync = () => {
       const missing = boxes.filter((box) => !box.checked).length;
       next.disabled = missing > 0;
-      left.textContent = missing ? `Falta${missing > 1 ? 'n' : ''} ${missing}. ${database ? 'Hasta que la pongas, esos sitios no pueden conectar.' : 'No borres la anterior hasta tenerlos todos.'}` : '';
+      left.textContent = missing ? `Falta${missing > 1 ? 'n' : ''} ${missing}. ${database ? 'Hasta que la pongas, esos sitios no pueden conectar.' : 'No anules la anterior hasta tenerlos todos.'}` : '';
     };
     boxes.forEach((box) => box.addEventListener('change', sync));
     sync();
+    const uploads = el('div', {});
+    const renderUploads = (list) => {
+      const failed = list.filter((u) => !u.ok);
+      const retry = failed.length ? el('button', { class: 'btn', onclick: async () => {
+        const again = await retryUploads(entry, retry);
+        if (again) renderUploads([...list.filter((u) => u.ok), ...again.uploads]);
+      } }, 'Reintentar subida') : null;
+      uploads.replaceChildren(...list.map((u) => line(u.ok, u.ok ? `Subida a ${u.label} como ${u.name}.` : `No se pudo subir a ${u.label}: ${u.error}. Ahí sigue la anterior.`)),
+        retry ? el('div', { style: 'margin:4px 0 0 26px' }, retry) : '');
+    };
+    renderUploads(result.uploads);
     show(step, [
-      aiApplies ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {},
+      how === 'ai' ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {},
         'Guardada aquí, pero la base de datos aún tiene la anterior. Pídele a la IA que la aplique (puede hacerlo con sb run sin verla; '
         + 'en un contenedor Docker no necesita la anterior):')) : null,
-      aiApplies ? el('div', { class: 'prop' }, el('div', { class: 'v selectable', style: 'white-space:normal' }, applyPrompt),
+      how === 'ai' ? el('div', { class: 'prop' }, el('div', { class: 'v selectable', style: 'white-space:normal' }, applyPrompt),
         el('div', { class: 'actions' }, copyButton(applyPrompt))) : null,
+      how === 'service' ? line(true, `Cambiada en la base de datos con ${apply.client} y comprobada: entra con la nueva.`) : null,
       database ? line(true, 'Guardada. La URL de conexión ya lleva la nueva.')
         : check && check.status === 'ok' ? line(true, `Funciona: ${check.provider} la acepta.`)
           : !guide.testable ? line(false, 'Esta clave no se puede probar desde aquí: comprueba en tu app que funciona.')
@@ -1349,18 +1666,18 @@ function rotateGuided(entry) {
       line(true, 'La IA ya usa la nueva. Sus aprobaciones de esta credencial se han reiniciado.'),
       result.id_changed ? line(true, `${paired.label} nuevo guardado: ${result.entry.fields.username}.`) : null,
       (result.also_updated || []).map((o) => line(true, `También se ha cambiado el ID en «${o.name}».`)),
-      result.uploads.map((u) => line(u.ok, u.ok ? `Subida a ${u.label} como ${u.name}.` : `No se pudo subir a ${u.label}: ${u.error}`)),
+      uploads,
       env.length ? line(true, `Tus programas con sb run (${env.join(', ')}) la usarán al reiniciarlos.`) : null,
-      exposureBefore && exposureBefore.found && !database ? line(false, `La clave anterior estaba en claro en ${exposureBefore.found} sitio(s). En cuanto la borres, esas copias dejan de ser un riesgo.`) : null,
+      exposureBefore && exposureBefore.found && !database ? line(false, `La clave anterior estaba en claro en ${exposureBefore.found} ${exposureBefore.found === 1 ? 'sitio' : 'sitios'}. En cuanto la anules, esas copias dejan de ser un riesgo.`) : null,
       places.length
         ? el('div', { class: 'field', style: 'margin-top:10px' },
           el('label', {}, `Ponla en cada sitio y márcalo${result.id_changed ? ` (y el ${paired.label} nuevo)` : ''}`),
           places.map((place, i) => el('label', { class: 'perm', style: 'cursor:pointer' }, boxes[i], el('span', {}, place))), left)
-        : el('p', { class: 'help', style: 'margin-top:8px' }, `No hay sitios apuntados. Si la usas en otro sitio (un servidor, Vercel, otra app…), cámbiala allí también${database ? '' : ' antes de borrar la anterior'}.`),
+        : el('p', { class: 'help', style: 'margin-top:8px' }, `No hay sitios apuntados. Si la usas en otro sitio (un servidor, Vercel, otra app…), cámbiala allí también${database ? '' : ' antes de anular la anterior'}.`),
     ], [next]);
   }
 
-  // Delete the old key at the provider, and check it is dead.
+  // Revoke the old key at the provider, and check it is dead. Only then is the rotation complete.
   function revoke(retired, idChanged) {
     const status = el('div', {});
     const checkable = retired && retired.checkable;
@@ -1371,21 +1688,23 @@ function rotateGuided(entry) {
       busy(checkButton, false);
       if (!result.ok) { status.replaceChildren(el('div', { class: 'error-text' }, result.error)); return; }
       const answer = result.result;
+      refresh();
       if (answer.status === 'done') {
+        finished = true;
         status.replaceChildren(el('div', { class: 'perm' }, icon('check', 'sm'), el('span', {}, 'La clave anterior ya no funciona. Rotación completa.')));
         foot.replaceChildren(el('div', { class: 'spacer' }), el('button', { class: 'btn primary', onclick: () => modal.close() }, 'Terminar'));
       } else {
         status.replaceChildren(el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, answer.status === 'alive'
-          ? `Sigue funcionando. Bórrala en ${provider} y vuelve a comprobarlo (a veces tarda unos minutos).`
+          ? `Sigue funcionando. Anúlala en ${provider} y vuelve a comprobarlo (a veces tarda unos minutos).`
           : answer.message || 'No se pudo comprobar.')));
       }
     });
     const forget = el('button', { class: checkable ? 'btn ghost' : 'btn primary', onclick: async () => {
       const result = await api().call('forget_retired', { id: entry.id });
       if (!result.ok) { toast(result.error, 'error'); return; }
-      modal.close();
-      toast('Rotación completa');
-    } }, 'Ya la he borrado');
+      refresh();
+      done('Rotación completa');
+    } }, 'Ya la he anulado');
     show(5, [
       el('p', { class: 'muted' }, idChanged
         ? `Como has creado ${guide.provider === 'Microsoft Entra' ? 'otra app' : 'otro cliente'}, borra el anterior (${oldId}) en ${provider}.`
@@ -1393,13 +1712,14 @@ function rotateGuided(entry) {
       guide.links && guide.links.length ? linkList(guide.links.slice(0, 1)) : null,
       el('p', { class: 'help' }, checkable
         ? 'Después, la app comprueba con el proveedor que ya no funciona. Si lo dejas para luego, te lo recordará.'
-        : 'Esta clave no se puede comprobar desde aquí: avísame cuando la hayas borrado.'),
+        : 'Esta clave no se puede comprobar desde aquí: avísame cuando la hayas anulado.'),
       status,
-    ], [el('button', { class: 'btn', onclick: () => { modal.close(); toast('Te recordaré borrar la anterior'); } }, 'Más tarde'),
+    ], [el('button', { class: 'btn', onclick: () => done('Clave nueva activa · falta anular la anterior') }, 'Más tarde'),
       forget, checkable ? checkButton : null]);
   }
 
-  where();
+  if (pending) resume();
+  else where();
 }
 
 async function rotateEntry(entry) {
@@ -1420,9 +1740,9 @@ async function rotateEntry(entry) {
         renderMain();
         const failed = result.result.uploads.filter((u) => !u.ok);
         const check = result.result.check;
-        if (failed.length) toast(`Rotada, pero no se pudo subir a ${failed.map((u) => u.label).join(', ')}: ${failed[0].error}`, 'error');
+        if (failed.length) toast(`Rotada, pero no se pudo subir a ${failed.map((u) => u.label).join(', ')}: puedes reintentarlo desde la credencial`, 'error');
         else if (check && check.status === 'invalid') toast(`Rotada, pero ${check.message}`, 'error');
-        else toast(destinations.length ? 'Rotada y subida de nuevo' : 'Rotada');
+        else toast(destinations.length ? 'Rotación completa: la anterior ya no funciona y la nueva está subida' : 'Rotación completa: la anterior ya no funciona');
       } }, 'Rotar'),
     ],
   });
@@ -1777,18 +2097,6 @@ function exposureFacts(item) {
   return el('div', { class: 'facts faint small' }, facts.join(' · '));
 }
 
-function exposureSection(entry) {
-  const item = exposureOf(entry.id);
-  if (!item) return null;
-  return el('div', { class: 'section' },
-    el('h3', {}, 'Exposición'),
-    el('div', {}, levelBadge(item.level)),
-    item.reasons.map((r) => el('p', { class: `reason is-${r.level}` }, r.text)),
-    exposureFacts(item),
-    item.checkable ? el('div', { class: 'facts faint small' }, checkCadenceText(entry), ' Puedes cambiarlo al editarla.') : null,
-    el('div', {}, el('button', { class: 'link small', onclick: () => { state.view = 'exposure'; renderMain(); } }, 'Ver detalles')));
-}
-
 function scanProgress() {
   const scan = state.scan || {};
   const read = `${scan.files || 0} archivos leídos · ${Math.round((scan.bytes || 0) / 1e6)} MB`;
@@ -1812,29 +2120,34 @@ async function pollScan() {
   if (progress.report) {
     state.exposure = progress.report;
     const exposed = exposedCount();
-    if (exposed) toast(`Análisis terminado: ${exposed} ${exposed === 1 ? 'credencial expuesta' : 'credenciales expuestas'}`, 'error');
-    else toast('Análisis terminado: no hay copias de tus claves');
+    if (exposed) toast(`Búsqueda terminada: ${exposed} ${exposed === 1 ? 'credencial expuesta' : 'credenciales expuestas'}`, 'error');
+    else toast('Búsqueda terminada: no hay copias de tus claves');
   }
   if (state.screen === 'main') renderMain();
 }
 
 async function startScan(button) {
   busy(button, true);
-  const result = await withProof((p) => api().start_scan(p), 'Para buscar tus claves en los archivos de este equipo.');
+  const result = await withProof((p) => api().start_scan(p), 'Para buscar copias de tus claves en los archivos de este PC.');
   busy(button, false);
   if (!result.ok) { if (result.code !== 'cancelled') toast(result.error, 'error'); return; }
   state.scan = { running: true };
   renderMain();
 }
 
-async function checkKeys(button) {
+// «Revisar ahora»: search for copies and test every key with its provider, at once.
+async function reviewNow(button) {
   busy(button, true);
-  const result = await api().check_exposure();
+  const [scan, check] = await Promise.all([
+    withProof((p) => api().start_scan(p), 'Para buscar copias de tus claves en los archivos de este PC.'),
+    api().check_exposure(),
+  ]);
   busy(button, false);
-  if (!result.ok) { toast(result.error, 'error'); return; }
-  state.exposure = result.result;
+  if (check.ok) state.exposure = check.result;
+  else toast(check.error, 'error');
+  if (scan.ok) state.scan = { running: true };
+  else if (scan.code !== 'cancelled') toast(scan.error, 'error');
   renderMain();
-  toast('Comprobación terminada');
 }
 
 async function showWhere() {
@@ -1847,11 +2160,11 @@ async function showWhere() {
 function renderExposure(content) {
   const report = state.exposure;
   const scanning = !!(state.scan && state.scan.running);
-  const scanButton = el('button', { class: 'btn primary', disabled: scanning }, icon('search', 'sm'), 'Buscar copias');
-  scanButton.addEventListener('click', () => startScan(scanButton));
-  const checkButton = el('button', { class: 'btn', title: 'Prueba cada clave con su proveedor y las contraseñas contra filtraciones conocidas' }, 'Comprobar claves');
-  checkButton.addEventListener('click', () => checkKeys(checkButton));
-  const header = el('div', { class: 'content-header' }, el('h1', {}, 'Salud'), checkButton, scanButton);
+  const complete = !!(report && report.last_scan && report.last_check);
+  const reviewButton = el('button', { class: `btn ${complete ? '' : 'primary'}`, disabled: scanning,
+    title: 'Busca copias de tus claves en este PC y prueba cada una con su proveedor' }, icon('search', 'sm'), 'Revisar ahora');
+  reviewButton.addEventListener('click', () => reviewNow(reviewButton));
+  const header = el('div', { class: 'content-header' }, el('h1', {}, 'Salud'), reviewButton);
   if (!report) {
     content.replaceChildren(header, el('div', { class: 'content-body' }, el('div', { class: 'empty' }, el('p', {}, 'No se pudo cargar el estado.'))));
     return;
@@ -1860,42 +2173,108 @@ function renderExposure(content) {
   const entries = Object.fromEntries(state.entries.map((e) => [e.id, e]));
   const items = report.entries.filter((item) => entries[item.id])
     .sort((a, b) => LEVELS[a.level].order - LEVELS[b.level].order || entries[a.id].name.localeCompare(entries[b.id].name));
+  const found = items.filter((item) => ['exposed', 'warning'].includes(item.level) || item.ignored);
   const hidden = !report.details && items.some((item) => item.found || item.found_before);
-  content.replaceChildren(header, el('div', { class: 'content-body' },
-    healthSection(),  // personal.js: score, weak / reused / old secrets
-    el('h2', { class: 'section-title' }, 'Exposición'),
+  const scanButton = el('button', { class: 'btn ghost', disabled: scanning }, 'Buscar copias');
+  scanButton.addEventListener('click', () => startScan(scanButton));
+  const body = el('div', { class: 'content-body' },
+    healthSection(),  // personal.js: score, weak / reused / old secrets, unfinished rotations
+    el('div', { class: 'section-head' }, el('h2', { class: 'section-title' }, 'Copias encontradas'), scanButton),
     scanning ? scanProgress() : null,
     el('div', { class: 'exposure-summary' },
-      el('p', { class: 'muted' }, 'Busca tus claves en las conversaciones con IA, los historiales de la terminal, la configuración de tus programas, las variables de entorno, tus proyectos y su historial de git. Todo ocurre en este equipo.'),
+      el('p', { class: 'muted' }, 'Busca tus claves en las conversaciones con IA, los historiales de la terminal, la configuración de tus programas, las variables de entorno, tus proyectos y su historial de git. Todo ocurre en este PC.'),
       el('div', { class: 'faint small' },
-        report.last_scan ? `Último análisis: ${formatTime(report.last_scan.ts)} · ${report.last_scan.files} archivos` : 'Aún no se ha hecho ningún análisis',
-        ' · ',
-        report.last_check ? `Última comprobación con los proveedores: ${formatTime(report.last_check)}` : 'Claves sin comprobar con sus proveedores'),
+        report.last_scan ? `Última búsqueda: ${whenText(report.last_scan.ts)} · ${report.last_scan.files} archivos` : 'Aún no se han buscado copias'),
       hidden ? el('div', { class: 'small' }, el('span', { class: 'muted' }, 'Las rutas solo se muestran tras verificar tu identidad. '),
         el('button', { class: 'link small', onclick: showWhere }, 'Ver en qué archivos')) : null),
-    el('div', { class: 'exposure-list' }, items.map((item) => exposureCard(item, entries[item.id])))));
+    found.length ? el('div', { class: 'exposure-list' }, found.map((item) => exposureCard(item, entries[item.id])))
+      : report.last_scan ? el('p', { class: 'muted small' }, 'Ninguna copia de tus claves en lo revisado.') : null);
+  content.replaceChildren(header, body);
+  if (state.healthFocus) {
+    const card = body.querySelector(`[data-entry="${CSS.escape(state.healthFocus)}"]`);
+    state.healthFocus = null;
+    if (card) setTimeout(() => { card.scrollIntoView({ block: 'center' }); card.classList.add('focus'); }, 50);
+  }
 }
 
+// A long path keeps its start and its file name: C:\Users\ana\…\projects\demo\s1.jsonl
+function shortPath(path) {
+  return path.length > 56 ? `${path.slice(0, 16)}…${path.slice(-38)}` : path;
+}
+
+// One credential with copies: rotate it (the copies stop mattering), and per place ignore it or, in an AI
+// conversation or a shell history, remove it from the file.
 function exposureCard(item, entry) {
   const findings = item.findings || [];
   const place = (location) => location.replace(/^(env|git):/, '');
-  return el('div', { class: `exposure-card is-${item.level}` },
+  const backup = (location) => location.endsWith('.secretbroker.bak');
+  const redactable = (f) => ['ai', 'history'].includes(f.source) && !backup(f.location) && !/\.sqlite(-wal)?$/i.test(f.location);
+  const act = async (button, call, message) => {
+    busy(button, true);
+    const result = await call();
+    busy(button, false);
+    if (!result.ok) { if (result.code === 'session_expired') showWhere(); else toast(result.error, 'error'); return; }
+    if (message) toast(typeof message === 'function' ? message(result.result) : message);
+    await loadExposure();
+    renderMain();
+  };
+  const redact = (f, button) => confirmModal({
+    title: '¿Borrar la clave de este archivo?',
+    text: `Se cambia por [REDACTED:${entry.id}] en ${place(f.location)}. Se guarda una copia del archivo al lado (.secretbroker.bak) por si algo fallara: bórrala cuando compruebes que todo va bien.`,
+    warning: f.source === 'ai' ? 'La IA ya la vio y la envió a su proveedor: aunque la borres de aquí, rótala.' : null,
+    action: 'Borrar de este archivo',
+    onConfirm: async () => {
+      act(button, () => api().redact_finding(entry.id, f.location), (r) => (r.count ? `Borrada del archivo (${r.count} ${r.count === 1 ? 'vez' : 'veces'})` : 'Ya no estaba en el archivo'));
+      return true;
+    },
+  });
+  const actions = (f) => {
+    const buttons = [];
+    if (f.ignored) {
+      buttons.push(el('button', { class: 'btn ghost sm', onclick: (e) => act(e.currentTarget, () => api().ignore_finding(entry.id, f.location, false)) }, 'Volver a contar'));
+      return buttons;
+    }
+    if (f.redacted && !f.present && redactable(f)) {
+      // The copy left next to the file still has it: once the user is happy, delete it too.
+      buttons.push(el('button', { class: 'btn ghost sm', onclick: async (e) => {
+        const button = e.currentTarget;
+        toast(await api().delete_redaction_backup(`${f.location}.secretbroker.bak`) ? 'Copia borrada' : 'Ya no había copia');
+        button.remove();
+      } }, 'Borrar la copia'));
+    }
+    if (!f.present) return buttons;
+    if (backup(f.location)) {
+      buttons.push(el('button', { class: 'btn ghost sm', onclick: async () => {
+        if (await api().delete_redaction_backup(f.location)) { toast('Copia borrada. La próxima búsqueda dejará de encontrarla'); }
+      } }, 'Borrar la copia'));
+    } else if (redactable(f)) {
+      buttons.push(el('button', { class: 'btn ghost sm', onclick: (e) => redact(f, e.currentTarget) }, 'Borrar de este archivo'));
+    }
+    buttons.push(el('button', { class: 'btn ghost sm', title: 'Un archivo de pruebas, una copia que quieres tener… Deja de contar como problema',
+      onclick: (e) => act(e.currentTarget, () => api().ignore_finding(entry.id, f.location, true), 'Ignorada') }, 'Ignorar'));
+    if (!f.location.startsWith('env:')) {
+      buttons.push(el('button', { class: 'btn icon-only', title: 'Mostrar en el Explorador', onclick: () => api().show_location(f.location) }, icon('external', 'sm')));
+    }
+    return buttons;
+  };
+  const writable = canWrite(entry);
+  return el('div', { class: `exposure-card is-${item.level}`, 'data-entry': entry.id },
     el('div', { class: 'exposure-head' },
       glyph(entry.template),
       el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name), el('div', { class: 'subtitle' }, subtitleOf(entry))),
       levelBadge(item.level),
-      el('button', { class: 'btn ghost', onclick: () => { state.selected = entry.id; state.view = 'credentials'; renderMain(); } }, 'Abrir')),
+      el('button', { class: 'btn ghost', onclick: () => { state.selected = entry.id; state.view = 'credentials'; renderMain(); } }, 'Abrir'),
+      writable && ['exposed', 'warning'].includes(item.level)
+        ? el('button', { class: 'btn primary', onclick: () => rotateWithHelp(entry) }, icon('rotate', 'sm'), 'Rotar con ayuda') : null),
     item.reasons.length ? el('ul', { class: 'reasons' }, item.reasons.map((r) => el('li', { class: `is-${r.level}` }, r.text))) : null,
     exposureFacts(item),
-    findings.length ? el('details', { class: 'findings', open: item.level === 'exposed' },
-      el('summary', {}, `${findings.length} ${findings.length === 1 ? 'sitio' : 'sitios'}`),
-      findings.map((f) => el('div', { class: `finding ${f.present ? '' : 'gone'}` },
-        el('span', { class: 'source' }, SOURCE_LABELS[f.source] || f.source),
-        el('span', { class: 'path selectable', title: place(f.location) }, place(f.location)),
-        el('span', { class: 'faint' }, f.present ? `desde ${formatTime(f.first_seen)}` : 'ya no está'),
-        f.present && !f.location.startsWith('env:')
-          ? el('button', { class: 'btn icon-only', title: 'Mostrar en el Explorador', onclick: () => api().show_location(f.location) }, icon('search', 'sm'))
-          : el('span')))) : null);
+    findings.length ? el('details', { class: 'findings', open: item.level === 'exposed' || findings.some((f) => f.redacted || f.ignored) },
+      el('summary', {}, `${findings.length} ${findings.length === 1 ? 'sitio' : 'sitios'}${item.ignored ? ` · ${item.ignored} ${item.ignored === 1 ? 'ignorado' : 'ignorados'}` : ''}`),
+      findings.map((f) => el('div', { class: `finding ${f.present && !f.ignored ? '' : 'gone'}` },
+        el('span', { class: 'source' }, backup(f.location) ? 'Copia de seguridad' : SOURCE_LABELS[f.source] || f.source),
+        el('span', { class: 'path selectable', title: place(f.location) }, shortPath(place(f.location))),
+        el('span', { class: 'faint' }, f.ignored ? 'ignorado' : f.redacted && !f.present ? 'borrada de aquí' : f.present ? `desde ${formatTime(f.first_seen)}` : 'ya no está'),
+        el('span', { class: 'finding-actions' }, actions(f))))) : null);
 }
 
 // ----------------------------------------------------------------------- activity
@@ -2986,8 +3365,8 @@ function renderSettings(content) {
         setting('Arrancar con Windows', 'SecretBroker se queda junto al reloj, listo para la IA. Cerrar la ventana no lo cierra: usa «Salir» en ese icono.', startToggle)),
       backupSlot,
       importExportGroup(),  // personal.js
-      el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Exposición'),
-        setting('Analizar al desbloquear', 'Busca copias de tus claves en este PC al desbloquear, como mucho cada 12 horas.', autoScan),
+      el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Copias de tus claves'),
+        setting('Buscar copias al desbloquear', 'Busca copias de tus claves en este PC al desbloquear, como mucho cada 12 horas.', autoScan),
         setting('Carpetas de proyectos', 'Se revisan junto con sus historiales de git. Las carpetas donde has usado Claude Code se añaden solas.', addFolder),
         folderList),
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Apariencia'),

@@ -89,6 +89,8 @@ def validate_entry(entry):
         raise ValidationError("Guía de rotación no válida")
     if entry.get("shared") is not None:
         _check_shared(entry["shared"])
+    if entry.get("test_request") is not None:
+        _check_test_request(entry["test_request"])
     if entry.get("used_in") is not None and clean_used_in(entry["used_in"]) != entry["used_in"]:
         raise ValidationError(f"Dónde se usa: hasta {USED_IN_MAX} sitios, de {USED_IN_TEXT_MAX} caracteres como mucho")
     fields = entry.get("fields", {})
@@ -141,6 +143,23 @@ def _check_shared(shared):
         raise ValidationError("Datos de equipo no válidos")
     if shared.get("permission") not in SHARE_PERMISSIONS:
         raise ValidationError("Permiso de equipo no válido")
+
+
+TEST_METHODS = ("GET", "HEAD")
+
+
+def _check_test_request(test):
+    """A request that tells whether an API key works (see exposure.check_alive): read-only, and only to
+    one of the credential's allowed hosts (checked again when it runs)."""
+    if not isinstance(test, dict) or set(test) - {"method", "url", "status"}:
+        raise ValidationError("Petición de prueba no válida")
+    if test.get("method") not in TEST_METHODS:
+        raise ValidationError("La petición de prueba solo puede ser GET o HEAD (no debe cambiar nada)")
+    url = test.get("url")
+    if not isinstance(url, str) or not re.match(r"^https?://[^\s/]+(/\S*)?$", url) or len(url) > 500:
+        raise ValidationError("La petición de prueba necesita una dirección completa (https://…)")
+    if not isinstance(test.get("status"), int) or not 200 <= test["status"] <= 399:
+        raise ValidationError("La respuesta esperada de la prueba debe ser un código entre 200 y 399")
 
 
 def shared_content(entry):
@@ -203,6 +222,7 @@ def entry_summary(entry):
         "rotate_every_days": entry.get("rotate_every_days"),
         "check_every_hours": entry.get("check_every_hours"),
         "used_in": entry.get("used_in") or [],
+        "test_request": entry.get("test_request"),
         "shared": _shared_summary(entry.get("shared")),
     }
 
@@ -246,6 +266,8 @@ def agent_view(entry):
         view["rotation_guide"] = "escrita por la IA"
     if entry.get("used_in"):
         view["used_in"] = entry["used_in"]
+    if entry.get("test_request"):
+        view["test_request"] = entry["test_request"]
     if entry.get("secret_since"):
         view["key_age_days"] = secret_age_days(entry)
     if entry.get("shared"):
@@ -430,6 +452,19 @@ class Vault:
         with self._lock:
             self._require_unlocked()
             self._payload["retired"] = copy.deepcopy(data)
+            self._save()
+
+    # ----- rotation: a new secret not applied yet, and uploads that failed after a rotation
+
+    def rotation_state(self):
+        with self._lock:
+            self._require_unlocked()
+            return copy.deepcopy(self._payload.get("rotation") or {})
+
+    def set_rotation_state(self, data):
+        with self._lock:
+            self._require_unlocked()
+            self._payload["rotation"] = copy.deepcopy(data)
             self._save()
 
     # ----- team: account, keys and the collections cache (see teams.py)

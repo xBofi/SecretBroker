@@ -89,6 +89,26 @@ def needles(entry):
     return found
 
 
+# Where a secret can be removed in place: AI conversations (Claude Code, Codex) and shell histories are
+# text the user does not edit by hand. Projects, settings and git history are left to the user.
+REDACTABLE_SOURCES = ("ai", "history")
+
+
+def redact(entry, data):
+    """`data` with every form of the entry's secrets replaced by [REDACTED:id], and how many were."""
+    forms = set()
+    for secret in templates.secret_values(entry):
+        secret = secret.strip()
+        for form in ([secret, secret.replace("\n", "\r\n")] if "\n" in secret else [secret]):
+            forms.update(v.encode("utf-8") for v in encodings(form) if len(v.encode("utf-8")) >= MIN_NEEDLE)
+    label = f"[REDACTED:{entry['id']}]".encode("utf-8")
+    count = 0
+    for form in sorted(forms, key=len, reverse=True):
+        count += data.count(form)
+        data = data.replace(form, label)
+    return data, count
+
+
 def secret_fingerprint(vault, entry):
     return vault.mac(b"exposure/secret\0" + json.dumps(secret_fields(entry), sort_keys=True).encode("utf-8"))
 
@@ -161,7 +181,7 @@ def check_alive(entry):
             return {"status": "unknown", "provider": "SSH", "message": f"No se pudo conectar: {type(exc).__name__}"}
     provider = provider_for(entry)
     if not provider:
-        return None
+        return _check_test_request(entry) if entry.get("test_request") else None
     name, _, _, url, headers = provider
     try:
         response = httpx.get(url, headers=headers(entry["fields"]["value"].strip()), timeout=CHECK_TIMEOUT,
@@ -174,6 +194,44 @@ def check_alive(entry):
         return {"status": "ok", "provider": name}
     return {"status": "unknown", "provider": name, "http": response.status_code,
             "message": f"Respuesta inesperada (HTTP {response.status_code}){_said(response)}"}
+
+
+def _check_test_request(entry):
+    """The test the user (or the AI) saved for a key of an unknown provider: a GET or HEAD to one of its
+    allowed hosts, with the key put where the credential puts it, expecting a given status."""
+    test = entry["test_request"]
+    name = test_host(entry) or "La prueba"
+    # Where the key may go and how it is sent: the credential's own, or what its fields imply.
+    http = dict((entry.get("policy") or {}).get("http") or {})
+    implied = templates.default_policy(entry["template"], entry["fields"]).get("http") or {}
+    http["allowed_hosts"] = http.get("allowed_hosts") or implied.get("allowed_hosts") or []
+    http["auth"] = http.get("auth") if (http.get("auth") or {}).get("kind", "none") != "none" else implied.get("auth") or {"kind": "none"}
+    if http["auth"].get("kind", "none") == "none":
+        return {"status": "unknown", "provider": name,
+                "message": "La credencial no dice cómo poner la clave en una petición (Editar › cómo se envía la clave)"}
+    probe = {**entry, "policy": {**(entry.get("policy") or {}), "http": http}}
+    try:
+        response = actions.http_request(probe, {"method": test["method"], "url": test["url"], "timeout": CHECK_TIMEOUT})
+    except ActionError as exc:
+        return {"status": "unknown", "provider": name, "message": f"La petición de prueba no es válida: {exc}"}
+    except httpx.HTTPError as exc:
+        return {"status": "unknown", "provider": name, "message": f"Sin respuesta: {type(exc).__name__}"}
+    status = response["status"]
+    if status == test["status"]:
+        return {"status": "ok", "provider": name}
+    if status in (401, 403):
+        return {"status": "invalid", "provider": name, "message": f"{name} rechaza la clave (HTTP {status})"}
+    return {"status": "unknown", "provider": name, "http": status,
+            "message": f"La prueba esperaba HTTP {test['status']} y {name} respondió HTTP {status}"}
+
+
+def test_host(entry):
+    return _host((entry.get("test_request") or {}).get("url"))
+
+
+def testable(entry):
+    """Whether this key can be tested with its provider (a known one, or a saved test request)."""
+    return provider_for(entry) is not None or (entry["template"] in ("api_key", "generic") and bool(entry.get("test_request")))
 
 
 def _said(response):
@@ -268,8 +326,10 @@ def assess(entry, record, timestamp, details):
     record = record or {}
     reasons = []
     findings = [dict(f, location=loc) for loc, f in (record.get("findings") or {}).items()]
-    present = [f for f in findings if f["present"]]
-    gone = [f for f in findings if not f["present"]]
+    # Ignored by the user (a test file, a copy they keep on purpose): listed, but no longer a reason.
+    present = [f for f in findings if f["present"] and not f.get("ignored")]
+    gone = [f for f in findings if not f["present"] and not f.get("ignored")]
+    ignored = [f for f in findings if f.get("ignored")]
     if present:
         text = f"Está en claro en {_places(present)}."
         if any(f["source"] == "ai" for f in present):
@@ -307,7 +367,7 @@ def assess(entry, record, timestamp, details):
     result = {
         "id": entry["id"], "level": level,
         "reasons": [{"level": lvl, "text": text} for lvl, text in reasons],
-        "found": len(present), "found_before": len(gone),
+        "found": len(present), "found_before": len(gone), "ignored": len(ignored),
         "scanned": record.get("scanned"), "alive": alive or None, "pwned": record.get("pwned"),
         "revealed": record.get("revealed", 0), "secret_since": entry.get("secret_since"), "age_days": age,
         "checkable": bool(check_alive_possible(entry)),
@@ -318,4 +378,4 @@ def assess(entry, record, timestamp, details):
 
 
 def check_alive_possible(entry):
-    return entry["template"] == "ssh" or provider_for(entry) is not None or password_of(entry) is not None
+    return entry["template"] == "ssh" or testable(entry) or password_of(entry) is not None

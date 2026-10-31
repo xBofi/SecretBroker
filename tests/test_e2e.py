@@ -30,6 +30,8 @@ from secretbroker import actions, cli, client, crypto, exposure, links, rotation
 from secretbroker.client import BrokerError, BrokerUnavailable  # noqa: E402
 from secretbroker.service import Service  # noqa: E402
 
+REAL_CHECK_ALIVE = exposure.check_alive  # some sections replace it with a fake
+
 MASTER = "correct horse battery staple"
 API_KEY = "sk-test-SUPERSECRET-1234567890"
 DB_PASSWORD = 'db p@ss "quoted"&'
@@ -768,6 +770,133 @@ def main():
     check(result["entry"]["used_in"] == places[:2], "the places edited in the wizard are saved")
     check("NEW-db-pass" not in json.dumps(result) and "NEW-db-pass" not in json.dumps(client.request("audit", {"limit": 20})),
           "the new password appears nowhere")
+
+    print("Rotations that can't get lost")
+    current = lambda: call("reveal", {"id": "shop-db", "field": "password"}, "hello")
+    pending_value = lambda: (service.vault.rotation_state().get("entries", {}).get("shop-db", {}).get("pending") or {}).get("value")
+    shop = lambda: next(e for e in client.request("entries") if e["id"] == "shop-db")
+    expect_error(lambda: client.request("rotation_begin", {"id": "shop-db", "generate": True}), "proof_required",
+                 "preparing a new password needs the app")
+    prepared = call("rotation_begin", {"id": "shop-db", "generate": True}, "hello")
+    new = pending_value()
+    check(prepared["pending_rotation"]["generated"] and "value" not in prepared["pending_rotation"] and current() == "NEW-db-pass-123"
+          and len(new) == 32 and new.isalnum(), "a new password is kept in the vault before it is set anywhere; the current one stays")
+    check(new not in json.dumps(client.request("entries")) and new not in json.dumps(client.request("audit", {"limit": 20})),
+          "the page and the activity never get it")
+    client.request("lock")
+    call("unlock", {}, "hello")
+    check(shop()["pending_rotation"] and pending_value() == new, "locking does not lose it")
+    weak = service._new_presence(strong=False)
+    expect_error(lambda: call("rotation_secret", {"id": "shop-db", "what": "command"}, {"kind": "presence", "token": weak}),
+                 "proof_required", "a Windows-session unlock is not enough to copy it")
+    presence = service._new_presence()
+    check(call("rotation_secret", {"id": "shop-db", "what": "command"}, {"kind": "presence", "token": presence})
+          == f"""ALTER ROLE "app" WITH PASSWORD '{new}';""", "the app that unlocked copies the command with it in one click")
+    check(rotation.db_command(service.vault.get("shop-db"), "it's") == """ALTER ROLE "app" WITH PASSWORD 'it''s';""",
+          "quotes are escaped in the command")
+    result = call("replace_key", {"id": "shop-db", "pending": True}, {"kind": "presence", "token": presence})
+    check(current() == new and result["entry"]["pending_rotation"] is None, "«Ya la he cambiado» saves the prepared one")
+    call("rotation_begin", {"id": "shop-db", "value": "typed-by-me-1234"}, "hello")
+    call("rotation_discard", {"id": "shop-db"}, "hello")
+    check(shop()["pending_rotation"] is None and current() == new, "or it is discarded and nothing changes")
+
+    print("Database passwords applied by the service")
+    database = {"password": new}
+    runs = []
+
+    def fake_client(argv, env, stdin):
+        runs.append((argv, env, stdin))
+        if env["PGPASSWORD"] != database["password"]:
+            return 2, f'psql: FATAL: password authentication failed for user "app" ({env["PGPASSWORD"]})'
+        if "ALTER ROLE" in stdin:
+            if database.get("refuse"):
+                return 3, "ERROR: permission denied"
+            database["password"] = stdin.split("PASSWORD '")[1].split("';")[0]
+            if database.get("lose"):
+                database["password"] = "something else entirely"
+        return 0, ""
+    resolve, original_run_client = actions._resolve_executable, rotation._run_client
+    actions._resolve_executable = lambda name: f"C:\\fake\\{name}.exe" if name == "psql" else resolve(name)
+    rotation._run_client = fake_client
+    try:
+        check(not shop()["guide"]["apply"]["available"] and "«psql»" in shop()["guide"]["apply"]["reason"],
+              "the credential must allow psql")
+        expect_error(lambda: call("rotation_apply", {"id": "shop-db"}, "hello"), "no_client", "otherwise it is not applied")
+        stored = service.vault.get("shop-db")
+        stored["policy"]["commands"]["allowed"].append("psql")
+        service.vault.put(stored, replaces="shop-db")
+        check(shop()["guide"]["apply"] == {"client": "psql", "available": True, "reason": ""}, "allowed and installed: it can")
+        database["refuse"] = True
+        expect_error(lambda: call("rotation_apply", {"id": "shop-db"}, "hello"), "apply_failed", "a refused change is reported")
+        check(current() == new and shop()["pending_rotation"] and database["password"] == new,
+              "and nothing changes, but the new one stays prepared")
+        prepared = pending_value()
+        database.pop("refuse")
+        result = call("rotation_apply", {"id": "shop-db", "used_in": places}, {"kind": "presence", "token": presence})
+        change, login = runs[-2], runs[-1]
+        check(database["password"] == current() == prepared and result["entry"]["pending_rotation"] is None,
+              "one click: changed in the database, and saved")
+        check(change[1]["PGPASSWORD"] == new and """ALTER ROLE "app" WITH PASSWORD""" in change[2] and login[1]["PGPASSWORD"] == prepared
+              and login[2] == "SELECT 1;\n", "it connects with the current one, then logs in with the new one")
+        check(all(prepared not in " ".join(argv) for argv, _, _ in runs), "the password is never on a command line")
+        check(prepared not in json.dumps(result) and any("comprobada" in e["detail"] for e in client.request("audit", {"limit": 5})),
+              "it is not returned, and the activity says it was checked")
+        database["lose"] = True
+        before = current()
+        expect_error(lambda: call("rotation_apply", {"id": "shop-db"}, "hello"), "unverified",
+                     "a change that can't be confirmed is reported as such")
+        check(current() == before and shop()["pending_rotation"], "the stored one stays, and the new one stays prepared to retry or save")
+        database.pop("lose")
+        call("rotation_discard", {"id": "shop-db"}, "hello")
+    finally:
+        actions._resolve_executable = resolve
+        rotation._run_client = original_run_client
+
+    print("Uploads that fail after a rotation")
+    github_api = actions.GITHUB_API
+    actions.GITHUB_API = "http://127.0.0.1:9"  # nobody answers
+    try:
+        result = call("replace_key", {"id": "shop-db", "value": "after-a-failed-upload-1"}, "hello")
+    finally:
+        actions.GITHUB_API = github_api
+    failed = shop()["failed_uploads"]
+    check(not any(u["ok"] for u in result["uploads"]) and len(failed) == 2 and all(f["label"] and f["error"] and "token" not in f for f in failed),
+          "the places it could not be uploaded to are kept with the credential")
+    check(any(i["id"] == "shop-db" and any(x["kind"] == "upload_failed" for x in i["issues"]) for i in client.request("health")["items"]),
+          "Salud shows them")
+    retried = call("retry_uploads", {"id": "shop-db"}, {"kind": "presence", "token": presence})
+    check(all(u["ok"] for u in retried["uploads"]) and len(retried["uploads"]) == 2 and shop()["failed_uploads"] == [],
+          "«Reintentar subida» uploads it again with one click")
+
+    print("Testing keys of unknown providers")
+    fake = exposure.check_alive
+    exposure.check_alive = REAL_CHECK_ALIVE
+    try:
+        echo = next(e for e in client.request("entries") if e["id"] == "echo-api")
+        check(not echo["guide"]["testable"], "a key of an unknown provider can't be tested")
+        check("test_request" in client.request("ai_check", {"secret_id": "echo-api"}).get("test_question", ""),
+              "the AI is asked to find a test for it")
+        expect_error(lambda: client.request("update_credential", {"secret_id": "echo-api", "test_request": {"method": "POST", "url": "/x"}}),
+                     "invalid", "a test request can't change anything (GET or HEAD only)")
+        expect_error(lambda: client.request("update_credential", {"secret_id": "echo-api", "test_request": {"url": "https://evil.example.com/me"}}),
+                     "invalid", "nor go to a host the key may not go to")
+        changed = client.request("update_credential", {"secret_id": "echo-api", "test_request": {"url": "/v1/me", "status": 200}})
+        check(changed["changed"] == [f"Petición de prueba: «GET {base}/v1/me → HTTP 200»"], "the AI saves one, without asking")
+        echo = next(e for e in client.request("entries") if e["id"] == "echo-api")
+        check(echo["guide"]["testable"] and echo["test_request"] == {"method": "GET", "url": base + "/v1/me", "status": 200},
+              "then it is testable, in the wizard too")
+        check(exposure.check_alive(service.vault.get("echo-api"))["status"] == "ok", "and its check passes")
+        check("test_question" not in client.request("ai_check", {"secret_id": "echo-api"}), "and the AI is no longer asked")
+        result = call("set_test_request", {"id": "echo-api", "test": {"method": "GET", "url": "/v1/me", "status": 204}, "check": True},
+                      {"kind": "presence", "token": presence})
+        check(result["check"]["status"] == "unknown" and "204" in result["check"]["message"] and API_KEY not in json.dumps(result),
+              "the user can change it in the app, and an unexpected answer is not called a dead key")
+        call("set_test_request", {"id": "echo-api", "test": {}}, "hello")
+        check(next(e for e in client.request("entries") if e["id"] == "echo-api")["test_request"] is None, "and remove it")
+    finally:
+        exposure.check_alive = fake
+    report = client.request("health")
+    check(report["complete"] is False and report["scanned"] is None, "Salud says it has not searched for copies yet")
     for item in consoles:
         call("delete_entry", {"id": item["id"]}, "hello")
 
