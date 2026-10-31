@@ -7,7 +7,8 @@
 # `secretbroker` user and starts secretbroker@<user>.service for each desktop account.
 #
 # Run on Linux (or WSL) from anywhere:  tools/build_deb.sh
-# Needs: bash, curl, tar, dpkg-deb, sha256sum. The work happens in a Linux folder ($BUILD_DIR), because
+# Needs: bash, curl, tar, dpkg-deb, sha256sum, binutils (strip, readelf) and the libraries in Depends below
+# (the build renders a page with the bundled Qt to check it). The work happens in a Linux folder ($BUILD_DIR), because
 # dpkg-deb needs real Unix permissions (a Windows drive mounted in WSL does not have them).
 set -euo pipefail
 
@@ -52,7 +53,28 @@ rm -rf "$SRC" && mkdir -p "$SRC"
 tar -C "$REPO" --exclude=.git --exclude=.venv --exclude=dist --exclude=build --exclude=.claude \
     --exclude='__pycache__' --exclude='*.egg-info' -cf - pyproject.toml README.md secretbroker | tar -C "$SRC" -xf -
 "$VENV_PY" -m pip install --quiet --disable-pip-version-check --no-cache-dir "$SRC"
+
+step "Leaving out what is never loaded"
+"$VENV_PY" -I "$REPO/tools/deb_trim_qt.py" "$STAGE$PREFIX/venv/lib/python3.12/site-packages"
+# python-build-standalone keeps debug symbols (libpython alone is ~200 MB); the build-only parts go too.
+strip --strip-unneeded "$STAGE$PREFIX"/python/lib/libpython3*.so.* "$STAGE$PREFIX"/python/bin/python3.* 2>/dev/null || true
+rm -rf "$STAGE$PREFIX"/python/lib/python3.*/config-* "$STAGE$PREFIX"/python/include "$STAGE$PREFIX"/python/lib/pkgconfig \
+       "$STAGE$PREFIX"/python/lib/python3.*/ensurepip "$STAGE$PREFIX"/python/lib/python3.*/site-packages/pip* \
+       "$STAGE$PREFIX"/python/lib/Tix* "$STAGE$PREFIX"/venv/lib/python3.*/site-packages/pip*
 "$VENV_PY" -I -c "import secretbroker.app, secretbroker.service, secretbroker.mcp_server, secretbroker.platform.linux, webview, qtpy, PyQt6.QtWebEngineWidgets, secretstorage, paramiko; print('imports ok')"
+# The web view still renders a page after the trimming (offscreen; no display needed).
+QT_QPA_PLATFORM=offscreen QTWEBENGINE_DISABLE_SANDBOX=1 QTWEBENGINE_CHROMIUM_FLAGS="--disable-gpu" timeout 60 "$VENV_PY" -I -c "
+import sys
+from PyQt6.QtCore import QTimer
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+app = QApplication(sys.argv)
+view = QWebEngineView()
+done = lambda ok: (print('web view renders:', ok), app.exit(0 if ok else 1))
+view.loadFinished.connect(done)
+view.setHtml('<h1>SecretBroker</h1>')
+QTimer.singleShot(45000, lambda: app.exit(2))
+sys.exit(app.exec())" 2>/dev/null
 
 step "Making the venv live in $PREFIX"
 # The venv was created in the staging folder: point it (pyvenv.cfg, the python links, script shebangs) at $PREFIX.
