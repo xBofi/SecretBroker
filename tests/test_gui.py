@@ -697,6 +697,7 @@ def run(app, env, devtools, api_port, client, integrations):
     check(made and made["ok"] and len(copies) == 1 and "SECRET" not in copies[0].read_text(), "a backup is written, encrypted")
 
     english_flow(page, client)
+    other_languages(page, client)
 
     print("Errors in the page")
     check(not page.errors, f"no JavaScript errors {page.errors[:3]}")
@@ -753,8 +754,10 @@ def english_welcome(page):
           and page.js("document.documentElement.lang") == "en", "the welcome switches to English at once, without a restart")
     leaks = spanish_leaks(page)
     check(not leaks, f"no Spanish left on the welcome ({leaks[:5]})")
-    check(page.js("[...document.querySelectorAll('.auth-language option')].map((o) => o.textContent).join('|')") == "English|Español",
-          "the welcome offers the languages there are files for, each in its own name")
+    offered = page.js("[...document.querySelectorAll('.auth-language option')].map((o) => o.textContent)")
+    files = sorted(p.stem for p in (ROOT / "secretbroker" / "web" / "locales").glob("*.json"))
+    check(len(offered) == len(files) and {"English", "Español", "Deutsch", "Galego", "Gaeilge", "Malti", "Русский", "简体中文"} <= set(offered),
+          f"the welcome offers the languages there are files for, each in its own name ({len(offered)}/{len(files)}: {offered})")
     page.shot("en-01-welcome")
     page.js("applyLanguage('es').then(() => renderSetup())")
     check(wait_for(lambda: "Tus claves, usadas sin ser vistas" in page.text(), 10), "and back to Spanish")
@@ -791,6 +794,48 @@ def english_flow(page, client):
     calm_shot(page, "en-09-lock")
     page.click("Open with my Windows session")
     check(wait_for(lambda: client.request("status")["state"] == "unlocked", 10), "unlocked again (in English)")
+    page.js("api().set_pref('language', 'es').then(() => applyLanguage('es')).then(renderMain)")
+    check(wait_for(lambda: "Credenciales" in page.text(), 10), "and back to Spanish")
+
+
+# Languages whose words run long (German, Finnish, Greek), another script (Russian, Greek) or another font (Chinese):
+# where the layout breaks first. SB_GUI_LANGS="de fr" picks others.
+LAYOUT_LANGUAGES = os.environ.get("SB_GUI_LANGS", "de fi ru el zh-CN").split()
+
+CLIPPED = """[...document.querySelectorAll('button, .chip, .badge, .nav .label, th, label, h1, h2, h3, .title, .tab, .sidebar-footer .state > span')]
+  .filter((n) => n.offsetParent !== null && n.innerText.trim()
+    && (n.scrollWidth > n.clientWidth + 1 || n.scrollHeight > n.clientHeight + 1 || n.getBoundingClientRect().right > innerWidth + 1))
+  .map((n) => n.innerText.trim().slice(0, 40))"""
+
+
+def other_languages(page, client):
+    """The welcome, every main view and the lock screen in the languages that strain the layout, with screenshots
+    to look at and the texts that overflow their box."""
+    first = page.js("state.entries.length ? state.entries[0].id : null")
+    for lang in LAYOUT_LANGUAGES:
+        print(f"The app in {lang}")
+        page.js(f"api().set_pref('language', {json.dumps(lang)}).then(() => applyLanguage({json.dumps(lang)}))"
+                f".then(() => loadEntries()).then(renderSetup)")  # like the picker: the service's texts come again
+        check(wait_for(lambda: page.js("document.documentElement.lang") == lang, 10), f"the welcome switches to {lang}")
+        time.sleep(0.8)
+        calm_shot(page, f"{lang}-01-welcome")
+        clipped = set(page.js(CLIPPED) or [])
+        page.js("state.setupActive = false; state.screen = 'main'")  # the welcome was only shown, not started
+        for view, number in (("credentials", "02"), ("exposure", "06"), ("access", "03"), ("team", "10"),
+                             ("activity", "05"), ("settings", "04")):
+            page.js(f"state.view = '{view}'; state.selected = {json.dumps(first)}; renderMain()")
+            check(wait_for(lambda: page.js(f"!!document.querySelector('.nav button.active[data-view={view}]')"), 10), f"{view} in {lang}")
+            time.sleep(1.0)
+            clipped |= set(page.js(CLIPPED) or [])
+            calm_shot(page, f"{lang}-{number}-{view}")
+        page.js("lockNow()")
+        check(wait_for(lambda: page.js("t('lock.secretbroker_is_locked')") in page.text(), 10), f"the lock screen in {lang}")
+        time.sleep(0.8)
+        clipped |= set(page.js(CLIPPED) or [])
+        calm_shot(page, f"{lang}-09-lock")
+        page.click(page.js("t('common.open_with_my_windows_session')"))
+        check(wait_for(lambda: client.request("status")["state"] == "unlocked", 10), f"unlocked again ({lang})")
+        check(not clipped, f"no text overflows its box in {lang} ({sorted(clipped)[:6]})")
     page.js("api().set_pref('language', 'es').then(() => applyLanguage('es')).then(renderMain)")
     check(wait_for(lambda: "Credenciales" in page.text(), 10), "and back to Spanish")
 

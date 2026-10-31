@@ -952,7 +952,9 @@ code.prompt-text { font-family: var(--font-mono); }
 :lang(ja) { --font-fallback: system-ui, "Yu Gothic UI", "Meiryo UI", "Hiragino Sans", "Noto Sans CJK JP", sans-serif; }
 :lang(ko) { --font-fallback: system-ui, "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", sans-serif; }
 :lang(zh-TW), :lang(zh-HK) { --font-fallback: system-ui, "Microsoft JhengHei UI", "PingFang TC", "Noto Sans CJK TC", sans-serif; }
-p, .help, .lead, .muted, .subtitle, .banner, .warning { overflow-wrap: break-word; hyphens: auto; }
+/* Hyphenate only long words («Umgebungsvariablen», not «dei-nem») and keep a last line from holding one word or glyph. */
+p, .help, .lead, .muted, .subtitle, .banner, .warning { overflow-wrap: break-word; hyphens: auto; hyphenate-limit-chars: 10 4 4;
+  text-wrap: pretty; }
 .nav button { min-width: 0; }
 .nav button > .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .content-header, .modal-foot, .auth-actions, .inline-form { flex-wrap: wrap; }
@@ -960,6 +962,10 @@ p, .help, .lead, .muted, .subtitle, .banner, .warning { overflow-wrap: break-wor
 .search { width: min(260px, 36vw); }
 .setting { flex-wrap: wrap; }
 .setting > .control { min-width: min(200px, 100%); max-width: 100%; }
+.setting > .control select.input { width: 248px; max-width: 100%; }  /* one width that holds «100 Verwendungen pro Stunde» */
+/* «1 item to check» runs to «1 στοιχείο για έλεγχο»: two lines rather than an ellipsis. */
+.sidebar-footer .state { white-space: normal; line-height: 1.3; }
+.sidebar-footer .state > span:last-child { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .finding .source, .event .actor > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-grid-head > span { overflow-wrap: anywhere; hyphens: auto; line-height: 1.25; padding: 0 2px; }
 .language-select { width: auto; max-width: 220px; }
