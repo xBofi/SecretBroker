@@ -23,6 +23,13 @@ if [ "$1" = "configure" ]; then
         done
     fi
 
+    # Let each user's browsers start the extension's native host (the app does it again on every start).
+    for user in $(desktop_users); do
+        home=$(getent passwd "$user" | cut -d: -f6)
+        [ -n "$home" ] && [ -d "$home" ] || continue
+        runuser -u "$user" -- env HOME="$home" /opt/secretbroker/venv/bin/python -I -c             "from secretbroker import native_host; native_host.register()" >/dev/null 2>&1 || true
+    done
+
     if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database -q /usr/share/applications || true; fi
     if command -v gtk-update-icon-cache >/dev/null 2>&1; then gtk-update-icon-cache -q -t /usr/share/icons/hicolor || true; fi
 fi

@@ -319,6 +319,7 @@ def run(app, env, devtools, api_port, client, integrations):
           "settings show backups")
     check("Importar de otro gestor" in page.text() and "Exportar" in page.text(), "settings offer import and export")
     shell_checks(page)
+    browser_flow(page, client)
     friction_flow(page, client)
 
     print("Generator and health")
@@ -936,6 +937,71 @@ def shell_checks(page):
           != page.js("getComputedStyle(document.body).color"), "the current view is marked in the interactive colour, not the text colour")
     page.send("Emulation.setEmulatedMedia", features=[])
     wait_for(lambda: page.js("!document.querySelector('#modal-root > *')"), 3)
+
+
+def browser_flow(page, client):
+    """Ajustes › Navegador: installing the extension, a browser asking to connect, the editor's sites and
+    Actividad's «Navegador» (the extension itself is driven through the service, as its native host would)."""
+    from secretbroker import native_host
+    print("Browser extension")
+    page.js("state.view = 'settings'; renderMain()")
+    check(wait_for(lambda: "Extensión del navegador" in page.text() and "Instalar la extensión" in page.text(), 10),
+          "Ajustes has a Navegador section offering to install the extension")
+    page.js("[...document.querySelectorAll('.settings-group')].find((g) => (g.querySelector('h3') || {}).textContent === 'Navegador').scrollIntoView()")
+    time.sleep(0.3)
+    page.shot("17-settings-browser")
+    page.click("Instalar la extensión")
+    check(wait_for(lambda: page.js("!!document.querySelector('.install-steps')"), 5), "the install steps open")
+    steps = page.js("[...document.querySelectorAll('.install-steps li')].map((l) => l.innerText)")
+    folder = page.js("(document.querySelector('.install-folder code') || {}).innerText || ''")
+    check(len(steps) >= 3 and any("Cargar" in s for s in steps) and any("Conectar" in s for s in steps),
+          f"steps: open the extensions page, load the folder, press «Conectar» ({len(steps)})")
+    check(folder.rstrip("\\/").endswith("extension") and "Copiar ruta" in page.text() and "Mostrar" in page.text(),
+          f"the extension folder, to copy or show, no terminal ({folder})")
+    check("tienda" in page.text() or "addons.mozilla.org" in page.text(), "says the stores will make it one click")
+    calm_shot(page, "17-browser-install")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+
+    ext = {"origin": native_host.ALLOWED_ORIGINS[0], "pair": "gui-test-pair-0123456789", "key": "g" * 43}
+    asked = client.request("ext_pair", {"name": "Chrome", "_ext": ext})
+    check(wait_for(lambda: "¿Conectar Chrome?" in page.text(), 10), "a browser asking to connect shows up in the app")
+    check(f"{asked['code'][:3]} {asked['code'][3:]}" in page.text(), "with the code the extension shows")
+    calm_shot(page, "17-browser-pair")
+    page.click("Conectar", ".modal-foot button")
+    check(wait_for(lambda: client.request("ext_hello", {"_ext": ext})["paired"], 10), "one click connects it")
+    check(wait_for(lambda: "Conectada" in page.text() and "Desconectar" in page.text(), 10), "Ajustes says it is connected")
+
+    login = {"id": "web-gui", "name": "Web de prueba", "template": "web_login", "description": "",
+             "fields": {"url": "https://login.example.com", "username": "ana", "password": "gui-fake-pass"},
+             "policy": {"approval": "session"}, "autofill": {"sites": ["https://example.org"], "match": "host"}}
+    saved = page.js(f"api().call('save_entry', {{ entry: {json.dumps(login)} }})")
+    check(saved and saved["ok"], f"a web login with autofill sites {'' if saved and saved['ok'] else saved}")
+    page.js("loadEntries().then(() => { state.view = 'credentials'; state.selected = 'web-gui'; renderMain(); })")
+    wait_for(lambda: "Web de prueba" in page.text(), 5)
+    page.click("Editar")
+    check(wait_for(lambda: page.js("!!document.querySelector('.modal details.advanced')"), 5)
+          and page.js("[...document.querySelectorAll('.modal details summary')].some((s) => s.innerText.includes('Navegador'))"),
+          "the editor of a web login has a «Navegador» section")
+    check(page.js("[...document.querySelectorAll('.modal textarea')].some((t) => t.value === 'https://example.org')")
+          and page.js("[...document.querySelectorAll('.modal select')].some((s) => s.value === 'host')"),
+          "with its sites and how strictly they match")
+    page.js("[...document.querySelectorAll('.modal details summary')].find((s) => s.innerText.includes('Navegador')).scrollIntoView({ block: 'center' })")
+    calm_shot(page, "17-editor-autofill")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+
+    filled = client.request("ext_fill", {"url": "https://example.org/login", "id": "web-gui", "_ext": ext})
+    check(filled.get("password") == "gui-fake-pass", "the browser fills it on its site")
+    page.js("state.view = 'activity'; renderMain()")
+    check(wait_for(lambda: "Rellenada en el navegador" in page.text(), 10), "Actividad shows the fill")
+    page.click("Navegador", ".activity-filters .tag")
+    check(wait_for(lambda: page.js("[...document.querySelectorAll('.event .actor')].map((a) => a.innerText.trim())") == ["Navegador"], 5),
+          "the Navegador filter shows only the browser, labelled «Navegador»")
+    page.click("Todo", ".activity-filters .tag")
+    client.request("browser_forget", {"id": ext["pair"]})
+    page.js("api().call('delete_entry', { id: 'web-gui' }).then(() => loadEntries())")
+    page.js("state.view = 'credentials'; renderMain()")
 
 
 def type_proof(page, value):

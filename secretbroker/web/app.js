@@ -206,6 +206,8 @@ const ACTION_LABELS = {
   team_connect: 'Cuenta de equipo conectada', team_disconnect: 'Cuenta de equipo desconectada',
   share: 'Compartida con el equipo', unshare: 'Ya no se comparte', team_change: 'Cambio del equipo revisado',
   team_conflict: 'Conflicto al sincronizar', team_join: 'Invitación aceptada', team_confirm: 'Miembro confirmado',
+  browser_fill: 'Rellenada en el navegador', browser_copy: 'Copiada desde el navegador', browser_save: 'Guardada desde el navegador',
+  browser_pair: 'Navegador conectado', browser_forget: 'Navegador desconectado',
   team_remove: 'Miembro quitado', team_grant: 'Acceso a una colección', team_revoke: 'Acceso retirado',
   team_add: 'Llegó del equipo', team_update: 'Cambiada por el equipo', team_delete: 'Borrada por el equipo',
   team_review: 'Cambio del equipo por revisar', team_held: 'Borrados del equipo en espera',
@@ -263,6 +265,7 @@ async function tick() {
     if (state.status && state.status.state === 'unlocked') {
       await pollDrafts();
       await pollApprovals();
+      await pollBrowserPairing();
       await pollScan();
       await pollTeam();
     }
@@ -2230,6 +2233,7 @@ function showForm(templateId, entry) {
   const everyInput = el('select', { class: 'input' }, ROTATE_EVERY.map(([days, label]) =>
     el('option', { value: days === null ? '' : String(days), selected: days === currentEvery }, label)));
   const checkEvery = checkEveryControl(isNew ? null : (entry.check_every_hours ?? null), true);
+  const autofillBox = templateId === 'web_login' ? autofillEditor(entry) : null;
   const usedInput = el('textarea', { class: 'input', rows: 3, placeholder: 'develop: .env local (DATABASE_URL)\npro: servidor api.ejemplo.com, /srv/app/.env\nVercel: proyecto web' },
     isNew ? '' : (entry.used_in || []).join('\n'));
 
@@ -2362,6 +2366,7 @@ function showForm(templateId, entry) {
       ...(everyInput.value !== '' ? { rotate_every_days: Number(everyInput.value) } : {}),
       ...(checkEvery.value() !== null ? { check_every_hours: checkEvery.value() } : {}),
       used_in: usedInput.value.split('\n').map((line) => line.trim()).filter(Boolean),
+      ...(autofillBox && autofillBox.value() ? { autofill: autofillBox.value() } : {}),
     };
   };
 
@@ -2430,6 +2435,7 @@ function showForm(templateId, entry) {
       el('div', { class: 'field' }, el('label', {}, 'Dónde se usa', el('span', { class: 'req' }, ' · opcional')), usedInput,
         el('div', { class: 'help' }, 'Un sitio por línea: develop, pre, pro, cada servidor, Vercel, CI, otros proyectos… Al rotarla, la app te pedirá cambiarla en cada uno.')),
       advanced,
+      autofillBox ? autofillBox.node : null,
       errorText,
     ],
     footer: [
@@ -2715,12 +2721,13 @@ const TEAM_EVENT_ACTIONS = new Set(['share', 'unshare']);
 // Only hosts, paths and commands go in monospace.
 const MONO_EVENT_ACTIONS = new Set(['http_request', 'ssh_exec', 'ssh_upload', 'ssh_download', 'run_command', 'release_env']);
 const ACTIVITY_PAGE = 200;
-const ACTIVITY_FILTERS = [[null, 'Todo', null], ['ai', 'IA', 'bot'], ['denied', 'Denegadas', null], ['team', 'Equipo', 'users']];
+const ACTIVITY_FILTERS = [[null, 'Todo', null], ['ai', 'IA', 'bot'], ['browser', 'Navegador', 'globe'], ['denied', 'Denegadas', null], ['team', 'Equipo', 'users']];
 
 // [kind, icon, label]: who did it.
 function eventActor(e) {
   const actor = e.actor || (AI_EVENT_ACTIONS.has(e.action) ? 'ai' : e.action === 'team_conflict' ? 'team' : 'user');
   if (actor === 'ai') return ['ai', 'bot', 'IA'];
+  if (actor === 'browser') return ['browser', 'globe', 'Navegador'];
   if (actor === 'team') return ['team', 'users', e.by || 'Equipo'];
   if (actor === 'system') return ['system', 'shield', 'SecretBroker'];
   return ['user', 'user', 'Tú'];
@@ -2768,6 +2775,7 @@ async function renderActivity(content) {
 
   const shown = (e) => (!filter.secret || e.secret === filter.secret)
     && (filter.kind === 'ai' ? eventActor(e)[0] === 'ai'
+      : filter.kind === 'browser' ? eventActor(e)[0] === 'browser'
       : filter.kind === 'denied' ? e.status === 'denied'
         : filter.kind === 'team' ? isTeamEvent(e) : true);
   const row = (e) => {
@@ -4186,6 +4194,154 @@ function applyJoinLink() {
 
 // ----------------------------------------------------------------------- settings
 
+// ----------------------------------------------------------------------- browser extension (Ajustes › Navegador)
+
+const EXTENSION_STEPS = {
+  chromium: (name, folder) => [
+    [`Abre la página de extensiones de ${name}.`, 'open'],
+    [`Activa «Modo de desarrollador»${name === 'Edge' ? ' (en el menú de la izquierda)' : ' (arriba a la derecha)'}.`],
+    ['Pulsa «Cargar descomprimida» y elige la carpeta de la extensión de SecretBroker:', 'folder'],
+    [`Fija el icono de SecretBroker en la barra de ${name}, ábrelo y pulsa «Conectar». Aquí te pediremos confirmarlo con un clic.`],
+  ],
+  firefox: () => [
+    ['Abre la página de complementos en depuración de Firefox.', 'open'],
+    ['Pulsa «Cargar complemento temporal…» y elige el archivo manifest.json de esta carpeta:', 'folder'],
+    ['En el botón de extensiones de la barra, abre SecretBroker y permite que acceda a todas las webs (Firefox lo pide aparte), y pulsa «Conectar». Aquí te pediremos confirmarlo con un clic.'],
+  ],
+};
+
+function extensionInstallModal(info, initial) {
+  const installed = info.browsers.filter((b) => b.installed);
+  const choices = installed.length ? installed : info.browsers;
+  let current = choices.find((b) => b.id === initial) || choices[0];
+  const tabs = el('div', { class: 'segmented' });
+  const steps = el('ol', { class: 'install-steps' });
+  const folder = info.extension_dir;
+  const draw = () => {
+    tabs.replaceChildren(choices.map((b) => el('button', { type: 'button', class: b.id === current.id ? 'active' : '',
+      onclick: () => { current = b; draw(); } }, b.name)));
+    const recipe = current.id === 'firefox' ? EXTENSION_STEPS.firefox() : EXTENSION_STEPS.chromium(current.name, folder);
+    steps.replaceChildren(recipe.map(([text, extra]) => el('li', {}, el('div', {}, text),
+      extra === 'open' ? el('button', { class: 'btn', onclick: async () => {
+        if (!await api().open_browser_page(current.id)) toast(`No se encontró ${current.name} en este PC`, 'error');
+      } }, icon('external', 'sm'), current.id === 'firefox' ? 'Abrir Firefox' : `Abrir extensiones de ${current.name}`) : null,
+      extra === 'folder' ? el('div', { class: 'install-folder' },
+        el('code', { class: 'selectable', title: folder }, folder || 'No se encontró la carpeta de la extensión'),
+        el('button', { class: 'btn', disabled: !folder, onclick: async () => { await api().copy_text(folder); toast('Ruta copiada'); } }, icon('copy', 'sm'), 'Copiar ruta'),
+        el('button', { class: 'btn', disabled: !folder, onclick: () => api().show_extension_folder() }, icon('folder', 'sm'), 'Mostrar')) : null)));
+    note.replaceChildren(icon('info', 'sm'), el('span', {}, current.id === 'firefox'
+      ? 'Firefox quita los complementos temporales al cerrarse: hasta que SecretBroker esté en addons.mozilla.org hay que cargarlo de nuevo cada vez.'
+      : `${current.name} puede avisar al arrancar de que hay extensiones en modo de desarrollador: es esta. Cuando esté en la tienda de ${current.name} bastará con un clic.`));
+  };
+  const note = el('div', { class: 'warning subtle' });
+  draw();
+  const modal = openModal({
+    title: 'Instalar la extensión',
+    lead: glyph('web_login'),
+    body: [
+      el('p', { class: 'muted' }, 'Rellena tus contraseñas en el navegador, solo en la web donde las guardaste y solo cuando tú lo pides. Habla con SecretBroker directamente, sin abrir ningún puerto.'),
+      choices.length > 1 ? tabs : null, steps, note],
+    footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn primary', onclick: () => modal.close() }, 'Hecho')],
+  });
+}
+
+function browserSettingsGroup() {
+  const group = el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Navegador'),
+    setting('Extensión del navegador', 'Comprobando…', null));
+  const draw = async () => {
+    const response = await api().browser_info();
+    if (!response.ok) return;
+    const info = response.result;
+    const paired = info.paired || [];
+    const installButton = el('button', { class: `btn ${paired.length ? '' : 'primary'}`, onclick: () => extensionInstallModal(info) },
+      paired.length ? 'Añadir otro navegador' : 'Instalar la extensión');
+    const summary = paired.length
+      ? `Conectada en ${listJoin([...new Set(paired.map((b) => b.name))])}. Rellena usuario, contraseña y códigos 2FA solo en la web de cada credencial.`
+      : 'Rellena tus contraseñas en Chrome, Edge, Brave y Firefox, solo en la web donde las guardaste y solo cuando tú lo pides.';
+    const rows = paired.map((b) => el('div', { class: 'setting browser-row' },
+      el('div', { class: 'meta' }, el('h3', { class: 'with-icon' }, icon('globe', 'sm'), b.name),
+        el('p', {}, b.last_seen ? `Conectado · usado ${whenText(b.last_seen)}` : `Conectado el ${new Date(b.created).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}`)),
+      el('div', { class: 'control' }, el('button', { class: 'btn', onclick: () => confirmModal({
+        title: `¿Desconectar ${b.name}?`, text: 'Dejará de poder rellenar tus contraseñas hasta que vuelvas a pulsar «Conectar» en la extensión.',
+        action: 'Desconectar', onConfirm: async () => {
+          const result = await api().call('browser_forget', { id: b.id });
+          if (!result.ok) { toast(result.error, 'error'); return false; }
+          toast(`${b.name} desconectado`);
+          draw();
+          return true;
+        } }) }, 'Desconectar'))));
+    group.replaceChildren(el('h3', { class: 'muted' }, 'Navegador'),
+      setting('Extensión del navegador', summary, paired.length
+        ? el('div', { style: 'display:flex;gap:12px;align-items:center' }, el('span', { class: 'state-text ok' }, icon('check', 'sm'), 'Conectada'), installButton)
+        : installButton),
+      ...rows,
+      setting('Atajo de teclado', 'Ctrl+Mayús+L rellena el inicio de sesión de la web abierta; Ctrl+Mayús+Y abre la extensión. Se cambian en la página de atajos de extensiones del navegador.', null));
+  };
+  draw();
+  return group;
+}
+
+// A browser asking to connect (from the extension's «Conectar»): one click here, comparing the code.
+let pairingModal = null;
+async function pollBrowserPairing() {
+  const pending = (state.status && state.status.browser_pairing) || [];
+  if (pairingModal && !pending.some((r) => r.id === pairingModal.id)) { pairingModal.modal.close(); pairingModal = null; }
+  if (pairingModal || !pending.length || state.approvalOpen) return;
+  const request = pending[0];
+  const connect = el('button', { class: 'btn primary' }, 'Conectar');
+  const deny = el('button', { class: 'btn' }, 'Rechazar');
+  const modal = openModal({
+    title: `¿Conectar ${request.name}?`,
+    lead: glyph('web_login'),
+    body: [
+      el('p', { class: 'muted' }, `${request.name} podrá rellenar tus contraseñas, solo en la web de cada una y cuando tú lo pidas.`),
+      el('div', { class: 'pair-code' }, el('span', { class: 'muted small' }, 'Comprueba que la extensión muestra este código'),
+        el('div', { class: 'code' }, `${request.code.slice(0, 3)} ${request.code.slice(3)}`)),
+      el('div', { class: 'warning subtle' }, icon('info', 'sm'), el('span', {}, 'Si no acabas de pulsar «Conectar» en el navegador, recházalo.'))],
+    footer: [el('div', { class: 'spacer' }), deny, connect],
+    onClose: () => { if (pairingModal && pairingModal.id === request.id) pairingModal = null; },
+  });
+  pairingModal = { id: request.id, modal };  // the extension's «Conectar» already brought the app forward (open_app)
+  deny.addEventListener('click', async () => {
+    await api().call('browser_pair_answer', { id: request.id, accept: false });
+    modal.close();
+  });
+  connect.addEventListener('click', async () => {
+    busy(connect, true);
+    const result = await withProof((p) => api().call('browser_pair_answer', { id: request.id, accept: true }, p), `Para conectar ${request.name}.`);
+    busy(connect, false);
+    if (result.ok) { modal.close(); toast(`${request.name} conectado`); if (state.view === 'settings') renderView(); }
+    else if (result.code !== 'cancelled') toast(result.error, 'error');
+  });
+}
+
+// The editor's «Navegador» section of a web login: more addresses, and how strictly they match.
+const AUTOFILL_MATCH = [['domain', 'Esta web y sus subdominios'], ['host', 'Solo esta dirección exacta'], ['never', 'Nunca']];
+
+function autofillEditor(entry) {
+  const autofill = (entry && entry.autofill) || {};
+  const sites = el('textarea', { class: 'input mono', rows: 2, spellcheck: 'false', placeholder: 'https://login.ejemplo.com\nejemplo.es' },
+    (autofill.sites || []).join('\n'));
+  const match = el('select', { class: 'input' }, AUTOFILL_MATCH.map(([value, label]) => el('option', { value }, label)));
+  match.value = autofill.match || 'domain';
+  const node = el('details', { class: 'advanced' },
+    el('summary', {}, el('span', { class: 'chev' }, icon('chevronRight', 'sm')), 'Navegador',
+      el('span', { class: 'hint' }, 'dónde se rellena')),
+    el('div', { class: 'inner' },
+      el('div', { class: 'field' }, el('label', {}, 'Rellenar en'), match,
+        el('div', { class: 'help' }, 'Con «subdominios», la de ejemplo.com también se ofrece en cuentas.ejemplo.com. Nunca en webs parecidas (ejemplo.com.otra.net, ejemp1o.com).')),
+      el('div', { class: 'field' }, el('label', {}, 'Otras direcciones', el('span', { class: 'req' }, ' · opcional')), sites,
+        el('div', { class: 'help' }, 'Además de la dirección web de arriba, una por línea: si la misma cuenta sirve en otros dominios.'))));
+  if (autofill.sites && autofill.sites.length || (autofill.match && autofill.match !== 'domain')) node.open = true;
+  return {
+    node,
+    value: () => {
+      const list = sites.value.split('\n').map((line) => line.trim()).filter(Boolean);
+      return list.length || match.value !== 'domain' ? { sites: list, match: match.value } : null;
+    },
+  };
+}
+
 function setting(title, description, control) {
   return el('div', { class: 'setting' }, el('div', { class: 'meta' }, el('h3', {}, title), el('p', {}, description)),
     control ? el('div', { class: 'control' }, control) : null);
@@ -4340,6 +4496,7 @@ function renderSettings(content) {
         setting('Arrancar con Windows', 'SecretBroker se queda junto al reloj, listo para la IA. Cerrar la ventana no lo cierra: usa «Salir» en ese icono.', startToggle)),
       backupSlot,
       importExportGroup(),  // personal.js
+      browserSettingsGroup(),
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Copias de tus claves'),
         setting('Buscar copias al desbloquear', 'Busca copias de tus claves en este PC al desbloquear, como mucho cada 12 horas.', autoScan),
         setting('Carpetas de proyectos', 'Se revisan junto con sus historiales de git. Las carpetas donde has usado Claude Code se añaden solas.', addFolder),

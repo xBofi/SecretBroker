@@ -107,6 +107,9 @@ install -m 0644 "$PKG/secretbroker@.service" "$STAGE/lib/systemd/system/"
 install -m 0644 "$PKG/50-secretbroker.rules" "$STAGE/usr/share/polkit-1/rules.d/"
 install -m 0644 "$PKG/pam.d-secretbroker" "$STAGE/etc/pam.d/secretbroker"
 install -m 0644 "$PKG/secretbroker.desktop" "$STAGE/usr/share/applications/"
+# The browser extension, loaded from here until it is in the stores (native_host.extension_dir).
+cp -r "$REPO/extension" "$STAGE$PREFIX/extension"
+find "$STAGE$PREFIX/extension" -type d -exec chmod 0755 {} + && find "$STAGE$PREFIX/extension" -type f -exec chmod 0644 {} +
 install -m 0644 "$REPO/secretbroker/assets/icon.png" "$STAGE/usr/share/icons/hicolor/256x256/apps/secretbroker.png"
 install -m 0644 "$REPO/LICENSE" "$STAGE/usr/share/doc/secretbroker/copyright" 2>/dev/null || true
 install -m 0755 "$PKG/postinst" "$PKG/prerm" "$PKG/postrm" "$STAGE/DEBIAN/"

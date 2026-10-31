@@ -10,7 +10,7 @@ if [ "$1" = "remove" ]; then
         home=$(getent passwd "$user" | cut -d: -f6) || continue
         [ -n "$home" ] && [ -d "$home" ] || continue
         runuser -u "$user" -- env HOME="$home" /opt/secretbroker/venv/bin/python -I -c \
-            "from secretbroker import integrations; integrations.remove_all()" || true
+            "from secretbroker import integrations, native_host; integrations.remove_all(); native_host.unregister()" || true
     done
     if [ -d /run/systemd/system ]; then
         for unit in $(systemctl list-units --all --plain --no-legend 'secretbroker@*.service' | awk '{ print $1 }'); do

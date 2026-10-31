@@ -46,12 +46,15 @@ Name: "desktopicon"; Description: "Crear un acceso directo en el escritorio"
 [InstallDelete]
 ; A clean runtime on every install or update, so no stale packages are left behind.
 Type: filesandordirs; Name: "{app}\python"
+Type: filesandordirs; Name: "{app}\extension"
 
 [Files]
 Source: "{#StageDir}\python\*"; DestDir: "{app}\python"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "common.ps1"; DestDir: "{app}\setup"; Flags: ignoreversion
 Source: "configure.ps1"; DestDir: "{app}\setup"; Flags: ignoreversion
 Source: "sb.cmd"; DestDir: "{app}\bin"; Flags: ignoreversion
+; The browser extension, loaded from here until it is in the browsers' stores (Ajustes › Navegador explains how).
+Source: "..\extension\*"; DestDir: "{app}\extension"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Registry]
 ; `sb` (sb run -- npm run dev) from any terminal.
@@ -139,6 +142,10 @@ begin
   WizardForm.StatusLabel.Caption := 'Conectando con Claude…';
   ExecAsOriginalUser(ExpandConstant('{app}\python\python.exe'),
        '-I -c "from secretbroker import integrations; integrations.auto_connect()"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  { Let the browser extension reach SecretBroker: native messaging host manifests and HKCU keys for Chrome,
+    Chromium, Edge, Brave and Firefox, for the desktop user (the app does it again on every start). }
+  ExecAsOriginalUser(ExpandConstant('{app}\python\python.exe'),
+       '-I -c "from secretbroker import native_host; native_host.register()"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
 function NeedsAddPath(Dir: String): Boolean;

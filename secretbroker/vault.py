@@ -17,7 +17,7 @@ import re
 import threading
 from datetime import datetime, timezone
 
-from . import crypto, platform, templates, totp
+from . import autofill, crypto, platform, templates, totp
 from .crypto import WrongPassword  # noqa: F401  (re-exported for callers)
 from .templates import PLACEHOLDER_RE
 
@@ -93,6 +93,11 @@ def validate_entry(entry):
         _check_test_request(entry["test_request"])
     if entry.get("used_in") is not None and clean_used_in(entry["used_in"]) != entry["used_in"]:
         raise ValidationError(f"Dónde se usa: hasta {USED_IN_MAX} sitios, de {USED_IN_TEXT_MAX} caracteres como mucho")
+    if entry.get("autofill") is not None:
+        try:
+            autofill.validate(entry["autofill"])
+        except autofill.SiteError as exc:
+            raise ValidationError(str(exc)) from None
     fields = entry.get("fields", {})
     draft = bool(entry.get("draft"))  # prepared by the AI: everything but the secret, which the user adds
     for spec in templates.active_specs(template_id, fields):
@@ -229,6 +234,7 @@ def entry_summary(entry):
         "check_every_hours": entry.get("check_every_hours"),
         "used_in": entry.get("used_in") or [],
         "test_request": entry.get("test_request"),
+        "autofill": entry.get("autofill"),  # more addresses for the browser and how strictly they match
         "shared": _shared_summary(entry.get("shared")),
     }
 

@@ -200,6 +200,41 @@ A member of an organization, with some permission on a collection.
   without the master password. Use full-disk encryption (Ubuntu's installer offers it). Windows has the same limit
   against an attacker who can also recover the service account's DPAPI master key from the disk.
 
+### 3.8 Malicious or phishing web page (browser autofill)
+
+**Mitigations**
+- Logins are matched by the service, by registrable domain (Public Suffix List, private suffixes included):
+  lookalike domains (`example.com.evil.net`, `examp1e.com`, IDN homographs), other tenants of shared suffixes
+  (`github.io`, `blogspot.com`), `http` pages for `https` logins and other ports get nothing, not even the names.
+- Nothing is filled on page load. Values are requested one login at a time after a trusted click in the extension's
+  own UI (a closed shadow root the page cannot script) or its keyboard shortcut, and are sent only to the frame
+  being filled; frames of another registrable domain, hidden or tiny frames and invisible fields are never filled.
+- Team credentials with `use` permission are never filled (that would give the value to the page).
+- Saving a typed login needs the user's click; every fill, copy and save is in Actividad («Navegador»).
+
+**Limits**
+- A page on the right domain that is itself compromised (XSS) receives what is filled there, as with any manager.
+- Clickjacking: a page could try to trick the user into clicking the extension's menu; the menu only ever offers
+  logins of that page's own domain.
+- Subdomains share a registrable domain: with the default match, a login saved for `example.com` is offered on
+  any `*.example.com`. Use "Solo esta dirección exacta" for sites whose subdomains belong to other people.
+
+### 3.9 Malware in the user's session and the browser
+
+**Mitigations**
+- The service only answers the extension ids it knows (the browser tells the native host, the page cannot), and only
+  a browser the user connected with one click in the app after comparing a code. It stores only the hash of the
+  browser's key; "Desconectar" in Ajustes revokes it.
+- No network port is opened for the browser: it uses native messaging.
+
+**Limits**
+- The browser's connection key lives in the extension's storage in the user's profile. A program running as the
+  user (an AI agent with a shell included) that reads it can ask, through the service, for the logins of any site,
+  one at a time, while the vault is unlocked; each one is logged in Actividad. Anything running as the user can
+  also read what the browser itself shows or fills. Treat a connected browser like the unlocked vault.
+- Until the extension is published, it is loaded unpacked (Chromium) or temporarily (Firefox); store builds get
+  other ids, which must be added to the app before they can connect.
+
 ## 4. Out of scope
 
 - Compromise of the provider or server that legitimately receives a key.

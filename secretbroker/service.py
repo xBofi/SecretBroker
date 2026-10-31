@@ -35,7 +35,7 @@ import httpx
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from . import actions, crypto, exposure, links, paths, platform, presets, rotation, teams, update, winsec
+from . import actions, autofill, crypto, exposure, links, native_host, paths, platform, presets, rotation, teams, update, winsec
 from .inject import ActionError, Redactor, substitute
 from .vault import (
     CHECK_ONCE, DEFAULT_SETTINGS, ID_RE, valid_check_hours, TAG_RE, Vault, VaultLocked, ValidationError, WrongPassword, agent_view, secret_age_days, clean_used_in,
@@ -86,16 +86,23 @@ TEAM_PUSH_OPS |= {"rotation_apply", "set_test_request"}
 PROVEN_OPS = ("reveal", "save_entry", "delete_entry", "rotate", "set_settings", "exposure_begin", "enable_session_unlock",
               "team_resolve_deletions")
 PRESENCE_OPS += PROVEN_OPS
+# Connecting a browser lets it fill this user's logins: like the ops above, a session unlock is not enough.
+PROVEN_OPS += ("browser_pair_answer",)
 # An AI request the user approves with one click, except these: they delete, rotate or change where a key may go,
 # so after a Windows-session unlock (no proof) the first one needs Hello or a password, like PROVEN_OPS.
 STRONG_APPROVALS = ("delete", "rotate", "edit_config")
-PROVEN_PURPOSE = {"reveal": "ver o copiar claves", "save_entry": "cambiar credenciales", "delete_entry": "eliminar credenciales",
+PROVEN_PURPOSE = {"browser_pair_answer": "conectar un navegador", "reveal": "ver o copiar claves", "save_entry": "cambiar credenciales", "delete_entry": "eliminar credenciales",
                   "team_resolve_deletions": "decidir sobre credenciales borradas del equipo",
                   "approve": "aprobar que la IA borre, rote o cambie adónde va una clave",
                   "rotate": "rotar claves", "set_settings": "cambiar los ajustes", "exposure_begin": "buscar copias de tus claves",
                   "enable_session_unlock": f"abrir la bóveda con tu sesión de {platform.OS_LABEL}", "export_vault": "exportar la bóveda",
                   "rotation_secret": "copiar la contraseña nueva", "totp_code": "ver el código 2FA"}
 APPROVAL_EXPIRED_SECONDS = 600  # how long the app is told about a request nobody answered in time
+# The browser extension, through native_host.py (see the browser section of Service). None is for the AI.
+EXTENSION_OPS = ("ext_hello", "ext_pair", "ext_logins", "ext_search", "ext_fill", "ext_save_check", "ext_save")
+BROWSER_PAIR_SECONDS = 300  # how long a request to connect a browser waits for the user's click
+PRESENCE_OPS += ("browser_pair_answer",)
+TEAM_PUSH_OPS.add("ext_save")
 AI_USE_ACTIONS = AGENT_ACTIONS | {"release_env", "push_github_secret"}  # "last used" and "uses today" in approvals
 # The current code of a login's 2FA (TOTP): one click from the app, but it gives a secret out, like copying.
 PRESENCE_OPS += ("totp_code",)
@@ -187,6 +194,11 @@ class Service:
         self._team_lock = threading.Lock()   # one team operation or sync at a time
         self._team_wake = threading.Event()  # set to sync now instead of waiting for the next round
         self._team_info = {"state": "idle"}
+        self.browsers_file = self.data_dir / "browsers.json"  # browsers the user connected (key hashes, names)
+        self._browser_pairs = None     # pair id -> {name, origin, key_hash, created}, read from browsers_file
+        self._browser_requests = {}    # request id -> a browser asking to connect, until the user answers
+        self._browser_seen = {}        # pair id -> when that browser last asked (since the service started)
+        self._browser_used = {}        # entry id -> when the browser last filled it (to list it first)
 
     # ------------------------------------------------------------------ server
 
@@ -220,14 +232,19 @@ class Service:
 
     def handle(self, op, params, client=None):
         # The app reloading by itself (`_poll`) is not someone using the vault: it must not keep it from locking.
-        if op not in POLL_OPS and not (isinstance(params, dict) and params.pop("_poll", None)):
+        # Neither does the browser asking which logins a page has: only a click to fill or save (see op_ext_fill).
+        if op not in POLL_OPS and op not in EXTENSION_OPS and not (isinstance(params, dict) and params.pop("_poll", None)):
             self._last_activity = time.monotonic()
-        _ACTOR.value = "ai" if op in AI_OPS else "user"
+        _ACTOR.value = "ai" if op in AI_OPS else "browser" if op in EXTENSION_OPS else "user"
         # Who is asking (Claude Code, Claude Desktop, sb…) and in which folder: shown in approvals and the activity.
         _ACTOR.client = _clean_client(params.pop("_client", None)) if isinstance(params, dict) else None
         _ACTOR.reason = str(params.get("reason") or "").strip()[:500] if op in AI_OPS and isinstance(params, dict) else ""
         _ACTOR.presence = _ACTOR.host = None
         try:
+            if op in EXTENSION_OPS and not isinstance(params, dict):
+                raise ServiceError("Petición mal formada", "bad_request")
+            if isinstance(params, dict) and "_ext" in params and op not in EXTENSION_OPS:
+                raise ServiceError("Operación no disponible para el navegador", "forbidden")
             if op in AI_OPS and client:
                 self._ai_client_seen(client)
             if op in AI_OPS and self.pause_file.exists():
@@ -382,6 +399,7 @@ class Service:
             # the app then reloads what it shows, in place.
             "revision": self.vault.revision + self._revision,
             "lock_reason": self._lock_reason if state == "locked" else None,
+            "browser_pairing": self._browser_pending() if state == "unlocked" else [],  # browsers asking to connect
             "protocol": PROTOCOL_VERSION,
         }
 
@@ -1933,6 +1951,280 @@ class Service:
         if kind != "presence":
             result["presence"] = self._new_presence()  # proved it: one click again from now on
         return result
+
+    # ------------------------------------------------------------------ browser extension (see autofill.py)
+    #
+    # The extension talks to native_host.py, which the browser starts and which relays here. Only the extension
+    # ids in native_host.ALLOWED_ORIGINS are answered, and only once the user connected that browser with one
+    # click in the app (a random key the extension keeps; its hash is in data/browsers.json). Logins are matched
+    # here, by registrable domain, and given out one at a time after a click in the browser.
+
+    def _browsers(self):
+        if self._browser_pairs is None:
+            try:
+                self._browser_pairs = json.loads(self.browsers_file.read_text()).get("paired") or {}
+            except (OSError, ValueError, AttributeError):
+                self._browser_pairs = {}
+        return self._browser_pairs
+
+    def _save_browsers(self):
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        tmp = self.browsers_file.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"paired": self._browser_pairs or {}}, indent=1))
+        os.replace(tmp, self.browsers_file)
+
+    def _extension(self, op, params):
+        """Who is asking: {origin, pair, key, browser} from the native host. Raises unless it is our extension and,
+        except to say hello or ask to connect, a browser the user connected."""
+        ext = params.pop("_ext", None)
+        if not isinstance(ext, dict) or ext.get("origin") not in native_host.ALLOWED_ORIGINS:
+            raise ServiceError("Esta extensión no es la de SecretBroker", "forbidden")
+        ext = {k: str(ext.get(k) or "")[:200] for k in ("origin", "pair", "key", "browser")}
+        with self._lock:
+            pair = self._browsers().get(ext["pair"]) if ext["pair"] else None
+        ext["paired"] = bool(pair and hmac.compare_digest(
+            hashlib.sha256(ext["key"].encode()).hexdigest(), pair.get("key_hash", "")) and pair.get("origin") == ext["origin"])
+        ext["name"] = (pair or {}).get("name") or ext["browser"] or "Navegador"
+        if ext["paired"]:
+            self._browser_seen[ext["pair"]] = datetime.now().isoformat(timespec="seconds")
+        elif op not in ("ext_hello", "ext_pair"):
+            raise ServiceError("Conecta este navegador con SecretBroker desde la extensión", "not_paired")
+        _ACTOR.client = {"name": f"Navegador · {ext['name']}", "folder": None}
+        return ext
+
+    def op_ext_hello(self, params):
+        """The popup's first question: is SecretBroker unlocked, and is this browser connected?"""
+        ext = self._extension("ext_hello", params)
+        state = "unlocked" if self.vault.is_unlocked else ("locked" if self.vault.exists() else "no_vault")
+        with self._lock:
+            pending = next((r for r in self._browser_requests.values()
+                            if r["pair"] == ext["pair"] and r["expires"] > time.monotonic()), None)
+        return {"state": state, "paired": ext["paired"], "browser": ext["name"], "version": __version__,
+                "pending": {"code": pending["code"]} if pending else None}
+
+    def op_ext_pair(self, params):
+        """Ask to connect this browser: the app shows the request with a code the popup shows too, and the user
+        accepts with one click (browser_pair_answer)."""
+        ext = self._extension("ext_pair", params)
+        if ext["paired"]:
+            return {"paired": True}
+        if not re.fullmatch(r"[A-Za-z0-9_-]{16,64}", ext["pair"]) or len(ext["key"]) < 32:
+            raise ServiceError("Petición de conexión no válida", "invalid")
+        browser = " ".join(str(params.get("name") or ext["browser"] or "Navegador").split())[:40]
+        now = time.monotonic()
+        with self._lock:
+            self._browser_requests = {k: v for k, v in self._browser_requests.items()
+                                      if v["expires"] > now and v["pair"] != ext["pair"]}
+            if len(self._browser_requests) >= 5:
+                raise ServiceError("Hay demasiadas peticiones de conexión pendientes", "busy")
+            request = {"id": uuid.uuid4().hex, "pair": ext["pair"], "origin": ext["origin"], "name": browser,
+                       "key_hash": hashlib.sha256(ext["key"].encode()).hexdigest(),
+                       "code": f"{secrets.randbelow(1000000):06d}", "expires": now + BROWSER_PAIR_SECONDS}
+            self._browser_requests[request["id"]] = request
+            self._revision += 1
+        return {"pending": True, "code": request["code"]}
+
+    def _browser_pending(self):
+        now = time.monotonic()
+        with self._lock:
+            return [{"id": r["id"], "name": r["name"], "code": r["code"], "seconds": int(r["expires"] - now)}
+                    for r in self._browser_requests.values() if r["expires"] > now]
+
+    def op_browser_status(self, params):
+        """For Ajustes › Navegador: the browsers connected (and when they last asked), and requests to connect."""
+        with self._lock:
+            paired = [{"id": k, "name": v.get("name"), "created": v.get("created"), "last_seen": self._browser_seen.get(k),
+                       "firefox": v.get("origin", "").startswith("moz-extension:")} for k, v in self._browsers().items()]
+        return {"paired": sorted(paired, key=lambda b: b["created"] or ""), "pending": self._browser_pending()}
+
+    def op_browser_pair_answer(self, params):
+        """The user connects (or not) a browser that asked. It can then fill this user's logins: a session unlock
+        is not enough (PROVEN_OPS)."""
+        accept = params.get("accept") is not False
+        if accept:
+            self._verify_proof("browser_pair_answer", params)
+        with self._lock:
+            request = self._browser_requests.pop(str(params.get("id") or ""), None)
+            if not request or request["expires"] < time.monotonic():
+                raise ServiceError("La petición de conexión ha caducado: vuelve a pulsar «Conectar» en el navegador", "not_found")
+            if accept:
+                self._browsers()[request["pair"]] = {"name": request["name"], "origin": request["origin"],
+                                                     "key_hash": request["key_hash"],
+                                                     "created": datetime.now().isoformat(timespec="seconds")}
+                self._save_browsers()
+            self._revision += 1
+        self._audit("vault", "browser_pair", request["name"], "ok" if accept else "denied")
+        return True
+
+    def op_browser_forget(self, params):
+        with self._lock:
+            pair = self._browsers().pop(str(params.get("id") or ""), None)
+            if pair:
+                self._save_browsers()
+                self._revision += 1
+        if pair:
+            self._audit("vault", "browser_forget", pair.get("name") or "", "ok")
+        return True
+
+    def _page(self, params):
+        """(top, frame, target) Sites of the page asking. Refuses frames of another registrable domain."""
+        try:
+            top, frame = autofill.page_sites(params.get("url"), params.get("frame_url"))
+        except autofill.SiteError as exc:
+            raise ServiceError(str(exc), "invalid") from None
+        if not autofill.frame_allowed(top, frame):
+            raise ServiceError(f"Este formulario está dentro de otra web ({frame.label}) incrustada en {top.label}: "
+                               "no se rellena", "frame")
+        return top, frame, frame or top
+
+    def _fillable(self, entry):
+        """None if the browser may get this login, else why not (shown in the popup)."""
+        if (entry.get("shared") or {}).get("permission") == "use":
+            return "use_only"
+        if entry.get("draft") or not entry["fields"].get("password"):
+            return "no_password"
+        return None
+
+    def op_ext_logins(self, params):
+        """The logins saved for the page (names, users and the address that matched; never a password)."""
+        self._extension("ext_logins", params)
+        top, frame, target = self._page(params)
+        logins = []
+        for entry in self.vault.entries():
+            matched = autofill.match_entry(entry, target)
+            if not matched:
+                continue
+            why = self._fillable(entry)
+            if why == "no_password":
+                continue
+            shared = entry.get("shared") or {}
+            logins.append({"id": entry["id"], "name": entry.get("name") or entry["id"],
+                           "username": entry["fields"].get("username", ""), "site": matched[0], "exact": matched[1] == "host",
+                           "can_fill": why is None, "why": why, "totp": bool(entry["fields"].get("totp")),
+                           "collection": shared.get("collection_name") or None,
+                           "last_used": self._browser_used.get(entry["id"])})
+        logins.sort(key=lambda l: (not l["can_fill"], not l["exact"], -(l["last_used"] or 0), l["name"].lower()))
+        for login in logins:
+            login.pop("last_used")
+        return {"host": target.label, "domain": autofill.registrable_domain(target.host),
+                "secure": target.scheme == "https" or autofill._local(target.host), "frame": bool(frame), "logins": logins}
+
+    def op_ext_search(self, params):
+        """The popup's search, over every web login: names, users and their address, to open that site. Logins are
+        only ever filled on their own site (op_ext_fill), so a result for another site cannot be filled here."""
+        self._extension("ext_search", params)
+        words = str(params.get("query") or "").lower().split()[:5]
+        if not words:
+            return {"results": []}
+        results = []
+        for entry in self.vault.entries():
+            sites = autofill.saved_sites(entry)
+            if not sites or entry.get("draft"):
+                continue
+            text = " ".join([entry.get("name") or "", entry["fields"].get("username", ""), *(a for a, _ in sites)]).lower()
+            if all(w in text for w in words):
+                address, site = sites[0]
+                results.append({"id": entry["id"], "name": entry.get("name") or entry["id"],
+                                "username": entry["fields"].get("username", ""), "host": site.label,
+                                "url": address if "://" in address else f"https://{address}"})
+            if len(results) >= 20:
+                break
+        return {"results": results}
+
+    def op_ext_fill(self, params):
+        """One login's values for the page, after a click in the browser: `what` = login (user and password), totp
+        (the current 2FA code), username or password (copied in the popup)."""
+        ext = self._extension("ext_fill", params)
+        top, frame, target = self._page(params)
+        what = params.get("what") or "login"
+        if what not in ("login", "totp", "username", "password"):
+            raise ServiceError("Qué rellenar: login, totp, username o password", "invalid")
+        entry = self.vault.get(str(params.get("id") or ""))
+        if not autofill.match_entry(entry, target):
+            self._audit(entry["id"], "browser_fill", target.label, "denied", "La página no es la de esta credencial")
+            raise ServiceError(f"Esta credencial no es de {target.label}", "mismatch")
+        if self._fillable(entry) == "use_only":
+            self._audit(entry["id"], "browser_fill", target.label, "denied", "Permiso en el equipo: solo uso")
+            raise ServiceError("Esta credencial del equipo es de solo uso: rellenarla se la mostraría a la página, "
+                               "así que no se rellena", "forbidden")
+        self._last_activity = time.monotonic()  # a click in the browser is the user using the vault
+        fields, result = entry["fields"], {}
+        if what in ("login", "username"):
+            result["username"] = fields.get("username", "")
+        if what in ("login", "password"):
+            if not fields.get("password"):
+                raise ServiceError("Esta credencial no tiene contraseña", "not_found")
+            result["password"] = fields["password"]
+        if what == "totp":
+            if not fields.get("totp"):
+                raise ServiceError("Esta credencial no tiene código 2FA", "not_found")
+            try:
+                code = totp.code(fields["totp"])
+            except totp.TotpError as exc:
+                raise ServiceError(str(exc), "invalid") from None
+            result.update(totp=code["code"], remaining=code["remaining"])
+        copied = params.get("copy") is True
+        detail = {"login": "usuario y contraseña", "totp": "código 2FA", "username": "usuario", "password": "contraseña"}[what]
+        self._audit(entry["id"], "browser_copy" if copied else "browser_fill", f"{detail} · {target.label}", "ok")
+        self._browser_used[entry["id"]] = time.time()
+        return result
+
+    def _save_plan(self, params, target):
+        """What saving this login would do: {action: new | update | none, id?, name}."""
+        username = str(params.get("username") or "").strip()
+        password = str(params.get("password") or "")
+        if not username or not password or len(username) > 300 or len(password) > 4096:
+            return {"action": "none"}
+        same_user = [e for e in self.vault.entries() if autofill.match_entry(e, target)
+                     and e["fields"].get("username", "").strip().lower() == username.lower()]
+        if any(e["fields"].get("password") == password for e in same_user):
+            return {"action": "none"}
+        writable = [e for e in same_user if can_write_shared(e) and self._fillable(e) != "use_only"]
+        if writable:
+            entry = writable[0]
+            return {"action": "update", "id": entry["id"], "name": entry.get("name") or entry["id"], "username": username}
+        if same_user:
+            return {"action": "none"}  # a team login this user may not change
+        return {"action": "new", "name": autofill.registrable_domain(target.host), "username": username}
+
+    def op_ext_save_check(self, params):
+        """After a form was sent: would saving it add or change something? Nothing is stored here."""
+        self._extension("ext_save_check", params)
+        top, frame, target = self._page(params)
+        return {**self._save_plan(params, target), "host": target.label}
+
+    def op_ext_save(self, params):
+        """Save the login the user just typed, after they clicked «Guardar» or «Actualizar» in the browser: a new
+        web login for the page, or the new password of the one it matched."""
+        self._extension("ext_save", params)
+        top, frame, target = self._page(params)
+        plan = self._save_plan(params, target)
+        if plan["action"] == "none":
+            return {"saved": False, **plan}
+        password = str(params["password"])
+        self._last_activity = time.monotonic()
+        if plan["action"] == "update":
+            old = self.vault.get(plan["id"])
+            self._require_team_write(old)
+            entry = copy.deepcopy(old)
+            entry["fields"]["password"] = password
+            self.vault.put(entry, replaces=old["id"])
+            with self._lock:
+                self._forget_grants(old["id"])
+            self._audit(old["id"], "browser_save", f"contraseña nueva · {target.label}", "ok")
+            return {"saved": True, "action": "update", "id": old["id"], "name": plan["name"]}
+        name = " ".join(str(params.get("name") or plan["name"]).split())[:100] or plan["name"]
+        existing = {e["id"] for e in self.vault.entries()}
+        base = SLUG_RE.sub("-", name.lower()).strip("-")[:56] or "web"
+        entry_id, n = base, 2
+        while entry_id in existing:
+            entry_id, n = f"{base}-{n}", n + 1
+        fields = {"url": f"{target.scheme}://{target.label}", "username": plan["username"], "password": password}
+        entry = {"id": entry_id, "name": name, "template": "web_login", "description": "", "fields": fields,
+                 "policy": templates.default_policy("web_login", fields)}
+        self.vault.put(entry)
+        self._audit(entry_id, "browser_save", f"guardada desde {target.label}", "ok")
+        return {"saved": True, "action": "new", "id": entry_id, "name": name}
 
     # ------------------------------------------------------------------ AI clients (names and times only)
 
