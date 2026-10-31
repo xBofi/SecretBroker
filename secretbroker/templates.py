@@ -7,12 +7,19 @@ PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-z_]+)\s*\}\}")
 
 
 def _field(name, label, kind="text", required=False, secret=False, hint="", help="",
-           options=None, default="", show_if=None, substitutable=True):
+           options=None, default="", show_if=None, substitutable=True, note=False):
     return {
         "name": name, "label": label, "kind": kind, "required": required, "secret": secret,
         "hint": hint, "help": help, "options": options or [], "default": default,
-        "show_if": show_if, "substitutable": substitutable,
+        "show_if": show_if, "substitutable": substitutable, "note": note,
     }
+
+
+def _notes():
+    # Kept like a secret (hidden, shown or copied after verifying) but it is not a key: it is never
+    # given to programs, looked for in files or redacted, and changing it doesn't make the key "new".
+    return _field("notes", "Notas privadas (opcional)", "multiline", secret=True, substitutable=False, note=True,
+                  hint="Códigos de recuperación, preguntas de seguridad…", help="Solo para ti: la IA no las ve.")
 
 
 DB_ENGINES = {
@@ -130,7 +137,10 @@ TEMPLATES = {
     },
 }
 
-SECRET_FIELDS = sorted({f["name"] for t in TEMPLATES.values() for f in t["fields"] if f["secret"]})
+for _template in TEMPLATES.values():
+    _template["fields"].append(_notes())
+
+SECRET_FIELDS = sorted({f["name"] for t in TEMPLATES.values() for f in t["fields"] if f["secret"] and not f["note"]})
 COMPUTED_SECRETS = ("connection_url",)
 
 
@@ -148,6 +158,11 @@ def active_specs(template_id, fields):
 
 def secret_field_names(template_id):
     return [s["name"] for s in field_specs(template_id) if s["secret"]]
+
+
+def key_field_names(template_id):
+    """The secret fields that are keys, not private notes."""
+    return [s["name"] for s in field_specs(template_id) if s["secret"] and not s["note"]]
 
 
 def computed_values(entry):

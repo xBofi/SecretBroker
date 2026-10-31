@@ -13,7 +13,7 @@ import webbrowser
 from datetime import datetime
 from pathlib import Path
 
-from . import __version__, client, hello, integrations, links, paths, resident, scanner, templates, winsec
+from . import __version__, client, generator, hello, integrations, links, paths, resident, scanner, templates, winsec
 from .client import BrokerError, BrokerUnavailable
 
 WEB_DIR = Path(__file__).with_name("web")
@@ -31,11 +31,13 @@ TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_i
                    "team_confirm_member", "team_set_role", "team_remove_member", "team_create_collection", "team_grant",
                    "team_revoke", "team_share_entry", "team_unshare_entry", "team_accept_change")
 # What the app that unlocked may do with one click (see service.PRESENCE_OPS).
-PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore") + TEAM_CHANGE_OPS
+PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
+                "import_file", "export_vault") + TEAM_CHANGE_OPS
 # Operations the service only accepts with a proof of identity.
 PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal", "rotate", "complete_draft",
              "enable_session_unlock", "resume_ai", "set_ai_permissions", "backup", "restore",
-             "change_master_password", "set_settings", "remove_hello", "exposure_begin", *TEAM_CHANGE_OPS}
+             "change_master_password", "set_settings", "remove_hello", "exposure_begin",
+             "import_file", "export_vault", *TEAM_CHANGE_OPS}
 
 
 class Api:
@@ -416,6 +418,78 @@ class Api:
 
     def resume_ai(self):
         return self._presence is not None and self.call("resume_ai")["ok"]
+
+    # ----- password generator, import and export
+
+    _import_path = None  # the file last imported from, which the user may then delete
+
+    def generate_password(self, options=None):
+        try:
+            return {"ok": True, "result": generator.generate(options)}
+        except generator.GeneratorError as exc:
+            return {"ok": False, "code": "invalid", "error": str(exc)}
+
+    def copy_generated(self, value):
+        """Copy a password from the generator like a secret: out of the clipboard history, cleared in 30 s."""
+        _copy_to_clipboard(str(value))
+        return CLIPBOARD_CLEAR_SECONDS
+
+    def pick_import_file(self):
+        import webview
+        chosen = self._window.create_file_dialog(webview.OPEN_DIALOG, directory=str(Path.home() / "Downloads"), file_types=(
+            "Exportaciones (*.csv;*.json;*.sbexport)", "Todos los archivos (*.*)")) if self._window else None
+        return chosen[0] if chosen else None
+
+    def import_file(self, path, fmt="auto", selected=None, password=None, proof=None):
+        """Read another manager's export and hand its text to the service (this app holds no secrets:
+        the service answers with names only). `selected` None: preview."""
+        try:
+            data = Path(path).read_bytes()
+        except OSError as exc:
+            return {"ok": False, "code": "invalid", "error": f"No se pudo leer el archivo: {exc.strerror or exc}"}
+        if len(data) > 3 * 1024 * 1024:
+            return {"ok": False, "code": "invalid", "error": "El archivo es demasiado grande (máximo 3 MB)"}
+        try:
+            text = data.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            text = data.decode("cp1252", errors="replace")  # old KeePass / Excel CSVs
+        params = {"content": text, "source": Path(path).name, "format": fmt, "selected": selected, "password": password or None}
+        result = self.call("import_file", params, proof)
+        if result["ok"] and selected is not None:
+            self._import_path = str(path)
+        return result
+
+    def delete_import_source(self):
+        """Delete the file just imported: it holds every password in clear."""
+        if not self._import_path:
+            return {"ok": False, "error": "No hay ningún archivo que borrar"}
+        try:
+            Path(self._import_path).unlink(missing_ok=True)
+        except OSError as exc:
+            return {"ok": False, "error": f"No se pudo borrar: {exc.strerror or exc}"}
+        self._import_path = None
+        return {"ok": True}
+
+    def export_vault(self, fmt, password=None, proof=None):
+        """Ask where to save, have the service build the file and write it there."""
+        import webview
+        names = {"encrypted": ("SecretBroker-exportacion.sbexport", "Exportación cifrada (*.sbexport)"),
+                 "json": ("SecretBroker-SIN-CIFRAR.json", "JSON (*.json)"), "csv": ("SecretBroker-SIN-CIFRAR.csv", "CSV (*.csv)")}
+        if fmt not in names:
+            return {"ok": False, "code": "invalid", "error": "Formato no válido"}
+        chosen = self._window.create_file_dialog(webview.SAVE_DIALOG, directory=str(Path.home() / "Documents"),
+                                                 save_filename=names[fmt][0], file_types=(names[fmt][1],)) if self._window else None
+        if not chosen:
+            return {"ok": False, "code": "cancelled", "error": "Cancelado"}
+        target = Path(chosen if isinstance(chosen, str) else chosen[0])
+        result = self.call("export_vault", {"format": fmt, "password": password or None}, proof)
+        if not result["ok"]:
+            return result
+        try:
+            target.write_text(result["result"].pop("content"), encoding="utf-8")
+        except OSError as exc:
+            return {"ok": False, "code": "error", "error": f"No se pudo escribir {target}: {exc.strerror or exc}"}
+        return {"ok": True, "result": {"path": str(target), "entries": result["result"]["entries"]}}
 
 
 def _default_backup_folder():

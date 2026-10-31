@@ -1,0 +1,4 @@
+name,url,username,password,note
+shop.example.com,https://shop.example.com/,ana,fake-Shop-pass-06,
+shop.example.com,https://shop.example.com/,ana,fake-Shop-pass-06,
+app,android://hash@com.example.app/,ana,fake-App-pass-07,

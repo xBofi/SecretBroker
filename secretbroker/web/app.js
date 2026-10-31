@@ -153,6 +153,8 @@ const ACTION_LABELS = {
   request_access: 'Acceso para una tarea',
   ai_permissions: 'Permisos de la IA',
   import_env: 'Importada de un .env',
+  import_file: 'Importadas de otro gestor',
+  export: 'Bóveda exportada',
   restore: 'Copia restaurada',
   check: 'Comprobada',
   pause_ai: 'IA en pausa',
@@ -204,6 +206,7 @@ function onShortcut(event) {
   if (key === 'f') { event.preventDefault(); state.view = 'credentials'; renderMain(); document.querySelector('.search .input')?.focus(); }
   else if (key === 'n') { event.preventDefault(); openEditor(null); }
   else if (key === 'l') { event.preventDefault(); lockNow(); }
+  else if (key === 'g') { event.preventDefault(); openGenerator(); }
 }
 
 // One tick at a time: an older, slower one answering last would close an approval that just opened.
@@ -577,7 +580,7 @@ function renderMain() {
     brand(),
     el('nav', { class: 'nav' },
       navButton('credentials', 'key', 'Credenciales', state.entries.length),
-      navButton('exposure', 'shield', 'Exposición', exposedCount(), 'danger'),
+      navButton('exposure', 'shield', 'Salud', exposedCount(), 'danger'),
       navButton('access', 'bot', 'Acceso de la IA', state.status.ai_paused ? '‖' : null, 'danger'),
       navButton('team', 'users', 'Equipo', teamAttention().length),
       navButton('activity', 'activity', 'Actividad'),
@@ -585,6 +588,7 @@ function renderMain() {
     el('div', { id: 'update-slot' }),
     el('div', { class: 'sidebar-footer' },
       el('div', { class: 'state', id: 'sidebar-state' }),
+      el('button', { class: 'btn icon-only', title: 'Generador de contraseñas (Ctrl+G)', onclick: openGenerator }, icon('dice', 'sm')),
       el('button', { class: 'btn icon-only', title: 'Bloquear (Ctrl+L)', onclick: lockNow }, icon('lock', 'sm'))));
   $app().replaceChildren(el('div', { class: 'layout' }, sidebar, el('main', { class: 'content', id: 'content' })));
   updateSidebarState();
@@ -655,12 +659,16 @@ function renderCredentials(content) {
   const header = el('div', { class: 'content-header' },
     el('h1', {}, 'Credenciales'),
     state.entries.length ? el('div', { class: 'search' }, icon('search', 'sm'), search) : null,
+    el('button', { class: 'btn icon-only', title: 'Importar de otro gestor', onclick: openImport }, icon('upload', 'sm')),
     el('button', { class: 'btn primary', title: 'Nueva (Ctrl+N)', onclick: () => openEditor(null) }, icon('plus', 'sm'), 'Nueva'));
 
   if (!state.entries.length) {
     content.replaceChildren(header, el('div', { class: 'content-body' }, el('div', { class: 'empty' },
       el('p', {}, 'Aún no hay credenciales.'),
-      el('button', { class: 'btn primary', onclick: () => openEditor(null) }, 'Añadir la primera'))));
+      el('div', { style: 'display:flex;gap:8px;justify-content:center' },
+        el('button', { class: 'btn primary', onclick: () => openEditor(null) }, 'Añadir la primera'),
+        el('button', { class: 'btn', onclick: openImport }, 'Importar de otro gestor')),
+      el('p', { class: 'help' }, 'Bitwarden, 1Password, KeePass, Chrome, Edge o Firefox.'))));
     return;
   }
 
@@ -1395,27 +1403,24 @@ function showForm(templateId, entry) {
       });
       control.addEventListener('input', onFieldChange);
       node = el('div', { class: 'field full' }, labelFor(spec, existingSecret), control,
-        el('div', {}, el('button', { class: 'link small', type: 'button', onclick: () => file.click() }, 'Cargar desde un archivo'), file));
+        spec.note ? el('div', { class: 'help' }, spec.help)
+          : el('div', {}, el('button', { class: 'link small', type: 'button', onclick: () => file.click() }, 'Cargar desde un archivo'), file));
     } else if (spec.kind === 'secret') {
       const group = passwordInput({ placeholder });
       control = group.input;
       control.addEventListener('input', onFieldChange);
       const wide = ['value', 'secret_access_key'].includes(spec.name) || (templateId === 'ssh' && spec.name === 'password');
+      const generate = generatorButtons(templateId, spec.name, control);  // personal.js; null where it makes no sense
+      const withGenerate = generate ? el('div', { style: 'display:flex;gap:8px' }, el('div', { style: 'flex:1' }, group), generate) : group;
       if (templateId === 'database' && spec.name === 'password') {
         const note = el('div', { class: 'warning hidden' }, icon('alert', 'sm'), el('span', {}, existingSecret
           ? 'Guardarla aquí no cambia la contraseña en el servidor: después hay que aplicarla en la base de datos (ALTER ROLE…), o pedírselo a la IA, que puede hacerlo con sb run sin verla. «Rotar con ayuda» te guía en todo.'
           : 'Si el usuario aún no existe, créalo en la base de datos con esta contraseña (o pídeselo a la IA).'));
         const input = control;
         input.addEventListener('input', () => note.classList.toggle('hidden', !input.value));
-        const suggest = el('button', { class: 'btn', type: 'button', onclick: () => {
-          input.value = randomPassword();
-          input.dispatchEvent(new Event('input'));
-          toast('Generada: 32 letras y números aleatorios');
-        } }, 'Generar');
-        node = el('div', { class: 'field full' }, labelFor(spec, existingSecret),
-          el('div', { style: 'display:flex;gap:8px' }, el('div', { style: 'flex:1' }, group), suggest), note);
+        node = el('div', { class: 'field full' }, labelFor(spec, existingSecret), withGenerate, note);
       } else {
-        node = el('div', { class: `field ${wide ? 'full' : ''}` }, labelFor(spec, existingSecret), group, spec.help ? el('div', { class: 'help' }, spec.help) : null);
+        node = el('div', { class: `field ${wide || generate ? 'full' : ''}` }, labelFor(spec, existingSecret), withGenerate, spec.help ? el('div', { class: 'help' }, spec.help) : null);
       }
     } else {
       const dbPort = spec.name === 'port' && templateId === 'database' ? (DB_ENGINES[(inputs.engine || {}).value || 'postgresql'] || {}).port : null;
@@ -1748,7 +1753,7 @@ function renderExposure(content) {
   scanButton.addEventListener('click', () => startScan(scanButton));
   const checkButton = el('button', { class: 'btn', title: 'Prueba cada clave con su proveedor y las contraseñas contra filtraciones conocidas' }, 'Comprobar claves');
   checkButton.addEventListener('click', () => checkKeys(checkButton));
-  const header = el('div', { class: 'content-header' }, el('h1', {}, 'Exposición'), checkButton, scanButton);
+  const header = el('div', { class: 'content-header' }, el('h1', {}, 'Salud'), checkButton, scanButton);
   if (!report) {
     content.replaceChildren(header, el('div', { class: 'content-body' }, el('div', { class: 'empty' }, el('p', {}, 'No se pudo cargar el estado.'))));
     return;
@@ -1759,6 +1764,8 @@ function renderExposure(content) {
     .sort((a, b) => LEVELS[a.level].order - LEVELS[b.level].order || entries[a.id].name.localeCompare(entries[b.id].name));
   const hidden = !report.details && items.some((item) => item.found || item.found_before);
   content.replaceChildren(header, el('div', { class: 'content-body' },
+    healthSection(),  // personal.js: score, weak / reused / old secrets
+    el('h2', { class: 'section-title' }, 'Exposición'),
     scanning ? scanProgress() : null,
     el('div', { class: 'exposure-summary' },
       el('p', { class: 'muted' }, 'Busca tus claves en las conversaciones con IA, los historiales de la terminal, la configuración de tus programas, las variables de entorno, tus proyectos y su historial de git. Todo ocurre en este equipo.'),
@@ -2766,6 +2773,7 @@ function renderSettings(content) {
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Aplicación'),
         setting('Arrancar con Windows', 'SecretBroker se queda junto al reloj, listo para la IA. Cerrar la ventana no lo cierra: usa «Salir» en ese icono.', startToggle)),
       backupSlot,
+      importExportGroup(),  // personal.js
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Exposición'),
         setting('Analizar al desbloquear', 'Busca copias de tus claves en este equipo al desbloquear, como mucho cada 12 horas.', autoScan),
         setting('Carpetas de proyectos', 'Se revisan junto con sus historiales de git. Las carpetas donde has usado Claude Code se añaden solas.', addFolder),

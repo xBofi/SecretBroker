@@ -1,0 +1,16 @@
+{
+  "encrypted": false,
+  "folders": [{"id": "f1", "name": "Trabajo"}],
+  "items": [
+    {"id": "1", "folderId": "f1", "type": 1, "name": "Panel Hosting", "notes": "Cuenta de la empresa",
+     "fields": [{"name": "PIN", "value": "fake-pin-4321", "type": 1}],
+     "login": {"uris": [{"match": null, "uri": "https://panel.example.com/login"}], "username": "ana@example.com",
+               "password": "fake-Hosting-pass-01", "totp": "otpauth://totp/Example?secret=FAKEFAKEFAKE"}},
+    {"id": "2", "folderId": null, "type": 1, "name": "GitHub token", "notes": null,
+     "login": {"uris": [], "username": null, "password": "ghp_fakeFAKEfake0123456789abcdefABCDEF"}},
+    {"id": "3", "folderId": null, "type": 2, "name": "Códigos de recuperación", "notes": "fake-code-1111\nfake-code-2222",
+     "secureNote": {"type": 0}},
+    {"id": "4", "folderId": null, "type": 3, "name": "Visa", "card": {"number": "4111111111111111"}},
+    {"id": "5", "folderId": null, "type": 1, "name": "Sin contraseña", "login": {"username": "nadie", "password": null}}
+  ]
+}

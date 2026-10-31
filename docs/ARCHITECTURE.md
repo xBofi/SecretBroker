@@ -22,6 +22,25 @@ Team data lives **inside the existing encrypted vault payload** (section `team`)
 protection, backups and lock behaviour. Shared credentials are ordinary vault entries with an extra `shared` block,
 so the AI broker, `sb run`, exposure checks and rotation work on them unchanged.
 
+### 1.1 Personal vault features
+
+Logic in their own modules, wired into `service.py` as GUI-only operations (none is in `AI_OPS`):
+
+| Module | Service op | Notes |
+|---|---|---|
+| `generator.py` | — (the app calls it directly) | Random passwords and Spanish/English passphrases from `secrets`; `strength()` estimate. |
+| `health.py` | `health` | Weak (`generator.strength`), reused (compared by `vault.mac`, never a hash leaves the service), old, expired, exposed; a 0-100 score. Names and reasons only. |
+| `importers.py` | `import_file` | The service account cannot read the user's files, so the app reads the file and sends `{content, source, format, password?, selected?}`; without `selected` it returns a preview (names, users, sites, status), with it it imports. Presence proof. |
+| `exports.py` | `export_vault` | `{format: encrypted \| json \| csv, password?}` → `{content}`; the app writes it. Presence proof. Format in `docs/EXPORT_FORMAT.md`. |
+
+`import_file` and `export_vault` are in `PRESENCE_OPS` (one click from the app that unlocked). `replace_key` also
+accepts web logins and SSH passwords (the password-change helper behind "Rotar con ayuda" in *Salud*).
+
+Every template has an optional **private notes** field (`fields.notes`, `secret` + `note`): hidden and revealed like
+a secret, never given to the AI, programs, the scanner or the redactor, and not part of `secret_fields()` (editing it
+does not reset a key's age). Imported notes, TOTP seeds and custom fields go there. It travels with shared items like
+any other field.
+
 ## 2. Team cryptography
 
 All primitives already exist in `secretbroker/crypto.py` (scrypt, HKDF-SHA256, AES-256-GCM, X25519 `seal_to`/`open_from`)

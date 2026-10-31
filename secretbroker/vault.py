@@ -551,7 +551,7 @@ class Vault:
 
 def secret_fields(entry):
     """What identifies the secret values of an entry (a change means the secret was replaced)."""
-    return entry["template"], {name: entry["fields"].get(name) for name in templates.secret_field_names(entry["template"])}
+    return entry["template"], {name: entry["fields"].get(name) for name in templates.key_field_names(entry["template"])}
 
 
 def _atomic_write(path, data):
