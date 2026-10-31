@@ -10,7 +10,8 @@ never reach the AI, the server never sees plaintext, and the user types a passwo
 The core (vault, broker, redaction, rotation, exposure, teams) is plain Python. `secretbroker/winsec.py` (service
 account isolation, DPAPI, ACLs) and `secretbroker/hello.py` (Windows Hello presence) are the only Windows-specific
 modules. They become a **platform interface** with implementations for:
-- macOS: Keychain, Touch ID / Secure Enclave presence, a launchd daemon under its own user;
+- macOS: Keychain, Touch ID / Secure Enclave presence, a launchd daemon under its own user (written, built and
+  installed by CI; still to be tried on real Macs and signed: see docs/RELEASING.md);
 - Linux: Secret Service / kernel keyring, polkit or FIDO2 presence, a systemd service under its own user.
 
 ### Internationalisation

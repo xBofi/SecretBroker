@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The installer's layout, for productbuild. tools/build_macos.sh replaces @VERSION@ and @ARCH@. -->
+<installer-gui-script minSpecVersion="2">
+    <title>SecretBroker @VERSION@</title>
+    <organization>com.secretbroker</organization>
+    <options customize="never" require-scripts="true" hostArchitectures="@ARCH@" rootVolumeOnly="true"/>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+    <volume-check>
+        <allowed-os-versions>
+            <os-version min="12.0"/>
+        </allowed-os-versions>
+    </volume-check>
+    <welcome file="welcome.html" mime-type="text/html"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+    <choices-outline>
+        <line choice="default">
+            <line choice="com.secretbroker.app"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="com.secretbroker.app" visible="false">
+        <pkg-ref id="com.secretbroker.app"/>
+    </choice>
+    <pkg-ref id="com.secretbroker.app" version="@VERSION@" onConclusion="none">SecretBroker-component.pkg</pkg-ref>
+</installer-gui-script>

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SecretBroker.app's Info.plist. tools/build_macos.sh replaces @VERSION@. -->
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.secretbroker.app</string>
+    <key>CFBundleName</key>
+    <string>SecretBroker</string>
+    <key>CFBundleDisplayName</key>
+    <string>SecretBroker</string>
+    <key>CFBundleExecutable</key>
+    <string>SecretBroker</string>
+    <key>CFBundleIconFile</key>
+    <string>SecretBroker</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>@VERSION@</string>
+    <key>CFBundleVersion</key>
+    <string>@VERSION@</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>es</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>12.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSSupportsAutomaticGraphicsSwitching</key>
+    <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2026 xBofi. MIT License.</string>
+    <!-- Touch ID's prompt names the reason itself (touchid.REASON); this is the text macOS shows when asked. -->
+    <key>NSFaceIDUsageDescription</key>
+    <string>SecretBroker usa Touch ID para confirmar que eres tú antes de abrir la bóveda o mostrar una contraseña.</string>
+    <!-- Team invite links (secretbroker://join?...), handled by app._listen_for_links. -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.secretbroker.invite</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>secretbroker</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>
