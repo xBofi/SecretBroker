@@ -1,8 +1,9 @@
 """Sign the built installer for the in-app updater (run by the release workflow).
 
-    UPDATE_SIGNING_KEY=<base64 Ed25519 private key> python tools/sign_release.py
+    UPDATE_SIGNING_KEY=<base64 Ed25519 private key> python tools/sign_release.py [installer]
 
-Writes dist/SecretBroker-Setup-<version>.exe.sig next to the installer and checks it against the
+Writes dist/SecretBroker-Setup-<version>.exe.sig (or <installer>.sig, e.g. the Ubuntu
+dist/secretbroker_<version>_amd64.deb) next to the installer and checks it against the
 public key built into secretbroker/update.py, so a release can never ship with a mismatched key.
 """
 
@@ -22,7 +23,9 @@ def main():
     if not key:
         sys.exit("Falta UPDATE_SIGNING_KEY")
     version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
-    installer = ROOT / "dist" / f"SecretBroker-Setup-{version}.exe"
+    installer = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "dist" / f"SecretBroker-Setup-{version}.exe"
+    if version not in installer.name:
+        sys.exit(f"{installer.name} no es de la versión {version}")
     data = installer.read_bytes()
     signature = update.sign(key, version, data)
     update.verify(version, data, signature)  # the key in update.py must match

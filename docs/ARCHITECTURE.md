@@ -424,7 +424,7 @@ picks `windows.py`, `linux.py` or `macos.py`; `_common.INTERFACE` lists what eac
 | Web view | WebView2 (pywebview WinForms) | QtWebEngine (pywebview Qt) | pywebview Cocoa |
 | One window | named mutex + event | Unix socket in `$XDG_RUNTIME_DIR`, peer uid checked | TODO |
 | Clipboard | Win32, excluded from history / cloud clipboard | Qt clipboard with `x-kde-passwordManagerHint` (else wl-copy / xclip), cleared after 30 s | `pbcopy` (TODO: concealed type) |
-| Updates | signed `SecretBroker-Setup-<v>.exe`, UAC | signed `secretbroker_<v>_amd64.deb` (release.yml does not publish it yet), `pkexec apt-get install`, then the app restarts | TODO: `.dmg` |
+| Updates | signed `SecretBroker-Setup-<v>.exe`, UAC | signed `secretbroker_<v>_amd64.deb` (release.yml builds it on 22.04), `pkexec apt-get install`, then the app restarts | TODO: `.dmg` |
 | AI apps, shells | `%APPDATA%`, PSReadLine history, registry environment | `~/.config`, fish / pwsh history, `/etc/environment` + `environment.d` | `~/Library/Application Support` |
 
 ### 6.1 Linux isolation
