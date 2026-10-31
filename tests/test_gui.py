@@ -746,6 +746,16 @@ def import_flow(page, client):
     check(wait_for(lambda: "Código 2FA copiado" in page.text(), 5), "«Copiar» copies it")
     listing = json.dumps(client.request("list_secrets"))
     check("JBSWY3DP" not in listing and "totp_code" not in listing, "the AI sees neither the seed nor the code")
+    page.click("Editar")
+    check(wait_for(lambda: "Código 2FA (TOTP)" in page.text(), 10), "the editor has the 2FA field")
+    page.js("document.querySelector('.modal details.advanced').open = true")
+    check(wait_for(lambda: "Dejar que la IA escriba el código 2FA" in page.text(), 5)
+          and page.js("![...document.querySelectorAll('.modal .check-row input')].pop().checked"),
+          "letting the AI type the code is a choice in its permissions, off by default")
+    page.js("document.querySelector('.modal details.advanced').scrollIntoView({ block: 'end' })")
+    calm_shot(page, "14-totp-editor")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
     for entry in client.request("entries"):
         if entry["description"].startswith("Importada de"):
             client.request("delete_entry", {"id": entry["id"], "proof": {"kind": "master_password", "value": MASTER}})
