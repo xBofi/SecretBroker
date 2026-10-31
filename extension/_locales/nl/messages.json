@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "2FA-code"
+  },
+  "2fa_code_copied": {
+    "message": "2FA-code gekopieerd"
+  },
+  "browser": {
+    "message": "Browser"
+  },
+  "can_talk_secretbroker": {
+    "message": "Kan SecretBroker niet bereiken."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Kan SecretBroker niet bereiken"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Kan SecretBroker niet bereiken. Open het en probeer het opnieuw."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Controleer of SecretBroker dezelfde code toont en klik op ‘Koppelen’."
+  },
+  "cmd_fill": {
+    "message": "Aanmelding voor deze website invullen"
+  },
+  "cmd_open": {
+    "message": "SecretBroker openen"
+  },
+  "code": {
+    "message": "Code"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Bevestig het in SecretBroker"
+  },
+  "connect": {
+    "message": "$browser$ koppelen",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Deze browser koppelen"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Koppel deze browser: klik op het SecretBroker-pictogram in de werkbalk van de browser en daarna op ‘Koppelen’."
+  },
+  "copy_2fa_code": {
+    "message": "2FA-code kopiëren"
+  },
+  "copy_password": {
+    "message": "Wachtwoord kopiëren"
+  },
+  "copy_username": {
+    "message": "Gebruikersnaam kopiëren"
+  },
+  "couldn_connect": {
+    "message": "Koppelen mislukt."
+  },
+  "couldn_copy": {
+    "message": "Kopiëren mislukt"
+  },
+  "couldn_fill_it_in": {
+    "message": "Invullen mislukt"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Geen plek gevonden om het in te vullen."
+  },
+  "couldn_look_it_up": {
+    "message": "Opzoeken mislukt."
+  },
+  "couldn_save": {
+    "message": "Opslaan mislukt"
+  },
+  "create_your_vault_first": {
+    "message": "Maak eerst je kluis"
+  },
+  "ext_description": {
+    "message": "Vult de wachtwoorden in die je in SecretBroker bewaart, alleen op hun eigen website en alleen als je erom vraagt."
+  },
+  "fill_in": {
+    "message": "Invullen"
+  },
+  "fill_in_on": {
+    "message": "Invullen op $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Invullen met SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Invullen zonder dit venster te openen"
+  },
+  "form_from": {
+    "message": "Formulier van"
+  },
+  "form_is_in_frame_too": {
+    "message": "Het formulier staat in een frame dat te klein is om te zien: het wordt niet ingevuld."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Het formulier staat in een verborgen of heel klein frame: het wordt niet ingevuld."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Installeer SecretBroker en open Instellingen › Browser. Als je het net hebt geïnstalleerd, start de browser dan opnieuw."
+  },
+  "it_no_longer_pending": {
+    "message": "Het staat niet meer open."
+  },
+  "it_only_fills_in_on": {
+    "message": "Het vult alleen in op de eigen website van elk wachtwoord."
+  },
+  "loading": {
+    "message": "Laden"
+  },
+  "name": {
+    "message": "Naam"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Geen enkel item voor $domain$ heeft een 2FA-code.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· geen https"
+  },
+  "no_username": {
+    "message": "Geen gebruikersnaam"
+  },
+  "not_now": {
+    "message": "Niet nu"
+  },
+  "nothing_matches": {
+    "message": "Geen resultaten."
+  },
+  "nothing_saved_for": {
+    "message": "Niets opgeslagen voor $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Niets opgeslagen voor $domain$. Meld je aan, dan bied ik aan het op te slaan.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Op andere websites"
+  },
+  "on_this_website": {
+    "message": "Op deze website"
+  },
+  "open": {
+    "message": "$host$ openen",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Open het en probeer het opnieuw."
+  },
+  "open_it_can_be_filled": {
+    "message": "$host$ openen (daar kan het worden ingevuld)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "SecretBroker openen"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Open SecretBroker en maak je kluis om wachtwoorden op te slaan."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Open een website om de wachtwoorden ervan te zien."
+  },
+  "open_website_you_want_sign": {
+    "message": "Open de website waar je je wilt aanmelden."
+  },
+  "page_has_changed_try_again": {
+    "message": "De pagina is gewijzigd. Probeer het opnieuw."
+  },
+  "password_copied": {
+    "message": "Wachtwoord gekopieerd"
+  },
+  "password_updated": {
+    "message": "Wachtwoord bijgewerkt"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Wachtwoord bijgewerkt in SecretBroker"
+  },
+  "save": {
+    "message": "Opslaan"
+  },
+  "save_this_login": {
+    "message": "Deze aanmelding opslaan?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Dit wachtwoord opslaan in SecretBroker?"
+  },
+  "saved": {
+    "message": "Opgeslagen"
+  },
+  "saved_for": {
+    "message": "Opgeslagen voor $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Opgeslagen in SecretBroker"
+  },
+  "search": {
+    "message": "Zoeken"
+  },
+  "search_secretbroker": {
+    "message": "Zoeken in SecretBroker"
+  },
+  "searching": {
+    "message": "Zoeken…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker antwoordde niet op tijd."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker is vergrendeld."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker is vergrendeld"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker is vergrendeld. Ontgrendel het en probeer het opnieuw."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "SecretBroker ontbreekt op deze computer"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker is niet geïnstalleerd op deze computer, of moet nog aan de browser worden gekoppeld."
+  },
+  "that_way_it_can_fill": {
+    "message": "Zo kan het je wachtwoorden invullen. SecretBroker vraagt je het met één klik te bevestigen."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Er zijn geen opgeslagen aanmeldingen voor $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Er is geen zichtbaar veld voor een 2FA-code op deze pagina."
+  },
+  "there_no_visible_login_form": {
+    "message": "Er is geen zichtbaar aanmeldformulier op deze pagina."
+  },
+  "this_page_can_be_filled": {
+    "message": "Deze pagina kan niet worden ingevuld."
+  },
+  "this_team_credential_is_use": {
+    "message": "Deze teaminloggegevens zijn ‘alleen gebruiken’: ze worden niet in de browser ingevuld."
+  },
+  "unlock": {
+    "message": "Ontgrendelen"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Ontgrendel het en klik hier opnieuw."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Ontgrendel het om je wachtwoorden in te vullen."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Ontgrendel SecretBroker en klik opnieuw op ‘Koppelen’."
+  },
+  "update": {
+    "message": "Bijwerken"
+  },
+  "update_password": {
+    "message": "Wachtwoord van ‘$name$’ bijwerken?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Alleen gebruiken: wordt niet ingevuld"
+  },
+  "use_only_on_team_not": {
+    "message": "Alleen gebruiken in het team: wordt niet ingevuld"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Teaminloggegevens ‘alleen gebruiken’: invullen zou ze aan de pagina tonen"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Teaminloggegevens met ‘alleen gebruiken’ kunnen door de AI worden gebruikt, maar worden niet getoond: invullen zou ze aan de pagina geven."
+  },
+  "username_copied": {
+    "message": "Gebruikersnaam gekopieerd"
+  },
+  "you_re_on": {
+    "message": "Je bent op"
+  }
+}
