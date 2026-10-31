@@ -19,9 +19,12 @@ working, and walks you through rotating it everywhere it is used.
 
 > **Status.** SecretBroker Desktop runs on **Windows 10/11** and **Ubuntu 22.04 / 24.04**; the **macOS 12+** port
 > (Apple silicon and Intel) is built and installed by CI but not yet tried on real Macs (see
-> [docs/RELEASING.md](docs/RELEASING.md)). Its
-> interface is in **Spanish** for now; English (and other languages) is on the [roadmap](docs/ROADMAP.md). The team
-> server runs anywhere Docker runs.
+> [docs/RELEASING.md](docs/RELEASING.md)). The app, the browser extension and the service's messages are in
+> **32 languages**: English, Spanish, Catalan, Galician, Basque, German, French, Italian, Portuguese, Dutch, Danish,
+> Swedish, Norwegian, Finnish, Polish, Czech, Slovak, Slovenian, Croatian, Hungarian, Romanian, Bulgarian, Greek,
+> Estonian, Latvian, Lithuanian, Irish, Maltese, Russian, Ukrainian, Turkish and Simplified Chinese. It follows your
+> system's language; Settings › Language changes it. The team server runs anywhere Docker runs. What changed in each
+> version: [CHANGELOG.md](CHANGELOG.md).
 
 ## Screenshots
 
@@ -55,6 +58,28 @@ read it, and starts the service (`secretbroker@<user>.service`) at boot. Open **
 icon next to the clock needs the AppIndicator extension, which Ubuntu enables by default. Removing the package keeps
 the vaults; purging deletes them. To build the package yourself: `tools/build_deb.sh` on Linux or WSL.
 
+### macOS (preview)
+
+1. Download `SecretBroker-<version>-macos-arm64.pkg` (Apple silicon) or `-macos-x86_64.pkg` (Intel).
+2. Open it and follow the installer.
+
+Until the package is signed with the project's Apple Developer ID, macOS says it "cannot be verified": right-click it
+and choose **Open**, or allow it in **System Settings › Privacy & Security**. Touch ID also needs the signed app;
+until then you unlock with your Mac or master password once per session, then approve with one click. The service
+runs under its own hidden user, from a copy of the code that only root can change.
+
+### Browser extension
+
+Until the extension is published in the browser stores, it is loaded from the app's folder, with no terminal:
+
+1. In the app, open **Settings › Browser** and click **Install the extension**. It opens your browser's extensions
+   page and the folder.
+2. **Chrome, Edge, Brave**: turn on *Developer mode*, click *Load unpacked* and pick the folder.
+   **Firefox**: `about:debugging` › *This Firefox* › *Load Temporary Add-on…* › `manifest.json`, and allow access to
+   all sites from the extensions button. Firefox forgets it when it closes until the extension is on addons.mozilla.org.
+3. Click the SecretBroker button in the toolbar and press **Connect**: the app shows the same 6-digit code and
+   connects it with one click.
+
 ## Quick start
 
 1. **Create your vault.** Pick a master password. Optionally enable Windows Hello (PIN, fingerprint, face) and
@@ -86,7 +111,8 @@ the vaults; purging deletes them. To build the package yourself: `tools/build_de
 - An extension for Chrome, Edge, Brave and Firefox fills logins and 2FA codes, only on the site each one was saved
   for (registrable domain, so lookalike phishing domains get nothing) and only after your click or Ctrl+Shift+L.
   It offers to save new and changed passwords, never fills team credentials marked "use only", and talks to the
-  app through native messaging (no open port). Install and connect it from Ajustes › Navegador.
+  app through native messaging (no open port). Install and connect it from Settings › Browser (see
+  [Browser extension](#browser-extension)).
 
 ### Rotation
 - One-click rotation through the provider API where possible (Cloudflare, GitLab), re-uploading the new key to the
@@ -132,8 +158,8 @@ Honest summary as of late 2026. The big products are mature and broad; SecretBro
 
 | | Best at | Where SecretBroker is different | Where SecretBroker is behind |
 |---|---|---|---|
-| **1Password** | Polished password manager on every platform, browser autofill, passkeys, Watchtower, `op run` and service accounts for developers | AI agents use keys without reading them, with output redaction; guided rotation that tracks every place a key is used; local leak scanning of AI transcripts and shell history; open source and self-hostable | Platforms (Windows only), browser autofill, mobile apps, passkeys, integrations, maturity, audits |
-| **Bitwarden** | Open-source password manager, self-hostable, cross-platform, Secrets Manager for machines | Same AI broker, rotation and exposure angle; one-click approvals designed around AI agents | Platforms, browser autofill, mobile, enterprise features (SSO, SCIM, policies), independent security audits |
+| **1Password** | Polished password manager on every platform, browser autofill, passkeys, Watchtower, `op run` and service accounts for developers | AI agents use keys without reading them, with output redaction; guided rotation that tracks every place a key is used; local leak scanning of AI transcripts and shell history; open source and self-hostable | macOS maturity, browser extension not yet in the stores, mobile apps, passkeys, integrations, maturity, audits |
+| **Bitwarden** | Open-source password manager, self-hostable, cross-platform, Secrets Manager for machines | Same AI broker, rotation and exposure angle; one-click approvals designed around AI agents | Mobile, extension stores, enterprise features (SSO, SCIM, policies), independent security audits |
 | **Doppler** | Hosted secrets for apps and CI with many sync integrations and environments | Local-first vault; AI broker; personal credentials (logins, SSH) as well as app secrets; self-hostable | Hosted SaaS convenience, number of integrations, environments and config inheritance, automatic sync to platforms |
 | **Infisical** | Open-source secrets platform for teams and infrastructure: environments, Kubernetes/CI integrations, dynamic secrets, secret scanning | AI broker with redaction; desktop app built for one person approving an AI; guided rotation for providers without APIs | Infrastructure integrations, environments, machine identities, Kubernetes operator, dynamic secrets, scale |
 | **HashiCorp Vault** | Infrastructure secrets at scale: dynamic credentials, leasing, PKI, transit encryption, policies | Easy for an individual developer: install an `.exe`, one-click approvals, no cluster to run; AI broker | Almost everything infrastructure: dynamic secrets, PKI, HA, auth backends, policy language |
@@ -159,10 +185,14 @@ backups and upgrades. The design is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 
 - The vault is AES-256-GCM with a random data key wrapped by scrypt (128 MiB) of your master password and by Windows
   DPAPI.
-- The service runs under a separate Windows account from code in Program Files run with `python -I`, so programs in your
-  session (including the AI) cannot read its memory, files or code.
-- Unlocks and approvals require a Windows Hello signature over a single-use challenge bound to that operation. Service
-  responses are signed (Ed25519) so the app cannot be spoofed.
+- The service runs under a separate account (a hidden Windows account, the `secretbroker` user on Ubuntu, a hidden
+  user on macOS) from code only administrators can change, run with `python -I`, so programs in your session
+  (including the AI) cannot read its memory, files or code.
+- Unlocks and approvals require a Windows Hello (or Touch ID) signature over a single-use challenge bound to that
+  operation, or the system or master password where there is none. Service responses are signed (Ed25519) so the app
+  cannot be spoofed.
+- Browser autofill only offers a login on the site it was saved for and only sends it to the exact origin the service
+  matched; a teammate's new web address for a shared login waits for your review.
 - AI operations never return values; output is redacted; keys only go to allow-listed HTTPS hosts or programs.
 - Team sharing is end-to-end encrypted (X25519 + AES-256-GCM, pinned fingerprints, Ed25519-signed key grants, member
   lists, edits and deletions). A fully compromised server leaks e-mails, organization names, membership and
@@ -179,8 +209,8 @@ Read the full [threat model](docs/THREAT_MODEL.md). To report a vulnerability, s
 
 ## Roadmap
 
-macOS on real hardware (signed and notarized), English UI and i18n, browser extension for autofill, CLI client with machine
-identities for CI and servers, OIDC SSO and SCIM, Postgres, organization-wide policies and a read-only mobile app.
+macOS on real hardware (signed and notarized), the browser extension in the Chrome, Edge and Firefox stores, a hosted
+team server, CLI client with machine identities for CI and servers, OIDC SSO and SCIM, Postgres, organization-wide policies and a read-only mobile app.
 Details in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Contributing

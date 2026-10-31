@@ -6,21 +6,13 @@ never reach the AI, the server never sees plaintext, and the user types a passwo
 
 ## Near term
 
-### Cross-platform desktop
-The core (vault, broker, redaction, rotation, exposure, teams) is plain Python. `secretbroker/winsec.py` (service
-account isolation, DPAPI, ACLs) and `secretbroker/hello.py` (Windows Hello presence) are the only Windows-specific
-modules. They become a **platform interface** with implementations for:
-- macOS: Keychain, Touch ID / Secure Enclave presence, a launchd daemon under its own user (written, built and
-  installed by CI; still to be tried on real Macs and signed: see docs/RELEASING.md);
-- Linux: Secret Service / kernel keyring, polkit or FIDO2 presence, a systemd service under its own user.
-
-### Internationalisation
-The interface is Spanish today. Move the strings in `secretbroker/web/app.js` and the service's user-facing messages
-into translation catalogues, ship **English** first, and make adding a language a pull request with one file.
-
-### Browser extension for autofill
-Fill logins from the vault in Chromium and Firefox through native messaging to the local service, with the same
-per-credential domain allow-list the AI broker uses. Phishing resistance by exact origin matching.
+### Shipped in 0.16.0
+- **Cross-platform desktop**: Windows, Ubuntu 22.04 / 24.04 and macOS 12+ through `secretbroker/platform`. Still to
+  do on macOS: try it on real Macs, sign and notarize it (turns on Touch ID); see docs/RELEASING.md.
+- **Internationalisation**: 32 languages in the app, the service's messages, the extension and the installer
+  (docs/I18N.md explains how to add one).
+- **Browser autofill** in Chrome, Edge, Brave and Firefox through native messaging. Still to do: publish it in the
+  Chrome Web Store, Edge Add-ons and addons.mozilla.org.
 
 ### CLI client with machine identities
 A headless `sb` for CI runners and servers that reads a team collection with a **machine identity** (a service account

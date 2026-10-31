@@ -28,7 +28,7 @@ How it works and why it is safe: [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)
 
 SecretBroker's installer copies this folder to `C:\Program Files\SecretBroker\extension` and registers the native
 host for the user (HKCU keys for Chrome, Chromium, Edge, Brave and Firefox; the app does it again at every start).
-In the app, **Ajustes › Navegador › Instalar la extensión** opens the browser's extensions page and the folder:
+In the app, **Settings › Browser › Install the extension** opens the browser's extensions page and the folder:
 
 - Chrome / Edge / Brave: turn on *Developer mode*, *Load unpacked*, pick the folder. The pinned key keeps the id
   the native host allows.

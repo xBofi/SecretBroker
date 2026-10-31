@@ -38,7 +38,7 @@ The in-app updater does not depend on any of them: it trusts only `UPDATE_SIGNIN
 Needs the owner's Apple Developer account (99 USD a year). Without it:
 
 * the `.pkg` is unsigned. Opening a downloaded one, macOS says it "cannot be verified": the user right-clicks it
-  and chooses **Abrir**, or opens it from **Ajustes del Sistema › Privacidad y seguridad › Abrir igualmente**.
+  and chooses **Open**, or opens it from **System Settings › Privacy & Security › Open Anyway**.
   Updates from the app are not affected (the service downloads the package; the system asks for an
   administrator's password, as for any installer);
 * **Touch ID is not available**: keeping a Secure Enclave key needs the data protection keychain, which macOS only
@@ -57,7 +57,7 @@ workflow sets from them):
 | `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD` | for `notarytool` (an app-specific password of that Apple ID) |
 
 The app is signed with the hardened runtime and `packaging/macos/entitlements.plist` (the build puts the team id
-in place of `TEAMID`). After the first signed release, check on a Mac with Touch ID that Ajustes › Seguridad
+in place of `TEAMID`). After the first signed release, check on a Mac with Touch ID that Settings › Security
 offers Touch ID and that unlocking with it works.
 
 ### Windows: code signing certificate
@@ -74,7 +74,7 @@ repository, so that updates also arrive with the system's updates, needs a GPG k
 
 ### Browser extension stores
 
-The extension (`extension/`) is loaded unpacked from the app's folder for now (Ajustes › Navegador shows how).
+The extension (`extension/`) is loaded unpacked from the app's folder for now (Settings › Browser shows how).
 Publishing it needs the owner's **Chrome Web Store** developer account (one-off 5 USD), a **Microsoft Partner
 Center** account for Edge Add-ons, and an **addons.mozilla.org** account for Firefox. Each store gives the
 extension its own id: add it to `native_host.CHROME_EXTENSION_IDS` / `FIREFOX_EXTENSION_IDS` in the same release,

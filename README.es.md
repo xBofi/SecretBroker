@@ -2,7 +2,7 @@
 
 [English](README.md) · **Español**
 
-Bóveda de credenciales para Windows que permite a un agente de IA (Claude Code u otro cliente MCP) **usar** tus API keys, contraseñas y accesos **sin poder leerlos nunca**.
+Bóveda de credenciales para Windows, Ubuntu y macOS que permite a un agente de IA (Claude Code u otro cliente MCP) **usar** tus API keys, contraseñas y accesos **sin poder leerlos nunca**.
 
 ```
  Tú (app SecretBroker)                 Servicio SecretBroker               Internet / servidores
@@ -11,6 +11,14 @@ Bóveda de credenciales para Windows que permite a un agente de IA (Claude Code 
                                        ─ verifica tu firma Hello
  Claude ── MCP: «usa 'github'» ─────▶  ─ ejecuta y censura la salida ◀── respuesta sin secretos
 ```
+
+> **Estado.** Funciona en **Windows 10/11** y **Ubuntu 22.04 / 24.04**. La versión para **macOS 12+** (Apple
+> silicon e Intel) la compila e instala la integración continua, pero aún no se ha probado en un Mac real. La app, la
+> extensión del navegador y los mensajes del servicio están en **32 idiomas**: inglés, español, catalán, gallego,
+> euskera, alemán, francés, italiano, portugués, neerlandés, danés, sueco, noruego, finés, polaco, checo, eslovaco,
+> esloveno, croata, húngaro, rumano, búlgaro, griego, estonio, letón, lituano, irlandés, maltés, ruso, ucraniano, turco
+> y chino simplificado. Sigue el idioma del sistema; se cambia en Ajustes › Idioma. Los cambios de cada versión están
+> en [CHANGELOG.md](CHANGELOG.md) (en inglés).
 
 ## Instalación
 
@@ -27,7 +35,7 @@ Sin instalar, la app funciona en **modo de desarrollo** (`.venv\Scripts\secretbr
 
 ### Publicar una versión
 
-Sube la versión en `pyproject.toml`, `secretbroker/__init__.py` e `installer/SecretBroker.iss`, y empuja una etiqueta `v<versión>`. GitHub Actions (`.github/workflows/release.yml`) pasa las pruebas, compila el instalador, lo firma con el secret `UPDATE_SIGNING_KEY` y lo publica en Releases. Las apps instaladas lo verán solas. La clave de firma se creó con `tools/new_signing_key.py`, que solo imprime la clave pública y la privada ya cifrada para GitHub.
+Sube la versión en `pyproject.toml`, `secretbroker/__init__.py`, `server/pyproject.toml`, `server/secretbroker_server/__init__.py`, `installer/SecretBroker.iss` y `extension/manifest.json`, añade la entrada en `CHANGELOG.md` y empuja una etiqueta `v<versión>`. GitHub Actions (`.github/workflows/release.yml`) pasa las pruebas en los tres sistemas, compila el instalador de Windows, el `.deb` y los `.pkg`, los firma con el secret `UPDATE_SIGNING_KEY` y deja un borrador en Releases que hay que publicar a mano (ver [docs/RELEASING.md](docs/RELEASING.md)). Las apps instaladas lo verán solas. La clave de firma se creó con `tools/new_signing_key.py`, que solo imprime la clave pública y la privada ya cifrada para GitHub.
 
 ### Generar el instalador
 
@@ -47,6 +55,22 @@ tools/build_deb.sh        # -> dist/secretbroker_<versión>_amd64.deb
 ```
 
 El diseño (aislamiento, polkit, PAM) está en `docs/ARCHITECTURE.md`, sección «Platforms».
+
+### macOS 12+ (vista previa)
+
+Descarga `SecretBroker-<versión>-macos-arm64.pkg` (Apple silicon) o `-macos-x86_64.pkg` (Intel), ábrelo y sigue el instalador. Mientras el paquete no esté firmado con el Developer ID del proyecto, macOS dice que «no se puede verificar»: haz clic derecho y elige **Abrir**, o permítelo en **Ajustes del Sistema › Privacidad y seguridad**. Touch ID también necesita la app firmada; hasta entonces desbloqueas con la contraseña del Mac o la maestra una vez por sesión y apruebas con un clic. El servicio corre con su propio usuario oculto, desde una copia del código que solo root puede cambiar.
+
+### Extensión del navegador
+
+Rellena usuarios, contraseñas y códigos 2FA en **Chrome, Edge, Brave y Firefox**, solo en la web donde se guardó cada login (dominio registrable: un dominio parecido de *phishing* no recibe nada) y solo tras tu clic o Ctrl+Shift+L. Ofrece guardar los logins nuevos y los cambios de contraseña, nunca rellena las credenciales de equipo marcadas «Solo uso» y habla con la app por *native messaging* (sin puertos abiertos). Mientras no esté en las tiendas de extensiones se carga desde la carpeta de la app, sin terminal:
+
+1. En la app, **Ajustes › Navegador › Instalar la extensión** abre la página de extensiones del navegador y la carpeta.
+2. **Chrome, Edge, Brave**: activa el *Modo de desarrollador*, pulsa *Cargar descomprimida* y elige la carpeta. **Firefox**: `about:debugging` › *Este Firefox* › *Cargar complemento temporal…* › `manifest.json`, y permite el acceso a todos los sitios desde el botón de extensiones. Firefox la olvida al cerrarse hasta que esté en addons.mozilla.org.
+3. Abre la extensión y pulsa **Conectar**: la app muestra el mismo código de 6 dígitos y la conecta con un clic.
+
+### Equipos (vista previa)
+
+Organizaciones, colecciones compartidas y permisos por persona (gestionar, editar, ver, solo usar), sincronizados **cifrados de extremo a extremo** a través de un servidor que no ve ningún secreto ni nombre de credencial y que puedes alojar tú mismo con Docker ([server/README.md](server/README.md)). Las invitaciones solo llegan a correos verificados; las listas de miembros, los cambios y los borrados van firmados por quien los hizo; cuando alguien se va se cambian las claves de la colección y todo lo que podía ver queda marcado para rotar. Detalles en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) y [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
 ## Uso
 

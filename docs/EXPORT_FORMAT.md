@@ -52,7 +52,7 @@ shows the list of names and skips the credentials you already have.
   "format": "secretbroker-export",
   "version": 1,
   "exported": "2026-10-31T10:00:00+00:00",
-  "app": "0.15.0",
+  "app": "0.16.0",
   "entries": [
     {
       "id": "github", "name": "GitHub", "template": "api_key", "description": "Notes the AI reads",
