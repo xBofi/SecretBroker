@@ -536,10 +536,31 @@ def test_email_verification():
             check(victim.register("bob@example.com", invite_token=None).json()["verified"] is False, "bob registers")
             bob_invite = alice.ok("POST", f"/orgs/{oid}/invites", {"email": "carol@example.com", "role": "member"})["id"]
             carol = Api(base)
-            check(carol.register("carol@example.com", bob_invite).json()["verified"] is True,
-                  "registering with an organization invite code (from the admin) verifies the address")
+            joined = carol.register("carol@example.com", bob_invite).json()
+            check(joined["verified"] is False and joined["invited_to"] == oid,
+                  "registering with an organization invite code (from its admin) proves the address to that org")
             carol.token = carol.login().json()["token"]
             check([i["id"] for i in carol.ok("GET", "/invites")] == [bob_invite], "and the invite is there")
+            check(any(m["user_id"] == carol.id for m in alice.ok("GET", f"/orgs/{oid}/members"))
+                  and alice.call("GET", f"/users/{carol.id}/keys").status_code == 200,
+                  "the inviting org sees the account and its keys")
+            # But any account can make an org and invite any address: its own invite code must not verify the
+            # address for everybody else's invites (Mallory takes Dave's address with an invite she wrote).
+            mallory_org = mallory.ok("POST", "/orgs", {"name": "Mallory"})["id"]
+            own_code = mallory.ok("POST", f"/orgs/{mallory_org}/invites", {"email": "dave@example.com", "role": "member"})["id"]
+            fake = Api(base)
+            check(fake.register("dave@example.com", own_code).json()["verified"] is False,
+                  "an invite code a stranger wrote does not verify the address")
+            fake.token = fake.login().json()["token"]
+            real = alice.ok("POST", f"/orgs/{oid}/invites", {"email": "dave@example.com", "role": "member"})["id"]
+            check([i["org_id"] for i in fake.ok("GET", "/invites")] == [mallory_org],
+                  "it sees only the invite of the org that handed out the code")
+            refused = fake.call("POST", f"/invites/{real}/accept")
+            check(refused.status_code == 403 and refused.json()["code"] == "email_unverified",
+                  "and cannot accept another org's invite to that address")
+            row = next(m for m in alice.ok("GET", f"/orgs/{oid}/members") if m["email"] == "dave@example.com")
+            check(row["user_id"] is None and alice.call("GET", f"/users/{fake.id}/keys").status_code == 404,
+                  "nor is it shown to that org as Dave, nor its keys")
             run_cli(settings, ["verify-email", "bob@example.com"])
             victim.token = victim.login().json()["token"]
             check(victim.ok("GET", "/me")["user"]["verified"], "the server admin verifies an account from the CLI")

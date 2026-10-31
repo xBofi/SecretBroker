@@ -56,7 +56,8 @@ address; otherwise whoever registered someone's address first would get their in
 - **A code by e-mail** (recommended): set the `SB_SMTP_*` variables below. New accounts get an 8-digit code, valid
   30 minutes, which they type in SecretBroker › Equipo (at most one new code a minute, 5 tries per code).
 - **Registering with an organization invite code**: the link an admin passes on (`secretbroker://join?…&code=…`)
-  verifies the address at once, since the admin chose who to give it to.
+  lets that account see and accept that organization's invites at once, since its admin chose who to give it to.
+  It does not verify the address for other organizations (anyone can create one and invite any address).
 - **The admin, from the command line**, for servers without e-mail, after checking who the person is:
 
   ```sh

@@ -65,7 +65,8 @@ def list_members(ctx):
                for r in rows]
     # An account that has not verified the invited e-mail is not shown as that person (it may not be them).
     invites = ctx.conn.execute("SELECT i.id, i.email, i.role, u.id AS user_id, u.name FROM invites i LEFT JOIN users u "
-                               "ON u.email = i.email AND u.verified = 1 WHERE i.org_id = ? ORDER BY i.email",
+                               "ON u.email = i.email AND (u.verified = 1 OR u.invited_to = i.org_id) WHERE i.org_id = ? "
+                               "ORDER BY i.email",
                                (oid,)).fetchall()
     # The invite id doubles as a signup token for that e-mail (SB_SIGNUPS=invite): only admins see it.
     admin = caller["role"] in ADMIN_ROLES
@@ -98,14 +99,17 @@ def unverified():
 
 @route("GET", "/invites")
 def my_invites(ctx):
-    """Invites only bind to an address the account proved it owns: until then it sees none."""
-    if not ctx.user["verified"]:
-        return []
+    """Invites only bind to an address the account proved it owns: until then it sees none, except those of the
+    organization whose invite code it registered with."""
     rows = ctx.conn.execute(
         "SELECT i.id, i.org_id, o.name AS org_name, i.role, i.invited_by, u.email AS invited_by_email, "
         "u.name AS invited_by_name FROM invites i JOIN orgs o ON o.id = i.org_id LEFT JOIN users u "
         "ON u.id = i.invited_by WHERE i.email = ? ORDER BY i.created", (ctx.user["email"],)).fetchall()
-    return [dict(r) for r in rows]
+    return [dict(r) for r in rows if _may_take(ctx.user, r["org_id"])]
+
+
+def _may_take(user, oid):
+    return bool(user["verified"]) or user["invited_to"] == oid
 
 
 def _invite_for_me(ctx):
@@ -121,7 +125,7 @@ def accept_invite(ctx):
     row = _invite_for_me(ctx)
     if row["email"] != ctx.user["email"]:
         raise not_found()
-    if not ctx.user["verified"]:
+    if not _may_take(ctx.user, row["org_id"]):
         raise unverified()
     ctx.conn.execute("DELETE FROM invites WHERE id = ?", (row["id"],))
     ctx.conn.execute("INSERT INTO org_members (org_id, user_id, role, status, created) VALUES (?, ?, ?, 'accepted', ?) "

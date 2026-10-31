@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
     private_blob TEXT NOT NULL,
     is_admin INTEGER NOT NULL DEFAULT 0,
     verified INTEGER NOT NULL DEFAULT 0,
+    invited_to TEXT,
     created TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS email_codes (
@@ -149,6 +150,8 @@ def _migrate(conn):
     if "verified" not in _columns(conn, "users"):
         conn.execute("ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0")
         conn.execute("UPDATE users SET verified = 1")
+    if "invited_to" not in _columns(conn, "users"):
+        conn.execute("ALTER TABLE users ADD COLUMN invited_to TEXT")
     if "deletion" not in _columns(conn, "items"):
         conn.execute("ALTER TABLE items ADD COLUMN deletion TEXT")
 

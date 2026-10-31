@@ -37,13 +37,16 @@ def prelogin(ctx):
 
 
 def _org_invite(ctx, address, token):
-    """Whether `token` is the id of a pending organization invite for this very e-mail. An admin handed that code
-    to the person they invited, so registering with it also proves the address is theirs."""
+    """The organization of the pending invite whose id is `token`, if it is for this very e-mail (None otherwise).
+    That organization's admin handed the code to the person they invited, so it shows the address is theirs to
+    that organization only: any account can create an organization and invite any address, so it never verifies
+    the address for the invites of others (users.invited_to)."""
     try:
         invite_id = uuid_id(token)
     except ApiError:
-        return False
-    return bool(ctx.conn.execute("SELECT 1 FROM invites WHERE id = ? AND email = ?", (invite_id, address)).fetchone())
+        return None
+    row = ctx.conn.execute("SELECT org_id FROM invites WHERE id = ? AND email = ?", (invite_id, address)).fetchone()
+    return row["org_id"] if row else None
 
 
 def _check_signup(ctx, address, token):
@@ -87,29 +90,30 @@ def register(ctx):
     if conn.execute("SELECT 1 FROM users WHERE email = ?", (data["email"],)).fetchone():
         raise ApiError(409, "email_taken", "Ya hay una cuenta con ese e-mail.")
     first = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
-    verified = ctx.settings.verification == "off" or bool(
-        data["invite_token"] and _org_invite(ctx, data["email"], data["invite_token"]))
+    verified = ctx.settings.verification == "off"
+    invited_to = None if verified or not data["invite_token"] else _org_invite(ctx, data["email"], data["invite_token"])
     salt = security.new_salt()
     conn.execute(
         "INSERT INTO users (id, email, name, kdf, auth_salt, auth_verifier, public_key, signing_public_key, "
-        "private_blob, is_admin, verified, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "private_blob, is_admin, verified, invited_to, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (data["user_id"], data["email"], data["name"], json.dumps(data["kdf"]), salt,
          security.verifier(data["auth_hash"], salt), data["public_key"], data["signing_public_key"],
          json.dumps(data["private_blob"]), int(first or data["email"] in ctx.settings.admin_emails), int(verified),
-         now_iso()))
+         invited_to, now_iso()))
     if token_digest:
         conn.execute("UPDATE signup_tokens SET used_by = ? WHERE token_hash = ?", (data["user_id"], token_digest))
     event(conn, None, data["user_id"], "register", data["user_id"])
     if not verified and ctx.settings.smtp:
         _send_code(ctx, conn, data["user_id"], data["email"])
-    return {"user_id": data["user_id"], "verified": verified}
+    return {"user_id": data["user_id"], "verified": verified, **({"invited_to": invited_to} if invited_to else {})}
 
 
 # ---------------------------------------------------------------------- e-mail verification
 #
 # Organization invites are addressed to an e-mail; until the account proves it owns that address (a code sent by
-# e-mail, an invite code, or the admin from the command line) it cannot see or accept invites, and nobody's
-# invites expose it, so registering someone else's address first gains nothing.
+# e-mail, or the admin from the command line) it cannot see or accept invites, and nobody's invites expose it, so
+# registering someone else's address first gains nothing. Registering with an invite code only opens the invites
+# of the organization that handed it out (users.invited_to).
 
 def _send_code(ctx, conn, user_id, address):
     """A fresh code, stored as an HMAC, e-mailed in the background (an SMTP server may take seconds)."""
@@ -278,8 +282,8 @@ _KEYS_SQL = ("SELECT u.id, u.email, u.name, u.public_key, u.signing_public_key F
              " u.id = ?"
              " OR EXISTS (SELECT 1 FROM org_members a JOIN org_members b ON a.org_id = b.org_id"
              "            WHERE a.user_id = ? AND b.user_id = u.id)"
-             " OR (u.verified = 1 AND EXISTS (SELECT 1 FROM invites i JOIN org_members a ON a.org_id = i.org_id"
-             "            WHERE a.user_id = ? AND i.email = u.email)))")
+             " OR EXISTS (SELECT 1 FROM invites i JOIN org_members a ON a.org_id = i.org_id"
+             "            WHERE a.user_id = ? AND i.email = u.email AND (u.verified = 1 OR u.invited_to = i.org_id)))")
 
 
 @route("GET", "/users/{uid}/keys")

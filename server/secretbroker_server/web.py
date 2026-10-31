@@ -79,8 +79,8 @@ def authenticate(server, header):
     if scheme.lower() != "bearer" or not token or len(token) > 200:
         raise unauthorized()
     row = server.db.conn().execute(
-        "SELECT s.id AS session_id, s.touched, s.expires, u.id, u.email, u.name, u.is_admin, u.verified "
-        "FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?",
+        "SELECT s.id AS session_id, s.touched, s.expires, u.id, u.email, u.name, u.is_admin, u.verified, "
+        "u.invited_to FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?",
         (security.token_hash(token),)).fetchone()
     now = now_epoch()
     if row is None or row["expires"] <= now:
