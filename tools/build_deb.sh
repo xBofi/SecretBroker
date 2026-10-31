@@ -131,7 +131,7 @@ Installed-Size: $SIZE
 Section: utils
 Priority: optional
 Homepage: https://github.com/xBofi/SecretBroker
-Depends: systemd, passwd, libpam-runtime, libpam0g, polkitd | policykit-1, xdg-utils, libglib2.0-bin,
+Depends: systemd, passwd, acl, libpam-runtime, libpam0g, polkitd | policykit-1, xdg-utils, libglib2.0-bin,
  libnss3, libxkbcommon0, libxkbcommon-x11-0, libegl1, libgl1, libopengl0, libfontconfig1, libfreetype6, libdbus-1-3,
  libxcb-cursor0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0,
  libxcb-shape0, libxcb-xinerama0, libxcb-xkb1, libxcomposite1, libxdamage1, libxrandr2, libxtst6, libxshmfence1,

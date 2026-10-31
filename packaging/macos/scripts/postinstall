@@ -9,8 +9,14 @@ APP=/Applications/SecretBroker.app
 RES="$APP/Contents/Resources"
 PYTHON="$RES/python/bin/python3"
 SETUP_PLIST=/Library/LaunchDaemons/com.secretbroker.setup.plist
+# What runs as root or as _secretbroker is copied out of /Applications, which an administrator's programs can change
+# without a password (see secretbroker-setup): the setup script and the Python the services run.
+SETUP=/Library/PrivilegedHelperTools/com.secretbroker.setup
 
-"$RES/secretbroker-setup" --restart
+install -d -o root -g wheel -m 0755 /Library/PrivilegedHelperTools
+install -m 0755 -o root -g wheel "$RES/secretbroker-setup" "$SETUP"
+"$SETUP" --install-runtime || exit 1
+"$SETUP" --restart
 
 install -m 0644 -o root -g wheel "$RES/com.secretbroker.setup.plist" "$SETUP_PLIST"
 launchctl bootout system/com.secretbroker.setup 2>/dev/null || true
@@ -19,7 +25,7 @@ launchctl bootstrap system "$SETUP_PLIST" 2>/dev/null || true
 mkdir -p /usr/local/bin
 ln -sfn "$RES/sb" /usr/local/bin/sb
 
-for user in $("$RES/secretbroker-setup" --users); do
+for user in $("$SETUP" --users); do
     home=$(dscl . -read "/Users/$user" NFSHomeDirectory 2>/dev/null | awk '{ print $2 }')
     [ -n "$home" ] && [ -d "$home" ] || continue
     # Let each account's browsers start the extension's native host (the app does it again on every start).
