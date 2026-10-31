@@ -2,7 +2,12 @@
 // domain), to fill or copy; a search over the rest to open their site; connecting the browser; saving a login.
 
 const ext = globalThis.browser || globalThis.chrome;
+// chrome.i18n with named values, in the order the message declares them (_locales/*/messages.json).
+const msg = (key, values = {}) => ext.i18n.getMessage(key, Object.values(values).map(String)) || key;
 const main = document.getElementById('main');
+document.documentElement.lang = ext.i18n.getUILanguage();
+for (const node of document.querySelectorAll('[data-i18n-title]')) { node.title = msg(node.dataset.i18nTitle); node.setAttribute('aria-label', node.title); }
+for (const node of document.querySelectorAll('[data-i18n-label]')) node.setAttribute('aria-label', msg(node.dataset.i18nLabel));
 const ask = (message) => ext.runtime.sendMessage(message).catch((error) => ({ ok: false, error: String(error) }));
 
 const ICONS = {
@@ -71,25 +76,25 @@ async function render() {
   const hello = answer && answer.hello;
   if (!hello || !hello.ok) {
     if (hello && hello.code === 'no_host') {
-      stateScreen('plug', 'Falta SecretBroker en este ordenador', hello.error,
-        el('p', {}, 'Instala SecretBroker y abre Ajustes › Navegador. Si acabas de instalarlo, reinicia el navegador.'));
+      stateScreen('plug', msg('secretbroker_is_missing_on_this'), hello.error,
+        el('p', {}, msg('install_secretbroker_and_open_settings')));
     } else {
-      stateScreen('alert', 'No se puede hablar con SecretBroker', (hello && hello.error) || 'Ábrelo y vuelve a intentarlo.',
-        el('button', { class: 'btn primary block', onclick: () => { ask({ type: 'open_app' }); window.close(); } }, 'Abrir SecretBroker'));
+      stateScreen('alert', msg('can_talk_secretbroker_2'), (hello && hello.error) || msg('open_it_and_try_again'),
+        el('button', { class: 'btn primary block', onclick: () => { ask({ type: 'open_app' }); window.close(); } }, msg('open_secretbroker')));
     }
     return;
   }
   const info = hello.result;
   if (info.state === 'no_vault') {
-    stateScreen('key', 'Crea tu bóveda primero', 'Abre SecretBroker y crea tu bóveda para guardar contraseñas.',
-      el('button', { class: 'btn primary block', onclick: () => { ask({ type: 'open_app' }); window.close(); } }, 'Abrir SecretBroker'));
+    stateScreen('key', msg('create_your_vault_first'), msg('open_secretbroker_and_create_your'),
+      el('button', { class: 'btn primary block', onclick: () => { ask({ type: 'open_app' }); window.close(); } }, msg('open_secretbroker')));
     return;
   }
   if (!info.paired) { renderPairing(info); return; }
   clearTimeout(pairTimer);
   if (info.state !== 'unlocked') {
-    stateScreen('lock', 'SecretBroker está bloqueado', 'Desbloquéalo para rellenar tus contraseñas.',
-      el('button', { class: 'btn primary block', onclick: () => { ask({ type: 'open_app' }); window.close(); } }, 'Desbloquear'));
+    stateScreen('lock', msg('secretbroker_is_locked_2'), msg('unlock_it_fill_in_your'),
+      el('button', { class: 'btn primary block', onclick: () => { ask({ type: 'open_app' }); window.close(); } }, msg('unlock')));
     return;
   }
   renderLogins(answer);
@@ -97,9 +102,9 @@ async function render() {
 
 function renderPairing(info) {
   if (info.pending) {
-    stateScreen('plug', 'Confírmalo en SecretBroker', 'Comprueba que SecretBroker muestra este mismo código y pulsa «Conectar».',
-      el('div', { class: 'code', 'aria-label': 'Código' }, `${info.pending.code.slice(0, 3)} ${info.pending.code.slice(3)}`),
-      el('button', { class: 'btn block', onclick: () => { ask({ type: 'open_app' }); } }, 'Abrir SecretBroker'));
+    stateScreen('plug', msg('confirm_it_in_secretbroker'), msg('check_that_secretbroker_shows_this'),
+      el('div', { class: 'code', 'aria-label': msg('code') }, `${info.pending.code.slice(0, 3)} ${info.pending.code.slice(3)}`),
+      el('button', { class: 'btn block', onclick: () => { ask({ type: 'open_app' }); } }, msg('open_secretbroker')));
     clearTimeout(pairTimer);
     pairTimer = setTimeout(render, 1500);  // until the user answers in the app
     return;
@@ -109,13 +114,13 @@ function renderPairing(info) {
     const result = await ask({ type: 'pair' });
     if (!result || !result.ok) {
       connect.disabled = false;
-      message(result && result.code === 'locked' ? 'Desbloquea SecretBroker y vuelve a pulsar «Conectar».' : (result && result.error) || 'No se pudo conectar.', true);
+      message(result && result.code === 'locked' ? msg('unlock_secretbroker_and_click_connect') : (result && result.error) || msg('couldn_connect'), true);
       return;
     }
     ask({ type: 'open_app' });
     render();
-  } }, `Conectar ${info.browser}`);
-  stateScreen('plug', 'Conecta este navegador', 'Así podrá rellenar tus contraseñas. SecretBroker te pedirá que lo confirmes con un clic.', connect);
+  } }, msg('connect', { browser: info.browser }));
+  stateScreen('plug', msg('connect_this_browser'), msg('that_way_it_can_fill'), connect);
 }
 
 function siteLine(list, fallbackHost) {
@@ -123,32 +128,32 @@ function siteLine(list, fallbackHost) {
   const host = result ? result.domain : fallbackHost;
   if (!host) return null;
   return el('div', { class: 'site' }, icon(result && !result.secure ? 'alert' : 'globe'),
-    el('span', {}, result && result.frame ? 'Formulario de' : 'Estás en'), el('span', { class: 'domain', title: result ? result.host : host }, host),
-    result && !result.secure ? el('span', { class: 'insecure' }, '· sin https') : null);
+    el('span', {}, result && result.frame ? msg('form_from') : msg('you_re_on')), el('span', { class: 'domain', title: result ? result.host : host }, host),
+    result && !result.secure ? el('span', { class: 'insecure' }, msg('no_https')) : null);
 }
 
 function offerBox(offer) {
   if (!offer) return null;
   const update = offer.action === 'update';
-  const name = el('input', { class: 'search', style: 'padding-left:10px;margin-bottom:8px', value: offer.name, 'aria-label': 'Nombre' });
+  const name = el('input', { class: 'search', style: 'padding-left:10px;margin-bottom:8px', value: offer.name, 'aria-label': msg('name') });
   const save = el('button', { class: 'btn primary', onclick: async () => {
     save.disabled = true;
     const result = await ask({ type: 'offer_answer', id: offer.id, save: true, name: update ? undefined : name.value.trim() || offer.name });
-    if (result && result.ok) { message(update ? 'Contraseña actualizada' : 'Guardado'); render(); } else { save.disabled = false; message((result && result.error) || 'No se pudo guardar', true); }
-  } }, update ? 'Actualizar' : 'Guardar');
+    if (result && result.ok) { message(update ? msg('password_updated') : msg('saved')); render(); } else { save.disabled = false; message((result && result.error) || msg('couldn_save'), true); }
+  } }, update ? msg('update') : msg('save'));
   return el('div', { class: 'offer' },
-    el('b', {}, update ? `¿Actualizar la contraseña de «${offer.name}»?` : '¿Guardar este inicio de sesión?'),
+    el('b', {}, update ? msg('update_password', { name: offer.name }) : msg('save_this_login')),
     el('p', {}, `${offer.username} · ${offer.host}`),
     update ? null : name,
-    el('div', { class: 'buttons' }, el('button', { class: 'btn', onclick: async () => { await ask({ type: 'offer_answer', id: offer.id, save: false }); render(); } }, 'Ahora no'), save));
+    el('div', { class: 'buttons' }, el('button', { class: 'btn', onclick: async () => { await ask({ type: 'offer_answer', id: offer.id, save: false }); render(); } }, msg('not_now')), save));
 }
 
 async function copy(login, what) {
   const result = await ask({ type: 'copy', id: login.id, what });
-  if (!result || !result.ok) { message((result && result.error) || 'No se pudo copiar', true); return; }
+  if (!result || !result.ok) { message((result && result.error) || msg('couldn_copy'), true); return; }
   const value = what === 'totp' ? result.result.totp : what === 'username' ? result.result.username : result.result.password;
   await navigator.clipboard.writeText(value || '');
-  message({ username: 'Usuario copiado', password: 'Contraseña copiada', totp: 'Código 2FA copiado' }[what]);
+  message({ username: msg('username_copied'), password: msg('password_copied'), totp: msg('2fa_code_copied') }[what]);
 }
 
 function loginRow(login) {
@@ -156,34 +161,34 @@ function loginRow(login) {
     fill.disabled = true;
     const result = await ask({ type: 'fill', id: login.id });
     if (result && result.ok) window.close();
-    else { fill.disabled = false; message((result && result.error) || 'No se pudo rellenar', true); }
-  } }, 'Rellenar');
+    else { fill.disabled = false; message((result && result.error) || msg('couldn_fill_it_in'), true); }
+  } }, msg('fill_in'));
   const actions = login.can_fill ? [
-    el('button', { class: 'icon-btn', title: 'Copiar usuario', 'aria-label': 'Copiar usuario', onclick: () => copy(login, 'username') }, icon('user')),
-    el('button', { class: 'icon-btn', title: 'Copiar contraseña', 'aria-label': 'Copiar contraseña', onclick: () => copy(login, 'password') }, icon('key')),
-    login.totp ? el('button', { class: 'icon-btn', title: 'Copiar código 2FA', 'aria-label': 'Copiar código 2FA', onclick: () => copy(login, 'totp') }, icon('clock')) : null,
+    el('button', { class: 'icon-btn', title: msg('copy_username'), 'aria-label': msg('copy_username'), onclick: () => copy(login, 'username') }, icon('user')),
+    el('button', { class: 'icon-btn', title: msg('copy_password'), 'aria-label': msg('copy_password'), onclick: () => copy(login, 'password') }, icon('key')),
+    login.totp ? el('button', { class: 'icon-btn', title: msg('copy_2fa_code'), 'aria-label': msg('copy_2fa_code'), onclick: () => copy(login, 'totp') }, icon('clock')) : null,
     fill] : [];
-  return el('div', { class: 'row', title: login.can_fill ? `Guardada para ${login.site}` : '' },
+  return el('div', { class: 'row', title: login.can_fill ? msg('saved_for', { site: login.site }) : '' },
     el('div', { class: 'avatar' }, (login.name.trim().charAt(0) || '?').toUpperCase()),
     el('div', { class: 'who' }, el('div', { class: 'name' }, login.name),
       login.can_fill
-        ? el('div', { class: 'user' }, login.username || 'Sin usuario', login.collection ? ` · ${login.collection}` : '')
-        : el('div', { class: 'user locked', title: 'Las credenciales del equipo de solo uso las puede usar la IA, pero no se muestran: rellenarla se la daría a la página.' },
-          'Solo uso en el equipo: no se rellena')),
+        ? el('div', { class: 'user' }, login.username || msg('no_username'), login.collection ? ` · ${login.collection}` : '')
+        : el('div', { class: 'user locked', title: msg('use_only_team_credentials_can') },
+          msg('use_only_on_team_not'))),
     el('div', { class: 'actions' }, actions));
 }
 
 function renderLogins(answer) {
   const list = answer.list;
   const page = list && list.ok ? list.result : null;
-  const search = el('input', { class: 'search', type: 'search', placeholder: 'Buscar en SecretBroker', 'aria-label': 'Buscar' });
+  const search = el('input', { class: 'search', type: 'search', placeholder: msg('search_secretbroker'), 'aria-label': msg('search') });
   const results = el('div', {});
   const matches = el('div', {});
   if (!page) {
     matches.append(el('div', { class: 'empty' }, list && list.code === 'frame' ? list.error
-      : answer.page ? (list && list.error) || 'Esta página no se puede rellenar.' : 'Abre una web para ver sus contraseñas.'));
+      : answer.page ? (list && list.error) || msg('this_page_can_be_filled') : msg('open_website_see_its_passwords')));
   } else if (!page.logins.length) {
-    matches.append(el('div', { class: 'empty' }, `No hay nada guardado para ${page.domain}. Inicia sesión y te ofreceré guardarlo.`));
+    matches.append(el('div', { class: 'empty' }, msg('nothing_saved_for_sign_in', { domain: page.domain })));
   } else {
     matches.append(el('div', { class: 'list' }, page.logins.map(loginRow)));
   }
@@ -198,16 +203,16 @@ function renderLogins(answer) {
       const elsewhere = found && found.ok ? found.result.results.filter((r) => !local.some((l) => l.id === r.id)) : [];
       matches.hidden = true;
       results.replaceChildren(...[
-        local.length ? el('div', { class: 'section' }, 'En esta web') : null,
+        local.length ? el('div', { class: 'section' }, msg('on_this_website')) : null,
         local.length ? el('div', { class: 'list' }, local.map(loginRow)) : null,
-        elsewhere.length ? el('div', { class: 'section' }, 'En otras webs') : null,
+        elsewhere.length ? el('div', { class: 'section' }, msg('on_other_websites')) : null,
         elsewhere.length ? el('div', { class: 'list' }, elsewhere.map((r) => el('div', { class: 'row' },
           el('div', { class: 'avatar' }, (r.name.trim().charAt(0) || '?').toUpperCase()),
-          el('div', { class: 'who' }, el('div', { class: 'name' }, r.name), el('div', { class: 'user' }, `${r.username || 'Sin usuario'} · ${r.host}`)),
-          el('div', { class: 'actions' }, el('button', { class: 'icon-btn', title: `Abrir ${r.host} (allí se puede rellenar)`, 'aria-label': `Abrir ${r.host}`,
+          el('div', { class: 'who' }, el('div', { class: 'name' }, r.name), el('div', { class: 'user' }, `${r.username || msg('no_username')} · ${r.host}`)),
+          el('div', { class: 'actions' }, el('button', { class: 'icon-btn', title: msg('open_it_can_be_filled', { host: r.host }), 'aria-label': msg('open', { host: r.host }),
             onclick: () => { ask({ type: 'open_site', url: r.url }); window.close(); } }, icon('external'))))))
           : null,
-        !local.length && !elsewhere.length ? el('div', { class: 'empty' }, 'Nada coincide.') : null].filter(Boolean));
+        !local.length && !elsewhere.length ? el('div', { class: 'empty' }, msg('nothing_matches')) : null].filter(Boolean));
     }, 150);
   });
   main.replaceChildren(...[
@@ -215,8 +220,8 @@ function renderLogins(answer) {
     siteLine(list, answer.page && answer.page.host),
     el('div', { class: 'search-wrap' }, icon('search'), search),
     matches, results,
-    el('div', { class: 'hint' }, el('span', {}, 'Solo se rellena en la web de cada contraseña.'),
-      el('span', { title: 'Rellenar sin abrir esta ventana' }, el('kbd', {}, shortcut() || 'Ctrl+Shift+L')))].filter(Boolean));
+    el('div', { class: 'hint' }, el('span', {}, msg('it_only_fills_in_on')),
+      el('span', { title: msg('fill_in_without_opening_this') }, el('kbd', {}, shortcut() || 'Ctrl+Shift+L')))].filter(Boolean));
   search.focus();
 }
 

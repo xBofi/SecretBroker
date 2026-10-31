@@ -6,6 +6,8 @@
 // Values are asked for one at a time, after a click or the keyboard shortcut, and go only to the frame that asked.
 
 const ext = globalThis.browser || globalThis.chrome;
+// chrome.i18n with named values, in the order the message declares them (_locales/*/messages.json).
+const msg = (key, values = {}) => ext.i18n.getMessage(key, Object.values(values).map(String)) || key;
 const HOST = 'com.secretbroker.autofill';
 const REPLY_TIMEOUT = 35000;
 const OFFER_MINUTES = 5;
@@ -39,8 +41,8 @@ function connect() {
 
 function hostError(error) {
   return /not found|no such native|specified native messaging host/i.test(error)
-    ? 'SecretBroker no está instalado en este ordenador, o falta conectarlo con el navegador.'
-    : 'No se puede hablar con SecretBroker. Ábrelo y vuelve a intentarlo.';
+    ? msg('secretbroker_isn_installed_on_this')
+    : msg('can_talk_secretbroker_open_it');
 }
 
 async function pairing() {
@@ -62,7 +64,7 @@ function browserName() {
   if (/Firefox\//.test(navigator.userAgent)) return 'Firefox';
   if (brands.some((b) => /Opera/i.test(b))) return 'Opera';
   if (brands.some((b) => /Chrome/i.test(b))) return 'Chrome';
-  return 'Navegador';
+  return msg('browser');
 }
 
 async function native(op, params = {}) {
@@ -76,7 +78,7 @@ async function native(op, params = {}) {
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       waiting.delete(id);
-      resolve({ id, ok: false, code: 'timeout', error: 'SecretBroker no ha contestado a tiempo.' });
+      resolve({ id, ok: false, code: 'timeout', error: msg('secretbroker_didn_answer_in_time') });
     }, REPLY_TIMEOUT);
     waiting.set(id, { resolve, timer });
     try {
@@ -144,15 +146,15 @@ async function logins(tab, frame) {
 async function fill(tab, frame, id, what) {
   if (frame.frameId !== 0) {
     const visible = await ext.tabs.sendMessage(tab.id, { type: 'frame_visible', url: frame.url }, { frameId: 0 }).catch(() => false);
-    if (!visible) return { ok: false, code: 'hidden', error: 'El formulario está en un marco oculto o muy pequeño: no se rellena.' };
+    if (!visible) return { ok: false, code: 'hidden', error: msg('form_is_in_hidden_or') };
   }
   const params = { url: tab.url, id, what };
   if (frame.frameId !== 0) params.frame_url = frame.url;
   const answer = await native('fill', params);
   if (!answer.ok) return answer;
   const applied = await ext.tabs.sendMessage(tab.id, { type: 'apply', what, values: answer.result }, { frameId: frame.frameId })
-    .catch(() => ({ ok: false, error: 'La página ha cambiado. Vuelve a intentarlo.' }));
-  return applied && applied.ok ? { ok: true } : { ok: false, code: 'not_filled', error: (applied && applied.error) || 'No se encontró dónde rellenarlo.' };
+    .catch(() => ({ ok: false, error: msg('page_has_changed_try_again') }));
+  return applied && applied.ok ? { ok: true } : { ok: false, code: 'not_filled', error: (applied && applied.error) || msg('couldn_find_where_fill_it') };
 }
 
 async function fillFromShortcut() {
@@ -161,11 +163,11 @@ async function fillFromShortcut() {
   const frame = await loginFrame(tab);
   const answer = await logins(tab, frame);
   const say = (text) => ext.tabs.sendMessage(tab.id, { type: 'toast', text }, { frameId: 0 }).catch(() => {});
-  if (!answer.ok) { say(answer.code === 'locked' ? 'SecretBroker está bloqueado. Desbloquéalo y vuelve a intentarlo.' : answer.error); return; }
+  if (!answer.ok) { say(answer.code === 'locked' ? msg('secretbroker_is_locked_unlock_it') : answer.error); return; }
   const usable = answer.result.logins.filter((l) => l.can_fill);
   if (!usable.length) {
-    say(answer.result.logins.length ? 'Esta credencial del equipo es de solo uso: no se rellena en el navegador.'
-      : `No hay inicios de sesión guardados para ${answer.result.domain}.`);
+    say(answer.result.logins.length ? msg('this_team_credential_is_use')
+      : msg('there_are_no_saved_logins', { domain: answer.result.domain }));
     return;
   }
   const result = await fill(tab, frame, usable[0].id, 'login');
@@ -201,7 +203,7 @@ async function submitted(tab, sender, data) {
 async function answerOffer(tabId, id, save, name) {
   const state = await tabState(tabId);
   const offer = state.offer;
-  if (!offer || offer.id !== id || offer.expires < Date.now()) return { ok: false, error: 'Ya no está pendiente.' };
+  if (!offer || offer.id !== id || offer.expires < Date.now()) return { ok: false, error: msg('it_no_longer_pending') };
   delete state.offer;
   await setTabState(tabId, state);
   if (!save) return { ok: true, result: { saved: false } };
@@ -268,7 +270,7 @@ async function onMessage(message, sender) {
     case 'open_app':
       return native('open_app');
     case 'fill':
-      if (!tab || !isWebPage(tab.url)) return { ok: false, error: 'Abre la web donde quieres entrar.' };
+      if (!tab || !isWebPage(tab.url)) return { ok: false, error: msg('open_website_you_want_sign') };
       return fill(tab, await loginFrame(tab), message.id, message.what === 'totp' ? 'totp' : 'login');
     case 'copy': {
       if (!tab || !isWebPage(tab.url)) return { ok: false };

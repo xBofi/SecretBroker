@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "2FA code"
+  },
+  "2fa_code_copied": {
+    "message": "2FA code copied"
+  },
+  "browser": {
+    "message": "Browser"
+  },
+  "can_talk_secretbroker": {
+    "message": "Can't talk to SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Can't talk to SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Can't talk to SecretBroker. Open it and try again."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Check that SecretBroker shows this same code and click “Connect”."
+  },
+  "cmd_fill": {
+    "message": "Fill in the login for this website"
+  },
+  "cmd_open": {
+    "message": "Open SecretBroker"
+  },
+  "code": {
+    "message": "Code"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Confirm it in SecretBroker"
+  },
+  "connect": {
+    "message": "Connect $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Connect this browser"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Connect this browser: click the SecretBroker icon in the browser toolbar, then “Connect”."
+  },
+  "copy_2fa_code": {
+    "message": "Copy 2FA code"
+  },
+  "copy_password": {
+    "message": "Copy password"
+  },
+  "copy_username": {
+    "message": "Copy username"
+  },
+  "couldn_connect": {
+    "message": "Couldn't connect."
+  },
+  "couldn_copy": {
+    "message": "Couldn't copy"
+  },
+  "couldn_fill_it_in": {
+    "message": "Couldn't fill it in"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Couldn't find where to fill it in."
+  },
+  "couldn_look_it_up": {
+    "message": "Couldn't look it up."
+  },
+  "couldn_save": {
+    "message": "Couldn't save"
+  },
+  "create_your_vault_first": {
+    "message": "Create your vault first"
+  },
+  "ext_description": {
+    "message": "Fills in the passwords you keep in SecretBroker, only on their own website and only when you ask."
+  },
+  "fill_in": {
+    "message": "Fill in"
+  },
+  "fill_in_on": {
+    "message": "Fill in on $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Fill in with SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Fill in without opening this window"
+  },
+  "form_from": {
+    "message": "Form from"
+  },
+  "form_is_in_frame_too": {
+    "message": "The form is in a frame too small to see: it isn't filled in."
+  },
+  "form_is_in_hidden_or": {
+    "message": "The form is in a hidden or very small frame: it isn't filled in."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Install SecretBroker and open Settings › Browser. If you've just installed it, restart the browser."
+  },
+  "it_no_longer_pending": {
+    "message": "It's no longer pending."
+  },
+  "it_only_fills_in_on": {
+    "message": "It only fills in on each password's own website."
+  },
+  "loading": {
+    "message": "Loading"
+  },
+  "name": {
+    "message": "Name"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "No credential for $domain$ has a 2FA code.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· no https"
+  },
+  "no_username": {
+    "message": "No username"
+  },
+  "not_now": {
+    "message": "Not now"
+  },
+  "nothing_matches": {
+    "message": "Nothing matches."
+  },
+  "nothing_saved_for": {
+    "message": "Nothing saved for $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Nothing saved for $domain$. Sign in and I'll offer to save it.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "On other websites"
+  },
+  "on_this_website": {
+    "message": "On this website"
+  },
+  "open": {
+    "message": "Open $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Open it and try again."
+  },
+  "open_it_can_be_filled": {
+    "message": "Open $host$ (it can be filled in there)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Open SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Open SecretBroker and create your vault to save passwords."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Open a website to see its passwords."
+  },
+  "open_website_you_want_sign": {
+    "message": "Open the website you want to sign in to."
+  },
+  "page_has_changed_try_again": {
+    "message": "The page has changed. Try again."
+  },
+  "password_copied": {
+    "message": "Password copied"
+  },
+  "password_updated": {
+    "message": "Password updated"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Password updated in SecretBroker"
+  },
+  "save": {
+    "message": "Save"
+  },
+  "save_this_login": {
+    "message": "Save this login?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Save this password in SecretBroker?"
+  },
+  "saved": {
+    "message": "Saved"
+  },
+  "saved_for": {
+    "message": "Saved for $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Saved in SecretBroker"
+  },
+  "search": {
+    "message": "Search"
+  },
+  "search_secretbroker": {
+    "message": "Search SecretBroker"
+  },
+  "searching": {
+    "message": "Searching…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker didn't answer in time."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker is locked."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker is locked"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker is locked. Unlock it and try again."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "SecretBroker is missing on this computer"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker isn't installed on this computer, or it still needs to be connected to the browser."
+  },
+  "that_way_it_can_fill": {
+    "message": "That way it can fill in your passwords. SecretBroker will ask you to confirm it with one click."
+  },
+  "there_are_no_saved_logins": {
+    "message": "There are no saved logins for $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "There's no visible 2FA code field on this page."
+  },
+  "there_no_visible_login_form": {
+    "message": "There's no visible login form on this page."
+  },
+  "this_page_can_be_filled": {
+    "message": "This page can't be filled in."
+  },
+  "this_team_credential_is_use": {
+    "message": "This team credential is use-only: it isn't filled in in the browser."
+  },
+  "unlock": {
+    "message": "Unlock"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Unlock it and click here again."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Unlock it to fill in your passwords."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Unlock SecretBroker and click “Connect” again."
+  },
+  "update": {
+    "message": "Update"
+  },
+  "update_password": {
+    "message": "Update the password of “$name$”?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Use only: not filled in"
+  },
+  "use_only_on_team_not": {
+    "message": "Use only on the team: not filled in"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Use-only team credential: filling it in would show it to the page"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Use-only team credentials can be used by the AI, but they aren't shown: filling it in would give it to the page."
+  },
+  "username_copied": {
+    "message": "Username copied"
+  },
+  "you_re_on": {
+    "message": "You're on"
+  }
+}
