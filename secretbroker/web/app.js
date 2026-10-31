@@ -2504,7 +2504,7 @@ function drawTeam(content) {
     id === 'people' && peopleAlert ? el('span', { class: 'tab-dot', title: `${plural(peopleAlert, 'persona', 'personas')} por verificar` }) : null))) : null);
 
   let panel;
-  if (!org) panel = [teamNoOrg(data, rerender), teamAccountPanel(null, rerender)];
+  if (!org) panel = [teamNoOrg(data, rerender), el('div', { style: 'margin-top:28px' }, teamAccountPanel(null, rerender))];
   else if (!confirmed && state.teamTab !== 'account') panel = teamWaitingForAdmin(org);
   else if (state.teamTab === 'collections') panel = teamCollectionsPanel(org, collections, members, admin, content);
   else if (state.teamTab === 'people') panel = teamPeoplePanel(org, members, admin, rerender);
