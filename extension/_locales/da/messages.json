@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "2FA-kode"
+  },
+  "2fa_code_copied": {
+    "message": "2FA-kode kopieret"
+  },
+  "browser": {
+    "message": "Browser"
+  },
+  "can_talk_secretbroker": {
+    "message": "Kan ikke kommunikere med SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Kan ikke kommunikere med SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Kan ikke kommunikere med SecretBroker. Åbn den, og prøv igen."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Kontrollér, at SecretBroker viser den samme kode, og klik på »Forbind«."
+  },
+  "cmd_fill": {
+    "message": "Udfyld login til dette websted"
+  },
+  "cmd_open": {
+    "message": "Åbn SecretBroker"
+  },
+  "code": {
+    "message": "Kode"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Bekræft det i SecretBroker"
+  },
+  "connect": {
+    "message": "Forbind $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Forbind denne browser"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Forbind denne browser: klik på SecretBroker-ikonet på browserens værktøjslinje og derefter på »Forbind«."
+  },
+  "copy_2fa_code": {
+    "message": "Kopiér 2FA-kode"
+  },
+  "copy_password": {
+    "message": "Kopiér adgangskode"
+  },
+  "copy_username": {
+    "message": "Kopiér brugernavn"
+  },
+  "couldn_connect": {
+    "message": "Kunne ikke forbinde."
+  },
+  "couldn_copy": {
+    "message": "Kunne ikke kopiere"
+  },
+  "couldn_fill_it_in": {
+    "message": "Kunne ikke udfylde"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Kunne ikke finde, hvor det skal udfyldes."
+  },
+  "couldn_look_it_up": {
+    "message": "Kunne ikke slå det op."
+  },
+  "couldn_save": {
+    "message": "Kunne ikke gemme"
+  },
+  "create_your_vault_first": {
+    "message": "Opret din boks først"
+  },
+  "ext_description": {
+    "message": "Udfylder de adgangskoder, du gemmer i SecretBroker, kun på deres eget websted og kun når du beder om det."
+  },
+  "fill_in": {
+    "message": "Udfyld"
+  },
+  "fill_in_on": {
+    "message": "Udfyld på $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Udfyld med SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Udfyld uden at åbne dette vindue"
+  },
+  "form_from": {
+    "message": "Formular fra"
+  },
+  "form_is_in_frame_too": {
+    "message": "Formularen ligger i en ramme, der er for lille til at se: den udfyldes ikke."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Formularen ligger i en skjult eller meget lille ramme: den udfyldes ikke."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Installér SecretBroker, og åbn Indstillinger › Browser. Hvis du lige har installeret den, så genstart browseren."
+  },
+  "it_no_longer_pending": {
+    "message": "Den afventer ikke længere."
+  },
+  "it_only_fills_in_on": {
+    "message": "Den udfylder kun på hver adgangskodes eget websted."
+  },
+  "loading": {
+    "message": "Indlæser"
+  },
+  "name": {
+    "message": "Navn"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Ingen adgangsoplysninger til $domain$ har en 2FA-kode.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· ingen https"
+  },
+  "no_username": {
+    "message": "Intet brugernavn"
+  },
+  "not_now": {
+    "message": "Ikke nu"
+  },
+  "nothing_matches": {
+    "message": "Intet matcher."
+  },
+  "nothing_saved_for": {
+    "message": "Intet gemt til $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Intet gemt til $domain$. Log ind, så tilbyder jeg at gemme det.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "På andre websteder"
+  },
+  "on_this_website": {
+    "message": "På dette websted"
+  },
+  "open": {
+    "message": "Åbn $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Åbn den, og prøv igen."
+  },
+  "open_it_can_be_filled": {
+    "message": "Åbn $host$ (der kan det udfyldes)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Åbn SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Åbn SecretBroker, og opret din boks for at gemme adgangskoder."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Åbn et websted for at se dets adgangskoder."
+  },
+  "open_website_you_want_sign": {
+    "message": "Åbn det websted, du vil logge ind på."
+  },
+  "page_has_changed_try_again": {
+    "message": "Siden er ændret. Prøv igen."
+  },
+  "password_copied": {
+    "message": "Adgangskode kopieret"
+  },
+  "password_updated": {
+    "message": "Adgangskode opdateret"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Adgangskode opdateret i SecretBroker"
+  },
+  "save": {
+    "message": "Gem"
+  },
+  "save_this_login": {
+    "message": "Gem dette login?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Gem denne adgangskode i SecretBroker?"
+  },
+  "saved": {
+    "message": "Gemt"
+  },
+  "saved_for": {
+    "message": "Gemt til $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Gemt i SecretBroker"
+  },
+  "search": {
+    "message": "Søg"
+  },
+  "search_secretbroker": {
+    "message": "Søg i SecretBroker"
+  },
+  "searching": {
+    "message": "Søger…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker svarede ikke i tide."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker er låst."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker er låst"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker er låst. Lås den op, og prøv igen."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "SecretBroker mangler på denne computer"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker er ikke installeret på denne computer, eller den skal stadig forbindes med browseren."
+  },
+  "that_way_it_can_fill": {
+    "message": "Så kan den udfylde dine adgangskoder. SecretBroker beder dig bekræfte det med ét klik."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Der er ingen gemte logins til $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Der er intet synligt felt til en 2FA-kode på denne side."
+  },
+  "there_no_visible_login_form": {
+    "message": "Der er ingen synlig loginformular på denne side."
+  },
+  "this_page_can_be_filled": {
+    "message": "Denne side kan ikke udfyldes."
+  },
+  "this_team_credential_is_use": {
+    "message": "Disse teamadgangsoplysninger er »Kun brug«: de udfyldes ikke i browseren."
+  },
+  "unlock": {
+    "message": "Lås op"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Lås den op, og klik her igen."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Lås den op for at udfylde dine adgangskoder."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Lås SecretBroker op, og klik på »Forbind« igen."
+  },
+  "update": {
+    "message": "Opdater"
+  },
+  "update_password": {
+    "message": "Opdater adgangskoden til »$name$«?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Kun brug: udfyldes ikke"
+  },
+  "use_only_on_team_not": {
+    "message": "Kun brug i teamet: udfyldes ikke"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Teamadgangsoplysninger med »Kun brug«: udfyldning ville vise dem for siden"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Teamadgangsoplysninger med »Kun brug« kan bruges af AI'en, men de vises ikke: udfyldning ville give dem til siden."
+  },
+  "username_copied": {
+    "message": "Brugernavn kopieret"
+  },
+  "you_re_on": {
+    "message": "Du er på"
+  }
+}
