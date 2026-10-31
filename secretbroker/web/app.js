@@ -3926,17 +3926,21 @@ function collectionBlock(collection, orgMembers, content) {
   const manage = collection.permission === 'manage';
   const list = el('div', { class: 'collection-members' });
   const cached = ((state.teamData || {}).collection_members || {})[collection.id];
+  // The count follows the member list each time it loads (the cached one may be from before a grant).
+  const subtitle = el('div', { class: 'subtitle' });
+  const describe = (members) => { subtitle.textContent = [plural(collection.entries, 'credencial', 'credenciales'),
+    members ? plural(members.length, 'persona', 'personas') : null,
+    `Tu permiso: ${PERMISSION_LABELS[collection.permission]}`].filter(Boolean).join(' · '); };
+  describe(cached);
   const block = el('details', { class: 'collection', open: state.openCollection === collection.id },
     el('summary', {}, el('span', { class: 'chev' }, icon('chevronRight', 'sm')),
-      el('div', { class: 'meta' }, el('div', { class: 'title' }, collection.name),
-        el('div', { class: 'subtitle' }, [plural(collection.entries, 'credencial', 'credenciales'),
-          cached ? plural(cached.length, 'persona', 'personas') : null,
-          `Tu permiso: ${PERMISSION_LABELS[collection.permission]}`].filter(Boolean).join(' · '))),
+      el('div', { class: 'meta' }, el('div', { class: 'title' }, collection.name), subtitle),
       collection.needs_rekey ? el('span', { class: 'draft-badge', title: 'Alguien salió de ella. Quien la gestiona la vuelve a cifrar en su próxima sincronización; mientras, los cambios esperan en cada PC.' }, 'Se volverá a cifrar')
         : collection.single_manager ? el('span', { class: 'draft-badge', title: SINGLE_MANAGER_TEXT }, 'Un solo gestor') : null),
     collection.single_manager && manage ? el('div', { class: 'warning', style: 'margin:4px 0 8px' }, icon('alert', 'sm'), el('span', {}, SINGLE_MANAGER_TEXT)) : null,
     list);
   const draw = (inside) => {
+    describe(inside);
     const mine = state.team.user.id;
     const row = (m) => {
       const label = m.name || m.email || 'Alguien';
