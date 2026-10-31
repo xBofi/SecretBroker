@@ -31,17 +31,44 @@ SolidCompression=yes
 WizardStyle=modern
 WizardSizePercent=100
 CloseApplications=yes
+; The language of Windows (Spanish or English, else English), without asking: one click to install.
+ShowLanguageDialog=no
+LanguageDetectionMethod=uilanguage
 RestartApplications=no
 ChangesEnvironment=yes
 
 [Languages]
+Name: "en"; MessagesFile: "compiler:Default.isl"
 Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
 
 [Messages]
+en.WelcomeLabel2=This will install [name/ver] on this computer.%n%nSecretBroker keeps your passwords and API keys encrypted and lets AI use them without being able to read them. It runs under a Windows account of its own so that no other program can reach them.
 es.WelcomeLabel2=Se instalará [name/ver] en este equipo.%n%nSecretBroker guarda tus contraseñas y API keys cifradas y deja que la IA las use sin poder leerlas. Funciona con una cuenta de Windows propia para que ningún otro programa pueda acceder a ellas.
 
+[CustomMessages]
+en.DesktopIcon=Create a desktop shortcut
+es.DesktopIcon=Crear un acceso directo en el escritorio
+en.AppComment=Credential vault for your AI
+es.AppComment=Bóveda de credenciales para tu IA
+en.OpenApp=Open SecretBroker
+es.OpenApp=Abrir SecretBroker
+en.OwnerUnknown=Couldn't identify the user running the installation.
+es.OwnerUnknown=No se pudo identificar al usuario que ejecuta la instalación.
+en.ConfiguringService=Setting up the protected service…
+es.ConfiguringService=Configurando el servicio protegido…
+en.ServiceFailed=Couldn't set up the SecretBroker service.
+es.ServiceFailed=No se pudo configurar el servicio de SecretBroker.
+en.Details=Details:
+es.Details=Detalles:
+en.ConnectingClaude=Connecting to Claude…
+es.ConnectingClaude=Conectando con Claude…
+en.RemoveVault=Also delete the vault with all your credentials?%n%nIf you choose “Yes”, they will be lost for good and can't be recovered.%nIf you choose “No”, they are kept in %1 and will be available again if you reinstall SecretBroker.
+es.RemoveVault=¿Borrar también la bóveda con todas tus credenciales?%n%nSi eliges «Sí», se perderán definitivamente y no se podrán recuperar.%nSi eliges «No», se conservan en %1 y volverán a estar disponibles si reinstalas SecretBroker.
+en.RemoveFailed=Couldn't completely delete %1. You can remove the folder by hand.
+es.RemoveFailed=No se pudo borrar por completo %1. Puedes eliminar la carpeta a mano.
+
 [Tasks]
-Name: "desktopicon"; Description: "Crear un acceso directo en el escritorio"
+Name: "desktopicon"; Description: "{cm:DesktopIcon}"
 
 [InstallDelete]
 ; A clean runtime on every install or update, so no stale packages are left behind.
@@ -66,11 +93,11 @@ Root: HKLM; Subkey: "Software\Classes\secretbroker\DefaultIcon"; ValueType: stri
 Root: HKLM; Subkey: "Software\Classes\secretbroker\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\python\pythonw.exe"" -I -m secretbroker.app ""%1"""
 
 [Icons]
-Name: "{autoprograms}\SecretBroker"; Filename: "{app}\python\pythonw.exe"; Parameters: "-I -m secretbroker.app"; WorkingDir: "{app}"; IconFilename: "{#AppIcon}"; Comment: "Bóveda de credenciales para tu IA"
+Name: "{autoprograms}\SecretBroker"; Filename: "{app}\python\pythonw.exe"; Parameters: "-I -m secretbroker.app"; WorkingDir: "{app}"; IconFilename: "{#AppIcon}"; Comment: "{cm:AppComment}"
 Name: "{autodesktop}\SecretBroker"; Filename: "{app}\python\pythonw.exe"; Parameters: "-I -m secretbroker.app"; WorkingDir: "{app}"; IconFilename: "{#AppIcon}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\python\pythonw.exe"; Parameters: "-I -m secretbroker.app"; Description: "Abrir SecretBroker"; Flags: postinstall nowait skipifsilent runasoriginaluser
+Filename: "{app}\python\pythonw.exe"; Parameters: "-I -m secretbroker.app"; Description: "{cm:OpenApp}"; Flags: postinstall nowait skipifsilent runasoriginaluser
 ; Updates started from the app run silently: reopen it when they finish.
 Filename: "{app}\python\pythonw.exe"; Parameters: "-I -m secretbroker.app"; Flags: nowait runasoriginaluser; Check: WizardSilent
 
@@ -110,7 +137,7 @@ begin
   ReadOriginalUser();
   if OwnerName = '' then
   begin
-    Result := 'No se pudo identificar al usuario que ejecuta la instalación.';
+    Result := CustomMessage('OwnerUnknown');
     exit;
   end;
   { Stop a running service and app so their files can be replaced. }
@@ -127,19 +154,19 @@ var
 begin
   if CurStep <> ssPostInstall then
     exit;
-  WizardForm.StatusLabel.Caption := 'Configurando el servicio protegido…';
+  WizardForm.StatusLabel.Caption := CustomMessage('ConfiguringService');
   WizardForm.ProgressGauge.Style := npbstMarquee;
   Exec('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\setup\configure.ps1') +
        '" -Owner "' + OwnerName + '" -OwnerAppData "' + OwnerAppData + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   WizardForm.ProgressGauge.Style := npbstNormal;
   if ResultCode <> 0 then
   begin
-    MsgBox('No se pudo configurar el servicio de SecretBroker.' + #13#10 + 'Detalles: ' +
+    MsgBox(CustomMessage('ServiceFailed') + #13#10 + CustomMessage('Details') + ' ' +
            ExpandConstant('{app}\setup\configure.log'), mbError, MB_OK);
     exit;
   end;
   { Connect Claude Code / Claude Desktop for the desktop user, if they are installed. }
-  WizardForm.StatusLabel.Caption := 'Conectando con Claude…';
+  WizardForm.StatusLabel.Caption := CustomMessage('ConnectingClaude');
   ExecAsOriginalUser(ExpandConstant('{app}\python\python.exe'),
        '-I -c "from secretbroker import integrations; integrations.auto_connect()"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   { Let the browser extension reach SecretBroker: native messaging host manifests and HKCU keys for Chrome,
@@ -185,13 +212,11 @@ var
 begin
   DataRoot := ExpandConstant('{commonappdata}\SecretBroker');
   if (CurUninstallStep = usUninstall) and DirExists(DataRoot + '\data') then
-    RemoveVault := SuppressibleMsgBox('¿Borrar también la bóveda con todas tus credenciales?' + #13#10#13#10 +
-      'Si eliges «Sí», se perderán definitivamente y no se podrán recuperar.' + #13#10 +
-      'Si eliges «No», se conservan en ' + DataRoot + ' y volverán a estar disponibles si reinstalas SecretBroker.',
+    RemoveVault := SuppressibleMsgBox(FmtMessage(CustomMessage('RemoveVault'), [DataRoot]),
       mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDNO) = IDYES;
   if CurUninstallStep = usUninstall then
     RemoveFromPath(ExpandConstant('{app}\bin'));
   if (CurUninstallStep = usPostUninstall) and RemoveVault then
     if not DelTree(DataRoot, True, True, True) then
-      SuppressibleMsgBox('No se pudo borrar por completo ' + DataRoot + '. Puedes eliminar la carpeta a mano.', mbError, MB_OK, IDOK);
+      SuppressibleMsgBox(FmtMessage(CustomMessage('RemoveFailed'), [DataRoot]), mbError, MB_OK, IDOK);
 end;
