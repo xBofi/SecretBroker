@@ -129,7 +129,7 @@
     }
   },
   "no_https": {
-    "message": "· no https"
+    "message": "· not HTTPS"
   },
   "no_username": {
     "message": "No username"
@@ -149,7 +149,7 @@
     }
   },
   "nothing_saved_for_sign_in": {
-    "message": "Nothing saved for $domain$. Sign in and I'll offer to save it.",
+    "message": "Nothing saved for $domain$ yet. Sign in and SecretBroker will offer to save it.",
     "placeholders": {
       "domain": {
         "content": "$1"
@@ -294,7 +294,7 @@
     "message": "Update"
   },
   "update_password": {
-    "message": "Update the password of “$name$”?",
+    "message": "Update the password for “$name$”?",
     "placeholders": {
       "name": {
         "content": "$1"
@@ -302,10 +302,10 @@
     }
   },
   "use_only_not_filled_in": {
-    "message": "Use only: not filled in"
+    "message": "Use only · can't be filled in"
   },
   "use_only_on_team_not": {
-    "message": "Use only on the team: not filled in"
+    "message": "Use only · can't be filled in"
   },
   "use_only_team_credential_filling": {
     "message": "Use-only team credential: filling it in would show it to the page"

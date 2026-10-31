@@ -352,7 +352,7 @@
     const { domain, logins } = list.result;
     const shown = wantsTotp ? logins.filter((l) => l.totp) : logins;
     if (!shown.length) {
-      note(wantsTotp ? msg('no_credential_for_has_2fa', { domain }) : msg('nothing_saved_for', { domain }));
+      note(wantsTotp ? msg('no_credential_for_has_2fa', { domain }) : msg('nothing_saved_for_sign_in', { domain }));
       return;
     }
     menuItems = shown.map((login) => {

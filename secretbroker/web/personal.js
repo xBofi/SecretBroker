@@ -478,7 +478,7 @@ function showImportPreview(path, password, preview) {
 // Step 3: in batches, with «312 de 1000», then an honest summary.
 async function runImport(path, password, preview, keys) {
   const bar = el('span', { style: 'width:0%' });
-  const count = el('div', { class: 'import-count' }, `0 de ${keys.length}`);
+  const count = el('div', { class: 'import-count' }, t('approval.position', { position: 0, total: keys.length }));
   const modal = openModal({
     title: t('run_import.importing_from', { label: preview.label }),
     body: [count, el('div', { class: 'progress import-progress' }, bar),
@@ -499,7 +499,7 @@ async function runImport(path, password, preview, keys) {
     created.push(...result.result.created);
     failed.push(...result.result.failed);
     const done = Math.min(start + IMPORT_BATCH, keys.length);
-    count.textContent = `${done} de ${keys.length}`;
+    count.textContent = t('approval.position', { position: done, total: keys.length });
     bar.style.width = `${Math.round((done / keys.length) * 100)}%`;
   }
   modal.close();

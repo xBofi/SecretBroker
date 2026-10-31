@@ -741,6 +741,7 @@ details.collection > summary .subtitle { color: var(--muted); font-size: var(--f
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: var(--fs-md); line-height: 1.5; white-space: pre-wrap;
   word-break: break-word; max-height: 180px; overflow: auto; }
 .verify-code { font-family: var(--font-mono); letter-spacing: .12em; max-width: 160px; }
+.verify-code::placeholder { font-family: var(--font); letter-spacing: normal; }
 .unsent-line { display: flex; gap: 6px; align-items: flex-start; color: var(--warning); }
 .ok-text { display: flex; gap: 8px; align-items: center; color: var(--ok); margin-top: 10px; }
 .nav .count.warn { color: var(--bg); background: var(--warning); border-radius: 999px; min-width: 18px; height: 18px; display: grid; place-items: center;

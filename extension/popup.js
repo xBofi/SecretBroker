@@ -76,10 +76,10 @@ async function render() {
   const hello = answer && answer.hello;
   if (!hello || !hello.ok) {
     if (hello && hello.code === 'no_host') {
-      stateScreen('plug', msg('secretbroker_is_missing_on_this'), hello.error,
-        el('p', {}, msg('install_secretbroker_and_open_settings')));
+      stateScreen('plug', msg('secretbroker_is_missing_on_this'), msg('install_secretbroker_and_open_settings'));
     } else {
-      stateScreen('alert', msg('can_talk_secretbroker_2'), (hello && hello.error) || msg('open_it_and_try_again'),
+      // The title already says it can't talk to it: only a timeout adds something to it.
+      stateScreen('alert', msg('can_talk_secretbroker_2'), (hello && hello.code === 'timeout' && hello.error) || msg('open_it_and_try_again'),
         el('button', { class: 'btn primary block', onclick: () => { ask({ type: 'open_app' }); window.close(); } }, msg('open_secretbroker')));
     }
     return;
@@ -128,14 +128,15 @@ function siteLine(list, fallbackHost) {
   const host = result ? result.domain : fallbackHost;
   if (!host) return null;
   return el('div', { class: 'site' }, icon(result && !result.secure ? 'alert' : 'globe'),
-    el('span', {}, result && result.frame ? msg('form_from') : msg('you_re_on')), el('span', { class: 'domain', title: result ? result.host : host }, host),
+    el('span', { class: 'where' }, `${result && result.frame ? msg('form_from') : msg('you_re_on')} `,
+      el('span', { class: 'domain', title: result ? result.host : host }, host)),
     result && !result.secure ? el('span', { class: 'insecure' }, msg('no_https')) : null);
 }
 
 function offerBox(offer) {
   if (!offer) return null;
   const update = offer.action === 'update';
-  const name = el('input', { class: 'search', style: 'padding-left:10px;margin-bottom:8px', value: offer.name, 'aria-label': msg('name') });
+  const name = el('input', { class: 'search plain', id: 'offer-name', value: offer.name });
   const save = el('button', { class: 'btn primary', onclick: async () => {
     save.disabled = true;
     const result = await ask({ type: 'offer_answer', id: offer.id, save: true, name: update ? undefined : name.value.trim() || offer.name });
@@ -144,6 +145,7 @@ function offerBox(offer) {
   return el('div', { class: 'offer' },
     el('b', {}, update ? msg('update_password', { name: offer.name }) : msg('save_this_login')),
     el('p', {}, `${offer.username} · ${offer.host}`),
+    update ? null : el('label', { class: 'field-label', for: 'offer-name' }, msg('name')),
     update ? null : name,
     el('div', { class: 'buttons' }, el('button', { class: 'btn', onclick: async () => { await ask({ type: 'offer_answer', id: offer.id, save: false }); render(); } }, msg('not_now')), save));
 }
@@ -166,7 +168,9 @@ function loginRow(login) {
   const actions = login.can_fill ? [
     el('button', { class: 'icon-btn', title: msg('copy_username'), 'aria-label': msg('copy_username'), onclick: () => copy(login, 'username') }, icon('user')),
     el('button', { class: 'icon-btn', title: msg('copy_password'), 'aria-label': msg('copy_password'), onclick: () => copy(login, 'password') }, icon('key')),
-    login.totp ? el('button', { class: 'icon-btn', title: msg('copy_2fa_code'), 'aria-label': msg('copy_2fa_code'), onclick: () => copy(login, 'totp') }, icon('clock')) : null,
+    // Without a 2FA code the slot stays empty, so the buttons line up from row to row.
+    login.totp ? el('button', { class: 'icon-btn', title: msg('copy_2fa_code'), 'aria-label': msg('copy_2fa_code'), onclick: () => copy(login, 'totp') }, icon('clock'))
+      : el('span', { class: 'icon-slot', 'aria-hidden': 'true' }),
     fill] : [];
   return el('div', { class: 'row', title: login.can_fill ? msg('saved_for', { site: login.site }) : '' },
     el('div', { class: 'avatar' }, (login.name.trim().charAt(0) || '?').toUpperCase()),
@@ -220,8 +224,7 @@ function renderLogins(answer) {
     siteLine(list, answer.page && answer.page.host),
     el('div', { class: 'search-wrap' }, icon('search'), search),
     matches, results,
-    el('div', { class: 'hint' }, el('span', {}, msg('it_only_fills_in_on')),
-      el('span', { title: msg('fill_in_without_opening_this') }, el('kbd', {}, shortcut() || 'Ctrl+Shift+L')))].filter(Boolean));
+    el('div', { class: 'hint' }, el('span', {}, msg('fill_in_without_opening_this')), el('kbd', {}, shortcut() || 'Ctrl+Shift+L'))].filter(Boolean));
   search.focus();
 }
 

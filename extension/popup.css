@@ -40,12 +40,16 @@ svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width:
 
 main { padding: 12px 12px 14px; }
 .site { display: flex; align-items: center; gap: 8px; padding: 0 4px 10px; color: var(--muted); font-size: var(--fs-sm); }
-.site .domain { color: var(--text); font-weight: var(--fw-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site .where { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site .domain { color: var(--text); font-weight: var(--fw-medium); }
+.site .insecure { flex: none; }
 .site .insecure { color: var(--warning); }
 
 .search { width: 100%; height: 34px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--bg);
   color: var(--text); padding: 0 10px 0 32px; font: inherit; font-size: var(--fs-sm); outline: none; }
 .search-wrap { position: relative; margin-bottom: 10px; }
+.search.plain { padding-left: 10px; margin-bottom: 10px; }
+.field-label { display: block; font-size: var(--fs-xs); color: var(--muted); font-weight: var(--fw-medium); margin: 0 0 4px; }
 .search-wrap svg { position: absolute; left: 10px; top: 9px; color: var(--faint); }
 
 .section { font-size: var(--fs-xs); color: var(--muted); font-weight: var(--fw-medium); padding: 10px 4px 4px; }
@@ -60,7 +64,7 @@ main { padding: 12px 12px 14px; }
 .user { color: var(--muted); font-size: var(--fs-xs); }
 .user.locked { color: var(--warning); }
 .actions { display: flex; gap: 2px; align-items: center; }
-.actions .icon-btn { width: 28px; height: 28px; }
+.actions .icon-btn, .actions .icon-slot { width: 28px; height: 28px; flex: none; }
 
 .btn { border: 1px solid var(--line-strong); background: var(--bg); padding: 0 12px; height: 30px; border-radius: var(--radius-sm);
   font-size: var(--fs-sm); font-weight: var(--fw-medium); cursor: pointer; white-space: nowrap; }
@@ -83,7 +87,7 @@ main { padding: 12px 12px 14px; }
 .offer .buttons { display: flex; gap: 8px; justify-content: flex-end; }
 
 .empty { color: var(--muted); font-size: var(--fs-sm); padding: 6px 4px 2px; }
-.hint { color: var(--faint); font-size: var(--fs-xs); padding: 10px 4px 0; display: flex; justify-content: space-between; gap: 8px; }
+.hint { color: var(--faint); font-size: var(--fs-xs); padding: 12px 4px 0; margin-top: 6px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 kbd { font: var(--fs-xs) var(--font-mono); background: var(--fill); border-radius: 4px; padding: 1px 5px; color: var(--muted); }
 .message { font-size: var(--fs-sm); padding: 8px 10px; border-radius: var(--radius-sm); margin-top: 8px; background: var(--fill); }
 .message.error { color: var(--danger); }

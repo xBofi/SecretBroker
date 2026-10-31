@@ -129,7 +129,7 @@
     }
   },
   "no_https": {
-    "message": "· sin https"
+    "message": "· sin HTTPS"
   },
   "no_username": {
     "message": "Sin usuario"
@@ -149,7 +149,7 @@
     }
   },
   "nothing_saved_for_sign_in": {
-    "message": "No hay nada guardado para $domain$. Inicia sesión y te ofreceré guardarlo.",
+    "message": "Aún no hay nada guardado para $domain$. Inicia sesión y SecretBroker te ofrecerá guardarlo.",
     "placeholders": {
       "domain": {
         "content": "$1"
@@ -302,10 +302,10 @@
     }
   },
   "use_only_not_filled_in": {
-    "message": "Solo uso: no se rellena"
+    "message": "Solo uso · no se puede rellenar"
   },
   "use_only_on_team_not": {
-    "message": "Solo uso en el equipo: no se rellena"
+    "message": "Solo uso · no se puede rellenar"
   },
   "use_only_team_credential_filling": {
     "message": "Credencial del equipo de solo uso: rellenarla se la mostraría a la página"

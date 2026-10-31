@@ -1042,7 +1042,7 @@ function renderCredentials(content) {
       renderDetail(detail);
     }
     const filtered = items.length !== state.entries.length;
-    countText.textContent = filtered ? `${items.length} de ${state.entries.length}`
+    countText.textContent = filtered ? t('approval.position', { position: items.length, total: state.entries.length })
       : tn('common.credentials_count', state.entries.length);
     const scroll = list.scrollTop;
     const focused = list.contains(document.activeElement) && document.activeElement.dataset.id;
@@ -1999,7 +1999,7 @@ function rotateGuided(entry, after) {
       save(saveButton, errorText, params);
     });
     group.input.addEventListener('keydown', (event) => { if (event.key === 'Enter') saveButton.click(); });
-    const idField = el('div', { class: 'field hidden' }, el('label', {}, `${paired ? paired.label : ''} nuevo`), idInput);
+    const idField = el('div', { class: 'field hidden' }, el('label', {}, t('rotate_guided.new_label', { label: paired ? paired.label : '' })), idInput);
     const choice = (value, text) => el('label', { class: 'perm', style: 'cursor:pointer' },
       el('input', { type: 'radio', name: 'id-choice', value, checked: idChoice === value, onchange: () => {
         idChoice = value;
@@ -2072,7 +2072,7 @@ function rotateGuided(entry, after) {
           : !guide.testable ? line(false, t('rotate_guided.this_key_can_be_tested_2'))
             : line(false, t('rotate_guided.couldn_test_with_was_saved', { provider, value: check && check.message ? ` (${check.message})` : '' })),
       line(true, t('rotate_guided.ai_already_uses_new_one')),
-      result.id_changed ? line(true, `${paired.label} nuevo guardado: ${result.entry.fields.username}.`) : null,
+      result.id_changed ? line(true, t('rotate_guided.new_id_saved', { label: paired.label, value: result.entry.fields.username })) : null,
       (result.also_updated || []).map((o) => line(true, t('rotate_guided.id_has_also_been_changed', { name: o.name }))),
       uploads,
       env.length ? line(true, t('rotate_guided.your_programs_with_sb_run_2', { value: env.join(', ') })) : null,
@@ -3218,6 +3218,22 @@ function sharedSection(entry) {
     }, t('shared_section.stop_sharing_2'))) : null);
 }
 
+// The lines of a change waiting for review come from teams.widening_changes, in Spanish and kept in the vault:
+// each known start is shown in the page's language, the rest of the line (names, hosts) as it is.
+const CHANGE_LINES = [
+  ['Tipo de credencial: ', 'change_line.credential_type'],
+  ['Webs nuevas: ', 'change_line.new_websites'],
+  ['Autorrellenado del navegador en webs nuevas: ', 'change_line.new_autofill_sites'],
+  ['Cómo se envía la clave: ', 'change_line.how_key_is_sent'],
+  ['Programas nuevos: ', 'change_line.new_programs'],
+  ['Variables nuevas o cambiadas: ', 'change_line.new_variables'],
+];
+
+function changeLine(line) {
+  const known = CHANGE_LINES.find(([start]) => line.startsWith(start));
+  return known ? `${t(known[1])}: ${line.slice(known[0].length)}` : line;
+}
+
 // One line for a change waiting for review: new destinations, or new instructions for the AI.
 function changeSummary(change) {
   const who = change.by || t('common.teammate');
@@ -3254,7 +3270,7 @@ function pendingChangeBox(entry) {
     hosts.length
       ? el('h3', {}, t('pending_change_box.wants_ai_be_able_send', { who }), hosts.map((h, i) => [i ? ', ' : '', el('code', { class: 'selectable' }, h)]))
       : el('h3', {}, changeSummary(change)),
-    hosts.length || !destinations.length ? null : el('ul', { class: 'used-in' }, destinations.map((line) => el('li', { class: 'selectable' }, line))),
+    hosts.length || !destinations.length ? null : el('ul', { class: 'used-in' }, destinations.map((line) => el('li', { class: 'selectable' }, changeLine(line)))),
     change.texts ? el('div', { class: 'field' },
       el('div', { class: 'k small muted' }, t('pending_change_box.new_description_ai_reads_as')),
       el('blockquote', { class: 'quote selectable' }, change.description || '')) : null,
@@ -3376,7 +3392,7 @@ function offboardingCard(person, compact = false) {
       compact ? null : el('div', { class: 'subtitle' }, total === 1
         ? t('offboarding_card.they_could_see_or_copy')
         : t('offboarding_card.they_could_see_or_copy_2')),
-      el('div', { class: 'progress', title: `${done} de ${total}` }, el('span', { style: `width:${total ? Math.round(100 * done / total) : 100}%` }))),
+      el('div', { class: 'progress', title: t('approval.position', { position: done, total }) }, el('span', { style: `width:${total ? Math.round(100 * done / total) : 100}%` }))),
     el('button', { class: 'btn primary', onclick: () => openOffboarding(person.person) }, done ? t('common.keep_going') : t('common.get_started')));
 }
 
@@ -3589,7 +3605,7 @@ function verificationsFor(org, members, admin) {
 function teamBanners(org, members, admin, rerender) {
   const team = state.team;
   const data = state.teamData || {};
-  const [, , detail] = syncLine(team);
+  const detail = team.error || (team.state === 'offline' ? t('sync_line.can_reach_server_retries_by') : t('sync_line.will_retry_by_itself'));
   const verify = verificationsFor(org, members, admin);
   const reviews = state.entries.filter((e) => e.shared && e.shared.pending_change);
   const unsent = state.entries.filter((e) => unsentText(e));
@@ -3632,7 +3648,7 @@ function verifyEmailCard(team, rerender) {
       el('p', { class: 'muted small' }, t('verify_email_card.this_server_doesn_send_e'),
         el('b', {}, email), t('verify_email_card.they_do_on_server_with')));
   }
-  const code = el('input', { class: 'input verify-code', placeholder: '12345678', inputmode: 'numeric', autocomplete: 'one-time-code',
+  const code = el('input', { class: 'input verify-code', placeholder: t('verify_email_card.e_mail_code'), inputmode: 'numeric', autocomplete: 'one-time-code',
     maxlength: '12', 'aria-label': t('verify_email_card.e_mail_code') });
   const verify = el('button', { class: 'btn primary', 'data-mutates': '1' }, t('common.verify'));
   const resend = el('button', { class: 'link small muted-link', 'data-mutates': '1' }, t('verify_email_card.send_another_code'));
@@ -3698,7 +3714,7 @@ function verifyRow(person, rerender) {
     if (typed) params.fingerprint = typed.value.trim();
     const result = await teamAct('team_confirm_member', params, t('common.verify_2', { label }), button);
     if (!result.ok) return;
-    toast(pending ? `${label} confirmado` : `${label} verificado`);
+    toast(pending ? t('verify_row.confirmed', { label }) : t('verify_row.verified', { label }));
     await api().call('team_sync');
     await loadEntries();
     rerender();
@@ -3813,7 +3829,9 @@ function teamPeoplePanel(org, members, admin, rerender) {
   const row = (m) => {
     const label = m.name || m.email;
     const invited = m.status === 'invited';
-    const status = invited ? t('team_people_panel.invited_hasn_joined_yet') : m.status === 'accepted' ? t('team_people_panel.waiting_for_confirmation') : ROLE_LABELS[m.role] || m.role;
+    const waiting = verifying.has(m.user_id);
+    const status = invited ? t('team_people_panel.invited_hasn_joined_yet')
+      : m.status === 'accepted' && !waiting ? t('team_people_panel.waiting_for_confirmation') : ROLE_LABELS[m.role] || m.role;
     const controls = [];
     // Someone already in the org not verified on this PC: one click, after comparing their code.
     const verify = !m.me && m.fingerprint && m.status === 'confirmed' && !m.trusted && !verifying.has(m.user_id);
@@ -3824,7 +3842,7 @@ function teamPeoplePanel(org, members, admin, rerender) {
       button.addEventListener('click', async () => {
         const result = await teamAct('team_confirm_member', { org: org.id, user_id: m.user_id }, t('common.verify_2', { label }), button);
         if (!result.ok) return;
-        toast(`${label} verificado`);
+        toast(t('verify_row.verified', { label }));
         rerender();
       });
       controls.push(button);
@@ -3847,7 +3865,8 @@ function teamPeoplePanel(org, members, admin, rerender) {
       el('div', { class: 'access-row' },
         el('div', { class: `avatar ${invited ? 'invited' : ''}` }, (label || '?').trim().charAt(0).toUpperCase()),
         el('div', { class: 'meta' }, el('div', { class: 'title' }, label, m.me ? el('span', { class: 'faint' }, t('common.you')) : null,
-          verifying.has(m.user_id) ? el('span', { class: 'draft-badge', style: 'margin-left:8px' }, t('team_people_panel.verify')) : null),
+          waiting ? el('span', { class: 'draft-badge', style: 'margin-left:8px' },
+            m.status === 'accepted' ? t('team_people_panel.waiting_for_confirmation') : t('team_people_panel.verify')) : null),
           el('div', { class: 'subtitle' }, [m.name && !invited ? m.email : null, status].filter(Boolean).join(' · '))),
         controls),
       verify ? el('div', { class: 'fingerprint-box' }, el('div', { class: 'k' }, t('common.code', { label })),
