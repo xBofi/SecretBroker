@@ -6,10 +6,12 @@ asks for `?since=<last revision it saw>`. Deleted items stay as tombstones so ot
 
 import json
 
+from . import manifests
+from .accounts import rate_limited
 from .db import event, now_iso
 from .orgs import forbidden, not_found
-from .validate import (PERMISSIONS, ApiError, body, dump, grant, integer, mapping, one_of, path_id, query_int, sealed,
-                       uuid_id)
+from .validate import (PERMISSIONS, ApiError, body, deletion, dump, grant, integer, mapping, members_record, one_of,
+                       path_id, query_int, sealed, uuid_id)
 from .web import route
 
 ITEM_MAX = 256 * 1024
@@ -63,6 +65,14 @@ def _own_grant(ctx, value):
     return dump(value)
 
 
+def _record(ctx, data, cid, key_version):
+    """Store the signed member list that came with a membership change; required once the collection has one."""
+    if data.get("members_record"):
+        manifests.append(ctx.conn, cid, ctx.body["members_record"], data["members_record"], ctx.uid, key_version)
+    elif manifests.required(ctx.conn, cid):
+        raise ApiError(400, "members_record", "Falta la lista firmada de miembros. Actualiza SecretBroker.")
+
+
 def _summary(row):
     return {"id": row["id"], "org_id": row["org_id"], "encrypted_name": json.loads(row["encrypted_name"]),
             "key_version": row["key_version"], "permission": row["permission"], "grant": json.loads(row["grant_json"]),
@@ -82,7 +92,8 @@ def list_collections(ctx):
 @route("DELETE", "/collections/{cid}")
 def delete_collection(ctx):
     cid, row = _collection(ctx, ("manage",))
-    for table, column in (("items", "collection_id"), ("collection_members", "collection_id"), ("collections", "id")):
+    for table, column in (("items", "collection_id"), ("collection_members", "collection_id"),
+                          ("collection_manifests", "collection_id"), ("collections", "id")):
         ctx.conn.execute(f"DELETE FROM {table} WHERE {column} = ?", (cid,))
     event(ctx.conn, row["org_id"], ctx.uid, "collection.delete", cid)
     return {}
@@ -96,10 +107,17 @@ def list_collection_members(ctx):
     return [{"user_id": r["id"], "email": r["email"], "name": r["name"], "permission": r["permission"]} for r in rows]
 
 
+@route("GET", "/collections/{cid}/manifest")
+def list_manifest(ctx):
+    """The signed member lists after `since` (all of them with since=0), oldest first."""
+    cid, _ = _collection(ctx)
+    return {"records": manifests.since(ctx.conn, cid, query_int(ctx.query, "since", 0))}
+
+
 @route("PUT", "/collections/{cid}/members/{uid}")
 def put_collection_member(ctx):
     """Add someone with a key grant, change their permission, or replace their grant."""
-    data = body(ctx.body, {"permission": one_of(*PERMISSIONS)}, {"grant": grant})
+    data = body(ctx.body, {"permission": one_of(*PERMISSIONS)}, {"grant": grant, "members_record": members_record})
     cid, row = _collection(ctx, ("manage",))
     uid = path_id(ctx.params["uid"])
     current = ctx.conn.execute("SELECT permission FROM collection_members WHERE collection_id = ? AND user_id = ?",
@@ -115,6 +133,7 @@ def put_collection_member(ctx):
         ctx.conn.execute("INSERT INTO collection_members (collection_id, user_id, permission, grant_json, key_version) "
                          "VALUES (?, ?, ?, ?, ?)", (cid, uid, data["permission"], _own_grant(ctx, data["grant"]),
                                                     row["key_version"]))
+        _record(ctx, data, cid, row["key_version"])
         event(ctx.conn, row["org_id"], ctx.uid, "grant", f"{cid}/{uid}:{data['permission']}")
         return {}
     if current["permission"] == "manage" and data["permission"] != "manage" and _managers(ctx.conn, cid) == 1:
@@ -124,6 +143,7 @@ def put_collection_member(ctx):
     if data["grant"]:
         ctx.conn.execute("UPDATE collection_members SET grant_json = ?, key_version = ? WHERE collection_id = ? "
                          "AND user_id = ?", (_own_grant(ctx, data["grant"]), row["key_version"], cid, uid))
+    _record(ctx, data, cid, row["key_version"])
     event(ctx.conn, row["org_id"], ctx.uid, "grant", f"{cid}/{uid}:{data['permission']}")
     return {}
 
@@ -131,6 +151,7 @@ def put_collection_member(ctx):
 @route("DELETE", "/collections/{cid}/members/{uid}")
 def remove_collection_member(ctx):
     """Take someone out (or leave). They may still hold the key, so the collection must be re-keyed."""
+    data = body(ctx.body, {}, {"members_record": members_record})
     cid, row = _collection(ctx)
     uid = path_id(ctx.params["uid"])
     if uid != ctx.uid:
@@ -143,6 +164,7 @@ def remove_collection_member(ctx):
         raise ApiError(400, "last_manager", "La colección necesita al menos una persona que la gestione.")
     ctx.conn.execute("DELETE FROM collection_members WHERE collection_id = ? AND user_id = ?", (cid, uid))
     ctx.conn.execute("UPDATE collections SET needs_rekey = 1 WHERE id = ?", (cid,))
+    _record(ctx, data, cid, row["key_version"])
     event(ctx.conn, row["org_id"], ctx.uid, "revoke", f"{cid}/{uid}")
     return {}
 
@@ -153,7 +175,7 @@ def rotate(ctx):
     data = body(ctx.body, {
         "key_version": integer(2, 2**31), "encrypted_name": sealed(NAME_MAX),
         "grants": mapping(uuid_id, grant, 10_000), "items": mapping(uuid_id, sealed(ITEM_MAX), 100_000),
-    })
+    }, {"members_record": members_record})
     cid, row = _collection(ctx, ("manage",))
     if data["key_version"] != row["key_version"] + 1:
         raise ApiError(409, "key_version", "La colección cambió de clave mientras tanto. Sincroniza y repite.",
@@ -176,6 +198,7 @@ def rotate(ctx):
         ctx.conn.execute("UPDATE items SET ciphertext = ?, key_version = ?, revision = ?, updated_by = ?, updated = ? "
                          "WHERE collection_id = ? AND id = ?", (dump(ciphertext), version, revision, ctx.uid, now,
                                                                 cid, iid))
+    _record(ctx, data, cid, version)
     event(ctx.conn, row["org_id"], ctx.uid, "rotate", f"{cid}:{version}")
     return {"revision": revision}
 
@@ -188,7 +211,8 @@ def list_items(ctx):
                             (cid, since)).fetchall()
     items = [{"id": r["id"], "revision": r["revision"], "key_version": r["key_version"],
               "ciphertext": json.loads(r["ciphertext"]) if r["ciphertext"] else None, "deleted": bool(r["deleted"]),
-              "updated_by": r["updated_by"], "updated": r["updated"]} for r in rows]
+              "updated_by": r["updated_by"], "updated": r["updated"],
+              **({"deletion": json.loads(r["deletion"])} if r["deleted"] and r["deletion"] else {})} for r in rows]
     return {"revision": row["revision"], "items": items}
 
 
@@ -228,7 +252,7 @@ def put_item(ctx):
     ctx.conn.execute(
         "INSERT INTO items (collection_id, id, revision, key_version, ciphertext, deleted, updated_by, updated) "
         "VALUES (?, ?, ?, ?, ?, 0, ?, ?) ON CONFLICT (collection_id, id) DO UPDATE SET revision = excluded.revision, "
-        "key_version = excluded.key_version, ciphertext = excluded.ciphertext, deleted = 0, "
+        "key_version = excluded.key_version, ciphertext = excluded.ciphertext, deleted = 0, deletion = NULL, "
         "updated_by = excluded.updated_by, updated = excluded.updated",
         (cid, iid, revision, data["key_version"], dump(data["ciphertext"]), ctx.uid, now_iso()))
     event(ctx.conn, row["org_id"], ctx.uid, "item.put", f"{cid}/{iid}")
@@ -237,18 +261,26 @@ def put_item(ctx):
 
 @route("DELETE", "/collections/{cid}/items/{iid}")
 def delete_item(ctx):
-    """Leave a tombstone (no ciphertext) so every device removes its copy."""
-    base = body(ctx.body, {"base_revision": integer(0, 2**62)})["base_revision"]
+    """Leave a tombstone (no ciphertext) so every device removes its copy. `deletion` is the deleter's signature:
+    clients ignore a tombstone nobody with edit rights signed. Each account deletes at most SB_MAX_DELETES_PER_HOUR
+    items an hour, so a stolen session or a broken client cannot wipe a team in one go."""
+    data = body(ctx.body, {"base_revision": integer(0, 2**62)}, {"deletion": deletion})
     cid, row = _collection(ctx, WRITE)
     iid, item = _item(ctx, cid)
     if item is None:
         raise not_found()
-    if base != item["revision"]:
+    if data["base_revision"] != item["revision"]:
         raise conflict(item["revision"])
     if item["deleted"]:
         return {"revision": item["revision"]}
+    if data["deletion"] and data["deletion"]["by"] != ctx.uid:
+        raise ApiError(400, "invalid", "deletion: by debe ser tu usuario.")
+    wait = ctx.server.delete_window.hit(ctx.uid)
+    if wait:
+        raise rate_limited(wait)
     revision = _bump(ctx.conn, cid)
-    ctx.conn.execute("UPDATE items SET revision = ?, ciphertext = NULL, deleted = 1, updated_by = ?, updated = ? "
-                     "WHERE collection_id = ? AND id = ?", (revision, ctx.uid, now_iso(), cid, iid))
+    ctx.conn.execute("UPDATE items SET revision = ?, ciphertext = NULL, deleted = 1, updated_by = ?, updated = ?, "
+                     "deletion = ? WHERE collection_id = ? AND id = ?",
+                     (revision, ctx.uid, now_iso(), dump(ctx.body["deletion"]) if data["deletion"] else None, cid, iid))
     event(ctx.conn, row["org_id"], ctx.uid, "item.delete", f"{cid}/{iid}")
     return {"revision": revision}

@@ -52,6 +52,7 @@ class Server:
         self.email_throttle = security.Throttle(free=5)
         self.ip_throttle = security.Throttle(free=20)
         self.signup_throttle = security.Throttle(free=30)  # a whole team may join from one office
+        self.delete_window = security.Window(settings.max_deletes_per_hour, 3600)  # item deletions per account
 
 
 class Ctx:
@@ -78,7 +79,7 @@ def authenticate(server, header):
     if scheme.lower() != "bearer" or not token or len(token) > 200:
         raise unauthorized()
     row = server.db.conn().execute(
-        "SELECT s.id AS session_id, s.touched, s.expires, u.id, u.email, u.name, u.is_admin "
+        "SELECT s.id AS session_id, s.touched, s.expires, u.id, u.email, u.name, u.is_admin, u.verified "
         "FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?",
         (security.token_hash(token),)).fetchone()
     now = now_epoch()

@@ -17,6 +17,8 @@ in [SECURITY.md](../SECURITY.md).
 | Activity history | Encrypted with an X25519 public key derived from the vault (write-only while locked) |
 | Team account keys (X25519, Ed25519) | Vault; on the server only as `private_blob` wrapped by a key derived from the account password |
 | Collection keys | Sealed to each member's X25519 key, grants signed by the granter's Ed25519 key |
+| Who is in each collection, item authorship, deletions | Signed by the member who changed them (Ed25519), chained per collection |
+| The people a user verified (pins) | Vault; on the server encrypted with a key derived from the account's private keys |
 | Release signing key | GitHub Actions secret (maintainers only); public key pinned in `secretbroker/update.py` |
 
 ## 2. Trust boundaries
@@ -75,7 +77,8 @@ A program running as the user, without administrator rights.
 - With "open with my Windows session" enabled, anyone who can use the unlocked session can use the vault through the
   app, and any program running as the user can open it (that is what the option means; the inactivity lock then only
   limits how long the key stays in memory). Revealing, copying, editing, exporting and sharing still need Hello or a
-  password once after such an unlock.
+  password once after such an unlock, and so does approving an AI request that deletes, rotates or widens where a
+  key may go; approving ordinary uses stays one click, so such a program could approve the AI using a credential.
 - Malware with administrator rights (or a user who runs the AI agent as administrator) defeats the account isolation.
 
 ### 3.3 Malicious teammate
@@ -84,18 +87,28 @@ A member of an organization, with some permission on a collection.
 
 **Mitigations**
 - A member only receives keys for collections they were granted; the server cannot add itself or others because grants
-  are signed and fingerprints are pinned.
-- Synced changes to anything that decides where a key can go (policy hosts, commands, env) are quarantined locally until
-  the user accepts them. The local approval mode is never taken from the server.
+  and member lists are signed and fingerprints are pinned.
+- Synced changes to anything that decides where a key can go (policy hosts, commands, env) and to the description
+  (which the AI reads as instructions) are quarantined locally until the user accepts them. The local approval mode is
+  never taken from the server.
+- Item versions and deletions must be signed by someone with `edit` or `manage` in the signed member list: a `view` or
+  `use` member who holds the collection key cannot write or delete items, even with the server's help.
+- Many deletions at once (a compromised account, ransomware with a stolen session) are held until each user decides,
+  and the server limits deletions per account and hour. Actividad names who signed each change.
 - `use` permission: the app does not reveal or copy the credential; the AI and `sb run` can still use it.
 - The server keeps an audit log of metadata events (grants, removals, item writes) readable by admins.
 
 **Limits**
 - `use` is enforced by the member's client. A teammate running a modified client can decrypt anything they can use.
   Treat `use` as "will not see it by accident", not as a cryptographic barrier.
-- A member with `edit` can change names, notes and secret values of shared items (these apply immediately). Notes are
-  read by your AI, so a malicious note is a prompt-injection vector; policies still bound where keys can go.
-- A member with `manage` can grant access to others in the organization.
+- A member with `edit` can change names, private notes, `used_in`, rotation guides and secret values of shared items
+  (these apply immediately, signed with their name). The AI only sees `used_in` and the rotation guide marked as
+  written by the team, but a malicious text there is still a prompt-injection vector; policies still bound where keys
+  can go.
+- A credential new to the PC arrives with its description (marked as team-written for the AI): only changes are
+  reviewed, so deleting and re-sharing a credential is a way to send new text without review.
+- A member with `manage` can grant access to others in the organization. A few deletions at a time (below the hold
+  threshold) apply at once; backups are the remedy.
 
 ### 3.4 Removed teammate
 
@@ -104,6 +117,9 @@ A member of an organization, with some permission on a collection.
   items re-encrypted, new grants), and the server refuses grants with the old key version.
 - The server stops serving those collections to them as soon as they are removed.
 - Every credential they could see is flagged "rotate: <person> had access" in reminders and the guided rotation wizard.
+- Whatever they signed stops counting at the re-key: their old key can't produce accepted items, and the re-key
+  re-signs as the manager the items they wrote. A collection whose only manager leaves stays recoverable: the
+  organization's owners hold a signed `manage` grant (Equipo warns while one person manages a collection alone).
 
 **Limits**
 - Re-keying protects future changes only. Anything they saw, copied or used while they were a member must be rotated
@@ -120,12 +136,31 @@ A member of an organization, with some permission on a collection.
   and an opaque `private_blob`.
 - Key grants are Ed25519-signed by the granter and verified against pinned keys, so the server cannot inject its own
   collection keys or substitute a member's public key without a fingerprint change the user must confirm.
-- Quarantine of policy-widening changes (3.3) also covers changes forged by the server.
+- Member lists are a hash chain of lists signed by the collection's managers: a member, a permission or a manager the
+  chain does not back is refused and reported, and no key is sealed to anyone outside it.
+- Item versions and deletions carry the author's signature and a write counter: the server cannot forge, attribute
+  or delete content, nor serve an older version again; unsigned deletions are ignored and reported, and a collection
+  that disappears with many credentials is held for the user.
+- Invites only bind to e-mail addresses the account verified (code by e-mail, the admin's invite code, or the admin),
+  so registering someone's address first does not get their invites.
+- Pins of verified people are stored encrypted with the account's own keys and never rolled back.
+- Quarantine of policy-widening and description changes (3.3) also covers changes forged by the server.
 
 **Limits**
 - Metadata is visible: e-mail addresses, organization names, membership graph, permissions, item counts, sizes and
   timestamps.
-- The server can deny service, delete data, withhold updates or roll an item back to an older ciphertext it has seen.
+- The server can deny service, delete data on the server, withhold updates or hide the newest member list, and serve
+  stale data to a device that has never seen newer. It cannot make clients delete their copies unasked beyond the
+  hold threshold.
+- Organization roles are asserted by the server. A manager's app gives `manage` on its collections to every
+  organization owner the user has verified (so a collection can always be recovered); a hostile server could
+  therefore promote a verified teammate to owner to reach those collections. The grant is signed, shows in the member
+  list and Actividad, and needs that teammate's cooperation.
+- A device seeing a collection for the first time trusts the newest member list signed by a manager it verified,
+  without checking older links (trust on first use of the chain). Collections from before 0.16 keep working
+  unsigned until a manager whose PC verified every member signs them.
+- Without SMTP, e-mail verification relies on the admin checking who asks to be verified; a server with
+  `SB_EMAIL_VERIFICATION=off` gives invites to whoever registered the address.
 - An attacker who controls the server can try offline guessing of weak account passwords from `private_blob` and the
   scrypt parameters. Use a strong account password.
 - First contact with a new member is trust on first use: if the server lies about a key the first time you see a user,

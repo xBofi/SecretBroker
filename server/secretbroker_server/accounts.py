@@ -1,17 +1,21 @@
-"""Accounts, sessions (devices), key lookup, server info and server-admin signup tokens."""
+"""Accounts, sessions (devices), e-mail verification, key lookup, server info and server-admin signup tokens."""
 
+import hmac
 import json
+import threading
 
-from . import __version__, security
+from . import __version__, mail, security
 from .db import event, now_epoch, now_iso
 from .validate import ApiError, b64, body, email, integer, kdf, path_id, sealed, text, uuid_id
 from .web import is_server_admin, new_id, route
 
 BLOB_MAX = 4096
+ACCOUNT_DATA_MAX = 256 * 1024  # the account's own encrypted data (pins of verified people), see /me/data
 
 
 def _user(row, settings):
-    return {"id": row["id"], "email": row["email"], "name": row["name"], "admin": is_server_admin(settings, row)}
+    return {"id": row["id"], "email": row["email"], "name": row["name"], "admin": is_server_admin(settings, row),
+            "verified": bool(row["verified"])}
 
 
 def rate_limited(wait):
@@ -20,7 +24,8 @@ def rate_limited(wait):
 
 @route("GET", "/info", auth=False)
 def info(ctx):
-    return {"name": ctx.settings.name, "version": __version__, "signups": ctx.settings.signups}
+    return {"name": ctx.settings.name, "version": __version__, "signups": ctx.settings.signups,
+            "verification": ctx.settings.verification}
 
 
 @route("POST", "/accounts/prelogin", auth=False, tx="read")
@@ -31,11 +36,21 @@ def prelogin(ctx):
     return {"kdf": json.loads(row["kdf"]) if row else security.fake_kdf(ctx.server.secret, address)}
 
 
+def _org_invite(ctx, address, token):
+    """Whether `token` is the id of a pending organization invite for this very e-mail. An admin handed that code
+    to the person they invited, so registering with it also proves the address is theirs."""
+    try:
+        invite_id = uuid_id(token)
+    except ApiError:
+        return False
+    return bool(ctx.conn.execute("SELECT 1 FROM invites WHERE id = ? AND email = ?", (invite_id, address)).fetchone())
+
+
 def _check_signup(ctx, address, token):
     """Who may create an account. Returns the signup-token hash to consume, if one was used.
 
-    E-mail ownership is not verified, so an SB_ADMIN_EMAILS address always needs a signup token (from the
-    `secretbroker-server create-invite` command), in every mode: otherwise whoever registers it first is admin."""
+    An SB_ADMIN_EMAILS address always needs a signup token (from the `secretbroker-server create-invite` command),
+    in every mode: otherwise whoever registers it first would be admin before verifying anything."""
     settings = ctx.settings
     admin = address in settings.admin_emails
     if settings.signups == "open" and not admin:
@@ -43,12 +58,7 @@ def _check_signup(ctx, address, token):
     if settings.signups == "closed" and not admin:
         raise ApiError(403, "signups_closed", "Este servidor no admite cuentas nuevas.")
     if token:
-        try:
-            invite_id = None if admin else uuid_id(token)
-        except ApiError:
-            invite_id = None
-        if invite_id and ctx.conn.execute("SELECT 1 FROM invites WHERE id = ? AND email = ?",
-                                          (invite_id, address)).fetchone():
+        if not admin and _org_invite(ctx, address, token):
             return None
         digest = security.token_hash(token)
         if ctx.conn.execute("SELECT 1 FROM signup_tokens WHERE token_hash = ? AND used_by IS NULL AND expires > ?",
@@ -77,17 +87,84 @@ def register(ctx):
     if conn.execute("SELECT 1 FROM users WHERE email = ?", (data["email"],)).fetchone():
         raise ApiError(409, "email_taken", "Ya hay una cuenta con ese e-mail.")
     first = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
+    verified = ctx.settings.verification == "off" or bool(
+        data["invite_token"] and _org_invite(ctx, data["email"], data["invite_token"]))
     salt = security.new_salt()
     conn.execute(
         "INSERT INTO users (id, email, name, kdf, auth_salt, auth_verifier, public_key, signing_public_key, "
-        "private_blob, is_admin, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "private_blob, is_admin, verified, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (data["user_id"], data["email"], data["name"], json.dumps(data["kdf"]), salt,
          security.verifier(data["auth_hash"], salt), data["public_key"], data["signing_public_key"],
-         json.dumps(data["private_blob"]), int(first or data["email"] in ctx.settings.admin_emails), now_iso()))
+         json.dumps(data["private_blob"]), int(first or data["email"] in ctx.settings.admin_emails), int(verified),
+         now_iso()))
     if token_digest:
         conn.execute("UPDATE signup_tokens SET used_by = ? WHERE token_hash = ?", (data["user_id"], token_digest))
     event(conn, None, data["user_id"], "register", data["user_id"])
-    return {"user_id": data["user_id"]}
+    if not verified and ctx.settings.smtp:
+        _send_code(ctx, conn, data["user_id"], data["email"])
+    return {"user_id": data["user_id"], "verified": verified}
+
+
+# ---------------------------------------------------------------------- e-mail verification
+#
+# Organization invites are addressed to an e-mail; until the account proves it owns that address (a code sent by
+# e-mail, an invite code, or the admin from the command line) it cannot see or accept invites, and nobody's
+# invites expose it, so registering someone else's address first gains nothing.
+
+def _send_code(ctx, conn, user_id, address):
+    """A fresh code, stored as an HMAC, e-mailed in the background (an SMTP server may take seconds)."""
+    code, now = mail.new_code(), now_epoch()
+    conn.execute("INSERT INTO email_codes (user_id, code_hash, expires, attempts, sent) VALUES (?, ?, ?, 0, ?) "
+                 "ON CONFLICT (user_id) DO UPDATE SET code_hash = excluded.code_hash, expires = excluded.expires, "
+                 "attempts = 0, sent = excluded.sent",
+                 (user_id, mail.code_hash(ctx.server.secret, user_id, code), now + mail.CODE_SECONDS, now))
+    threading.Thread(target=mail.send_code, args=(ctx.settings, address, code), daemon=True).start()
+
+
+@route("POST", "/accounts/verify/send")
+def send_verification(ctx):
+    """E-mail a new code to this account's address (at most one a minute)."""
+    body(ctx.body, {})
+    if ctx.user["verified"]:
+        return {"verified": True, "sent": False}
+    if not ctx.settings.smtp:
+        return {"verified": False, "sent": False, "verification": ctx.settings.verification}
+    row = ctx.conn.execute("SELECT sent FROM email_codes WHERE user_id = ?", (ctx.uid,)).fetchone()
+    wait = row["sent"] + mail.RESEND_SECONDS - now_epoch() if row else 0
+    if wait > 0:
+        raise rate_limited(wait)
+    _send_code(ctx, ctx.conn, ctx.uid, ctx.user["email"])
+    return {"verified": False, "sent": True}
+
+
+@route("POST", "/accounts/verify", tx=False)
+def verify_email(ctx):
+    """The code from the e-mail. Wrong tries count (5 per code: the count is saved before answering), and an
+    expired code needs a new one."""
+    code = "".join(ch for ch in body(ctx.body, {"code": text(20)})["code"] if ch.isdigit())
+    if ctx.user["verified"]:
+        return {"verified": True}
+    error = None
+    with ctx.db.tx(write=True) as conn:
+        row = conn.execute("SELECT * FROM email_codes WHERE user_id = ?", (ctx.uid,)).fetchone()
+        if row is None or row["expires"] <= now_epoch() or row["attempts"] >= mail.CODE_TRIES:
+            error = ApiError(400, "code_expired", "Ese código ha caducado. Pide uno nuevo.")
+        elif not hmac.compare_digest(mail.code_hash(ctx.server.secret, ctx.uid, code), row["code_hash"]):
+            conn.execute("UPDATE email_codes SET attempts = attempts + 1 WHERE user_id = ?", (ctx.uid,))
+            left = mail.CODE_TRIES - row["attempts"] - 1
+            error = ApiError(400, "invalid_code", "El código no es correcto." + (
+                f" Te quedan {left} intentos." if left else " Pide uno nuevo."))
+        else:
+            mark_verified(conn, ctx.uid, ctx.uid)
+    if error:
+        raise error
+    return {"verified": True}
+
+
+def mark_verified(conn, user_id, actor):
+    conn.execute("UPDATE users SET verified = 1 WHERE id = ?", (user_id,))
+    conn.execute("DELETE FROM email_codes WHERE user_id = ?", (user_id,))
+    event(conn, None, actor, "email.verify", user_id)
 
 
 @route("POST", "/accounts/login", auth=False, tx=False)
@@ -174,14 +251,35 @@ def change_password(ctx):
     return {}
 
 
+@route("GET", "/me/data")
+def get_account_data(ctx):
+    """The account's own encrypted data, shared by all its devices (the people it verified). Opaque here."""
+    row = ctx.conn.execute("SELECT blob, revision FROM account_data WHERE user_id = ?", (ctx.uid,)).fetchone()
+    return {"blob": json.loads(row["blob"]) if row else None, "revision": row["revision"] if row else 0}
+
+
+@route("PUT", "/me/data")
+def put_account_data(ctx):
+    data = body(ctx.body, {"blob": sealed(ACCOUNT_DATA_MAX), "base_revision": integer(0, 2**62)})
+    row = ctx.conn.execute("SELECT revision FROM account_data WHERE user_id = ?", (ctx.uid,)).fetchone()
+    current = row["revision"] if row else 0
+    if data["base_revision"] != current:
+        raise ApiError(409, "conflict", "Otro dispositivo lo cambió antes.", revision=current)
+    ctx.conn.execute("INSERT INTO account_data (user_id, blob, revision) VALUES (?, ?, ?) ON CONFLICT (user_id) "
+                     "DO UPDATE SET blob = excluded.blob, revision = excluded.revision",
+                     (ctx.uid, json.dumps(data["blob"]), current + 1))
+    return {"revision": current + 1}
+
+
 KEYS_BATCH_MAX = 200
-# Who may read whose public keys: yourself, org mates, or people invited to an org you belong to.
+# Who may read whose public keys: yourself, org mates, or people invited to an org you belong to (only once their
+# account verified that e-mail: an unverified account that took someone's address must not get their invites).
 _KEYS_SQL = ("SELECT u.id, u.email, u.name, u.public_key, u.signing_public_key FROM users u WHERE u.id = ? AND ("
              " u.id = ?"
              " OR EXISTS (SELECT 1 FROM org_members a JOIN org_members b ON a.org_id = b.org_id"
              "            WHERE a.user_id = ? AND b.user_id = u.id)"
-             " OR EXISTS (SELECT 1 FROM invites i JOIN org_members a ON a.org_id = i.org_id"
-             "            WHERE a.user_id = ? AND i.email = u.email))")
+             " OR (u.verified = 1 AND EXISTS (SELECT 1 FROM invites i JOIN org_members a ON a.org_id = i.org_id"
+             "            WHERE a.user_id = ? AND i.email = u.email)))")
 
 
 @route("GET", "/users/{uid}/keys")

@@ -722,6 +722,10 @@ details.collection > summary .subtitle { color: var(--muted); font-size: var(--f
 .notice { display: flex; gap: 8px; align-items: flex-start; font-size: var(--fs-sm); padding: 10px 12px; border-radius: var(--radius); background: var(--interactive-soft); }
 .review-box h3 { line-height: 1.45; }
 .review-box h3 code { font-family: var(--font-mono); font-size: var(--fs-sm); background: var(--fill); border-radius: 4px; padding: 1px 5px; }
+.review-box .quote { margin: 4px 0 6px; padding: 8px 12px; border-left: 3px solid var(--line-strong); background: var(--bg-subtle);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: var(--fs-md); line-height: 1.5; white-space: pre-wrap;
+  word-break: break-word; max-height: 180px; overflow: auto; }
+.verify-code { font-family: var(--font-mono); letter-spacing: .12em; max-width: 160px; }
 .unsent-line { display: flex; gap: 6px; align-items: flex-start; color: var(--warning); }
 .ok-text { display: flex; gap: 8px; align-items: center; color: var(--ok); margin-top: 10px; }
 .nav .count.warn { color: var(--bg); background: var(--warning); border-radius: 999px; min-width: 18px; height: 18px; display: grid; place-items: center;

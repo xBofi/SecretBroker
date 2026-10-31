@@ -199,6 +199,10 @@ const ACTION_LABELS = {
   share: 'Compartida con el equipo', unshare: 'Ya no se comparte', team_change: 'Cambio del equipo revisado',
   team_conflict: 'Conflicto al sincronizar', team_join: 'Invitación aceptada', team_confirm: 'Miembro confirmado',
   team_remove: 'Miembro quitado', team_grant: 'Acceso a una colección', team_revoke: 'Acceso retirado',
+  team_add: 'Llegó del equipo', team_update: 'Cambiada por el equipo', team_delete: 'Borrada por el equipo',
+  team_review: 'Cambio del equipo por revisar', team_held: 'Borrados del equipo en espera',
+  team_unsigned: 'Cambio sin firma descartado', team_recovery: 'Acceso de recuperación', team_resolve: 'Borrados del equipo decididos',
+  team_verify_email: 'E-mail verificado',
 };
 const APPROVAL_LABELS = { session: 'Una vez por sesión', always: 'Siempre', never: 'Nunca' };
 const AUTH_LABELS = { none: 'No añadir', header: 'En una cabecera', query: 'Como parámetro de la URL', basic: 'HTTP Basic (usuario y contraseña)' };
@@ -966,7 +970,8 @@ function renderCredentials(content) {
     const unsent = unsentText(entry);
     const reminder = state.reminders && state.reminders[entry.id];
     if (entry.draft) return el('span', { class: 'draft-badge' }, 'Falta la clave');
-    if (entry.shared && entry.shared.pending_change) return el('span', { class: 'draft-badge', title: 'Un compañero ha cambiado adónde puede ir esta clave' }, 'Revisar cambio');
+    if (entry.shared && entry.shared.pending_delete) return el('span', { class: 'draft-badge is-danger', title: 'Borrada para el equipo junto con otras: decide en Equipo si se borra aquí también' }, 'Borrado en espera');
+    if (entry.shared && entry.shared.pending_change) return el('span', { class: 'draft-badge', title: changeSummary(entry.shared.pending_change) }, 'Revisar cambio');
     if (unsent) return el('span', { class: 'draft-badge', title: unsent }, 'Sin enviar');
     const rotating = rotationBadge(entry);
     if (rotating) return rotating;
@@ -1207,6 +1212,11 @@ function renderDetail(panel) {
       canWrite(entry) ? el('button', { class: 'btn icon-only', title: 'Eliminar', onclick: () => deleteEntry(entry) }, icon('trash', 'sm')) : null),
     entry.draft ? null : statusStrip(entry),
     entry.draft ? draftSection(entry, () => renderMain()) : null,
+    entry.shared && entry.shared.pending_delete ? el('div', { class: 'warning is-danger', style: 'margin-bottom:12px' }, icon('trash', 'sm'),
+      el('span', {}, entry.shared.pending_delete.gone
+        ? 'Su colección ya no aparece en el servidor. No se ha borrado nada aquí: '
+        : `${entry.shared.pending_delete.by || 'Alguien'} la ha borrado junto con otras. No se ha borrado nada aquí: `,
+      el('button', { class: 'link', onclick: () => { state.view = 'team'; renderMain(); } }, 'decide en Equipo'), '.')) : null,
     entry.shared && entry.shared.pending_change ? pendingChangeBox(entry) : null,
     reminder && reminder.kind === 'team_access' ? el('div', { class: `warning ${reminderTone(reminder)}` }, icon('clock', 'sm'), el('span', {}, reminderText(reminder),
       reminder.can_rotate && entry.rotation
@@ -2970,7 +2980,9 @@ function teamAttention() {
 }
 
 function teamAttentionCount() {
-  return teamAttention().length + ((state.team && state.team.waiting) || []).length;
+  const team = state.team || {};
+  return teamAttention().length + (team.waiting || []).length + (team.held_deletions || []).length
+    + (team.connected && team.verified === false ? 1 : 0);
 }
 
 // The Equipo button in the sidebar: a warning when the team can't sync, else what needs attention.
@@ -3125,12 +3137,25 @@ function sharedSection(entry) {
     }, 'Dejar de compartir')) : null);
 }
 
-// A teammate widened where the key can go: it keeps working as before until this user decides.
+// One line for a change waiting for review: new destinations, or new instructions for the AI.
+function changeSummary(change) {
+  const who = change.by || 'Un compañero';
+  const hosts = change.only_hosts ? change.hosts || [] : [];
+  const destinations = (change.changes || []).some((line) => !line.startsWith('Instrucciones'));
+  if (hosts.length) return `${who} quiere que la IA pueda enviarla a ${listJoin(hosts)}`;
+  if (change.texts && !destinations) return `${who} ha cambiado las instrucciones que lee la IA`;
+  if (change.texts) return `${who} ha cambiado adónde puede ir esta clave y las instrucciones que lee la IA`;
+  return `${who} ha cambiado adónde puede ir esta clave`;
+}
+
+// A teammate widened where the key can go, or rewrote the description the AI reads as instructions: it keeps
+// working as before until this user decides.
 function pendingChangeBox(entry) {
   const change = entry.shared.pending_change;
   const write = canWrite(entry);
   const who = change.by || 'Un compañero';
   const hosts = change.only_hosts ? change.hosts || [] : [];
+  const destinations = (change.changes || []).filter((line) => !line.startsWith('Instrucciones'));
   const decide = async (accept, button) => {
     const result = await teamAct('team_accept_change', { id: entry.id, accept },
       accept ? `Para permitir el cambio en ${entry.name}.` : `Para mantener ${entry.name} como estaba.`, button);
@@ -3141,14 +3166,20 @@ function pendingChangeBox(entry) {
   };
   const reject = write ? el('button', { class: 'btn primary' }, 'Rechazar y mantener como estaba') : null;
   if (reject) reject.addEventListener('click', () => decide(false, reject));
-  const allow = el('button', { class: write ? 'btn' : 'btn primary' }, hosts.length === 1 ? `Permitir ${hosts[0]}` : 'Permitir los cambios');
+  const allow = el('button', { class: write ? 'btn' : 'btn primary' }, hosts.length === 1 ? `Permitir ${hosts[0]}`
+    : change.texts && !destinations.length ? 'Aceptar la descripción nueva' : 'Permitir los cambios');
   allow.addEventListener('click', () => decide(true, allow));
   return el('div', { class: 'section draft-box review-box' },
     hosts.length
       ? el('h3', {}, `${who} quiere que la IA pueda enviar esta clave a: `, hosts.map((h, i) => [i ? ', ' : '', el('code', { class: 'selectable' }, h)]))
-      : el('h3', {}, `${who} ha cambiado adónde puede ir esta clave`),
-    hosts.length ? null : el('ul', { class: 'used-in' }, (change.changes || []).map((line) => el('li', { class: 'selectable' }, line))),
-    el('p', { class: 'help' }, 'Mientras decides, la IA no puede usar los destinos nuevos: sigue usándola como estaba. ', write
+      : el('h3', {}, changeSummary(change)),
+    hosts.length || !destinations.length ? null : el('ul', { class: 'used-in' }, destinations.map((line) => el('li', { class: 'selectable' }, line))),
+    change.texts ? el('div', { class: 'field' },
+      el('div', { class: 'k small muted' }, 'Nueva descripción (la IA la lee como instrucciones)'),
+      el('blockquote', { class: 'quote selectable' }, change.description || '')) : null,
+    el('p', { class: 'help' }, change.texts && !destinations.length
+      ? 'Mientras decides, la IA sigue leyendo la descripción anterior: un texto nuevo podría pedirle que haga otra cosa con tus claves. '
+      : 'Mientras decides, la IA no puede usar los destinos nuevos: sigue usándola como estaba. ', write
       ? 'Rechazar deshace el cambio para todo el equipo.'
       : 'Solo quien puede editarla puede rechazarlo: si no te parece bien, habla con quien la gestiona.'),
     el('div', { style: 'margin-top:8px;display:flex;gap:8px;flex-wrap:wrap' }, reject, allow));
@@ -3490,6 +3521,8 @@ function teamBanners(org, members, admin, rerender) {
       el('button', { class: 'btn primary', onclick: () => reconnectTeam(rerender) }, 'Volver a entrar')) : null,
     ['offline', 'error'].includes(team.state) ? el('div', { class: 'warning banner-line' }, icon('alert', 'sm'), el('span', {}, detail)) : null,
     state.teamReadError ? el('div', { class: 'warning banner-line' }, icon('alert', 'sm'), el('span', {}, state.teamReadError)) : null,
+    team.verified === false ? verifyEmailCard(team, rerender) : null,
+    (team.held_deletions || []).map((held) => heldDeletionsCard(held, rerender)),
     (data.invites || []).length ? teamInvitesGroup(data.invites, rerender) : null,
     verify.length ? el('div', { class: 'banner' },
       el('div', { class: 'banner-head' }, icon('fingerprint', 'sm'), el('h3', {}, `Por verificar (${verify.length})`),
@@ -3498,20 +3531,76 @@ function teamBanners(org, members, admin, rerender) {
     leavers.map((person) => offboardingCard(person)),
     reviews.length || unsent.length ? el('div', { class: 'banner' },
       el('div', { class: 'banner-head' }, icon('alert', 'sm'), el('h3', {}, `Por revisar (${reviews.length + unsent.length})`)),
-      reviews.map((entry) => {
-        const change = entry.shared.pending_change;
-        const hosts = change.only_hosts ? change.hosts || [] : [];
-        return el('div', { class: 'access-row' }, glyph(entry.template),
-          el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name),
-            el('div', { class: 'subtitle' }, hosts.length
-              ? `${change.by || 'Un compañero'} quiere que la IA pueda enviarla a ${listJoin(hosts)}`
-              : `${change.by || 'Un compañero'} ha cambiado adónde puede ir esta clave`)),
-          el('button', { class: 'btn', onclick: () => open(entry) }, 'Revisar'));
-      }),
+      reviews.map((entry) => el('div', { class: 'access-row' }, glyph(entry.template),
+        el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name),
+          el('div', { class: 'subtitle' }, changeSummary(entry.shared.pending_change))),
+        el('button', { class: 'btn', onclick: () => open(entry) }, 'Revisar'))),
       unsent.map((entry) => el('div', { class: 'access-row' }, glyph(entry.template),
         el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name, el('span', { class: 'draft-badge', style: 'margin-left:8px' }, 'Sin enviar')),
           el('div', { class: 'subtitle' }, unsentText(entry))),
         el('button', { class: 'btn ghost', onclick: () => open(entry) }, 'Abrir')))) : null);
+}
+
+// The account has not proved it owns its e-mail: until then nobody's invites reach it (someone could have
+// registered the address first). One code, typed once.
+function verifyEmailCard(team, rerender) {
+  const email = (team.user && team.user.email) || '';
+  if (team.verification === 'admin') {
+    return el('div', { class: 'banner' },
+      el('div', { class: 'banner-head' }, icon('shield', 'sm'), el('h3', {}, 'Falta verificar tu e-mail')),
+      el('p', { class: 'muted small' }, `Este servidor no envía correos. Pide a quien lo administra que verifique `,
+        el('b', {}, email), ' (lo hace en el servidor con «secretbroker-server verify-email»). Hasta entonces no te llegan invitaciones.'));
+  }
+  const code = el('input', { class: 'input verify-code', placeholder: '12345678', inputmode: 'numeric', autocomplete: 'one-time-code',
+    maxlength: '12', 'aria-label': 'Código del e-mail' });
+  const verify = el('button', { class: 'btn primary', 'data-mutates': '1' }, 'Verificar');
+  const resend = el('button', { class: 'link small muted-link', 'data-mutates': '1' }, 'Enviar otro código');
+  const submit = async () => {
+    if (!code.value.trim()) { code.focus(); return; }
+    const result = await teamAct('team_verify_email', { code: code.value.trim() }, 'Para verificar tu e-mail.', verify);
+    if (!result.ok) { code.select(); return; }
+    state.team = { ...state.team, ...result.result };
+    toast('E-mail verificado');
+    rerender();
+  };
+  verify.addEventListener('click', submit);
+  code.addEventListener('keydown', (event) => { if (event.key === 'Enter') submit(); });
+  resend.addEventListener('click', async () => {
+    const result = await teamAct('team_send_code', {}, 'Para enviarte otro código.', resend);
+    if (result.ok) toast(result.result.sent ? `Te hemos enviado otro código a ${email}` : 'Este servidor no envía correos: pide a quien lo administra que te verifique');
+  });
+  return el('div', { class: 'banner' },
+    el('div', { class: 'banner-head' }, icon('shield', 'sm'), el('h3', {}, 'Verifica tu e-mail')),
+    el('p', { class: 'muted small' }, 'Te hemos enviado un código de 8 cifras a ', el('b', {}, email),
+      '. Las invitaciones solo llegan a direcciones verificadas, así que nadie puede quedarse con las tuyas.'),
+    el('div', { class: 'inline-form', style: 'margin-top:8px' }, code, verify, resend));
+}
+
+// Many credentials deleted for the team at once (or a collection that vanished): nothing was deleted here.
+// One click either way.
+function heldDeletionsCard(held, rerender) {
+  const who = held.by && held.by.length ? listJoin(held.by) : null;
+  const what = plural(held.count, 'credencial', 'credenciales');
+  const decide = async (apply, button) => {
+    const result = await teamAct('team_resolve_deletions', { collection: held.collection, apply },
+      apply ? `Para borrar ${what} de este PC.` : `Para conservar ${what}.`, button);
+    if (!result.ok) return;
+    await loadEntries();
+    toast(apply ? `${what} borradas de este PC` : held.can_restore ? `${what} recuperadas para todo el equipo` : `${what} conservadas en este PC`);
+    rerender();
+  };
+  const remove = el('button', { class: 'btn danger', 'data-mutates': '1' }, 'Borrarlas también aquí');
+  remove.addEventListener('click', () => decide(true, remove));
+  const keep = el('button', { class: 'btn primary', 'data-mutates': '1' }, held.can_restore ? 'Recuperarlas para el equipo' : 'Conservarlas en este PC');
+  keep.addEventListener('click', () => decide(false, keep));
+  const reason = held.gone
+    ? `La colección «${held.collection_name}» ya no aparece en el servidor (te han quitado el acceso, la han borrado o el servidor falla).`
+    : `${who || 'Alguien'} ha borrado ${what} de «${held.collection_name}» a la vez.`;
+  return el('div', { class: 'banner' },
+    el('div', { class: 'banner-head' }, icon('trash', 'sm'), el('h3', {}, `${what} esperan tu decisión`)),
+    el('p', { class: 'muted small' }, reason, ' Por si es un error o un ataque, no se ha borrado nada en este PC. ',
+      held.can_restore ? 'Recuperarlas las vuelve a poner para todo el equipo.' : 'Si las conservas, quedan como credenciales personales.'),
+    el('div', { style: 'margin-top:8px;display:flex;gap:8px;flex-wrap:wrap' }, keep, remove));
 }
 
 // One person to verify: their code to compare, and one click («Confirmar» lets them in, «Verificar» trusts
@@ -3533,7 +3622,9 @@ function verifyRow(person, rerender) {
     await loadEntries();
     rerender();
   });
-  const subtitle = person.kind === 'waiting'
+  const subtitle = person.kind === 'waiting' && person.reason === 'recovery'
+    ? 'Es propietario de la organización: verifícalo para que pueda recuperar tus colecciones si tú faltas.'
+    : person.kind === 'waiting'
     ? `Te comparte ${person.collections === 1 ? 'una colección' : `${person.collections} colecciones`}: verifícalo para recibirlas.`
     : person.kind === 'changed' ? 'Su clave ha cambiado desde que lo verificaste. No le compartas nada hasta comparar el código.'
       : `${person.email ? `${person.email} · ` : ''}Pendiente de confirmar`;
@@ -3811,6 +3902,9 @@ function teamCollectionsPanel(org, collections, members, admin, content) {
     admin ? el('div', { class: 'inline-form', style: 'margin-top:12px' }, name, create) : null);
 }
 
+const SINGLE_MANAGER_TEXT = 'Solo una persona la gestiona: si deja el equipo o pierde su cuenta, nadie podrá dar acceso ni volver a cifrarla. '
+  + 'Da permiso de Gestor a otra persona (los propietarios de la organización lo reciben solos cuando los verificas).';
+
 function collectionBlock(collection, orgMembers, content) {
   const manage = collection.permission === 'manage';
   const list = el('div', { class: 'collection-members' });
@@ -3821,7 +3915,9 @@ function collectionBlock(collection, orgMembers, content) {
         el('div', { class: 'subtitle' }, [plural(collection.entries, 'credencial', 'credenciales'),
           cached ? plural(cached.length, 'persona', 'personas') : null,
           `Tu permiso: ${PERMISSION_LABELS[collection.permission]}`].filter(Boolean).join(' · '))),
-      collection.needs_rekey ? el('span', { class: 'draft-badge', title: 'Alguien salió de ella. Quien la gestiona la vuelve a cifrar en su próxima sincronización; mientras, los cambios esperan en cada PC.' }, 'Se volverá a cifrar') : null),
+      collection.needs_rekey ? el('span', { class: 'draft-badge', title: 'Alguien salió de ella. Quien la gestiona la vuelve a cifrar en su próxima sincronización; mientras, los cambios esperan en cada PC.' }, 'Se volverá a cifrar')
+        : collection.single_manager ? el('span', { class: 'draft-badge', title: SINGLE_MANAGER_TEXT }, 'Un solo gestor') : null),
+    collection.single_manager && manage ? el('div', { class: 'warning', style: 'margin:4px 0 8px' }, icon('alert', 'sm'), el('span', {}, SINGLE_MANAGER_TEXT)) : null,
     list);
   const draw = (inside) => {
     const mine = state.team.user.id;
@@ -4549,7 +4645,8 @@ function showApproval(request) {
     busy(button, true);
     for (const id of ids) {
       const target = (state.approvals || []).find((a) => a.id === id) || request;
-      const result = await withProof((p) => api().call('approve', { id, scope: scopeOf(target) }, p), 'Para aprobar el uso de la credencial.');
+      const result = await withProof((p) => api().call('approve', { id, scope: scopeOf(target) }, p), target.strong
+        ? 'Para aprobar que la IA borre, rote o cambie adónde puede ir una clave.' : 'Para aprobar el uso de la credencial.');
       if (!result.ok && result.code !== 'not_found') {
         busy(button, false);
         if (result.code !== 'cancelled') errorText.textContent = result.error;

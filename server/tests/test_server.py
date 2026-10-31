@@ -6,6 +6,7 @@ Run with:  .venv\\Scripts\\python.exe server\\tests\\test_server.py
 
 import base64
 import os
+import re
 import socket
 import sys
 import tempfile
@@ -19,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import httpx  # noqa: E402
 import uvicorn  # noqa: E402
 
-from secretbroker_server import config  # noqa: E402
+from secretbroker_server import config, mail  # noqa: E402
 from secretbroker_server.web import create_app  # noqa: E402
 
 failures = 0
@@ -90,7 +91,9 @@ class Api:
 def start(**overrides):
     """Run a server in a background thread; returns (base url, stop function)."""
     data = Path(tempfile.mkdtemp(prefix="sb-server-test-"))
-    settings = config.Settings(data_dir=data, public_url="http://127.0.0.1", allow_http=True, signups="open")
+    # Verification is tested on its own (test_email_verification); elsewhere it is off, as a self-hoster may set.
+    settings = config.Settings(data_dir=data, public_url="http://127.0.0.1", allow_http=True, signups="open",
+                               email_verification="off")
     for key, value in overrides.items():
         setattr(settings, key, value)
     sock = socket.socket()
@@ -461,6 +464,242 @@ def test_invite_signups():
         stop()
 
 
+class Outbox:
+    """What the server would e-mail: secretbroker_server.mail.deliver replaced while a test runs."""
+
+    def __init__(self):
+        self.sent = []
+        self._real = mail.deliver
+
+    def __enter__(self):
+        mail.deliver = lambda settings, msg: self.sent.append(msg)
+        return self
+
+    def __exit__(self, *exc):
+        mail.deliver = self._real
+
+    def code(self, to):
+        for _ in range(100):  # sent from a background thread
+            found = [m for m in self.sent if m["To"] == to]
+            if found:
+                return re.search(r"\b(\d{8})\b", found[-1].get_content()).group(1)
+            time.sleep(0.05)
+        raise AssertionError(f"no e-mail to {to}")
+
+
+def test_email_verification():
+    print("E-mail verification")
+    try:
+        config.Settings(data_dir=Path("."), public_url="https://x.example", smtp_host="smtp.example").check()
+        check(False, "SMTP without a sender address is refused")
+    except config.ConfigError:
+        check(True, "SMTP without a sender address is refused")
+    with Outbox() as outbox:
+        base, stop, settings = start(email_verification="required", smtp_host="smtp.example",
+                                     smtp_from="secrets@example.com")
+        try:
+            check(Api(base).ok("GET", "/info")["verification"] == "email", "info says codes are e-mailed")
+            alice = Api(base)
+            check(alice.register("alice@example.com").json()["verified"] is False, "a new account starts unverified")
+            alice.token = alice.login().json()["token"]
+            check(alice.ok("GET", "/me")["user"]["verified"] is False, "and says so")
+            # Mallory registers Victor's address first, hoping to receive the invites sent to it.
+            mallory = Api(base)
+            mallory.register("victor@example.com")
+            mallory.token = mallory.login().json()["token"]
+            alice.ok("POST", "/accounts/verify", {"code": outbox.code("alice@example.com")})
+            check(alice.ok("GET", "/me")["user"]["verified"], "the e-mailed code verifies the account")
+            oid = alice.ok("POST", "/orgs", {"name": "Org"})["id"]
+            invite_id = alice.ok("POST", f"/orgs/{oid}/invites", {"email": "victor@example.com", "role": "member"})["id"]
+            check(mallory.ok("GET", "/invites") == [], "an unverified account sees no invites to its address")
+            refused = mallory.call("POST", f"/invites/{invite_id}/accept")
+            check(refused.status_code == 403 and refused.json()["code"] == "email_unverified",
+                  "and cannot accept one even knowing its id")
+            row = next(m for m in alice.ok("GET", f"/orgs/{oid}/members") if m["email"] == "victor@example.com")
+            check(row["user_id"] is None and alice.call("GET", f"/users/{mallory.id}/keys").status_code == 404,
+                  "the inviter is not shown the unverified account, nor its keys")
+            for left in (4, 3):
+                wrong = mallory.call("POST", "/accounts/verify", {"code": "00000000"})
+                check(wrong.status_code == 400 and wrong.json()["code"] == "invalid_code"
+                      and f"{left} intentos" in wrong.json()["error"], f"a wrong code is refused ({left} tries left)")
+            for _ in range(3):
+                mallory.call("POST", "/accounts/verify", {"code": "00000000"})
+            outbox_code = outbox.code("victor@example.com")
+            late = mallory.call("POST", "/accounts/verify", {"code": outbox_code})
+            check(late.status_code == 400 and late.json()["code"] == "code_expired",
+                  "after 5 wrong tries even the right code needs a new one")
+            again = mallory.call("POST", "/accounts/verify/send", {})
+            check(again.status_code == 429 and again.headers.get("retry-after"), "one new code a minute at most")
+            check(mallory.ok("GET", "/me")["user"]["verified"] is False, "the address stays unverified")
+            # The real owner can still get in: the admin verifies the right account from the command line.
+            victim = Api(base)
+            check(victim.register("bob@example.com", invite_token=None).json()["verified"] is False, "bob registers")
+            bob_invite = alice.ok("POST", f"/orgs/{oid}/invites", {"email": "carol@example.com", "role": "member"})["id"]
+            carol = Api(base)
+            check(carol.register("carol@example.com", bob_invite).json()["verified"] is True,
+                  "registering with an organization invite code (from the admin) verifies the address")
+            carol.token = carol.login().json()["token"]
+            check([i["id"] for i in carol.ok("GET", "/invites")] == [bob_invite], "and the invite is there")
+            run_cli(settings, ["verify-email", "bob@example.com"])
+            victim.token = victim.login().json()["token"]
+            check(victim.ok("GET", "/me")["user"]["verified"], "the server admin verifies an account from the CLI")
+            events = [e["action"] for e in alice.ok("GET", f"/orgs/{oid}/events")]
+            check("invite" in events, "events still record invites")
+        finally:
+            stop()
+    base, stop, settings = start(email_verification="required")
+    try:
+        check(Api(base).ok("GET", "/info")["verification"] == "admin", "without SMTP the admin verifies accounts")
+        person = Api(base).signup("dan@example.com")
+        answer = person.ok("POST", "/accounts/verify/send", {})
+        check(answer["sent"] is False and answer["verification"] == "admin", "no e-mail is promised without SMTP")
+    finally:
+        stop()
+
+
+def run_cli(settings, argv):
+    """`secretbroker-server <argv>` against this test server's data folder."""
+    from secretbroker_server import cli
+    saved = dict(os.environ)
+    os.environ.update(SB_DATA_DIR=str(settings.data_dir), SB_PUBLIC_URL="http://127.0.0.1", SB_ALLOW_HTTP="1")
+    try:
+        cli.main(argv)
+    finally:
+        os.environ.clear()
+        os.environ.update(saved)
+
+
+def record(person, cid, seq, members, key_version=1, prev=None):
+    """A signed member list as a client sends it (the signature is random: only clients check it)."""
+    body = {"cid": cid, "seq": seq, "key_version": key_version, "by": person.id, "members": members,
+            "at": "2026-10-31T10:00:00+00:00"}
+    if prev:
+        body["prev"] = prev
+    return {"body": body, "signature": rand(64)}
+
+
+def body_hash(body):
+    import hashlib
+    import json as _json
+    return hashlib.sha256(_json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+                          .encode("utf-8")).hexdigest()
+
+
+def test_signed_lists_and_deletions():
+    print("Signed member lists, signed deletions and the deletion limit")
+    base, stop, _ = start(max_deletes_per_hour=3)
+    try:
+        alice, bob = Api(base).signup("alice@example.com"), Api(base).signup("bob@example.com")
+        oid = alice.ok("POST", "/orgs", {"name": "Org"})["id"]
+        bob.ok("POST", f"/invites/{alice.ok('POST', f'/orgs/{oid}/invites', {'email': bob.email, 'role': 'member'})['id']}/accept")
+        alice.ok("POST", f"/orgs/{oid}/members/{bob.id}/confirm", {})
+        cid = str(uuid.uuid4())
+        first = record(alice, cid, 1, {alice.id: "manage"})
+        alice.ok("POST", f"/orgs/{oid}/collections", {"id": cid, "encrypted_name": box(), "grant": alice.grant(),
+                                                      "members_record": first})
+        grant = {"permission": "edit", "grant": alice.grant()}
+        missing = alice.call("PUT", f"/collections/{cid}/members/{bob.id}", grant)
+        check(missing.status_code == 400 and missing.json()["code"] == "members_record",
+              "once a collection has a signed member list, a change without the next one is refused")
+        wrong = alice.call("PUT", f"/collections/{cid}/members/{bob.id}", {**grant, "members_record": record(
+            alice, cid, 2, {alice.id: "manage", bob.id: "view"}, prev=body_hash(first["body"]))})
+        check(wrong.status_code == 400 and "miembros" in wrong.json()["error"],
+              "a signed list that does not describe the change is refused")
+        broken = alice.call("PUT", f"/collections/{cid}/members/{bob.id}", {**grant, "members_record": record(
+            alice, cid, 2, {alice.id: "manage", bob.id: "edit"}, prev="0" * 64)})
+        check(broken.status_code == 400, "a list that does not follow the previous one is refused")
+        second = record(alice, cid, 2, {alice.id: "manage", bob.id: "edit"}, prev=body_hash(first["body"]))
+        forged = {**second, "body": {**second["body"], "by": bob.id}}
+        check(alice.call("PUT", f"/collections/{cid}/members/{bob.id}",
+                         {**grant, "members_record": forged}).status_code == 400, "a list signed in someone else's name is refused")
+        alice.ok("PUT", f"/collections/{cid}/members/{bob.id}", {**grant, "members_record": second})
+        chain = bob.ok("GET", f"/collections/{cid}/manifest?since=0")["records"]
+        check(chain == [first, second], "members read the whole chain exactly as it was signed")
+        check(bob.ok("GET", f"/collections/{cid}/manifest?since=1")["records"] == [second], "or what is new")
+
+        items = [str(uuid.uuid4()) for _ in range(5)]
+        for iid in items:
+            alice.ok("PUT", f"/collections/{cid}/items/{iid}", {"ciphertext": box(), "key_version": 1, "base_revision": 0})
+        listing = {i["id"]: i["revision"] for i in bob.ok("GET", f"/collections/{cid}/items")["items"]}
+        signature = {"by": bob.id, "seq": 2, "signature": rand(64)}
+        check(bob.call("DELETE", f"/collections/{cid}/items/{items[0]}",
+                       {"base_revision": listing[items[0]], "deletion": {**signature, "by": alice.id}}).status_code == 400,
+              "a deletion signed in someone else's name is refused")
+        for iid in items[:3]:
+            bob.ok("DELETE", f"/collections/{cid}/items/{iid}", {"base_revision": listing[iid], "deletion": signature})
+        tomb = next(i for i in alice.ok("GET", f"/collections/{cid}/items")["items"] if i["id"] == items[0])
+        check(tomb["deleted"] and tomb["deletion"] == signature, "the deleter's signature travels with the tombstone")
+        limited = bob.call("DELETE", f"/collections/{cid}/items/{items[3]}",
+                           {"base_revision": listing[items[3]], "deletion": signature})
+        check(limited.status_code == 429 and limited.json()["code"] == "rate_limited" and limited.headers.get("retry-after"),
+              "one account cannot delete more than SB_MAX_DELETES_PER_HOUR items an hour")
+        alice.ok("DELETE", f"/collections/{cid}/items/{items[3]}", {"base_revision": listing[items[3]]})
+        check(True, "the limit is per account")
+        alice.ok("PUT", f"/collections/{cid}/items/{items[0]}",
+                 {"ciphertext": box(), "key_version": 1, "base_revision": tomb["revision"]})
+        revived = next(i for i in bob.ok("GET", f"/collections/{cid}/items")["items"] if i["id"] == items[0])
+        check(not revived["deleted"] and "deletion" not in revived, "writing a deleted item again clears its tombstone")
+
+        third = record(alice, cid, 3, {alice.id: "manage"}, prev=body_hash(second["body"]))
+        alice.ok("DELETE", f"/collections/{cid}/members/{bob.id}", {"members_record": third})
+        live = [i["id"] for i in alice.ok("GET", f"/collections/{cid}/items")["items"] if not i["deleted"]]
+        rot = {"key_version": 2, "encrypted_name": box(), "grants": {alice.id: alice.grant()},
+               "items": {iid: box() for iid in live}}
+        check(alice.call("POST", f"/collections/{cid}/rotate", rot).json()["code"] == "members_record",
+              "a re-key needs the next signed list too")
+        stale = record(alice, cid, 4, {alice.id: "manage"}, prev=body_hash(third["body"]))
+        check(alice.call("POST", f"/collections/{cid}/rotate", {**rot, "members_record": stale}).status_code == 400,
+              "with the new key version in it")
+        alice.ok("POST", f"/collections/{cid}/rotate", {**rot, "members_record": record(
+            alice, cid, 4, {alice.id: "manage"}, key_version=2, prev=body_hash(third["body"]))})
+        check(len(alice.ok("GET", f"/collections/{cid}/manifest")["records"]) == 4, "and it is appended")
+        alice.ok("DELETE", f"/collections/{cid}")
+        check(alice.call("GET", f"/collections/{cid}/manifest").status_code == 404, "deleting a collection deletes its lists")
+    finally:
+        stop()
+
+
+def test_account_data():
+    print("The account's own encrypted data")
+    base, stop, _ = start()
+    try:
+        alice = Api(base).signup("alice@example.com")
+        check(alice.ok("GET", "/me/data") == {"blob": None, "revision": 0}, "empty at first")
+        blob = box(500)
+        check(alice.ok("PUT", "/me/data", {"blob": blob, "base_revision": 0})["revision"] == 1, "a device stores it")
+        stale = alice.call("PUT", "/me/data", {"blob": box(), "base_revision": 0})
+        check(stale.status_code == 409 and stale.json()["revision"] == 1, "another device must start from the latest")
+        check(alice.ok("GET", "/me/data") == {"blob": blob, "revision": 1}, "every device reads the same")
+        other = Api(base).signup("bob@example.com")
+        check(other.ok("GET", "/me/data")["blob"] is None, "each account has its own")
+    finally:
+        stop()
+
+
+def test_migration():
+    print("Upgrading a database from 0.15")
+    import sqlite3
+    from secretbroker_server.db import Database
+    data = Path(tempfile.mkdtemp(prefix="sb-server-old-"))
+    conn = sqlite3.connect(data / "secretbroker.db")
+    conn.executescript("""
+        CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL, kdf TEXT NOT NULL,
+            auth_salt TEXT NOT NULL, auth_verifier TEXT NOT NULL, public_key TEXT NOT NULL,
+            signing_public_key TEXT NOT NULL, private_blob TEXT NOT NULL, is_admin INTEGER NOT NULL DEFAULT 0,
+            created TEXT NOT NULL);
+        CREATE TABLE items (collection_id TEXT NOT NULL, id TEXT NOT NULL, revision INTEGER NOT NULL,
+            key_version INTEGER NOT NULL, ciphertext TEXT, deleted INTEGER NOT NULL DEFAULT 0, updated_by TEXT NOT NULL,
+            updated TEXT NOT NULL, PRIMARY KEY (collection_id, id));
+        INSERT INTO users VALUES ('u1', 'old@example.com', 'Old', '{}', 's', 'v', 'p', 'sp', '{}', 0, '');""")
+    conn.commit()
+    conn.close()
+    db = Database(data / "secretbroker.db")
+    row = db.conn().execute("SELECT verified FROM users WHERE id = 'u1'").fetchone()
+    columns = {r[1] for r in db.conn().execute("PRAGMA table_info(items)").fetchall()}
+    check(row["verified"] == 1 and "deletion" in columns, "accounts that existed count as verified; tombstones get signatures")
+    db.close()
+
+
 def main():
     test_config()
     base, stop, settings = start()
@@ -474,6 +713,10 @@ def main():
         stop()
     test_invite_signups()
     test_quota()
+    test_email_verification()
+    test_signed_lists_and_deletions()
+    test_account_data()
+    test_migration()
     print("\nAll good." if not failures else f"\n{failures} check(s) failed.")
     sys.exit(1 if failures else 0)
 

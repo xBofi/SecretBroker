@@ -157,6 +157,43 @@ def grant(value):
         raise invalid(exc.message) from None
 
 
+def sha256_hex(value):
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
+        raise invalid("debe ser un SHA-256 en hexadecimal.")
+    return value
+
+
+def members_record(value):
+    """A collection's member list signed by whoever changed it (docs/ARCHITECTURE.md 2.6). The server can't check
+    the signature (clients do), only that it is well formed and describes what the server will store."""
+    if not isinstance(value, dict):
+        raise invalid("debe ser {body, signature}.")
+    try:
+        record = body(value, {"body": dict_of, "signature": b64(64)})
+        record["body"] = body(record["body"], {
+            "cid": uuid_id, "seq": integer(1, 2**31), "key_version": integer(1, 2**31), "by": uuid_id,
+            "members": mapping(uuid_id, one_of(*PERMISSIONS), 10_000), "at": text(40)}, {"prev": sha256_hex})
+    except ApiError as exc:
+        raise invalid(exc.message) from None
+    return record
+
+
+def deletion(value):
+    """Who deleted an item, signed ({by, seq, signature}): clients ignore deletions nobody with edit rights signed."""
+    if not isinstance(value, dict):
+        raise invalid("debe ser {by, seq, signature}.")
+    try:
+        return body(value, {"by": uuid_id, "seq": integer(1, 2**62), "signature": b64(64)})
+    except ApiError as exc:
+        raise invalid(exc.message) from None
+
+
+def dict_of(value):
+    if not isinstance(value, dict):
+        raise invalid("debe ser un objeto.")
+    return value
+
+
 def mapping(key_check, value_check, max_items):
     def check(value):
         if not isinstance(value, dict) or len(value) > max_items:

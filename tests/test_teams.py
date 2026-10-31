@@ -8,6 +8,7 @@ Run with:  .venv\\Scripts\\python.exe tests\\test_teams.py
 
 import json
 import os
+import re
 import socket
 import sqlite3
 import sys
@@ -21,7 +22,8 @@ from pathlib import Path
 HOME = Path(tempfile.mkdtemp(prefix="secretbroker-teams-test-"))
 os.environ["SECRETBROKER_HOME"] = str(HOME / "default")  # must be set before importing secretbroker
 os.environ.update(SB_ALLOW_HTTP="1", SB_PUBLIC_URL="http://127.0.0.1", SB_SIGNUPS="open",
-                  SB_DATA_DIR=str(HOME / "server"))
+                  SB_DATA_DIR=str(HOME / "server"), SB_EMAIL_VERIFICATION="required", SB_SMTP_HOST="smtp.example",
+                  SB_SMTP_FROM="secrets@example.com", SB_MAX_DELETES_PER_HOUR="100")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
 import uvicorn  # noqa: E402
@@ -29,8 +31,20 @@ from cryptography.exceptions import InvalidTag  # noqa: E402
 
 from secretbroker import teams  # noqa: E402
 from secretbroker.service import AI_OPS, Service  # noqa: E402
-from secretbroker_server import config  # noqa: E402
+from secretbroker_server import config, mail  # noqa: E402
 from secretbroker_server.web import create_app  # noqa: E402
+
+OUTBOX = []
+mail.deliver = lambda settings, msg: OUTBOX.append(msg)  # what the server would e-mail
+
+
+def email_code(address):
+    for _ in range(100):  # sent from a background thread
+        found = [m for m in OUTBOX if m["To"] == address]
+        if found:
+            return re.search(r"\b(\d{8})\b", found[-1].get_content()).group(1)
+        time.sleep(0.05)
+    raise AssertionError(f"no e-mail to {address}")
 
 MASTER = "correct horse battery staple"
 ACCOUNT = "team account passphrase 42"
@@ -221,10 +235,10 @@ def hostile_server(base, settings, alice, carol, oid, carol_id):
     db.run("INSERT INTO collection_members (collection_id, user_id, permission, grant_json, key_version) "
            "VALUES (?, ?, 'view', '{}', 1)", (c3, m_id))
     db.run("UPDATE collections SET needs_rekey = 1 WHERE id = ?", (c3,))
-    alice.sync()
+    result = alice.sync()["result"]
     check(db.run("SELECT key_version FROM collections WHERE id = ?", (c3,))[0][0] == 1
-          and [w["user_id"] for w in alice.ok("team_status")["waiting"]] == [m_id],
-          "a re-key never seals the new key to someone the server added and this PC has not confirmed")
+          and any("nadie que la gestiona ha firmado" in e for e in result["errors"]),
+          "a re-key never seals the new key to someone the server added: the signed member list doesn't have them")
     db.run("DELETE FROM collection_members WHERE collection_id = ? AND user_id = ?", (c3, m_id))
     alice.sync()
     carol.sync()
@@ -240,13 +254,13 @@ def hostile_server(base, settings, alice, carol, oid, carol_id):
     check(carol.entry("hostile-api")["fields"]["value"] == API_KEY,
           "an item encrypted with the old key (someone who left, with the server) is refused")
     db.put_item(c3, iid, version, original)
-    alice.edit("hostile-api", description="Nueva descripción")
+    alice.edit("hostile-api", name="Nombre nuevo")
     alice.sync()
     carol.sync()
     newest = db.item(c3)[2]
     db.put_item(c3, iid, version, original)
     carol.sync()
-    check(carol.entry("hostile-api")["description"] == "Nueva descripción",
+    check(carol.entry("hostile-api")["name"] == "Nombre nuevo",
           "an older version of an item served again is not taken back")
     db.put_item(c3, iid, version, newest)
     carol.sync()
@@ -254,14 +268,18 @@ def hostile_server(base, settings, alice, carol, oid, carol_id):
 
     db.run("UPDATE collections SET needs_rekey = 1 WHERE id = ?", (c3,))
     revision = db.run("SELECT revision FROM items WHERE id = ?", (iid,))[0][0]
-    carol.edit("hostile-api", description="De Carol")
+    carol.edit("hostile-api", name="De Carol")
     carol.sync()
     check(db.run("SELECT revision FROM items WHERE id = ?", (iid,))[0][0] == revision,
           "while a collection waits for a re-key, edits stay on this PC (not encrypted with the old key)")
     alice.sync()
     carol.sync()
     alice.sync()
-    check(alice.entry("hostile-api")["description"] == "De Carol", "and go out once a manager re-keys")
+    check(alice.entry("hostile-api")["name"] == "De Carol", "and go out once a manager re-keys")
+    forged_lists(db, alice, carol, c3, m_id, m_keys)
+    mass_deletions(db, alice, carol, oid, carol_id)
+    owners_recovery(alice, carol, oid, carol_id)
+    legacy_collection(db, alice, oid)
 
     alice.save({"id": "deploy-tool", "name": "Deploy", "template": "api_key", "fields": {"value": "sk-deploy-FAKE-1"},
                 "policy": {"approval": "never", "commands": {"allowed": ["git"], "env": {"DEPLOY_TOKEN": "{{value}}"}}}})
@@ -348,6 +366,200 @@ def hostile_server(base, settings, alice, carol, oid, carol_id):
                                      "whatever the server answers")
 
 
+def forged_lists(db, alice, carol, cid, m_id, m_keys):
+    """The server (with Mallory, a teammate Carol verified) forges member lists, permissions and deletions."""
+    print("A server forging member lists and deletions")
+    carol_id = carol.service.vault.team()["user"]["id"]
+    head = carol.service.vault.team()["collections"][cid]["manifest"]
+    record = teams.make_members_record(m_keys, m_id, cid, head, {**head["members"], m_id: "manage"}, head["key_version"])
+    db.run("INSERT INTO collection_members (collection_id, user_id, permission, grant_json, key_version) "
+           "VALUES (?, ?, 'manage', '{}', ?)", (cid, m_id, head["key_version"]))
+    db.run("INSERT INTO collection_manifests (collection_id, seq, record, hash) VALUES (?, ?, ?, ?)",
+           (cid, record["body"]["seq"], dump(record), teams.members_hash(record["body"])))
+    result = carol.sync()["result"]
+    after = carol.service.vault.team()["collections"][cid]["manifest"]
+    check(after["seq"] == head["seq"] and m_id not in after["members"]
+          and any("lista de miembros" in e for e in result["errors"]),
+          "a member list signed by someone who does not manage the collection is refused, even if verified")
+    response = alice.call("team_grant", collection=cid, user_id=carol_id, permission="view",
+                          proof={"kind": "presence", "token": alice.presence})
+    check(not response["ok"] and alice.service.vault.team()["collections"][cid]["manifest"]["seq"] == head["seq"],
+          "and the manager's app does not build on it either")
+    db.run("DELETE FROM collection_manifests WHERE collection_id = ? AND seq = ?", (cid, record["body"]["seq"]))
+    db.run("DELETE FROM collection_members WHERE collection_id = ? AND user_id = ?", (cid, m_id))
+
+    db.run("UPDATE collection_members SET permission = 'manage' WHERE collection_id = ? AND user_id = ?", (cid, carol_id))
+    result = carol.sync()["result"]
+    check(carol.service.vault.team()["collections"][cid]["permission"] == "edit"
+          and any("lista de miembros" in e for e in result["errors"]),
+          "a permission the server changed without a signed list is refused (and not taken)")
+    db.run("UPDATE collection_members SET permission = 'edit' WHERE collection_id = ? AND user_id = ?", (cid, carol_id))
+    check(not carol.sync()["result"]["errors"], "back to the signed list, everything syncs again")
+
+    iid = carol.entry("hostile-api")["shared"]["item"]
+    name = carol.entry("hostile-api")["name"]
+    db.run("UPDATE items SET deleted = 1, ciphertext = NULL, deletion = NULL, revision = ? WHERE id = ?",
+           (db.bump(cid), iid))
+    result = carol.sync()["result"]
+    check(carol.entry("hostile-api")["name"] == name and result["unsigned"] == [name]
+          and any("sin una firma válida" in e for e in result["errors"]),
+          "a deletion nobody signed is ignored (the credential stays) and reported")
+    forged = teams.make_deletion(m_keys, m_id, cid, iid, 99)
+    db.run("UPDATE items SET deletion = ?, revision = ? WHERE id = ?", (dump(forged), db.bump(cid), iid))
+    carol.sync()
+    check(any(e["id"] == "hostile-api" for e in carol.service.vault.entries()),
+          "and one signed by someone who cannot edit the collection too")
+    events = carol.ok("audit", limit=30)
+    check(any(e["action"] == "team_unsigned" and e["status"] == "denied" for e in events), "Actividad records it")
+    carol.edit("hostile-api", name=name + " (revisada)")  # an editor's edit writes it again for the team
+    carol.sync()
+    check(not db.run("SELECT deleted FROM items WHERE id = ?", (iid,))[0][0], "and an editor's next edit brings it back")
+    alice.sync()
+
+
+def mass_deletions(db, alice, carol, oid, carol_id):
+    print("Many deletions at once")
+    cid = alice.act("team_create_collection", org=oid, name="Lote grande")["id"]
+    alice.act("team_grant", collection=cid, user_id=carol_id, permission="edit")
+    ids = [f"lote-{n}" for n in range(7)]
+    for n, entry_id in enumerate(ids):
+        alice.save({"id": entry_id, "name": f"Lote grande {n}", "template": "generic", "description": "",
+                    "fields": {"value": f"lote-FAKE-{n}"}, "policy": {"approval": "session"}})
+    alice.act("team_share_entries", ids=ids, collection=cid)
+    carol.sync()
+    for entry_id in ids[:6]:
+        alice.ok("delete_entry", id=entry_id, proof={"kind": "master_password", "value": MASTER})
+    alice.sync()
+    result = carol.sync()["result"]
+    held = carol.ok("team_status")["held_deletions"]
+    check(all(any(e["id"] == i for e in carol.service.vault.entries()) for i in ids)
+          and held and held[0]["count"] == 6 and held[0]["by"] == ["Alice"] and held[0]["can_restore"]
+          and result["held_deletions"][0]["count"] == 6,
+          "6 of 7 credentials deleted at once (signed by Alice) wait for Carol's decision: nothing is deleted yet")
+    check(carol.summary(ids[0])["shared"]["pending_delete"]["by"] == "Alice", "each one says so")
+    check(any(n["title"].startswith("6 credenciales") for n in carol.ok("notices")), "Carol gets a notice")
+    response = carol.call("team_resolve_deletions", collection=cid, apply=False)
+    check(response["code"] == "proof_required", "deciding needs the user")
+    carol.act("team_resolve_deletions", collection=cid, apply=False)
+    carol.sync()
+    alice.sync()
+    check(all(any(e["id"].startswith(i) for e in alice.service.vault.entries()) for i in ids)
+          and not carol.ok("team_status")["held_deletions"],
+          "«Mantener» restores them for the whole team (Carol can edit)")
+    for entry in [e for e in alice.service.vault.entries() if e["id"].startswith("lote-")][:6]:
+        alice.ok("delete_entry", id=entry["id"], proof={"kind": "master_password", "value": MASTER})
+    alice.sync()
+    carol.sync()
+    carol.act("team_resolve_deletions", collection=cid, apply=True)
+    left = [e["id"] for e in carol.service.vault.entries() if e["id"].startswith("lote-")]
+    check(len(left) == 1, f"«Borrar también aquí» applies them ({left})")
+    for n in range(3):
+        alice.save({"id": f"lote-b{n}", "name": f"Lote b{n}", "template": "generic", "description": "",
+                    "fields": {"value": f"lote-b-FAKE-{n}"}, "policy": {"approval": "session"}})
+    alice.act("team_share_entries", ids=[f"lote-b{n}" for n in range(3)], collection=cid)
+    carol.sync()
+    db.drop(cid)  # the server hides the whole collection
+    carol.sync()
+    held = carol.ok("team_status")["held_deletions"]
+    check(held and held[0]["gone"] and held[0]["count"] == 4
+          and sum(1 for e in carol.service.vault.entries() if e["id"].startswith("lote-")) == 4,
+          "a collection that vanishes with many credentials is held too")
+    carol.act("team_resolve_deletions", collection=cid, apply=False)
+    kept = [e for e in carol.service.vault.entries() if e["id"].startswith("lote-")]
+    check(len(kept) == 4 and not any(e.get("shared") for e in kept) and cid not in carol.service.vault.team()["collections"],
+          "kept, they stay on this PC as personal credentials")
+    for entry in kept:
+        carol.ok("delete_entry", id=entry["id"], proof={"kind": "master_password", "value": MASTER})
+    alice.sync()
+
+
+def owners_recovery(alice, carol, oid, carol_id):
+    print("Owners can always recover a collection")
+    alice_id = alice.service.vault.team()["user"]["id"]
+    alice.act("team_set_role", org=oid, user_id=carol_id, role="admin")
+    carol.sync()
+    cid = carol.act("team_create_collection", org=oid, name="De Carol")["id"]
+    signed = carol.service.vault.team()["collections"][cid]["manifest"]["members"]
+    check(signed.get(alice_id) == "manage" and signed.get(carol_id) == "manage",
+          "a new collection gives the organization's owner (verified here) a signed key grant to manage it")
+    listed = next(c for c in carol.ok("team_collections") if c["id"] == cid)
+    check(listed["managers"] == 2 and not listed["single_manager"], "so it does not depend on one person")
+    alice.sync()
+    check(cid in alice.service.vault.team()["collections"], "and the owner gets it")
+    solo = alice.act("team_create_collection", org=oid, name="Solo Alice")["id"]
+    listed = next(c for c in alice.ok("team_collections") if c["id"] == solo)
+    check(listed["single_manager"] and listed["signed"],
+          "a collection only one person manages is flagged (Equipo warns about it)")
+    alice.act("team_set_role", org=oid, user_id=carol_id, role="member")
+
+
+def legacy_collection(db, alice, oid):
+    print("A collection made before signed member lists")
+    state = alice.service.vault.team()
+    cid, key, me = str(uuid.uuid4()), os.urandom(32), state["user"]["id"]
+    with teams.Client(state["server_url"], state["token"]) as api:  # what 0.15 sent
+        api.call("POST", f"/orgs/{oid}/collections", {
+            "id": cid, "encrypted_name": teams.seal_name(key, cid, {"name": "Antigua"}),
+            "grant": teams.make_grant(state["keys"], me, cid, 1, me, state["public_key"], key)})
+        plain = {"entry": {"id": "antigua", "name": "Antigua", "template": "generic", "description": "",
+                           "fields": {"value": "old-FAKE"}, "policy": {}}, "author": {}, "updated": "", "seq": 1}
+        iid = str(uuid.uuid4())
+        api.call("PUT", f"/collections/{cid}/items/{iid}", {
+            "ciphertext": teams.seal_item(key, cid, iid, 1, plain), "key_version": 1, "base_revision": 0})
+    check(not db.run("SELECT COUNT(*) FROM collection_manifests WHERE collection_id = ?", (cid,))[0][0],
+          "an older app leaves no signed member list")
+    alice.sync()
+    check(db.run("SELECT COUNT(*) FROM collection_manifests WHERE collection_id = ?", (cid,))[0][0] == 1
+          and db.run("SELECT key_version FROM collections WHERE id = ?", (cid,))[0][0] == 2
+          and alice.service.vault.team()["collections"][cid].get("manifest"),
+          "its manager's app signs one at the next sync (with a re-key that also signs its items)")
+
+
+def weak_approvals():
+    print("AI approvals after opening with the Windows session")
+    erin = Person("erin")
+    erin.save({"id": "erin-api", "name": "API de Erin", "template": "api_key", "fields": {"value": "sk-erin-FAKE-1"},
+               "policy": {"approval": "session"}})
+    erin.save({"id": "erin-old", "name": "Clave vieja", "template": "api_key", "fields": {"value": "sk-erin-FAKE-2"},
+               "policy": {"approval": "session"}})
+    token = erin.ok("enable_session_unlock", proof={"kind": "master_password", "value": MASTER})["token"]
+    erin.ok("lock")
+    weak = erin.ok("unlock", proof={"kind": "session", "token": token})["presence"]
+    results = []
+
+    def ask(op, **params):
+        erin.ok("pending_approvals")  # the app is open
+        thread = threading.Thread(target=lambda: results.append(erin.call(op, **params)), daemon=True)
+        thread.start()
+        for _ in range(100):
+            pending = erin.ok("pending_approvals")
+            if pending:
+                return thread, pending[0]
+            time.sleep(0.05)
+        raise AssertionError("no approval request")
+
+    thread, request = ask("request_access", secret_ids=["erin-api"], reason="Probar")
+    answer = erin.call("approve", id=request["id"], scope="session", proof={"kind": "presence", "token": weak})
+    thread.join(10)
+    check(answer["ok"] and results[-1]["ok"] and not request["strong"],
+          "using a credential is still one click after a Windows-session unlock")
+    thread, request = ask("ai_delete", secret_id="erin-old", reason="Ya no se usa")
+    answer = erin.call("approve", id=request["id"], scope="once", proof={"kind": "presence", "token": weak})
+    check(request["strong"] and answer["code"] == "proof_required" and answer.get("weak"),
+          "deleting asks for Hello or a password once (the app explains why)")
+    answer = erin.call("approve", id=request["id"], scope="once",
+                       proof={"kind": "master_password", "value": MASTER, "presence": weak})
+    thread.join(10)
+    check(answer["ok"] and results[-1]["ok"] and not any(e["id"] == "erin-old" for e in erin.service.vault.entries()),
+          "with the password it goes ahead")
+    erin.save({"id": "erin-old", "name": "Clave vieja", "template": "api_key", "fields": {"value": "sk-erin-FAKE-3"},
+               "policy": {"approval": "session"}})
+    thread, request = ask("ai_delete", secret_id="erin-old")
+    answer = erin.call("approve", id=request["id"], scope="once", proof={"kind": "presence", "token": weak})
+    thread.join(10)
+    check(answer["ok"], "and from then on it is one click again until the vault is locked")
+
+
 def main():
     base, stop, settings = start_server()
     echo = HTTPServer(("127.0.0.1", 0), Echo)
@@ -373,6 +585,15 @@ def main():
     bob_status = bob.act("team_connect", server_url=base, email="bob@example.com", password=ACCOUNT, mode="register",
                          name="Bob")
     carol.act("team_connect", server_url=base, email="carol@example.com", password=ACCOUNT, mode="register", name="Carol")
+    check(status["verified"] is False and status["verification"] == "email",
+          "a new team account has to verify its e-mail (the server sent a code)")
+    response = alice.call("team_verify_email", code="12345678", proof={"kind": "presence", "token": alice.presence})
+    check(not response["ok"] and response["code"] == "invalid_code", "a wrong code is refused")
+    response = alice.call("team_send_code", proof={"kind": "presence", "token": alice.presence})
+    check(response["code"] == "rate_limited", "a new code at most once a minute")
+    for person, address in ((alice, "alice@example.com"), (carol, "carol@example.com")):
+        person.act("team_verify_email", code=email_code(address))
+    check(alice.ok("team_status")["verified"], "the e-mailed code verifies it")
     raw = (HOME / "alice" / "data" / "vault.json").read_text()
     check(alice.service.vault.team()["token"] not in raw and "x25519" not in raw, "team keys and token live encrypted in the vault")
 
@@ -389,6 +610,8 @@ def main():
     oid = alice.act("team_create_org", name="Acme")["id"]
     alice.act("team_invite", org=oid, email="bob@example.com", role="member")
     alice.act("team_invite", org=oid, email="carol@example.com", role="member")
+    check(bob.ok("team_invites") == [], "an account that has not verified its e-mail sees no invites")
+    bob.act("team_verify_email", code=email_code("bob@example.com"))
     invite = bob.ok("team_invites")[0]
     check(invite["org_name"] == "Acme", "Bob sees the invite")
     bob.act("team_accept_invite", id=invite["id"])
@@ -483,14 +706,38 @@ def main():
           "Carol's AI uses the shared key without seeing it")
     laptop.sync()
     check(laptop.entry("echo-api")["fields"]["value"] == API_KEY, "Alice's second device gets it too")
+    pins = laptop.service.vault.team()["pinned"]
+    check(bob_id in pins and carol_id in pins and teams._pinned_fp(pins[bob_id]) == bob_status["fingerprint"],
+          "people verified on one device are trusted on the account's other devices (pins travel encrypted)")
+    blobs = " ".join(row[0] for row in ServerDb(settings).run("SELECT blob FROM account_data"))
+    check(blobs and bob_id not in blobs and bob_keys["public_key"] not in blobs, "the server keeps them encrypted")
 
     print("Edits and conflicts")
     bob.edit("echo-api", description="Notas de Bob")
     check(bob.sync()["result"]["pushed"] == [NAME], "Bob's edit is pushed")
     alice.sync()
+    pending = alice.summary("echo-api")["shared"]["pending_change"]
+    view = next(v for v in alice.ok("list_secrets") if v["id"] == "echo-api")
+    check(alice.entry("echo-api")["description"] == "API compartida" and view["description"] == "API compartida"
+          and pending and pending["texts"] and pending["description"] == "Notas de Bob" and pending["by"] == "Bob",
+          "a teammate's new description (instructions the AI reads) waits for review: the AI still reads the old one")
+    events = alice.ok("audit", limit=30)
+    check(any(e["action"] == "team_review" and e.get("by") == "Bob" and e["actor"] == "team" and e["secret"] == "echo-api"
+              for e in events), "Actividad names who changed it (whoever signed the change), not just «Equipo»")
+    alice.act("team_accept_change", id="echo-api")
     check(alice.entry("echo-api")["description"] == "Notas de Bob" and alice.entry("echo-api")["policy"]["approval"] == "never",
-          "Alice gets Bob's edit and keeps her approval mode")
+          "accepted with one click; Alice keeps her approval mode")
+    laptop.sync()
+    laptop.act("team_accept_change", id="echo-api")
+    laptop.edit("echo-api", description="Desde el portátil")
+    laptop.sync()
+    alice.sync()
+    check(alice.entry("echo-api")["description"] == "Desde el portátil"
+          and not alice.entry("echo-api")["shared"].get("pending_policy"),
+          "a change signed by this same account (another of its devices) needs no review")
     alice.edit("echo-api", description="Versión de Alice")
+    bob.sync()
+    bob.act("team_accept_change", id="echo-api")
     bob.edit("echo-api", description="Versión de Bob")
     bob.sync()
     state = alice.service.vault.team()
@@ -499,6 +746,7 @@ def main():
         alice.service.team._push(api, state, cid, notes)  # push before pulling: the server answers 409
     alice.service.vault.set_team(state)
     check(notes["conflicts"] == ["echo-api-conflict"], "409: the server version wins")
+    alice.act("team_accept_change", id="echo-api")
     check(alice.entry("echo-api")["description"] == "Versión de Bob"
           and alice.entry("echo-api-conflict")["description"] == "Versión de Alice"
           and not alice.entry("echo-api-conflict").get("shared"), "the local edit is kept as a personal '<id>-conflict'")
@@ -627,6 +875,7 @@ def main():
     print("Removing someone while a collection can't be re-encrypted")
     dave = Person("dave")
     dave.act("team_connect", server_url=base, email="dave@example.com", password=ACCOUNT, mode="register", name="Dave")
+    dave.act("team_verify_email", code=email_code("dave@example.com"))
     alice.act("team_invite", org=oid, email="dave@example.com", role="member")
     dave.act("team_accept_invite", id=dave.ok("team_invites")[0]["id"])
     dave_id = next(m["user_id"] for m in alice.ok("team_members", org=oid) if m["email"] == "dave@example.com")
@@ -667,6 +916,7 @@ def main():
     check(not leaks, f"the server database has no secret, credential or collection name {leaks or ''}")
 
     hostile_server(base, settings, alice, carol, oid, carol_id)
+    weak_approvals()
 
     alice.ok("lock")
     check(alice.call("team_collections")["code"] == "locked", "team operations need an unlocked vault")
