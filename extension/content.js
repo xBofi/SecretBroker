@@ -197,11 +197,12 @@
     .button { position: fixed; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; cursor: pointer;
       background: transparent; display: grid; place-items: center; opacity: .9; }
     .button:hover, .button:focus-visible { background: rgba(127,127,127,.18); opacity: 1; outline: none; }
-    .button img { width: 16px; height: 16px; display: block; }
+    .logo { display: block; width: 16px; height: 16px; flex: none; }
+    .logo svg { display: block; width: 100%; height: 100%; }
+    .bar .title .logo { width: 20px; height: 20px; }
     .menu { position: fixed; width: 300px; max-height: 340px; overflow: auto; background: var(--bg); color: var(--text);
       border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 6px; }
     .head { display: flex; align-items: center; gap: 8px; padding: 6px 8px 8px; color: var(--muted); font-size: 12px; }
-    .head img { width: 16px; height: 16px; }
     .head b { color: var(--text); font-weight: 600; }
     .item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: none;
       color: inherit; font: inherit; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
@@ -221,20 +222,22 @@
     .bar { position: fixed; top: 16px; right: 16px; width: 360px; background: var(--bg); border: 1px solid var(--line);
       border-radius: 10px; box-shadow: var(--shadow); padding: 14px 16px; }
     .bar .title { display: flex; gap: 10px; align-items: center; font-weight: 600; font-size: 14px; }
-    .bar .title img { width: 20px; height: 20px; }
     .bar p { margin: 6px 0 12px; color: var(--muted); overflow-wrap: anywhere; }
     .bar .actions { display: flex; gap: 8px; justify-content: flex-end; }
-    .btn { border: 1px solid var(--line); background: var(--bg); color: var(--text); font: 500 13px/1 inherit;
-      font-family: inherit; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
+    .btn { border: 1px solid var(--line); background: var(--bg); color: var(--text); font-family: inherit; font-size: 13px;
+      font-weight: 500; line-height: 1; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
     .btn:hover { background: var(--hover); }
     .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
     .btn.primary:hover { opacity: .9; }
     .toast { position: fixed; top: 16px; right: 16px; max-width: 360px; background: var(--bg); border: 1px solid var(--line);
       border-radius: 10px; box-shadow: var(--shadow); padding: 10px 14px; display: flex; gap: 10px; align-items: center; }
-    .toast img { width: 16px; height: 16px; flex: none; }
   </style><div class="sb"></div>`;
   const layer = root.querySelector('.sb');
-  const ICON = ext.runtime.getURL('icons/32.png');
+  // Drawn inline: the page cannot load the extension's files (and must not be able to tell it is installed).
+  const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#171717"/>'
+    + '<path d="M16 6.5 8.5 9.5v5.6c0 4.7 3.2 8.4 7.5 9.9 4.3-1.5 7.5-5.2 7.5-9.9V9.5z" fill="#fff"/>'
+    + '<circle cx="16" cy="14.2" r="2.3" fill="#171717"/><path d="M15 15.5h2l.6 4.5h-3.2z" fill="#171717"/></svg>';
+  const logo = () => { const span = document.createElement('span'); span.className = 'logo'; span.innerHTML = LOGO; return span; };
   let attached = false;
   function attach() {
     if (!attached) { document.documentElement.appendChild(host); attached = true; }
@@ -277,7 +280,7 @@
     if (!button) {
       button = make('button', { class: 'button', title: 'Rellenar con SecretBroker', 'aria-label': 'Rellenar con SecretBroker',
         onmousedown: (event) => event.preventDefault(),  // keep the focus in the field
-        onclick: (event) => { if (event.isTrusted) toggleMenu(); } }, make('img', { src: ICON, alt: '' }));
+        onclick: (event) => { if (event.isTrusted) toggleMenu(); } }, logo());
       layer.append(button);
     }
     placeButton();
@@ -332,7 +335,7 @@
     placeMenu();
     const answer = await send({ type: 'logins' });
     if (!menu) return;
-    const head = (domain) => make('div', { class: 'head' }, make('img', { src: ICON, alt: '' }),
+    const head = (domain) => make('div', { class: 'head' }, logo(),
       make('span', {}, 'SecretBroker', domain ? ' · ' : '', domain ? make('b', {}, domain) : null));
     const openApp = make('div', { class: 'foot' }, make('button', { class: 'link', onclick: (e) => { if (e.isTrusted) { send({ type: 'open_app' }); hideMenu(); } } }, 'Abrir SecretBroker'));
     const note = (...content) => menu.replaceChildren(head(), make('div', { class: 'note' }, ...content), openApp);
@@ -441,7 +444,7 @@
     };
     const primary = make('button', { class: 'btn primary', onclick: (e) => { if (e.isTrusted) answer(true, primary); } }, update ? 'Actualizar' : 'Guardar');
     bar = make('div', { class: 'bar', role: 'dialog', 'aria-label': 'SecretBroker' },
-      make('div', { class: 'title' }, make('img', { src: ICON, alt: '' }),
+      make('div', { class: 'title' }, logo(),
         update ? `¿Actualizar la contraseña de «${offer.name}»?` : '¿Guardar esta contraseña en SecretBroker?'),
       make('p', {}, `${offer.username} · ${offer.host}`),
       make('div', { class: 'actions' }, make('button', { class: 'btn', onclick: (e) => { if (e.isTrusted) answer(false); } }, 'Ahora no'), primary));
@@ -452,7 +455,7 @@
   function toast(text) {
     if (window !== window.top) { send({ type: 'toast_top', text }); return; }
     attach();
-    const node = make('div', { class: 'toast', role: 'status' }, make('img', { src: ICON, alt: '' }), make('span', {}, text));
+    const node = make('div', { class: 'toast', role: 'status' }, logo(), make('span', {}, text));
     layer.querySelectorAll('.toast').forEach((t) => t.remove());
     layer.append(node);
     clearTimeout(toastTimer);

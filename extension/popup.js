@@ -197,7 +197,7 @@ function renderLogins(answer) {
       const local = page ? page.logins.filter((l) => `${l.name} ${l.username}`.toLowerCase().includes(query.toLowerCase())) : [];
       const elsewhere = found && found.ok ? found.result.results.filter((r) => !local.some((l) => l.id === r.id)) : [];
       matches.hidden = true;
-      results.replaceChildren(
+      results.replaceChildren(...[
         local.length ? el('div', { class: 'section' }, 'En esta web') : null,
         local.length ? el('div', { class: 'list' }, local.map(loginRow)) : null,
         elsewhere.length ? el('div', { class: 'section' }, 'En otras webs') : null,
@@ -207,16 +207,16 @@ function renderLogins(answer) {
           el('div', { class: 'actions' }, el('button', { class: 'icon-btn', title: `Abrir ${r.host} (allí se puede rellenar)`, 'aria-label': `Abrir ${r.host}`,
             onclick: () => { ask({ type: 'open_site', url: r.url }); window.close(); } }, icon('external'))))))
           : null,
-        !local.length && !elsewhere.length ? el('div', { class: 'empty' }, 'Nada coincide.') : null);
+        !local.length && !elsewhere.length ? el('div', { class: 'empty' }, 'Nada coincide.') : null].filter(Boolean));
     }, 150);
   });
-  main.replaceChildren(
+  main.replaceChildren(...[
     offerBox(answer.offer),
     siteLine(list, answer.page && answer.page.host),
     el('div', { class: 'search-wrap' }, icon('search'), search),
     matches, results,
     el('div', { class: 'hint' }, el('span', {}, 'Solo se rellena en la web de cada contraseña.'),
-      el('span', { title: 'Rellenar sin abrir esta ventana' }, el('kbd', {}, shortcut() || 'Ctrl+Shift+L'))));
+      el('span', { title: 'Rellenar sin abrir esta ventana' }, el('kbd', {}, shortcut() || 'Ctrl+Shift+L')))].filter(Boolean));
   search.focus();
 }
 
