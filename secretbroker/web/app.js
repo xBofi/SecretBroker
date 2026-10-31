@@ -150,7 +150,7 @@ function hostOf(url) {
 
 function formatTime(iso) {
   if (!iso) return '';
-  return fmtDate(iso, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return fmtDate(iso, { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' });
 }
 
 // ======================================================================= state
@@ -1351,7 +1351,7 @@ function sinceText(iso) {
   if (minutes < 60) return tn('time.minutes_ago', minutes);
   if (minutes < 6 * 60) return tn('time.hours_ago', Math.round(minutes / 60));
   const days = dayOffset(date);
-  const time = fmtDate(date, { hour: '2-digit', minute: '2-digit' });
+  const time = fmtDate(date, { hour: 'numeric', minute: '2-digit' });
   if (days === 0) return time;
   return days === -1 ? t('time.day_time', { day: fmtRelative(-1, 'day'), time }) : formatTime(iso);
 }
@@ -1449,7 +1449,7 @@ function inTime(days) {
 // «hoy a las 10:02», «ayer a las 18:40», «el 3 oct a las 10:02».
 function atText(iso) {
   const date = new Date(iso);
-  const time = fmtDate(date, { hour: '2-digit', minute: '2-digit' });
+  const time = fmtDate(date, { hour: 'numeric', minute: '2-digit' });
   const days = dayOffset(date);
   if (days === 0 || days === -1) return t('time.relative_day_at', { day: fmtRelative(days, 'day'), time });
   return t('time.date_at', { date: fmtDate(date, { day: 'numeric', month: 'short' }), time });
@@ -1467,7 +1467,7 @@ function capitalized(text) { return text.charAt(0).toUpperCase() + text.slice(1)
 function whenText(iso) {
   if (!iso) return '';
   const date = new Date(iso);
-  const time = fmtDate(date, { hour: '2-digit', minute: '2-digit' });
+  const time = fmtDate(date, { hour: 'numeric', minute: '2-digit' });
   const days = dayOffset(date);
   const day = days === 0 || days === -1 ? fmtRelative(days, 'day') : fmtDate(date, { day: 'numeric', month: 'short' });
   return t('time.day_time', { day, time });
@@ -2768,6 +2768,32 @@ const ACTIVITY_PAGE = 200;
 const ACTIVITY_FILTERS = localized(() => ([[null, t('activity_filter.all'), null], ['ai', t('common.ai'), 'bot'], ['browser', t('common.browser'), 'globe'], ['denied', t('activity_filter.denied'), null], ['team', t('common.team'), 'users']]));
 
 // [kind, icon, label]: who did it.
+// The vault's own events keep a short detail written by the service: a code (how it was unlocked) or, in older
+// entries and for a few events, a Spanish phrase. Those known ones are shown in the app's language; others as stored.
+function eventDetail(e) {
+  const detail = e.detail || '';
+  const unlockedWith = { master_password: t('activity_detail.with_master_password'), 'contraseña maestra': t('activity_detail.with_master_password'),
+    session: t('activity_detail.with_windows_session'), hello: t('activity_detail.with_windows_hello'),
+    windows_password: t('activity_detail.with_windows_password') };
+  if (e.secret === 'vault') {
+    if (e.action === 'unlock' && unlockedWith[detail]) return unlockedWith[detail];
+    if (e.action === 'lock') {
+      if (detail === 'manual') return t('activity_detail.by_hand');
+      const idle = detail.match(/^inactividad \((\d+) min\)$/);
+      if (idle) return t('activity_detail.idle_minutes', { minutes: Number(idle[1]) });
+      if (/^\S+ bloqueado$/.test(detail)) return t('activity_detail.session_locked');
+    }
+    if (e.action === 'session_unlock' && (detail === 'activado' || detail === 'desactivado')) {
+      return detail === 'activado' ? t('activity_detail.turned_on') : t('activity_detail.turned_off');
+    }
+    const count = detail.match(/^(\d+) credenciales$/);
+    if (count && (e.action === 'create' || e.action === 'restore')) return tn('activity_detail.credentials', Number(count[1]));
+  }
+  const saved = { creada: t('activity_detail.created'), modificada: t('activity_detail.changed'), 'clave añadida': t('activity_detail.key_added') };
+  if (e.action === 'save' && saved[detail]) return saved[detail];
+  return detail;
+}
+
 function eventActor(e) {
   const actor = e.actor || (AI_EVENT_ACTIONS.has(e.action) ? 'ai' : e.action === 'team_conflict' ? 'team' : 'user');
   if (actor === 'ai') return ['ai', 'bot', t('common.ai')];
@@ -2826,10 +2852,10 @@ async function renderActivity(content) {
     const [kind, actorIcon, actorLabel] = eventActor(e);
     const date = e.ts ? new Date(e.ts) : null;
     const failed = e.status === 'denied' || e.status === 'error';
-    const detail = e.message || e.detail;
+    const detail = (e.message === 'Contraseña incorrecta' ? t('activity_detail.wrong_password') : e.message) || eventDetail(e);
     return el('div', { class: 'event' },
       el('span', { class: 'time', title: date ? fmtDate(date, { dateStyle: 'full', timeStyle: 'short' }) : '' },
-        date ? fmtDate(date, { hour: '2-digit', minute: '2-digit' }) : ''),
+        date ? fmtDate(date, { hour: 'numeric', minute: '2-digit' }) : ''),
       el('span', { class: `actor is-${kind}` }, icon(actorIcon, 'sm'), el('span', {}, actorLabel)),
       el('div', { class: 'what' },
         el('div', {}, ACTION_LABELS[e.action] || e.action,
