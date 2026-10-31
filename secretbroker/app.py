@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, urlsplit
 from . import __version__, client, generator, integrations, links, native_host, paths, platform, resident, scanner, templates
 from .client import BrokerError, BrokerUnavailable
 
-hello = platform.biometric  # Windows Hello; elsewhere is_supported() is False (TODO: Touch ID, fprintd)
+hello = platform.biometric  # Windows Hello, Touch ID on macOS; on Linux is_supported() is False (TODO: fprintd)
 WEB_DIR = Path(__file__).with_name("web")
 ICON = Path(__file__).with_name("assets") / ("icon.ico" if platform.NAME == "windows" else "icon.png")
 CLIPBOARD_CLEAR_SECONDS = 30
@@ -99,7 +99,7 @@ class Api:
                 "hello_supported": hello.is_supported(), "templates": templates.export(), "providers": links.catalog(),
                 "prefs": integrations.load_prefs(), "integrations": integrations.status(),
                 "start_with_windows": resident.start_with_windows(), "session_unlock_here": self.has_session_unlock(),
-                "os": platform.NAME, "os_label": platform.OS_LABEL}
+                "os": platform.NAME, "os_label": platform.OS_LABEL, "biometric_label": getattr(hello, "LABEL", "Windows Hello")}
 
     def set_pref(self, key, value):
         if key in ("palette", "auto_scan", "scan_folders"):
@@ -413,7 +413,9 @@ class Api:
 
     def _restart(self):
         """Start the newly installed version, then quit: it takes over once this instance is gone."""
-        platform.spawn_detached(["/bin/sh", "-c", 'sleep 2; exec "$0" -I -m secretbroker.app', platform.python_gui()])
+        restart = getattr(platform, "restart_command", None)  # macOS: the bundle, through Launch Services
+        platform.spawn_detached(restart() if restart else
+                                ["/bin/sh", "-c", 'sleep 2; exec "$0" -I -m secretbroker.app', platform.python_gui()])
         self.quit()
 
     # ----- browser extension (see native_host.py)
@@ -870,6 +872,8 @@ def main():
     window.events.closing += lambda: True if api._quitting else (api.hide() or False)
     # WebView2 would otherwise try to write next to python.exe (read-only under Program Files).
     storage = paths.user_dir() / "webview"
+    if platform.NAME == "macos":
+        _step("invite links", lambda: _listen_for_links(api))
     if platform.NAME == "linux":
         # Qt: the tray icon (QSystemTrayIcon) and the clipboard live on the same GUI thread (see platform.linux.gui_call).
         webview.start(private_mode=True, storage_path=str(storage), gui="qt", icon=str(ICON))
@@ -931,10 +935,53 @@ def _let_windows_close(api, args):
         args.Cancel = False
 
 
+def _reopen_from_dock(api):
+    """macOS: closing hides the window (the app keeps answering the AI); clicking the Dock icon brings it back,
+    as Mac apps do. pywebview's application delegate does not handle that, so it is added to its class."""
+    import objc
+    from AppKit import NSApplication
+
+    def reopen(self, _app, _visible):
+        threading.Thread(target=api.show, daemon=True).start()
+        return True
+
+    delegate = NSApplication.sharedApplication().delegate()
+    if delegate is not None:
+        objc.classAddMethods(type(delegate), [objc.selector(
+            reopen, selector=b"applicationShouldHandleReopen:hasVisibleWindows:", signature=b"Z@:@Z")])
+
+
+_link_handler = None  # macOS: kept alive for as long as the app runs
+
+
+def _listen_for_links(api):
+    """macOS hands secretbroker:// links to the app as an Apple event (kAEGetURL), not on the command line:
+    also when it starts the app for one. Registered before the run loop starts, so that first one arrives."""
+    global _link_handler
+    import objc
+    from Foundation import NSAppleEventManager, NSObject
+
+    get_url = int.from_bytes(b"GURL", "big")  # kInternetEventClass and kAEGetURL
+    direct_object = int.from_bytes(b"----", "big")  # keyDirectObject
+
+    class SecretBrokerLinkHandler(NSObject):
+        @objc.typedSelector(b"v@:@@")
+        def handleURL_withReply_(self, event, _reply):
+            link = event.paramDescriptorForKeyword_(direct_object).stringValue()
+            _keep_join_link([str(link or "")])
+            threading.Thread(target=api.show, daemon=True).start()
+
+    _link_handler = SecretBrokerLinkHandler.alloc().init()
+    NSAppleEventManager.sharedAppleEventManager().setEventHandler_andSelector_forEventClass_andEventID_(
+        _link_handler, b"handleURL:withReply:", get_url, get_url)
+
+
 def _on_shown(window, api, background=False):
     """pywebview has no icon option on Windows: set it on the underlying WinForms form. Also keep
     the window handle, to raise the window later without going through the UI thread."""
     if platform.NAME != "windows":
+        if platform.NAME == "macos":
+            _step("Dock icon reopens the window", lambda: _reopen_from_dock(api))
         _start_resident(api)  # first: hiding needs to know whether there is an icon next to the clock
         if background:
             api._hidden_once = True

@@ -14,6 +14,7 @@ import os
 import sys
 import threading
 import time
+from pathlib import Path
 
 from . import client, integrations, paths, platform
 from .client import BrokerError, BrokerUnavailable
@@ -315,13 +316,97 @@ class QtTray(Tray):
             linux.gui_call(self._icon.hide)
 
 
+class MacTray(Tray):
+    """macOS: an icon in the menu bar (pystray's NSStatusItem). pywebview's Cocoa backend owns the main thread
+    and its run loop, so the item is built there (AppHelper.callAfter) and pystray only attaches to that loop
+    (run_detached). Notifications go to Notification Center (platform.notify)."""
+
+    def start(self):
+        self.available = False
+        ready = threading.Event()
+
+        def build():
+            try:
+                self._build()
+            except Exception:
+                log.exception("menu bar icon")
+            finally:
+                ready.set()
+
+        try:
+            from PyObjCTools import AppHelper
+        except ImportError:
+            return
+        AppHelper.callAfter(build)
+        ready.wait(5)
+
+    def _build(self):
+        import pystray
+        from PIL import Image
+
+        def later(action):
+            # Menu actions run on the main thread: anything that waits for the service goes to its own thread.
+            return lambda *_: threading.Thread(target=action, daemon=True).start()
+
+        menu = pystray.Menu(
+            pystray.MenuItem("Abrir SecretBroker", later(self.api.show), default=True),
+            pystray.MenuItem(lambda _: "Reanudar la IA" if self._status.get("ai_paused") else "Pausar la IA",
+                             later(self._toggle_pause)),
+            pystray.MenuItem("Bloquear", later(lambda: self._safe(lambda: client.request("lock"))),
+                             enabled=lambda _: self._status.get("state") == "unlocked"),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Salir", later(self.api.quit)),
+        )
+        # A monochrome shield (assets/menubar.png, from tools/make_icon.py --menubar) marked as a template image,
+        # so macOS draws it like the other menu bar icons, in light and dark bars.
+        template = Path(self.icon_path).with_name("menubar.png")
+        image = Image.open(template if template.is_file() else self.icon_path)
+        image.load()
+        self._icon = pystray.Icon("SecretBroker", image, "SecretBroker", menu)
+        self._icon.run_detached()
+        self._icon.visible = True
+        try:
+            self._icon._status_item.button().image().setTemplate_(True)  # pystray has no option for it
+        except Exception:
+            log.info("menu bar icon: not a template image")
+        self.available = True
+
+    def _on_main(self, action):
+        try:
+            from PyObjCTools import AppHelper
+            AppHelper.callAfter(action)
+        except Exception:
+            pass
+
+    def update(self, status):
+        changed = (status.get("ai_paused"), status.get("state")) != (self._status.get("ai_paused"), self._status.get("state"))
+        self._status = status
+        if self._icon is not None and changed:
+            text = "SecretBroker · IA en pausa" if status.get("ai_paused") else (
+                "SecretBroker · bloqueado" if status.get("state") == "locked" else "SecretBroker")
+
+            def apply():
+                self._icon.title = text
+                self._icon.update_menu()
+
+            self._on_main(apply)
+
+    def notify(self, title, text):
+        platform.notify(title, text)
+
+    def close(self):
+        if self._icon is not None:
+            # Only hidden: pystray's stop() would also stop the application's run loop, which belongs to pywebview.
+            self._on_main(lambda: setattr(self._icon, "visible", False))
+
+
 def make_tray(api, icon_path):
-    """The icon next to the clock for this system, or None where there is none yet (macOS: TODO)."""
+    """The icon next to the clock (the menu bar on macOS) for this system."""
     if platform.NAME == "windows":
         return Tray(api, icon_path)
     if platform.NAME == "linux":
         return QtTray(api, icon_path)
-    return None
+    return MacTray(api, icon_path)
 
 
 # ----------------------------------------------------------------- the AI's tools over HTTP

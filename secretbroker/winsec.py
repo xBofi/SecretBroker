@@ -1,11 +1,11 @@
-"""Windows security primitives used by the service: DPAPI, Windows password check, Hello signatures."""
+"""Windows security primitives used by the service: DPAPI, Windows password check, Hello (and Touch ID) signatures."""
 
 import ctypes
 import sys
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.hazmat.primitives.serialization import load_der_public_key
 
 IS_WINDOWS = sys.platform == "win32"
@@ -71,16 +71,24 @@ def verify_windows_password(owner, password):
 
 
 def load_hello_public_key(der):
+    """Windows Hello keys are RSA (2048 bits or more); Touch ID keys (macOS, secretbroker/touchid.py) are
+    Secure Enclave EC P-256 keys."""
     key = load_der_public_key(der)
-    if not isinstance(key, rsa.RSAPublicKey) or key.key_size < 2048:
-        raise ValueError("Clave pública de Windows Hello no válida")
-    return key
+    if isinstance(key, rsa.RSAPublicKey) and key.key_size >= 2048:
+        return key
+    if isinstance(key, ec.EllipticCurvePublicKey) and isinstance(key.curve, ec.SECP256R1):
+        return key
+    raise ValueError("Clave pública de Windows Hello no válida")
 
 
 def verify_hello_signature(public_key_der, message, signature):
-    """Windows Hello (KeyCredential) keys are RSA-2048 signing with PKCS#1 v1.5 + SHA-256."""
+    """Windows Hello (KeyCredential) keys sign with PKCS#1 v1.5 + SHA-256; Touch ID keys with ECDSA + SHA-256."""
     try:
-        load_hello_public_key(public_key_der).verify(signature, message, padding.PKCS1v15(), hashes.SHA256())
+        key = load_hello_public_key(public_key_der)
+        if isinstance(key, rsa.RSAPublicKey):
+            key.verify(signature, message, padding.PKCS1v15(), hashes.SHA256())
+        else:
+            key.verify(signature, message, ec.ECDSA(hashes.SHA256()))
         return True
     except (InvalidSignature, ValueError):
         return False

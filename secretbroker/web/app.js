@@ -28,11 +28,16 @@ function el(tag, props, ...children) {
   return node;
 }
 
-// The copy names Windows; on Linux (and later macOS) the same sentences name that system (info().os_label, set in
-// boot). «Windows Hello» stays: it is only shown where Hello exists.
+// The copy names Windows; on Linux and macOS the same sentences name that system (info().os_label, set in boot).
+// «Windows Hello» is shown only where there is a biometric proof: on macOS it reads «Touch ID» (info().biometric_label).
 function osText(text) {
   const label = window.SB_OS_LABEL;
-  if (!label || label === 'Windows' || !text.includes('Win')) return text;
+  if (!label || label === 'Windows' || !/Win|Hello|huella o cara/.test(text)) return text;
+  const biometric = window.SB_BIOMETRIC_LABEL;
+  if (biometric && biometric !== 'Windows Hello') {
+    text = text.replace(/Windows Hello \(PIN, huella o cara\)/g, biometric).replace(/tu PIN, huella o cara/g, 'tu huella')
+      .replace(/Windows Hello/g, biometric).replace(/con Hello/g, `con ${biometric}`).replace(/\(Hello\)/g, `(${biometric})`);
+  }
   return text.replace(/Windows(?! Hello)/g, label).replace(/ \(Win\+L\)/g, '');
 }
 
@@ -222,6 +227,7 @@ const AUTH_LABELS = { none: 'No añadir', header: 'En una cabecera', query: 'Com
 async function boot() {
   state.info = await api().info();
   window.SB_OS_LABEL = state.info.os_label;
+  window.SB_BIOMETRIC_LABEL = state.info.biometric_label;
   applyPalette(state.info.prefs.palette);
   for (const t of state.info.templates.templates) TEMPLATES[t.id] = t;
   DB_ENGINES = state.info.templates.db_engines;
@@ -4474,7 +4480,7 @@ function renderSettings(content) {
     el('div', { class: 'content-header' }, el('h1', {}, 'Ajustes')),
     el('div', { class: 'content-body' }, el('div', { class: 'settings' },
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Seguridad'),
-        (state.info.os || 'windows') === 'windows' ? setting('Windows Hello', 'Desbloquea y muestra contraseñas con tu PIN, huella o cara.', helloControl) : null,
+        ['windows', 'macos'].includes(state.info.os || 'windows') ? setting('Windows Hello', 'Desbloquea y muestra contraseñas con tu PIN, huella o cara.', helloControl) : null,
         setting('Contraseña maestra', 'Si la olvidas, puedes cambiarla aquí tras confirmar con Windows.',
           el('button', { class: 'btn', onclick: () => changeMasterPassword(false) }, 'Cambiar')),
         setting('Abrir con mi sesión de Windows', 'La bóveda se abre sola al entrar en Windows y se cierra al bloquearlo (Win+L), sin escribir contraseñas. Protege de errores de la IA, no de alguien que use tu sesión.', sessionToggle),

@@ -1,7 +1,8 @@
 """Updates from GitHub Releases, accepted only when signed with the release key.
 
 Every release carries an installer per system (Windows: SecretBroker-Setup-<version>.exe, Ubuntu:
-secretbroker_<version>_amd64.deb; see platform.INSTALLER_RE) and a .sig file each: an Ed25519 signature over
+secretbroker_<version>_amd64.deb, macOS: SecretBroker-<version>-macos-<arm64|x86_64>.pkg; platform.INSTALLER_RE
+matches only this system's, and on a Mac only its processor's) and a .sig file each: an Ed25519 signature over
 SIGNED_PREFIX + version + NUL + SHA-256(installer). The public key below lives in Program Files with
 the rest of the code, so only an administrator can change which key is trusted. Binding the version
 stops an old (vulnerable) signed release from being offered as a new one.

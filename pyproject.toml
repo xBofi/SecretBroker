@@ -25,6 +25,15 @@ dependencies = [
     "PyQt6>=6.6; sys_platform == 'linux'",
     "PyQt6-WebEngine>=6.6; sys_platform == 'linux'",
     "secretstorage>=3.3; sys_platform == 'linux'",
+    # macOS: pywebview's Cocoa backend, the menu bar icon, the Keychain and Touch ID, the account password
+    # (Open Directory) and the lock screen. Imported only on macOS (see secretbroker/platform/macos.py).
+    "pyobjc-framework-Cocoa>=10; sys_platform == 'darwin'",
+    "pyobjc-framework-Quartz>=10; sys_platform == 'darwin'",
+    "pyobjc-framework-Security>=10; sys_platform == 'darwin'",
+    "pyobjc-framework-LocalAuthentication>=10; sys_platform == 'darwin'",
+    "pyobjc-framework-OpenDirectory>=10; sys_platform == 'darwin'",
+    "pystray>=0.19.5; sys_platform == 'darwin'",
+    "Pillow>=10; sys_platform == 'darwin'",
 ]
 
 [project.optional-dependencies]
