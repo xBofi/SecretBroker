@@ -226,6 +226,8 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   team_collection_members, team_events` only need an unlocked vault; every other team op needs a proof and accepts
   the presence token (one click). `team_sync` and the background sync never raise: `team_status.state` is
   `off | idle | syncing | ok | error | offline | reconnect`, with `error` and counts of the `last` round.
+  The general `status` op also carries `team` (that state) and `team_sync` (time of the last finished round), so
+  the GUI's 1.5 s poll notices a finished round and reloads only when `team_status.last` says something arrived.
 * **Op parameters.** `team_connect {server_url, email, password, mode: register|login, name?, device_name?,
   invite_token?}`, `team_invite {org, email, role}`, `team_accept_invite {id}`, `team_members {org}` (rows add
   `fingerprint`, `key_changed`, `me`), `team_confirm_member {org, user_id, fingerprint?}`, `team_set_role {org,
@@ -233,6 +235,20 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   `team_collection_members {collection}`, `team_grant {collection, user_id, permission}`, `team_revoke {collection,
   user_id}` (own id: leave), `team_share_entry {id, collection}`, `team_unshare_entry {id}`,
   `team_accept_change {id, accept?}`, `team_events {org, before?}`.
+
+### 5.1 GUI (`secretbroker/web/app.js`)
+
+* Sidebar view **Equipo**: not connected, an explainer and the link form (server, e-mail, account password; create
+  account or log in; nothing prefilled). Connected: sync state and «Sincronizar ahora» in the header; items to review
+  (quarantined changes, "rotate because <person> had access" with a link to the guided rotation); invitations to
+  accept; per organization its collections (members and permission, add / change / remove, create) and people
+  (invite with role, pending confirmations with the fingerprint to compare and one-click «Confirmar», role, remove
+  with the re-key / rotate warning), and the org events for admins; the account, its fingerprint and «Desconectar».
+* Credential detail: «Compartir» (choose a writable collection), a collection · permission badge, «Dejar de
+  compartir», the quarantined change box («Aceptar» / «Mantener la actual», the latter only with edit permission),
+  reveal and copy hidden for `use`, and edit / delete / rotate limited to what the permission allows. Deleting a
+  shared credential warns that it is deleted for the whole collection.
+* Credential list: a team mark on shared rows and collection chips next to the tag filter.
 
 ## 6. Roadmap beyond this release
 

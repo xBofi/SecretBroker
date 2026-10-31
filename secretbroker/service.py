@@ -290,6 +290,7 @@ class Service:
             "ai_paused": self.pause_file.exists(),
             "drafts": sum(1 for e in self.vault.entries() if e.get("draft")) if self.vault.is_unlocked else 0,
             "team": self._team_info.get("state"),
+            "team_sync": self._team_info.get("last_sync"),  # the GUI reloads when a sync round ends
             "protocol": PROTOCOL_VERSION,
         }
 

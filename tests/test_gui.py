@@ -29,7 +29,11 @@ ROOT = Path(__file__).resolve().parents[1]
 HOME = Path(tempfile.mkdtemp(prefix="secretbroker-gui-"))
 SHOTS = HOME / "screenshots"
 MASTER = "una contraseña de prueba larga"
+ACCOUNT = "cuenta del equipo de prueba 42"
 failures = 0
+# A local SecretBroker Server for the teams flow (plain http only because it is on this PC).
+os.environ.update(SB_ALLOW_HTTP="1", SB_PUBLIC_URL="http://127.0.0.1", SB_SIGNUPS="open", SB_DATA_DIR=str(HOME / "server"))
+sys.path.insert(0, str(ROOT / "server"))
 
 
 def check(condition, message):
@@ -156,11 +160,25 @@ class Echo(http.server.BaseHTTPRequestHandler):
         pass
 
 
+def start_team_server():
+    import uvicorn
+    from secretbroker_server import config
+    from secretbroker_server.web import create_app
+
+    port = free_port()
+    server = uvicorn.Server(uvicorn.Config(create_app(config.from_env()), host="127.0.0.1", port=port, log_level="warning"))
+    threading.Thread(target=server.run, daemon=True).start()
+    wait_for(lambda: server.started, 10, 0.05)
+    return f"http://127.0.0.1:{port}", server
+
+
 def main():
     print(f"Test home: {HOME}")
     api_server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Echo)
     threading.Thread(target=api_server.serve_forever, daemon=True).start()
     api_port = api_server.server_address[1]
+    global TEAM_URL
+    TEAM_URL, team_server = start_team_server()
 
     devtools, mcp_port = free_port(), free_port()
     env = {**os.environ, "SECRETBROKER_HOME": str(HOME), "SECRETBROKER_MCP_PORT": str(mcp_port),
@@ -181,6 +199,7 @@ def main():
         if service_pid:
             subprocess.run(["taskkill", "/F", "/PID", str(service_pid)], capture_output=True)
         api_server.shutdown()
+        team_server.should_exit = True
     print(f"\n{'ALL PASSED' if not failures else f'{failures} FAILED'}  (screenshots: {SHOTS})")
     sys.exit(1 if failures else 0)
 
@@ -356,6 +375,9 @@ def run(app, env, devtools, api_port, client, integrations):
     check(wait_for(lambda: page.js("(document.querySelector('.modal input[type=number]') || {}).value") == "48", 10),
           "reopening it shows the 48 hours")
     page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+
+    teams_flow(page)
 
     print("Claude Code over HTTP, and approving with one click")
     url, token = integrations.mcp_endpoint()
@@ -432,6 +454,132 @@ def run(app, env, devtools, api_port, client, integrations):
     except websocket.WebSocketException:
         pass  # the page goes away with the app
     check(wait_for(lambda: app.poll() is not None, 10), "«Salir» quits the app")
+
+
+def fill(page, label, value, scope=""):
+    """Type into the input of the field labelled `label` (or, without a label, the input with that placeholder)."""
+    page.js(f"""(() => {{
+      const scope = {json.dumps(scope)};
+      const field = [...document.querySelectorAll(scope + ' .field')].find((f) => f.offsetParent !== null
+        && f.querySelector('label') && f.querySelector('label').innerText.trim().startsWith({json.dumps(label)}));
+      const input = field ? field.querySelector('input')
+        : [...document.querySelectorAll(scope + ' input')].find((i) => i.placeholder === {json.dumps(label)} && i.offsetParent !== null);
+      input.value = {json.dumps(value)}; input.dispatchEvent(new Event('input')); }})()""")
+
+
+def calm_shot(page, name):
+    """A screenshot without the toasts of earlier steps, once animations are over."""
+    page.js("document.getElementById('toasts').replaceChildren()")
+    time.sleep(0.4)
+    page.shot(name)
+
+
+def teams_flow(page):
+    from secretbroker.service import Service
+
+    print("Teams")
+    page.js("state.view = 'team'; renderMain()")
+    check(wait_for(lambda: "Comparte credenciales con tu equipo" in page.text() and "el servidor no la conoce" in page.text(), 10),
+          "not connected: what is shared, that the server sees nothing, and the password asked once")
+    check(page.js("[...document.querySelectorAll('.team-form input')].every((i) => !i.value)"), "nothing is prefilled")
+    calm_shot(page, "12-team-connect")
+    fill(page, "Servidor", TEAM_URL, ".team-form")
+    fill(page, "Tu nombre", "Alicia", ".team-form")
+    fill(page, "E-mail", "alicia@example.com", ".team-form")
+    fill(page, "Contraseña de la cuenta", ACCOUNT, ".team-form")
+    fill(page, "Repítela", ACCOUNT, ".team-form")
+    page.click("Crear cuenta", ".team-form .btn.primary")
+    check(wait_for(lambda: "Crear organización" in page.text() and "Tu huella" in page.text(), 20), "account created: account, sync and fingerprint")
+    check("Confirma que eres tú" not in page.text(), "linking the account asked no other password")
+    check(wait_for(lambda: "Sincronizado" in page.text() or "Sin sincronizar" in page.text(), 10), "the sync state shows")
+
+    fill(page, "Nombre del equipo o la empresa", "Acme")
+    page.click("Crear organización")
+    check(wait_for(lambda: "Colecciones" in page.text() and "Personas" in page.text() and "Acme" in page.text(), 15), "organization created")
+    fill(page, "Nombre, p. ej. Producción", "Producción")
+    page.click("Crear colección")
+    check(wait_for(lambda: "Tu permiso: Gestionar" in page.text(), 15), "collection created, managed by its creator")
+
+    print("Inviting and confirming a teammate")
+    bob = Service(HOME / "bob", owner="test\\bob", isolated=False)
+    presence = bob.handle("create_vault", {"master_password": MASTER})["result"]["presence"]
+    act = lambda op, **params: bob.handle(op, {**params, "proof": {"kind": "presence", "token": presence}})
+    bob_status = act("team_connect", server_url=TEAM_URL, email="bob@example.com", password=ACCOUNT, mode="register", name="Bob")["result"]
+    fill(page, "e-mail de la persona", "bob@example.com")
+    page.click("Invitar")
+    check(wait_for(lambda: "Invitación enviada" in page.text(), 15), "invited by e-mail")
+    invite = bob.handle("team_invites", {})["result"][0]
+    act("team_accept_invite", id=invite["id"])
+    page.js("renderView()")
+    check(wait_for(lambda: "Pendiente de confirmar" in page.text() and bob_status["fingerprint"] in page.text(), 15),
+          "Bob accepted: pending, with his fingerprint to compare")
+    page.js("document.querySelector('.fingerprint-box').scrollIntoView({ block: 'center' })")
+    calm_shot(page, "13-team-confirm")
+    page.click("Confirmar")
+    check(wait_for(lambda: "Bob confirmado" in page.text() or "Pendiente de confirmar" not in page.text(), 15), "one click confirms him")
+    check(wait_for(lambda: page.js("!!document.querySelector('.collection-members select')"), 15), "he can be added to the collection")
+    page.js("""(() => { const s = document.querySelectorAll('.collection-members .inline-form select'); s[1].value = 'edit'; })()""")
+    page.click("Añadir")
+    check(wait_for(lambda: page.js("[...document.querySelectorAll('.collection-members .access-row select')].some((s) => s.value === 'edit')"), 15),
+          "Bob is in the collection with «Editar»")
+    check("la IA y sb run pueden usarla; la app no la muestra ni la copia" in page.text(), "the permissions are explained")
+    calm_shot(page, "14-team")
+    page.js("document.querySelector('.content-body').scrollTop = 1e6")
+    calm_shot(page, "14-team-people")
+
+    print("Sharing a credential")
+    page.js("state.view = 'credentials'; state.selected = 'echo-api'; renderMain()")
+    check(wait_for(lambda: page.click("Compartir"), 10), "the credential offers «Compartir»")
+    check(wait_for(lambda: "Les llegará cifrada" in page.text(), 10), "choose the collection")
+    calm_shot(page, "15-share")
+    page.click("Compartir", ".modal-foot button")
+    check(wait_for(lambda: "Producción · Gestionar" in page.js("(document.querySelector('.head-sub') || {}).innerText || ''"), 15),
+          "shared: badge with collection and permission")
+    check(page.js("!!document.querySelector('.row.selected .shared-mark') && !!document.querySelector('.tag.team-tag')"),
+          "the list marks it and filters by collection")
+    check("Dejar de compartir" in page.text(), "it can be unshared")
+    calm_shot(page, "15-shared")
+    added = bob.handle("team_sync", {})["result"]["result"]["added"]
+    check(added == ["Echo API"], f"Bob receives it ({added})")
+    server_files = b"".join(f.read_bytes() for f in (HOME / "server").glob("*") if f.is_file())
+    check(b"sk-gui-test-SECRET-123" not in server_files and b"Echo API" not in server_files and "Producción".encode() not in server_files,
+          "the server holds neither the key, its name nor the collection name")
+
+    print("A teammate widens where the key can go")
+    mine = bob.vault.get("echo-api")
+    mine.pop("shared")
+    mine["fields"]["value"] = None
+    mine["policy"]["http"]["allowed_hosts"].append("api.evil.example")
+    saved = bob.handle("save_entry", {"entry": mine, "replaces": "echo-api", "proof": {"kind": "master_password", "value": MASTER}})
+    check(saved["ok"], f"Bob edits it ({saved.get('error')})")
+    bob.handle("team_sync", {})
+    page.js("api().call('team_sync').then(() => loadEntries()).then(renderMain)")
+    check(wait_for(lambda: "Cambio por revisar" in page.text() and "api.evil.example" in page.text(), 15),
+          "the change waits for review, with what changed")
+    check("Revisar cambio" in page.text(), "the list says so")
+    calm_shot(page, "16-team-change")
+    page.click("Mantener la actual")
+    check(wait_for(lambda: "Cambio por revisar" not in page.text(), 15), "one click keeps the current one")
+    hosts = page.js("state.entries.find((e) => e.id === 'echo-api').policy.http.allowed_hosts")
+    check(hosts == ["127.0.0.1"], f"and the key still only goes where it went ({hosts})")
+
+    print("Removing a teammate")
+    page.js("state.view = 'team'; renderMain()")
+    check(wait_for(lambda: page.js("!!document.querySelector('button[title=\"Quitar de la organización\"]')"), 15), "admins can remove people")
+    page.js("document.querySelector('button[title=\"Quitar de la organización\"]').click()")
+    check(wait_for(lambda: "cambiarán de clave" in page.text() and "marcadas para rotar" in page.text(), 5),
+          "removing warns: re-keyed collections, credentials to rotate")
+    calm_shot(page, "17-team-remove")
+    page.click("Quitar", ".modal-foot button")
+    check(wait_for(lambda: "Por revisar" in page.text() and "Bob tenía acceso" in page.text(), 15),
+          "the credentials he could see are listed to rotate")
+    page.js("state.view = 'credentials'; state.selected = 'echo-api'; renderMain()")
+    check(wait_for(lambda: "tenía acceso a esta credencial del equipo" in page.text(), 10), "the credential says who had access")
+    calm_shot(page, "18-team-rotate")
+    page.click("Rotar con ayuda", ".warning button")
+    check(wait_for(lambda: "1 · Dónde se usa" in page.text(), 10), "and links to the guided rotation")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
 
 
 if __name__ == "__main__":
