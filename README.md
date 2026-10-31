@@ -93,7 +93,12 @@ it asks whether to delete the vault (the default is to keep it).
 - **End-to-end encrypted**: the server never sees a secret, a credential name or a collection name.
 - Key pinning with fingerprints, signed key grants, automatic re-keying when someone leaves, and every credential they
   could see flagged "rotate: <person> had access" in the rotation wizard.
-- Teammates' changes that widen where a key can go are quarantined until you accept them with one click.
+- Teammates' changes that widen where a key can go, or rewrite the description your AI reads, are quarantined until
+  you accept them with one click.
+- Member lists, edits and deletions are signed by whoever made them: a hostile server can't add people, forge changes
+  or delete credentials, and Actividad names who changed what. Many deletions at once wait for your decision.
+- Invites only reach verified e-mail addresses; organization owners can always recover a collection; the people you
+  verify are trusted on all your PCs.
 - Shared credentials work with the AI broker, `sb run`, exposure checks and rotation exactly like personal ones.
 
 ### Everyday
@@ -139,8 +144,10 @@ backups and upgrades. The design is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 - Unlocks and approvals require a Windows Hello signature over a single-use challenge bound to that operation. Service
   responses are signed (Ed25519) so the app cannot be spoofed.
 - AI operations never return values; output is redacted; keys only go to allow-listed HTTPS hosts or programs.
-- Team sharing is end-to-end encrypted (X25519 + AES-256-GCM, Ed25519-signed key grants, pinned fingerprints). A fully
-  compromised server leaks e-mails, organization names, membership and timestamps, not credentials.
+- Team sharing is end-to-end encrypted (X25519 + AES-256-GCM, pinned fingerprints, Ed25519-signed key grants, member
+  lists, edits and deletions). A fully compromised server leaks e-mails, organization names, membership and
+  timestamps, not credentials, and cannot forge who is in a collection or what it contains. See
+  [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 - Updates are verified against a pinned Ed25519 release key.
 
 **Known limits.** Anything that passes through your desktop is visible to programs in your session (clipboard, keyboard,

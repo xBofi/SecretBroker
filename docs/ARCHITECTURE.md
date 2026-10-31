@@ -26,7 +26,12 @@ approvals are one click after unlock.
   Windows session" it is *weak* (anything running as the user could get one), so those and `TEAM_EXPORT_OPS` answer
   `proof_required`. The app then sends a proof **with its token** (`proof.presence`): the service makes that token
   strong and returns it in the response envelope (`presence`, read with `client.request(..., meta=)`). A proof without
-  a token (sb, scripts) leaves the app's token alone.
+  a token (sb, scripts) leaves the app's token alone. A `proof_required` caused by a weak token carries `weak: true`
+  so the app says why it asks.
+* **AI approvals.** Approving the AI's use of a credential is one click with any token. Requests that delete,
+  rotate or widen where a key may go (`STRONG_APPROVALS`: the AI's `delete`, `rotate` and `edit_config`; the request
+  carries `strong: true`) take a strong token, so after a Windows-session unlock the first one needs Hello or a
+  password (typed at most once a session: it makes the token strong, as above).
 - **Inactivity lock** applies with the session unlock too. `status.lock_reason` is `idle`, `manual` or `windows`. With
   the session unlock on, `client.call` opens the vault again by itself on the AI's next request
   (`client.reopen_with_session`), and the app does when the user comes back to the window; never after «Bloquear».
@@ -148,10 +153,18 @@ the user on this PC:
 * **accepting an invite** pins whoever sent it (accepting is the user saying they know that person).
 
 Only pinned keys are used: a grant is sealed only to a pinned key, and a received grant is only opened if it is
-signed by this user or by a pinned person who `manage`s the collection. Anything else leaves the collection (or the
-new key version) unused and lists that person in `team_status.waiting` until the user verifies them. A pinned key
-that changed is never re-pinned with one click: the user must type the fingerprint the other person reads out.
-Pins are per device (a second PC of the same user verifies people again).
+signed by this user or by a pinned person who `manage`s the collection (by its signed member list, 2.6). Anything
+else leaves the collection (or the new key version) unused and lists that person in `team_status.waiting` until the
+user verifies them. A pinned key that changed is never re-pinned with one click: the user must type the fingerprint
+the other person reads out.
+
+**Pins follow the account.** Every pin carries `at` (when it was made) and the pins live, encrypted, on the server
+as the account's own data (`GET/PUT /me/data`): `blob = AES-GCM(HKDF(x25519_priv || ed25519_priv,
+"secretbroker/account-data/v1"), {pinned, counter}, aad="secretbroker/account-data/v1|" + user_id)`. Only devices
+of the account have that key (not derived from the password, so a password change does not strand it). Each sync,
+`connect` and `confirm_member` merge it with the local pins (per person, the newest `at` wins), refuse a blob whose
+`counter` is lower than one already seen (no rollback), and upload the result with `base_revision` (a `409` is
+merged on the next sync). Verifying someone once is enough for all of the user's PCs.
 
 ### 2.3 Organizations, collections and items
 
@@ -207,9 +220,64 @@ the same way; its web hosts and server fields apply. A local id freed by a synce
 credential in that round, and the service forgets the approvals, destinations and exposure records of every
 credential a sync removes.
 
-Descriptions, `used_in` and rotation guides of shared credentials are written by teammates, so the AI sees
-`shared.texts_by = "team"` and is told to treat them as information, not as its user's instructions; an AI edit of a
-shared credential always asks the user.
+The **description** is what the AI reads as instructions about a credential, so a teammate's new description is a
+prompt-injection vector: it is quarantined like a new destination (`text_changes`; `pending_policy.texts` and
+`description`). The AI keeps reading the previous text until the user accepts it with one click; an editor may
+reject it for the team; writing the description by hand settles it. Removing the text applies at once. A change
+signed by the user's own account (another of their PCs) is never quarantined. Descriptions, `used_in` and rotation
+guides of shared credentials are still marked for the AI with `shared.texts_by = "team"` (information, not its
+user's instructions), and an AI edit of a shared credential always asks the user.
+
+### 2.6 Signed member lists, item versions and deletions
+
+The server routes membership, so without signatures it could add anyone to a collection, change a permission,
+claim a teammate wrote something or delete credentials. Everything that decides who is in a collection, what an
+item says and what is deleted is signed with the author's Ed25519 key and checked against pinned keys (2.2):
+
+* **Member lists.** Each membership change (create, grant, permission change, removal, re-key) carries the new full
+  list: `record = {body: {cid, seq, prev, key_version, by, members: {uid: permission}, at}, signature}`,
+  `signature = Ed25519(by, "secretbroker/members/v1|" + canonical(body))`, `prev = sha256(canonical(previous
+  body))`, `seq` counts from 1. The server stores the chain as received (`collection_manifests`) after checking that
+  the record is the next link, is in the caller's name and describes exactly what it is about to store
+  (`400/409 members_record` otherwise); once a collection has one, every membership change must bring the next.
+  Clients keep the last verified link (`collections[cid].manifest = {seq, hash, members, by, key_version,
+  writers}`) and extend it with `GET /collections/{cid}/manifest?since=seq`: each link must be signed by someone
+  pinned (else `untrusted`, the person goes to `waiting`) who was `manage` in the previous list, or only take its
+  signer out (leaving). A device that sees the chain for the first time starts from the newest link signed by a
+  pinned manager. Any other break is `bad_members`: the collection is not used, nothing is shared into it, and the
+  user is told the server shows an unsigned member list. The server's member rows must match the signed list
+  (people missing were removed from the organization; the next re-key signs the list without them), and the user's
+  own permission is the signed one, never the server's.
+* **Item versions.** Item plaintext adds `sig = {by, signature}` over `"secretbroker/item-sig/v1|" + canonical({cid,
+  iid, seq, hash: sha256(canonical(entry)), by, at: updated})` (inside the encryption, so re-encrypting at a re-key
+  keeps it). In a collection with a signed list, a new version is applied only if signed by a pinned `writer`
+  (someone with `manage`/`edit` since the last re-key); others are refused (`unsigned`) and reported. A re-key
+  re-signs, as the manager, items whose signer can no longer write, and items from before 0.16.
+* **Deletions.** `DELETE /collections/{cid}/items/{iid}` takes `deletion = {by, seq, signature}` over
+  `"secretbroker/delete/v1|" + canonical({cid, iid, seq, by})`, stored with the tombstone and returned as
+  `items[].deletion`. A client deletes its copy only if a pinned writer signed it with a `seq` above the one it
+  knows; anything else is ignored (the credential stays; an editor's next edit writes it again over the tombstone),
+  reported (`notes.unsigned`, a notice, `team_unsigned` in Actividad) and shown as an error of that collection.
+* **Collections from before 0.16** have no list. The first sync of a manager whose PC trusts every member signs one
+  with a re-key (which also signs the items); until then they work as before.
+* **Who did it.** Actividad records each incoming change (`team_add`, `team_update`, `team_review`,
+  `team_delete`) with `by`: the name of whoever signed it (else the server's `updated_by`, unverified).
+
+### 2.7 Mass deletions and recovery
+
+* **Many deletions at once.** If one sync would delete more than 5 credentials of a collection, or at least 3
+  that are half of it or more, nothing is deleted: they are held (`collections[cid].held`, `shared.pending_delete =
+  {by, at}`), `team_status.held_deletions = [{collection, collection_name, count, by, gone, at, can_restore}]` and
+  the user decides with one click (`team_resolve_deletions {collection, apply}`): delete them here too, or keep
+  them, which restores them for the whole team when the user can edit (the next push writes them over the
+  tombstones) and otherwise leaves them as personal credentials. A collection the server stops listing is treated
+  the same way when it held that many credentials (`gone`). Leaving an organization or a collection on purpose
+  removes its credentials at once. The server also limits deletions to `SB_MAX_DELETES_PER_HOUR` per account
+  (`429`); the client keeps the rest for a later sync.
+* **Owners can recover every collection.** A manager's app gives each organization `owner` it has pinned a signed
+  `manage` grant on every collection it manages (at creation and on each sync), so a collection never depends on one
+  person. Owners not verified yet are listed in `waiting` with `reason: "recovery"`. `team_collections` carries
+  `managers`, `single_manager` and `signed`, and Equipo warns about collections only one person manages.
 
 ## 3. Sync
 
@@ -240,12 +308,16 @@ shared credential always asks the user.
 
 | Method & path | Body → Response |
 |---|---|
-| `GET /info` (no auth) | → `{name, version, signups}` |
+| `GET /info` (no auth) | → `{name, version, signups, verification: email|admin|off}` |
 | `POST /accounts/prelogin` (no auth) | `{email}` → `{kdf}` |
 | `POST /accounts/register` (no auth) | `{user_id, email, name, kdf, auth_hash, public_key, signing_public_key, private_blob, invite_token?}` → `{user_id}`. The client picks `user_id` (UUIDv4) so it can bind `private_blob` to it; the server only checks it is new. |
 | `POST /accounts/login` (no auth) | `{email, auth_hash, device_name}` → `{token, user: {id, email, name}, kdf, private_blob, public_key, signing_public_key}` |
 | `POST /accounts/logout` | → `{}` (revokes this token) |
 | `GET /me` | → `{user, devices: [{id, name, created, last_seen, current}]}` |
+| `POST /accounts/verify/send` | `{}` → `{verified, sent, verification?}` (a new e-mail code; one a minute, else `429`) |
+| `POST /accounts/verify` | `{code}` → `{verified: true}` (`400 invalid_code`, `400 code_expired` after 30 min or 5 wrong tries) |
+| `GET /me/data` | → `{blob, revision}` (the account's encrypted data, 2.2; `blob` null at first) |
+| `PUT /me/data` | `{blob, base_revision}` → `{revision}` / `409 {revision}` |
 | `DELETE /me/devices/{id}` | → `{}` |
 | `POST /accounts/password` | `{current_auth_hash, kdf, auth_hash, private_blob}` → `{}` (revokes other sessions; a wrong current password is `403 invalid_credentials` and counts like a failed login) |
 | `GET /users/{uid}/keys` | → `{id, email, name, public_key, signing_public_key}` (only users sharing an org with you, or invited by your org) |
@@ -254,21 +326,22 @@ shared credential always asks the user.
 | `GET /orgs` | → `[{id, name, role}]` |
 | `GET /orgs/{oid}/members` | → `[{user_id, email, name, role, status: invited|accepted|confirmed}]` |
 | `POST /orgs/{oid}/invites` | `{email, role}` → `{id}` (admin) |
-| `GET /invites` | → invites addressed to my e-mail `[{id, org_id, org_name, role, invited_by}]` |
-| `POST /invites/{id}/accept` | → `{}` (status accepted; an admin must confirm, see fingerprints) |
+| `GET /invites` | → invites addressed to my e-mail `[{id, org_id, org_name, role, invited_by}]` (`[]` until the e-mail is verified) |
+| `POST /invites/{id}/accept` | → `{}` (status accepted; an admin must confirm, see fingerprints; `403 email_unverified` until verified) |
 | `POST /orgs/{oid}/members/{uid}/confirm` | → `{}` (admin) |
 | `PATCH /orgs/{oid}/members/{uid}` | `{role}` → `{}` (owner/admin rules) |
 | `DELETE /orgs/{oid}/members/{uid}` | → `{needs_rekey: [cid…]}` (admin, or self to leave; `400 last_manager {collections}` if they are a collection's only manager) |
-| `POST /orgs/{oid}/collections` | `{id, encrypted_name, grant}` → `{}` (admin; creator gets `manage`) |
+| `POST /orgs/{oid}/collections` | `{id, encrypted_name, grant, members_record?}` → `{}` (admin; creator gets `manage`; the first signed list, 2.6) |
 | `GET /collections` | → my collections `[{id, org_id, encrypted_name, key_version, permission, grant, needs_rekey, revision}]` |
 | `DELETE /collections/{cid}` | → `{}` (manage) |
 | `GET /collections/{cid}/members` | → `[{user_id, email, name, permission}]` |
-| `PUT /collections/{cid}/members/{uid}` | `{permission, grant?}` → `{}` (manage; `grant` required when adding; member must be confirmed in the org) |
-| `DELETE /collections/{cid}/members/{uid}` | → `{}` (manage; sets `needs_rekey`) |
-| `POST /collections/{cid}/rotate` | `{key_version, encrypted_name, grants: {uid: grant}, items: {iid: ciphertext}}` → `{revision}` (manage; atomic; must cover every member and every live item) |
-| `GET /collections/{cid}/items?since=N` | → `{revision, items: [{id, revision, key_version, ciphertext, deleted, updated_by, updated}]}` |
+| `GET /collections/{cid}/manifest?since=N` | → `{records: [{body, signature}]}` (the signed member lists after `seq` N, oldest first) |
+| `PUT /collections/{cid}/members/{uid}` | `{permission, grant?, members_record?}` → `{}` (manage; `grant` required when adding; member must be confirmed in the org; `members_record` required once the collection has one) |
+| `DELETE /collections/{cid}/members/{uid}` | `{members_record?}` → `{}` (manage, or self to leave; sets `needs_rekey`) |
+| `POST /collections/{cid}/rotate` | `{key_version, encrypted_name, grants: {uid: grant}, items: {iid: ciphertext}, members_record?}` → `{revision}` (manage; atomic; must cover every member and every live item) |
+| `GET /collections/{cid}/items?since=N` | → `{revision, items: [{id, revision, key_version, ciphertext, deleted, updated_by, updated, deletion?}]}` |
 | `PUT /collections/{cid}/items/{iid}` | `{ciphertext, key_version, base_revision}` → `{revision}` / `409 {revision}` (edit; `409 needs_rekey` while the collection waits for a re-key; `413 collection_full` past the quota) |
-| `DELETE /collections/{cid}/items/{iid}` | `{base_revision}` → `{revision}` (edit) |
+| `DELETE /collections/{cid}/items/{iid}` | `{base_revision, deletion?: {by, seq, signature}}` → `{revision}` (edit; `429` past `SB_MAX_DELETES_PER_HOUR`) |
 | `GET /orgs/{oid}/events?before=` | → `[{time, actor, action, target}]` (admin) |
 
 Errors: `{"error": "<message>", "code": "<code>"}` with proper HTTP status (400 invalid, 401 auth, 403 forbidden,
@@ -296,14 +369,22 @@ Implementation notes (`server/`, binding for clients):
   `POST /admin/invites` `{days?}` → `{token, expires}` (server admin: a single-use signup token).
 * **Signups.** `open`: anyone; the first account becomes server admin. `invite`: `invite_token` must be a signup
   token (`POST /admin/invites` or `secretbroker-server create-invite`) or the id of a pending org invite for that
-  same e-mail. `closed`: nobody. E-mails in `SB_ADMIN_EMAILS` are server admins, but since e-mail ownership is not
-  verified they register (in any mode, `closed` included) only with a signup token, normally from the server's
-  command line (`secretbroker-server create-invite`), so nobody can take the address first.
+  same e-mail. `closed`: nobody. E-mails in `SB_ADMIN_EMAILS` are server admins and register (in any mode, `closed`
+  included) only with a signup token, normally from the server's command line (`secretbroker-server
+  create-invite`), so nobody can take the address first.
+* **E-mail verification** (`SB_EMAIL_VERIFICATION=required`, the default). `register` answers `{user_id, verified}`
+  and `user` objects carry `verified`. An account is verified by the e-mailed code (`SB_SMTP_*`; 8 digits, stored as
+  an HMAC with the server secret), by registering with a pending org invite id for that e-mail, or by the admin
+  (`secretbroker-server verify-email <e-mail>`; `unverified` lists who is waiting). Until then `GET /invites` is
+  empty, `accept` is `403 email_unverified`, invite rows of `GET /orgs/{oid}/members` do not name the account and
+  the invite path of `/users/{uid}/keys` does not show its keys. `SB_EMAIL_VERIFICATION=off` (a self-hoster's
+  explicit choice) verifies everyone at registration. Accounts that existed before schema 2 count as verified.
 * **Limits.** Login failures are throttled per e-mail (5 free) and per client address (20 free), then each failure
   doubles the wait (max 15 min) and attempts during the wait get `429`, even with the right password. Registrations
   are throttled per address. A collection's ciphertext is capped at `SB_MAX_BODY / 2` so a re-key always fits in
-  one `rotate` request. More settings: `SB_ALLOW_HTTP`, `SB_TRUST_PROXY` (use `X-Forwarded-For`, only behind the
-  bundled Caddy), `SB_MAX_BODY`, `SB_SERVER_NAME`.
+  one `rotate` request. An account deletes at most `SB_MAX_DELETES_PER_HOUR` items an hour (100). More settings:
+  `SB_ALLOW_HTTP`, `SB_TRUST_PROXY` (use `X-Forwarded-For`, only behind the bundled Caddy), `SB_MAX_BODY`,
+  `SB_SERVER_NAME`, `SB_EMAIL_VERIFICATION`, `SB_SMTP_HOST/PORT/SECURITY/USER/PASSWORD/FROM`.
 
 ## 5. Desktop service operations for teams
 
@@ -312,7 +393,9 @@ Added to `secretbroker/service.py` (GUI only, never reachable from the AI unless
 `team_orgs`, `team_create_org`, `team_invite`, `team_invites`, `team_accept_invite`, `team_members`,
 `team_confirm_member`, `team_set_role`, `team_remove_member`, `team_collections`, `team_create_collection`,
 `team_collection_members`, `team_grant`, `team_revoke`, `team_share_entry`, `team_share_entries`,
-`team_unshare_entry`, `team_accept_change`, `team_events`, `team_overview`, `team_offboarding`. Client logic and
+`team_unshare_entry`, `team_accept_change`, `team_events`, `team_overview`, `team_offboarding`,
+`team_verify_email {code}`, `team_send_code` (→ `{sent, verified, verification}`), `team_resolve_deletions
+{collection, apply}` (→ `{applied, count, collection_name}`; a proven op like `delete_entry`). Client logic and
 crypto live in `secretbroker/teams.py`.
 
 The AI sees shared credentials like any other (with `shared: {org, collection, permission}` in `list_secrets`), and
@@ -321,18 +404,20 @@ The AI sees shared credentials like any other (with `shared: {org, collection, p
 Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI):
 
 * **Plaintext formats.** Item plaintext is `{"entry": <entry without shared/updated/secret_since and without
-  policy.approval>, "author": {id, name}, "updated"}`; the author shown is the server's `updated_by` (the plaintext
-  one is informative). The collection name plaintext is JSON `{"name"}`, plus `{"removed": [names], "version": n}`
+  policy.approval>, "author": {id, name}, "updated", "seq", "sig": {by, signature}}`; the author shown is the signer
+  (`shared.author.verified`), else the server's `updated_by` (the plaintext `author` is informative). The collection name plaintext is JSON `{"name"}`, plus `{"removed": [names], "version": n}`
   after a re-key, which is how members who did not re-key learn who to "rotate because" of.
-* **Local state.** Vault section `team`: `server_url, token, user, device, keys {x25519, ed25519},
-  public_key, signing_public_key, pinned {uid: {fp, public_key, signing_public_key, email, name}}, orgs,
-  collections {cid: {org, name, keys {version: b64}, key_version, permission, revision, needs_rekey, members,
-  items {iid: {revision, hash, content}}}}, last_sync`. `items[*].content` is the last synced content ("base"):
+* **Local state.** Vault section `team`: `server_url, token, user {id, email, name, verified}, verification, device,
+  keys {x25519, ed25519}, public_key, signing_public_key, pinned {uid: {fp, public_key, signing_public_key, email,
+  name, at}}, data_counter, orgs, collections {cid: {org, name, keys {version: b64}, key_version, permission,
+  revision, needs_rekey, members, manifest, held?, gone?, items {iid: {revision, hash, content, seq}}}}, waiting,
+  last_sync`. `items[*].content` is the last synced content ("base"):
   a local entry whose content differs from it has an unpushed edit.
 * **Entry block.** `entry.shared = {org, org_name, collection, collection_name, item, revision, permission, author,
-  changed, pending_policy?, rotate?}`. `pending_policy = {by, at, changes: [lines], hosts, only_hosts, policy, fields}`
-  (or `entry` when the template changed; `hosts`: the new web hosts, named in the review box). Quarantined: new hosts,
-  new programs, new or changed env vars, a different HTTP auth, and the `host`/`port`/`engine` fields.
+  changed, pending_policy?, pending_delete?, rotate?}`. `pending_policy = {by, at, changes: [lines], hosts,
+  only_hosts, texts, description?, policy, fields}` (or `entry` when the template changed; `hosts`: the new web
+  hosts, named in the review box). Quarantined: new hosts, new programs, new or changed env vars, a different HTTP
+  auth, the `host`/`port`/`engine` fields, and a new description (`texts`).
   `rotate = {people, since, fp, seen}`; the reminder (`kind: "team_access"`, `people`, `can_rotate`) lasts while the
   secret's fingerprint is `fp`, so any rotation (wizard, API, a teammate's) clears it. `seen` keeps everyone who ever
   had access, for `team_offboarding` (`[{person, since, total, pending: [ids]}]`: "Bob pudo ver 3 · 1 cambiada").
@@ -348,8 +433,10 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   Losing access to a collection (removed, left, deleted, `team_disconnect`) removes its credentials from this PC,
   except a credential this user shared from their personal vault (`shared.own`), which stays as a personal one, and
   edits not pushed yet, kept as a personal `<id>-conflict` copy.
-* **Waiting for trust.** `team_status.waiting = [{user_id, name, email, fingerprint, org, collections}]`: people
-  whose key is not pinned here and who signed a collection key for this user (or must receive one in a re-key).
+* **Waiting for trust.** `team_status.waiting = [{user_id, name, email, fingerprint, org, collections, reason?}]`:
+  people whose key is not pinned here and who signed a collection key or member list for this user (or must receive
+  one in a re-key, or are owners who should get recovery access: `reason: "recovery"`). `team_status` also has
+  `verified`, `verification` and `held_deletions` (2.7).
   The sync notes add `trust` (their names) and `held` (edits kept local while a collection waits for a re-key).
 * **Proofs.** `team_status, team_sync, team_orgs, team_invites, team_members, team_collections,
   team_collection_members, team_events` only need an unlocked vault; every other team op needs a proof and accepts
@@ -387,7 +474,11 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   Solo uso with a «?» popover, add / change / remove, create), **Personas** (invite, «Invitada · aún no ha entrado»
   with «Copiar instrucciones», role, remove), **Actividad** (admins) and **Tu cuenta** (código de seguridad,
   «Desconectar»). Offline, buttons that need the server are disabled.
-* Invites: no e-mail is sent. The admin gets instructions to pass on with a link
+* Banners also cover «Verifica tu e-mail» (the 8-digit code, «Enviar otro código»; on servers without e-mail, who
+  to ask), held deletions («N credenciales esperan tu decisión»: «Recuperarlas para el equipo» / «Conservarlas en
+  este PC» and «Borrarlas también aquí»), and the change review names a new description («… ha cambiado las
+  instrucciones que lee la IA», with the text quoted). Collections that only one person manages say «Un solo gestor».
+* Invites: no invite e-mail is sent. The admin gets instructions to pass on with a link
   `secretbroker://join?server=…&email=…&code=…` (the code is the invite id, which works as a sign-up code). The
   installer registers the `secretbroker:` protocol; `app.py` keeps a link it was opened with (also when the app is
   already running) in `join_link.json` for 10 minutes, and the page fills in the team form from it. Pasting the link

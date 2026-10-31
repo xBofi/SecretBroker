@@ -12,6 +12,17 @@ services:
       SB_SESSION_DAYS: "${SB_SESSION_DAYS:-30}"
       SB_SERVER_NAME: "${SB_SERVER_NAME:-SecretBroker}"
       SB_TRUST_PROXY: "1"  # only Caddy can reach the server, so its X-Forwarded-For is trustworthy
+      # E-mail verification codes. Without SMTP, verify accounts with
+      #   docker compose exec server secretbroker-server verify-email someone@example.com
+      # or set SB_EMAIL_VERIFICATION=off (then anyone who registers an address receives its invites).
+      SB_EMAIL_VERIFICATION: "${SB_EMAIL_VERIFICATION:-required}"
+      SB_SMTP_HOST: "${SB_SMTP_HOST:-}"
+      SB_SMTP_PORT: "${SB_SMTP_PORT:-587}"
+      SB_SMTP_SECURITY: "${SB_SMTP_SECURITY:-starttls}"
+      SB_SMTP_USER: "${SB_SMTP_USER:-}"
+      SB_SMTP_PASSWORD: "${SB_SMTP_PASSWORD:-}"
+      SB_SMTP_FROM: "${SB_SMTP_FROM:-}"
+      SB_MAX_DELETES_PER_HOUR: "${SB_MAX_DELETES_PER_HOUR:-100}"
     volumes:
       - sb-data:/data
     expose:
