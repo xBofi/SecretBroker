@@ -70,6 +70,11 @@ TEAM_EXPORT_OPS = ("team_connect", "team_invite", "team_accept_invite", "team_co
                    "team_grant", "team_share_entry", "export_vault")
 # Operations that may change a shared credential: the team sync runs soon after them to push it.
 TEAM_PUSH_OPS = {"save_entry", "delete_entry", "replace_key", "rotate", "update_credential", "ai_rotate", "ai_delete"}
+# Rotations from the app: one click. Copying a new password not applied yet gives it out, like exporting.
+ROTATION_OPS = ("rotation_begin", "rotation_discard", "rotation_apply", "rotation_secret", "retry_uploads", "set_test_request")
+PRESENCE_OPS += ROTATION_OPS
+TEAM_EXPORT_OPS += ("rotation_secret",)
+TEAM_PUSH_OPS |= {"rotation_apply", "set_test_request"}
 TEAM_SYNC_SECONDS = 300
 # Everything the AI can ask for. "Pause the AI" refuses all of it without locking the vault.
 AI_OPS = AGENT_ACTIONS | {"list_secrets", "release_env", "push_github_secret", "create_draft", "update_credential",
@@ -222,7 +227,8 @@ class Service:
                     str(proof.get("token", "")).encode(), presence[0].encode()):
                 if op in TEAM_EXPORT_OPS and not presence[2]:
                     raise ServiceError("Confirma que eres tú una vez (Windows Hello o contraseña) para "
-                                       + ("exportar la bóveda" if op == "export_vault" else "compartir con otras personas"),
+                                       + ("exportar la bóveda" if op == "export_vault" else
+                                          "copiar la contraseña nueva" if op == "rotation_secret" else "compartir con otras personas"),
                                        "proof_required")
                 return kind
             raise ServiceError("La verificación ha caducado; inténtalo de nuevo", "proof_invalid")
@@ -559,16 +565,21 @@ class Service:
 
     # ------------------------------------------------------------------ management (GUI)
 
-    def _summary(self, entry, destinations=None):
+    def _summary(self, entry, destinations=None, states=None):
         destinations = self.vault.destinations() if destinations is None else destinations
         retired = self.vault.retired().get("entries", {}).get(entry["id"])
+        state = (self.vault.rotation_state() if states is None else states).get("entries", {}).get(entry["id"]) or {}
+        pending = state.get("pending")
         return {**entry_summary(entry), "rotation": rotation.info(entry), "provider": links.for_entry(entry),
                 "guide": rotation.guide(entry), "destinations": destinations.get("entries", {}).get(entry["id"], []),
-                "retired": {k: v for k, v in retired.items() if k != "fields"} if retired else None}
+                "retired": {k: v for k, v in retired.items() if k != "fields"} if retired else None,
+                # A new secret prepared but not saved as the current one yet: when, never the value.
+                "pending_rotation": {k: v for k, v in pending.items() if k != "value"} if pending else None,
+                "failed_uploads": [{k: v for k, v in u.items() if k != "token"} for u in state.get("failed_uploads") or []]}
 
     def op_entries(self, params):
-        destinations = self.vault.destinations()
-        return [self._summary(e, destinations) for e in self.vault.entries()]
+        destinations, states = self.vault.destinations(), self.vault.rotation_state()
+        return [self._summary(e, destinations, states) for e in self.vault.entries()]
 
     def op_save_entry(self, params):
         self._verify_proof("save_entry", params)
@@ -599,6 +610,7 @@ class Service:
             self._update_exposure(rename)
             self._update_destinations(rename)
             self._update_retired(rename)
+            self._update_rotation(rename)
         with self._lock:
             self._forget_grants(entry["id"], replaces)
         self._audit(entry["id"], "save", "creada" if not replaces else "modificada", "ok")
@@ -618,6 +630,7 @@ class Service:
         self._update_exposure(lambda data: data.get("entries", {}).pop(entry_id, None))
         self._update_destinations(lambda data: data.get("entries", {}).pop(entry_id, None))
         self._update_retired(lambda data: data.get("entries", {}).pop(entry_id, None))
+        self._update_rotation(lambda data: data.get("entries", {}).pop(entry_id, None))
         with self._lock:
             self._forget_grants(entry_id)
 
@@ -661,10 +674,16 @@ class Service:
         self._audit(entry["id"], "rotate", rotation.info(entry)["provider"], "ok")
 
         alive = exposure.check_alive(entry)
-        uploads = []
-        for destination in self.vault.destinations().get("entries", {}).get(entry["id"], []):
-            uploads.append(self._push_again(entry, destination))
+        uploads = self._upload_again(entry)
         return {"entry": self._summary(self.vault.get(entry["id"])), "check": alive, "uploads": uploads}
+
+    def _upload_again(self, entry):
+        """Upload a new secret wherever the old one was. What fails stays with the credential (Salud,
+        «Reintentar subida»): until then that place still has the old secret."""
+        uploads = [self._push_again(entry, d) for d in self.vault.destinations().get("entries", {}).get(entry["id"], [])]
+        failed = [{**{k: v for k, v in u.items() if k != "ok"}, "at": exposure.now_iso()} for u in uploads if not u["ok"]]
+        self._update_rotation(lambda data: _set_rotation(data, entry["id"], failed_uploads=failed))
+        return uploads
 
     def _push_again(self, entry, destination):
         label = f"GitHub {destination['repo']}" + (f" ({destination['environment']})" if destination.get("environment") else "")
@@ -698,6 +717,11 @@ class Service:
         database = entry["template"] in ("database", "web_login", "ssh")
         field = "password" if database else "value"
         value = str(params.get("value") or "") if database else str(params.get("value") or "").strip()
+        if params.get("pending"):
+            # The new one prepared earlier (rotation_begin): the page never had it.
+            value = ((self._rotation_of(entry["id"]).get("pending") or {}).get("value")) or ""
+            if not value:
+                raise ServiceError("No hay ninguna contraseña nueva preparada: genera una", "invalid")
         if not value.strip():
             raise ServiceError("Escribe la contraseña nueva" if database else "Pega la clave nueva", "invalid")
         if value == (entry["fields"].get(field) or ""):
@@ -726,20 +750,18 @@ class Service:
             message = Redactor(candidate)(str(alive.get("message") or ""))
             self._audit(entry["id"], "rotate", "a mano", "error", f"La clave nueva no funciona: {message}")
             raise ServiceError(f"La clave nueva no funciona ({message}). No se ha cambiado nada.", "invalid")
-        self.vault.put(candidate, replaces=entry["id"])
-        with self._lock:
-            self._forget_grants(entry["id"])
         provider = (rotation.info(entry) or {}).get("provider")
-        label = paired["label"] if paired else "ID asociado"
         if database:
             # The user already changed it in the database: the old one is gone, nothing to keep.
-            self._audit(entry["id"], "rotate", f"a mano ({provider})", "ok")
-            uploads = [self._push_again(candidate, d) for d in self.vault.destinations().get("entries", {}).get(entry["id"], [])]
-            return {"entry": self._summary(self.vault.get(entry["id"])), "check": None, "uploads": uploads,
-                    "id_changed": False, "also_updated": []}
+            return self._save_new_password(entry, candidate, f"a mano ({provider})")
+        self.vault.put(candidate, replaces=entry["id"])
+        self._update_rotation(lambda data: _set_rotation(data, entry["id"], pending=None))
+        with self._lock:
+            self._forget_grants(entry["id"])
+        label = paired["label"] if paired else "ID asociado"
         retired = {"fields": {"value": entry["fields"].get("value"), **({"username": old_id} if id_changed else {})},
                    "since": exposure.now_iso(), "provider": provider,
-                   "checkable": exposure.provider_for(entry) is not None, "status": "pending",
+                   "checkable": exposure.testable(entry), "status": "pending",
                    **({"old_id": old_id, "id_label": label} if id_changed else {})}
         self._update_retired(lambda data: data["entries"].__setitem__(entry["id"], retired))
         self._audit(entry["id"], "rotate", "a mano" + (f" ({provider})" if provider else "")
@@ -747,10 +769,161 @@ class Service:
         also = self._replace_id_elsewhere(entry["id"], old_id, candidate["fields"]["username"]) if id_changed and old_id else []
         uploads = []
         for secret_id in [entry["id"], *also]:
-            stored = self.vault.get(secret_id)
-            uploads += [self._push_again(stored, d) for d in self.vault.destinations().get("entries", {}).get(secret_id, [])]
+            uploads += self._upload_again(self.vault.get(secret_id))
         return {"entry": self._summary(self.vault.get(entry["id"])), "check": alive, "uploads": uploads,
                 "id_changed": id_changed, "also_updated": [{"id": o, "name": self.vault.get(o)["name"]} for o in also]}
+
+    def _save_new_password(self, entry, candidate, how):
+        """A password already changed where it lives (a database, a website, a server): save it as the
+        current one, forget the one prepared for it, and upload it again."""
+        self.vault.put(candidate, replaces=entry["id"])
+        self._update_rotation(lambda data: _set_rotation(data, entry["id"], pending=None))
+        with self._lock:
+            self._forget_grants(entry["id"])
+        self._audit(entry["id"], "rotate", how, "ok")
+        uploads = self._upload_again(candidate)
+        return {"entry": self._summary(self.vault.get(entry["id"])), "check": None, "uploads": uploads,
+                "id_changed": False, "also_updated": []}
+
+    # ------------------------------------------------------------------ rotations in progress
+    #
+    # A new password is kept in the vault (section "rotation") from the moment the app shows it, before
+    # the user sets it anywhere: locking, closing the app or pressing Esc can never lose a password that
+    # is already set on a server. The app learns only that there is one and since when.
+
+    def _rotation_of(self, entry_id):
+        return self.vault.rotation_state().get("entries", {}).get(entry_id) or {}
+
+    def _update_rotation(self, change):
+        with self._lock:
+            data = {"entries": self.vault.rotation_state().get("entries", {})}
+            change(data)
+            self.vault.set_rotation_state(data)
+
+    def _rotatable_password(self, entry_id):
+        entry = self._get_secret(entry_id)
+        self._require_team_write(entry)
+        if entry["template"] not in ("api_key", "generic", "database", "web_login", "ssh") or \
+                (entry["template"] == "ssh" and entry["fields"].get("auth_method") == "key"):
+            raise ServiceError("Solo se rotan así las API keys y las contraseñas", "invalid")
+        return entry, "value" if entry["template"] in ("api_key", "generic") else "password"
+
+    def op_rotation_begin(self, params):
+        """Keep a new secret before the user sets it anywhere: generated here (`generate`) or the user's own."""
+        self._verify_proof("rotation_begin", params)
+        entry, field = self._rotatable_password(params.get("id"))
+        if params.get("generate"):
+            value = rotation_password(entry)
+        else:
+            value = str(params.get("value") or "")
+            value = value if field == "password" else value.strip()
+        if not value.strip():
+            raise ServiceError("Escribe la contraseña nueva", "invalid")
+        if any(c in value for c in "\r\n\0"):
+            raise ServiceError("La contraseña nueva no puede tener saltos de línea", "invalid")
+        if value == (entry["fields"].get(field) or ""):
+            raise ServiceError("Es la misma que ya está guardada: genera una nueva", "invalid")
+        self._keep_pending(entry, field, value, bool(params.get("generate")))
+        return self._summary(self.vault.get(entry["id"]))
+
+    def _keep_pending(self, entry, field, value, generated):
+        pending = {"field": field, "value": value, "since": exposure.now_iso(), "generated": generated}
+        self._update_rotation(lambda data: _set_rotation(data, entry["id"], pending=pending))
+        self._audit(entry["id"], "rotate", "contraseña nueva preparada, aún sin aplicar", "ok")
+
+    def op_rotation_discard(self, params):
+        """The user did not set the prepared one anywhere: forget it."""
+        self._verify_proof("rotation_discard", params)
+        entry = self.vault.get(params.get("id"))
+        if self._rotation_of(entry["id"]).get("pending"):
+            self._update_rotation(lambda data: _set_rotation(data, entry["id"], pending=None))
+            self._audit(entry["id"], "rotate", "contraseña nueva descartada", "ok")
+        return self._summary(self.vault.get(entry["id"]))
+
+    def op_rotation_secret(self, params):
+        """The prepared password (`what: value`) or the command that sets it (`what: command`), for the app
+        to copy to the clipboard. It gives a secret out: a session unlock is not enough (TEAM_EXPORT_OPS)."""
+        self._verify_proof("rotation_secret", params)
+        entry = self.vault.get(params.get("id"))
+        if (entry.get("shared") or {}).get("permission") == "use":
+            raise ServiceError("Esta credencial del equipo es solo para usar", "forbidden")
+        value = (self._rotation_of(entry["id"]).get("pending") or {}).get("value")
+        if not value:
+            raise ServiceError("No hay ninguna contraseña nueva preparada", "not_found")
+        what = params.get("what") or "value"
+        text = rotation.db_command(entry, value) if what == "command" and entry["template"] == "database" else value
+        if not text:
+            raise ServiceError("Esta base de datos no tiene un comando para cambiarla", "invalid")
+        self._audit(entry["id"], "reveal", "comando con la contraseña nueva" if what == "command" else "contraseña nueva", "ok")
+        return text
+
+    def op_rotation_apply(self, params):
+        """Change a database's password with its own client, check the new one logs in, then save it.
+        If anything fails the stored password stays the current one and the new one stays prepared."""
+        self._verify_proof("rotation_apply", params)
+        entry, _ = self._rotatable_password(params.get("id"))
+        if entry["template"] != "database":
+            raise ServiceError("Solo se aplica así la contraseña de una base de datos", "invalid")
+        if not self._rotation_of(entry["id"]).get("pending"):
+            self._keep_pending(entry, "password", rotation_password(entry), True)
+        new = self._rotation_of(entry["id"])["pending"]["value"]
+        try:
+            client = rotation.apply_database(entry, new)
+        except rotation.ApplyError as exc:
+            self._audit(entry["id"], "rotate", "aplicar en la base de datos", "error", str(exc))
+            raise ServiceError(str(exc), {"no_client": "no_client", "unverified": "unverified"}.get(exc.code, "apply_failed")) from None
+        candidate = copy.deepcopy(entry)
+        candidate["fields"]["password"] = new
+        if params.get("used_in") is not None:
+            candidate["used_in"] = clean_used_in(params["used_in"])
+            if not candidate["used_in"]:
+                candidate.pop("used_in")
+        return self._save_new_password(entry, candidate, f"aplicada en la base de datos con {client} y comprobada")
+
+    def op_retry_uploads(self, params):
+        """Upload again a rotated secret to the places where it failed."""
+        self._verify_proof("retry_uploads", params)
+        entry = self.vault.get(params.get("id"))
+        failed = self._rotation_of(entry["id"]).get("failed_uploads") or []
+        destinations = self.vault.destinations().get("entries", {}).get(entry["id"], [])
+        wanted = {(f["repo"], f.get("environment"), f["name"]) for f in failed}
+        uploads = [self._push_again(entry, d) for d in destinations if (d["repo"], d.get("environment"), d["name"]) in wanted]
+        still = [{**{k: v for k, v in u.items() if k != "ok"}, "at": exposure.now_iso()} for u in uploads if not u["ok"]]
+        self._update_rotation(lambda data: _set_rotation(data, entry["id"], failed_uploads=still))
+        return {"entry": self._summary(self.vault.get(entry["id"])), "uploads": uploads}
+
+    def op_set_test_request(self, params):
+        """How to test an API key of a provider the app does not know (see exposure.check_alive)."""
+        self._verify_proof("set_test_request", params)
+        entry = self.vault.get(params.get("id"))
+        self._require_team_write(entry)
+        updated = copy.deepcopy(entry)
+        try:
+            test = _clean_test_request(entry, params.get("test"))
+        except ValueError as exc:
+            raise ServiceError(str(exc), "invalid") from None
+        if test:
+            updated["test_request"] = test
+        else:
+            updated.pop("test_request", None)
+        self.vault.put(updated, replaces=entry["id"])
+        self._audit(entry["id"], "edit", f"Petición de prueba: {test['method']} {test['url']} → {test['status']}" if test
+                    else "Petición de prueba quitada", "ok")
+        check = exposure.check_alive(updated) if test and params.get("check") else None
+        if check:
+            self._store_check(updated, check)
+        return {"entry": self._summary(self.vault.get(entry["id"])), "check": check}
+
+    def _store_check(self, entry, alive):
+        timestamp = exposure.now_iso()
+        fingerprint = exposure.secret_fingerprint(self.vault, entry)
+
+        def store(data):
+            record = exposure.record_for(data, entry["id"], fingerprint)
+            record["alive"] = {**alive, "checked": timestamp,
+                               "was_ok": alive["status"] == "ok" or bool((record.get("alive") or {}).get("was_ok"))}
+            record["checked"] = timestamp
+        self._update_exposure(store)
 
     def _replace_id_elsewhere(self, source_id, old_id, new_id):
         """Credentials that store the same id on its own (a GOOGLE_CLIENT_ID imported from a .env)
@@ -994,6 +1167,59 @@ class Service:
         return {"entries": items, "last_scan": data.get("last_scan"), "last_check": data.get("last_check"),
                 "details": details}
 
+    # What the user does with a place where a secret was found. Locations are only known inside a scan
+    # session (see above), so these need one too.
+
+    def _finding(self, params, sources=None):
+        session = self._scan_session(params)
+        if not session:
+            raise ServiceError("Verifica tu identidad para ver en qué archivos están tus claves", "session_expired")
+        entry = self.vault.get(params.get("id"))
+        location = str(params.get("location") or "")
+        record = (self.vault.exposure().get("entries") or {}).get(entry["id"]) or {}
+        finding = (record.get("findings") or {}).get(location)
+        if record.get("fp") != exposure.secret_fingerprint(self.vault, entry) or not finding:
+            raise ServiceError("Ese sitio no está entre los encontrados de esta credencial", "not_found")
+        if sources and finding["source"] not in sources:
+            raise ServiceError("En este tipo de archivo no se puede borrar desde aquí", "invalid")
+        return entry, location, finding
+
+    def _change_finding(self, entry, location, change):
+        fingerprint = exposure.secret_fingerprint(self.vault, entry)
+
+        def apply(data):
+            finding = exposure.record_for(data, entry["id"], fingerprint)["findings"].get(location)
+            if finding:
+                change(finding)
+        self._update_exposure(apply)
+
+    def op_exposure_ignore(self, params):
+        """Ignore (or stop ignoring) one place: a test file, a copy kept on purpose. Kept with the finding."""
+        entry, location, _ = self._finding(params)
+        ignore = params.get("ignore", True)
+        stamp = exposure.now_iso()
+        self._change_finding(entry, location, lambda f: f.update(ignored=stamp) if ignore else f.pop("ignored", None))
+        self._audit(entry["id"], "exposure", ("Ignorada una copia" if ignore else "Vuelve a contar una copia"), "ok")
+        return self.op_exposure_report(params)
+
+    def op_exposure_redact(self, params):
+        """A piece of a file where the secret was found (an AI conversation, a shell history), returned with
+        every form of the secret replaced by [REDACTED:id]. The app reads and writes the file; the secret
+        never leaves the service."""
+        entry, _, _ = self._finding(params, exposure.REDACTABLE_SOURCES)
+        data = base64.b64decode(params.get("data") or "")
+        redacted, count = exposure.redact(entry, data)
+        return {"data": base64.b64encode(redacted).decode("ascii"), "count": count}
+
+    def op_exposure_redacted(self, params):
+        """The app rewrote the file without the secret: the place no longer has it (it did, so it counts
+        as a past exposure until the secret is rotated)."""
+        entry, location, _ = self._finding(params, exposure.REDACTABLE_SOURCES)
+        stamp = exposure.now_iso()
+        self._change_finding(entry, location, lambda f: f.update(present=False, redacted=stamp))
+        self._audit(entry["id"], "exposure", f"Borrada de un archivo ({int(params.get('count') or 0)} veces)", "ok")
+        return self.op_exposure_report(params)
+
     def op_exposure_check(self, params):
         """Test the keys with their providers and the passwords against known breaches."""
         wanted = {params["id"]} if params.get("id") else set(params["ids"]) if params.get("ids") is not None else None
@@ -1205,6 +1431,16 @@ class Service:
             policy.setdefault("commands", {"allowed": [], "env": {}})["allowed"] = [str(c).strip() for c in params["commands"]]
         if params.get("env_vars") is not None:
             policy.setdefault("commands", {"allowed": [], "env": {}})["env"] = {str(k): str(v) for k, v in params["env_vars"].items()}
+        if params.get("test_request") is not None:
+            # After the hosts: the test may only go to one of them.
+            try:
+                test = _clean_test_request(entry, params["test_request"])
+            except ValueError as exc:
+                raise ServiceError(str(exc), "invalid") from None
+            if test:
+                entry["test_request"] = test
+            else:
+                entry.pop("test_request", None)
         return entry
 
     def op_create_draft(self, params):
@@ -1451,7 +1687,14 @@ class Service:
     def op_health(self, params):
         """Weak, reused, old and exposed secrets, with a score. Names and reasons only, never values."""
         report = self.op_exposure_report({})
-        return health.report(self.vault.entries(), self.vault.mac, self._reminders(), report["entries"])
+        retired = self.vault.retired().get("entries", {})
+        rotations = self.vault.rotation_state().get("entries", {})
+        states = {e["id"]: {"retired": retired.get(e["id"]), "pending": bool((rotations.get(e["id"]) or {}).get("pending")),
+                            "failed_uploads": (rotations.get(e["id"]) or {}).get("failed_uploads") or [],
+                            "testable": e["template"] == "ssh" or exposure.testable(e)}
+                  for e in self.vault.entries()}
+        return health.report(self.vault.entries(), self.vault.mac, self._reminders(), report["entries"], states,
+                             scanned=(report["last_scan"] or {}).get("ts"), checked=report["last_check"])
 
     def op_import_file(self, params):
         """Credentials from another manager's export. The app reads the file and sends its text; without
@@ -1992,6 +2235,8 @@ def _paired_question(entry):
 USED_IN_QUESTION = ("¿Dónde se usa esta credencial (develop, pre, pro, el .env de un servidor, Vercel, CI, otro proyecto…)? "
                     "Apúntalo con update_credential(used_in=[...]): al rotarla, la app le pedirá al usuario que la cambie en cada sitio.")
 CONTEXT_KEYS = ("name", "description", "tags", "expires", "rotate_every_days", "rotation_guide", "check_every_hours", "used_in")  # changes that don't affect where a key can go
+CONTEXT_KEYS += ("test_request",)  # only to the credential's own allowed hosts, and read-only
+CHANGE_LABELS["test_request"] = "Petición de prueba"
 
 
 def _describe_changes(old, new):
@@ -2008,6 +2253,8 @@ def _describe_changes(old, new):
                 value = "; ".join(new.get(key) or []) or "—"
             elif key == "check_every_hours" and new.get(key) is not None:
                 value = {0: "nunca", CHECK_ONCE: "solo una vez"}.get(new[key], str(new[key]))
+            elif key == "test_request" and new.get(key):
+                value = f"{new[key]['method']} {new[key]['url']} → HTTP {new[key]['status']}"
             changes.append((key, f"{CHANGE_LABELS[key]}: «{value[:200]}»"))
     labels = {s["name"]: s["label"] for s in templates.field_specs(old["template"])}
     for name in sorted(set(old["fields"]) | set(new["fields"])):
@@ -2039,6 +2286,58 @@ def _team_read_only(entry):
     shared = entry.get("shared") or {}
     return (f"«{entry.get('name') or entry['id']}» es del equipo ({shared.get('collection_name') or 'colección compartida'}) "
             "y tu permiso no permite cambiarla. Pide a quien la gestiona que lo haga.")
+
+
+def _set_rotation(data, entry_id, **changes):
+    """Change an entry's rotation state (vault section "rotation"); None or [] removes a key."""
+    item = data.setdefault("entries", {}).setdefault(entry_id, {})
+    for key, value in changes.items():
+        if value in (None, []):
+            item.pop(key, None)
+        else:
+            item[key] = value
+    if not item:
+        data["entries"].pop(entry_id)
+
+
+def rotation_password(entry):
+    """A new secret made by the service: 32 letters and digits for a password (nothing to escape in a
+    connection URL, SQL or a shell), 48 random bytes (URL-safe) for a secret of the user's own."""
+    if entry["template"] in ("api_key", "generic"):
+        return secrets.token_urlsafe(48)
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    return "".join(secrets.choice(alphabet) for _ in range(32))
+
+
+def _clean_test_request(entry, test):
+    """{method, url, status} checked against the credential: GET or HEAD, to one of its allowed hosts
+    (a path is joined to its API address). None or {} means no test. Raises ValueError."""
+    if not test:
+        return None
+    if not isinstance(test, dict) or entry["template"] not in ("api_key", "generic"):
+        raise ValueError("Solo las API keys y otros secretos tienen petición de prueba")
+    method = str(test.get("method") or "GET").upper()
+    if method not in ("GET", "HEAD"):
+        raise ValueError("La petición de prueba solo puede ser GET o HEAD: no debe cambiar nada")
+    url = str(test.get("url") or test.get("path") or "").strip()
+    if url.startswith("/"):
+        base = (entry["fields"].get("base_url") or entry["fields"].get("url") or "").strip().rstrip("/")
+        if not base:
+            raise ValueError("Escribe la dirección completa (https://…): la credencial no tiene la dirección de su API")
+        url = (base if "://" in base else "https://" + base) + url
+    hosts = ((entry.get("policy") or {}).get("http") or {}).get("allowed_hosts") or \
+        templates.default_policy(entry["template"], entry["fields"]).get("http", {}).get("allowed_hosts") or []
+    try:
+        actions._check_destination({"id": entry["id"], "policy": {"http": {"allowed_hosts": hosts}}}, {"url": url})
+    except ActionError as exc:
+        raise ValueError(f"La petición de prueba solo puede ir a una de sus webs permitidas. {exc}") from None
+    try:
+        status = int(test.get("status") or 200)
+    except (TypeError, ValueError):
+        raise ValueError("La respuesta esperada debe ser un código HTTP, p. ej. 200") from None
+    if not 200 <= status <= 399:
+        raise ValueError("La respuesta esperada debe ser un código entre 200 y 399")
+    return {"method": method, "url": url, "status": status}
 
 
 def _plain_audit_event(line):

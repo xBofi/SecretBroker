@@ -154,6 +154,37 @@ def main():
     check(str(PROFILE / ".claude" / "projects" / "shop" / "s1.jsonl") in present, "findings in unchanged files are kept")
     check(str(project / "dump.txt") not in present and leaky["found_before"] == 1, "a deleted file counts as 'was exposed'")
 
+    print("Ignoring a place, and removing a key from a file")
+    from secretbroker import app as desktop
+    api = desktop.Api()
+    api._scan_session = session
+    conversation = PROFILE / ".claude" / "projects" / "shop" / "s1.jsonl"
+    expect_error(lambda: client.request("exposure_ignore", {"id": "leaky", "location": f"git:{project}"}), "session_expired",
+                 "ignoring a place needs the scan session (places are private)")
+    result = api.ignore_finding("leaky", f"git:{project}")
+    leaky = by_id(result["result"])["leaky"]
+    check(result["ok"] and any(f["location"] == f"git:{project}" and f.get("ignored") for f in leaky["findings"])
+          and leaky["ignored"] == 1 and "git" not in leaky["reasons"][0]["text"], "an ignored place is kept, but no longer a reason")
+    check(not api.redact_finding("leaky", f"git:{project}")["ok"], "git history is not rewritten from here")
+    expect_error(lambda: client.request("exposure_redact", {"session": session, "id": "leaky", "location": str(project / "app.py"), "data": ""}),
+                 "not_found", "only a place where it was found can be redacted")
+    done = api.redact_finding("leaky", str(conversation))
+    text = conversation.read_text(encoding="utf-8")
+    check(done["ok"] and done["result"]["count"] == 1 and LEAKED not in text and "[REDACTED:leaky]" in json.loads(text)["message"],
+          "removed from the conversation in place, which is still valid JSON")
+    check(json.dumps(QUOTED)[1:-1] in text, "other secrets in the file are left alone")
+    backup = conversation.with_name("s1.jsonl" + desktop.REDACT_BACKUP_SUFFIX)
+    check(backup.exists() and LEAKED in backup.read_text(encoding="utf-8"), "a copy of the file is kept next to it")
+    finding = next(f for f in by_id(done["result"]["report"])["leaky"]["findings"] if f["location"] == str(conversation))
+    check(not finding["present"] and finding.get("redacted"), "the place no longer has it (but it did: rotate it)")
+    run = scan(session)
+    session = api._scan_session = run.session
+    leaky = by_id(client.request("exposure_report", {"session": session}))["leaky"]
+    check(any(f["location"] == str(backup) and f["present"] for f in leaky["findings"]), "the copy is found by the next search")
+    check(not api.delete_redaction_backup(str(project / "app.py")) and api.delete_redaction_backup(str(backup)) and not backup.exists(),
+          "and only that copy can be deleted from the app")
+    api.ignore_finding("leaky", f"git:{project}", False)
+
     print("Rotation resets the history")
     before = client.request("entries")
     since = next(e for e in before if e["id"] == "leaky")["secret_since"]

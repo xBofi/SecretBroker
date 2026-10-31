@@ -118,6 +118,8 @@ def fixed_files():
     files += [("config", p) for p in _glob(home / ".ssh", "*")]
     files += [("history", p) for p in _glob(appdata / "Microsoft/Windows/PowerShell/PSReadLine", "*_history.txt")]
     files += [("history", home / name) for name in HISTORY_FILES]
+    # The copy the app leaves when it removes a secret from one of these (app.REDACT_BACKUP_SUFFIX) still has it.
+    files += [(source, path.with_name(path.name + ".secretbroker.bak")) for source, path in files if source in ("ai", "history")]
     return [(source, path) for source, path in files if path.is_file()]
 
 

@@ -190,6 +190,7 @@ def update_credential(
     rotation_guide: dict[str, Any] | None = None,
     check_every_hours: int | None = None,
     used_in: list[str] | None = None,
+    test_request: dict[str, Any] | None = None,
 ) -> dict:
     """Change a credential's name, notes, tags, expiry date (YYYY-MM-DD), non-secret fields or permissions (only what you pass;
     an empty string clears a field). Name and description change at once. Changes that affect where
@@ -206,12 +207,17 @@ def update_credential(
     used_in lists every place the secret is configured, one short line each, e.g. "develop: .env local
     (DATABASE_URL)", "pro: servidor api.example.com, /srv/app/.env", "Vercel: proyecto web (pro)": when
     it is rotated, the app makes the user update each one. It replaces the whole list.
-    An empty rotation_guide ({}) removes it."""
+    An empty rotation_guide ({}) removes it.
+    test_request makes an API key of a provider the app does not know testable (by its checks and when
+    it is rotated): {"method": "GET" or "HEAD", "url": "/v1/me" (a path of its API address, or a full
+    https URL on one of its allowed hosts), "status": 200 (what a working key gets)}. Pick a read-only
+    endpoint from the provider's documentation that needs the key; the key goes as the credential's
+    auth says. An empty test_request ({}) removes it."""
     return _call("update_credential", _drop_none(
         secret_id=secret_id, name=name, description=description, fields=fields,
         allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands, tags=tags, expires=expires,
         rotate_every_days=rotate_every_days, rotation_guide=rotation_guide, check_every_hours=check_every_hours,
-        used_in=used_in,
+        used_in=used_in, test_request=test_request,
     ))
 
 
