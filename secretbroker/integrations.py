@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 from . import paths, platform
+from .i18n import tr
 
 SERVER_NAME = "secret-broker"
 PREFS_FILE = paths.user_dir() / "prefs.json"
@@ -80,7 +81,7 @@ def claude_code_status():
 def connect_claude_code():
     cli = _claude_cli()
     if not cli:
-        raise RuntimeError("Claude Code no está instalado en este usuario")
+        raise RuntimeError(tr("integrations.claude_code_isn_installed_for"))
     url, token = mcp_endpoint()
     run = lambda *a: subprocess.run([cli, "mcp", *a], capture_output=True, text=True, timeout=60, creationflags=CREATE_NO_WINDOW)
     run("remove", SERVER_NAME, "--scope", "user")
@@ -125,13 +126,13 @@ def claude_desktop_status():
 def connect_claude_desktop():
     files = _desktop_config_files()
     if not files:
-        raise RuntimeError("Claude Desktop no está instalado en este usuario")
+        raise RuntimeError(tr("integrations.claude_desktop_isn_installed_for"))
     python, args = mcp_command()
     for file in files:
         try:
             config = json.loads(file.read_text(encoding="utf-8")) if file.exists() else {}
         except ValueError:
-            raise RuntimeError(f"No se pudo leer {file}: el JSON no es válido") from None
+            raise RuntimeError(tr("integrations.couldn_read_json_isn_valid", file=file)) from None
         config.setdefault("mcpServers", {})[SERVER_NAME] = {"command": python, "args": args}
         file.write_text(json.dumps(config, indent=2), encoding="utf-8")
 
@@ -177,7 +178,7 @@ def _read_json(file):
         text = file.read_text(encoding="utf-8-sig")
         return json.loads(_strip_json_comments(text)) if text.strip() else {}
     except (OSError, ValueError):
-        raise RuntimeError(f"No se pudo leer {file}: el archivo no es JSON válido. Corrígelo o bórralo y vuelve a intentarlo.") from None
+        raise RuntimeError(tr("integrations.couldn_read_file_isn_valid", file=file)) from None
 
 
 def _http_entry(kind):
@@ -233,11 +234,11 @@ def json_client_status(kind):
 def connect_json_client(kind):
     installed, path, key = JSON_CLIENTS[kind]
     if not installed():
-        raise RuntimeError(f"{CLIENT_LABELS[kind]} no está instalado en este usuario")
+        raise RuntimeError(tr("integrations.isn_installed_for_this_user", value=CLIENT_LABELS[kind]))
     file = path()
     config = _read_json(file)
     if not isinstance(config.get(key, {}), dict):
-        raise RuntimeError(f"No se pudo leer {file}: «{key}» no tiene el formato esperado")
+        raise RuntimeError(tr("integrations.couldn_read_doesn_have_expected", file=file, value=key))
     config.setdefault(key, {})[SERVER_NAME] = _http_entry(kind)
     file.parent.mkdir(parents=True, exist_ok=True)
     file.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -282,11 +283,11 @@ def codex_status():
 def connect_codex():
     file = _codex_file()
     if not (file.parent.is_dir() or shutil.which("codex")):
-        raise RuntimeError("Codex no está instalado en este usuario")
+        raise RuntimeError(tr("integrations.codex_isn_installed_for_this"))
     try:
         text = file.read_text(encoding="utf-8") if file.exists() else ""
     except OSError as exc:
-        raise RuntimeError(f"No se pudo leer {file}: {exc.strerror or exc}") from None
+        raise RuntimeError(tr("integrations.couldn_read", file=file, value=exc.strerror or exc)) from None
     text = _codex_without_us(text).rstrip()
     file.parent.mkdir(parents=True, exist_ok=True)
     file.write_text((text + "\n\n" if text else "") + _codex_block(), encoding="utf-8")
@@ -331,9 +332,9 @@ def client_of(mcp_name):
 
 def connect(client_id):
     if client_id not in CONNECTORS:
-        raise RuntimeError("Aplicación desconocida")
+        raise RuntimeError(tr("integrations.unknown_app"))
     if paths.instance_suffix() and client_id in ("claude_code", "claude_desktop"):
-        raise RuntimeError("Una instancia de prueba no conecta las apps de Claude de este usuario")
+        raise RuntimeError(tr("integrations.test_instance_doesn_connect_this"))
     CONNECTORS[client_id][1]()
 
 

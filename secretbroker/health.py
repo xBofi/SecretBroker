@@ -9,6 +9,7 @@ so it also says when each last ran (`scanned`, `checked`) and whether both have 
 """
 
 from . import exposure, generator, templates
+from .i18n import tr
 
 # How much each problem takes away from a credential (1: as bad as it gets). A credential counts
 # once, by its worst problem.
@@ -16,28 +17,16 @@ WEIGHTS = {"exposed": 1.0, "pwned": 1.0, "team_access": 1.0, "reused": 1.0, "wea
            "old_alive": 0.7, "upload_failed": 0.6, "half_rotated": 0.6, "expiring": 0.5, "old": 0.5,
            "retired_pending": 0.4, "was_exposed": 0.3, "unchecked": 0.1}
 ORDER = list(WEIGHTS)
-LABELS = {"exposed": "Expuesta", "pwned": "En filtraciones", "team_access": "Alguien tenía acceso", "reused": "Repetida",
-          "weak": "Débil", "expired": "Caducada", "old_alive": "La anterior sigue viva", "upload_failed": "Subida fallida",
-          "half_rotated": "Rotación a medias", "expiring": "Caduca pronto", "old": "Antigua",
-          "retired_pending": "Falta anular la anterior", "was_exposed": "Estuvo expuesta", "unchecked": "Sin probar"}
-
-
-def _days(n):
-    return f"{n} día" if n == 1 else f"{n} días"
-
-
-def _people(names):
-    names = [str(n) for n in names] or ["Una persona"]
-    who = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " y " + names[-1]
-    return f"{who} {'tenía' if len(names) == 1 else 'tenían'} acceso"
+# The label of each problem: messages health.label_<kind>.
+LABELS = {kind: f"health.label_{kind}" for kind in ORDER}
 
 
 def _left_team(reminder):
     """Someone with access left the team: the same words as the credential's own reminder."""
-    many = len(reminder.get("people") or []) > 1
-    return (f"{_people(reminder.get('people') or [])} y ya no {'están' if many else 'está'} en el equipo: "
-            + (f"cámbiala por si la {'vieron' if many else 'vio'}." if reminder.get("can_rotate")
-               else "pide a quien la gestiona que la cambie."))
+    names = [str(n) for n in reminder.get("people") or []]
+    who = (names[0] if len(names) == 1 else tr("health.list_and", names=", ".join(names[:-1]), last=names[-1])) if names \
+        else tr("health.a_person")
+    return tr("health.left_team_rotate" if reminder.get("can_rotate") else "health.left_team_ask", count=max(len(names), 1), who=who)
 
 
 def key_values(entry):
@@ -65,49 +54,48 @@ def _issues(entry, reused, names, reminder, exposure_item, state):
     issues = []
     level = (exposure_item or {}).get("level")
     if (exposure_item or {}).get("found"):
-        issues.append(("exposed", "Está en claro en algún archivo de este PC."))
+        issues.append(("exposed", tr("health.exposed")))
     elif (exposure_item or {}).get("found_before"):
-        issues.append(("was_exposed", "Estuvo en claro en algún archivo. Conviene rotarla."))
+        issues.append(("was_exposed", tr("health.was_exposed")))
     alive = (exposure_item or {}).get("alive") or {}
     if level == "exposed" and alive.get("status") == "invalid" and alive.get("was_ok"):
-        issues.append(("exposed", "Ha dejado de funcionar: puede que el proveedor la haya revocado por filtrada."))
+        issues.append(("exposed", tr("health.stopped_working")))
     pwned = ((exposure_item or {}).get("pwned") or {}).get("count")
     if pwned:
-        issues.append(("pwned", f"Aparece {pwned:,} veces en filtraciones públicas.".replace(",", ".")))
+        issues.append(("pwned", tr("health.pwned", count=pwned, times=f"{pwned:,}".replace(",", tr("health.thousands_separator")))))
     if reused:
-        others = ", ".join(names.get(i, i) for i in reused[:3]) + (f" y {len(reused) - 3} más" if len(reused) > 3 else "")
-        issues.append(("reused", f"La misma contraseña o clave está en {others}."))
+        others = ", ".join(names.get(i, i) for i in reused[:3])
+        issues.append(("reused", tr("health.reused_more", names=others, count=len(reused) - 3) if len(reused) > 3
+                       else tr("health.reused", names=others)))
     password = exposure.password_of(entry)
     if password:
         rating = generator.strength(password)
         if rating["score"] <= 1:
-            issues.append(("weak", f"Contraseña {rating['label'].lower()}: se adivinaría pronto."))
+            issues.append(("weak", tr(f"health.weak_{rating['score']}")))
     if reminder:
         kind, days = reminder["kind"], reminder.get("days")
-        text = {"expired": f"Caducó hace {_days(days or 0)}.", "expiring": f"Caduca en {_days(days or 0)}.",
-                "old": f"La clave tiene {_days(days or 0)}.",
-                "old_alive": "La rotaste, pero la anterior sigue funcionando: anúlala.",
-                "team_access": _left_team(reminder)}.get(kind)
+        text = {"expired": lambda: tr("health.expired", count=days or 0), "expiring": lambda: tr("health.expiring", count=days or 0),
+                "old": lambda: tr("health.old", count=days or 0), "old_alive": lambda: tr("health.old_alive"),
+                "team_access": lambda: _left_team(reminder)}.get(kind)
+        text = text and text()
         if text:
             issues.append((kind, text))
     retired = state.get("retired")
     if retired and retired.get("status") != "alive":
-        issues.append(("retired_pending", f"Clave nueva activa · falta anular la anterior en {retired.get('provider') or 'el proveedor'}."))
+        issues.append(("retired_pending", tr("health.retired_pending", provider=retired.get("provider") or tr("health.the_provider"))))
     failed = state.get("failed_uploads") or []
     if failed:
-        issues.append(("upload_failed", f"No se pudo subir la nueva a {failed[0].get('label')}"
-                                        + (f" ni a {len(failed) - 1} sitio{'s' if len(failed) > 2 else ''} más" if len(failed) > 1 else "")
-                                        + ": ahí sigue la anterior."))
+        issues.append(("upload_failed", tr("health.upload_failed_more", place=failed[0].get("label"), count=len(failed) - 1)
+                        if len(failed) > 1 else tr("health.upload_failed", place=failed[0].get("label"))))
     if state.get("pending"):
-        issues.append(("half_rotated", "Hay una contraseña nueva preparada que aún no se ha guardado como la actual: "
-                                       "termina la rotación o descártala."))
+        issues.append(("half_rotated", tr("health.half_rotated")))
     if state.get("testable") and exposure_item is not None and not (exposure_item.get("alive") or {}).get("checked"):
-        issues.append(("unchecked", "Aún no se ha probado si funciona."))
+        issues.append(("unchecked", tr("health.unchecked")))
     seen, unique = set(), []
     for kind, text in sorted(issues, key=lambda i: ORDER.index(i[0])):
         if kind not in seen:
             seen.add(kind)
-            unique.append({"kind": kind, "label": LABELS[kind], "text": text})
+            unique.append({"kind": kind, "label": tr(LABELS[kind]), "text": text})
     return unique
 
 

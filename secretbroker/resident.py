@@ -18,6 +18,7 @@ from pathlib import Path
 
 from . import client, integrations, paths, platform
 from .client import BrokerError, BrokerUnavailable
+from .i18n import language, tr
 
 log = logging.getLogger("secretbroker.resident")
 WATCH_SECONDS = 2
@@ -122,8 +123,8 @@ class Watcher:
             today = time.strftime("%Y-%m-%d")
             if status.get("reminders") and self._reminded != today and self.notify:
                 self._reminded = today
-                self.notify(("Una credencial necesita" if status['reminders'] == 1 else f"{status['reminders']} credenciales necesitan") + " atención",
-                            "Caducadas, a punto de caducar o muy antiguas. Ábrelas en SecretBroker para rotarlas.")
+                self.notify(tr("resident.reminders_need_attention", count=status["reminders"]),
+                            tr("resident.expired_about_expire_or_very"))
             if self.api.backup_due():
                 self.api.backup_now()
         if self.on_status:
@@ -163,11 +164,11 @@ class Tray:
         from System.Windows.Forms import Application, ContextMenuStrip, NotifyIcon, ToolStripSeparator, ToolTipIcon
 
         menu = ContextMenuStrip()
-        self._open = menu.Items.Add("Abrir SecretBroker")
-        self._pause = menu.Items.Add("Pausar la IA")
-        self._lock = menu.Items.Add("Bloquear")
+        self._open = menu.Items.Add(tr("resident.open_secretbroker"))
+        self._pause = menu.Items.Add(tr("resident.pause_ai"))
+        self._lock = menu.Items.Add(tr("resident.lock"))
         menu.Items.Add(ToolStripSeparator())
-        self._quit = menu.Items.Add("Salir")
+        self._quit = menu.Items.Add(tr("resident.quit"))
         self._open.Font = Font(self._open.Font, FontStyle.Bold)
         self._info = ToolTipIcon.Info
         self._open.Click += lambda *_: self.api.show()
@@ -198,7 +199,8 @@ class Tray:
 
     def _refresh_menu(self):
         status = self._status
-        self._pause.Text = "Reanudar la IA" if status.get("ai_paused") else "Pausar la IA"
+        self._open.Text, self._lock.Text, self._quit.Text = tr("resident.open_secretbroker"), tr("resident.lock"), tr("resident.quit")  # the language may have changed
+        self._pause.Text = tr("resident.resume_ai") if status.get("ai_paused") else tr("resident.pause_ai")
         self._lock.Enabled = status.get("state") == "unlocked"
 
     def _toggle_pause(self):
@@ -207,7 +209,7 @@ class Tray:
                 self.api.show()  # the app has to prove it is the user: done in the window
         else:
             self._safe(lambda: client.request("pause_ai"))
-            self.notify("IA en pausa", "La IA no puede usar ninguna credencial hasta que la reanudes.")
+            self.notify(tr("resident.ai_paused"), tr("resident.ai_can_use_any_credential"))
 
     def update(self, status):
         self._status = status
@@ -261,11 +263,11 @@ class QtTray(Tray):
         from qtpy.QtWidgets import QMenu, QSystemTrayIcon
 
         menu = QMenu()
-        self._open = menu.addAction("Abrir SecretBroker")
-        self._pause = menu.addAction("Pausar la IA")
-        self._lock = menu.addAction("Bloquear")
+        self._open = menu.addAction(tr("resident.open_secretbroker"))
+        self._pause = menu.addAction(tr("resident.pause_ai"))
+        self._lock = menu.addAction(tr("resident.lock"))
         menu.addSeparator()
-        self._quit = menu.addAction("Salir")
+        self._quit = menu.addAction(tr("resident.quit"))
         font = self._open.font()
         font.setBold(True)
         self._open.setFont(font)
@@ -291,7 +293,9 @@ class QtTray(Tray):
 
     def _refresh_menu(self):
         status = self._status
-        self._pause.setText("Reanudar la IA" if status.get("ai_paused") else "Pausar la IA")
+        for action, key in ((self._open, "resident.open_secretbroker"), (self._lock, "resident.lock"), (self._quit, "resident.quit")):
+            action.setText(tr(key))  # the language may have changed
+        self._pause.setText(tr("resident.resume_ai") if status.get("ai_paused") else tr("resident.pause_ai"))
         self._lock.setEnabled(status.get("state") == "unlocked")
 
     def update(self, status):
@@ -321,6 +325,8 @@ class MacTray(Tray):
     and its run loop, so the item is built there (AppHelper.callAfter) and pystray only attaches to that loop
     (run_detached). Notifications go to Notification Center (platform.notify)."""
 
+    _shown = None  # what the title and menu were last drawn for
+
     def start(self):
         self.available = False
         ready = threading.Event()
@@ -349,13 +355,14 @@ class MacTray(Tray):
             return lambda *_: threading.Thread(target=action, daemon=True).start()
 
         menu = pystray.Menu(
-            pystray.MenuItem("Abrir SecretBroker", later(self.api.show), default=True),
-            pystray.MenuItem(lambda _: "Reanudar la IA" if self._status.get("ai_paused") else "Pausar la IA",
+            # Texts are read each time the menu is drawn: the language may have changed.
+            pystray.MenuItem(lambda _: tr("resident.open_secretbroker"), later(self.api.show), default=True),
+            pystray.MenuItem(lambda _: tr("resident.resume_ai") if self._status.get("ai_paused") else tr("resident.pause_ai"),
                              later(self._toggle_pause)),
-            pystray.MenuItem("Bloquear", later(lambda: self._safe(lambda: client.request("lock"))),
+            pystray.MenuItem(lambda _: tr("resident.lock"), later(lambda: self._safe(lambda: client.request("lock"))),
                              enabled=lambda _: self._status.get("state") == "unlocked"),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Salir", later(self.api.quit)),
+            pystray.MenuItem(lambda _: tr("resident.quit"), later(self.api.quit)),
         )
         # A monochrome shield (assets/menubar.png, from tools/make_icon.py --menubar) marked as a template image,
         # so macOS draws it like the other menu bar icons, in light and dark bars.
@@ -379,11 +386,12 @@ class MacTray(Tray):
             pass
 
     def update(self, status):
-        changed = (status.get("ai_paused"), status.get("state")) != (self._status.get("ai_paused"), self._status.get("state"))
+        text = tr("resident.menu_title_ai_paused") if status.get("ai_paused") else (
+            tr("resident.menu_title_locked") if status.get("state") == "locked" else "SecretBroker")
+        shown = (text, status.get("state"), status.get("ai_paused"), language())  # the language may have changed
         self._status = status
-        if self._icon is not None and changed:
-            text = "SecretBroker · IA en pausa" if status.get("ai_paused") else (
-                "SecretBroker · bloqueado" if status.get("state") == "locked" else "SecretBroker")
+        if self._icon is not None and shown != self._shown:
+            self._shown = shown
 
             def apply():
                 self._icon.title = text

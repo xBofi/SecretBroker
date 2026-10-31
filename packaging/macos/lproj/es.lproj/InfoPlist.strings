@@ -1,0 +1,2 @@
+/* The Info.plist texts in Spanish. */
+"NSFaceIDUsageDescription" = "SecretBroker usa Touch ID para confirmar que eres tú antes de abrir la bóveda o mostrar una contraseña.";

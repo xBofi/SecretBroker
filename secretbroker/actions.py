@@ -17,6 +17,7 @@ import paramiko
 from nacl.public import PublicKey, SealedBox
 
 from .inject import ActionError, Redactor, substitute
+from .i18n import tr
 
 MAX_OUTPUT_CHARS = 100_000
 KNOWN_HOSTS = None  # set by the service: SSH host keys remembered on first use
@@ -39,7 +40,7 @@ def _truncate(text):
 def _require(params, *names):
     missing = [name for name in names if params.get(name) in (None, "")]
     if missing:
-        raise ActionError("Faltan parámetros: " + ", ".join(missing))
+        raise ActionError(tr("actions.missing_parameters") + ", ".join(missing))
 
 
 # --------------------------------------------------------------------------- HTTP
@@ -62,15 +63,15 @@ def _check_destination(entry, params):
     _require(params, "url")
     allowed = (entry["policy"].get("http") or {}).get("allowed_hosts") or []
     if not allowed:
-        raise ActionError(f"'{entry['id']}' no tiene webs permitidas")
+        raise ActionError(tr("actions.has_no_allowed_websites", id=entry['id']))
     try:
         url = httpx.URL(params["url"])
     except Exception:
-        raise ActionError("URL no válida") from None
+        raise ActionError(tr("actions.invalid_url")) from None
     if not url.host or not host_allowed(url.host, allowed):
-        raise ActionError(f"Host '{url.host}' no permitido para '{entry['id']}'. Permitidos: {', '.join(allowed)}")
+        raise ActionError(tr("actions.host_not_allowed_for_allowed", host=url.host, id=entry['id'], value=', '.join(allowed)))
     if url.scheme != "https" and not (url.scheme == "http" and url.host in LOOPBACK_HOSTS):
-        raise ActionError("Solo se permite HTTPS (HTTP únicamente hacia localhost)")
+        raise ActionError(tr("actions.only_https_is_allowed_http"))
     return url
 
 
@@ -81,7 +82,7 @@ def http_request(entry, params):
 
     final_url = httpx.URL(substitute(raw_url, entry, escape=lambda v: quote(v, safe="")))
     if (final_url.scheme, final_url.host, final_url.port) != (url.scheme, url.host, url.port):
-        raise ActionError("Los placeholders no pueden modificar el destino de la petición")
+        raise ActionError(tr("actions.placeholders_can_change_where_request"))
 
     headers = {str(k): substitute(str(v), entry) for k, v in (params.get("headers") or {}).items()}
     content = None
@@ -136,10 +137,10 @@ def load_private_key(text, passphrase=None):
         try:
             return key_class.from_private_key(io.StringIO(text), password=passphrase or None)
         except paramiko.PasswordRequiredException:
-            raise ActionError("La clave privada está cifrada y requiere passphrase") from None
+            raise ActionError(tr("actions.private_key_is_encrypted_and")) from None
         except (paramiko.SSHException, ValueError) as exc:
             last_error = exc
-    raise ActionError(f"No se pudo leer la clave privada: {last_error}")
+    raise ActionError(tr("actions.couldn_read_private_key", last_error=last_error))
 
 
 class _TrustOnFirstUse(paramiko.MissingHostKeyPolicy):
@@ -156,7 +157,7 @@ class _TrustOnFirstUse(paramiko.MissingHostKeyPolicy):
 def _connect(entry):
     fields = entry["fields"]
     if entry.get("template") != "ssh":
-        raise ActionError(f"'{entry['id']}' no es un servidor SSH")
+        raise ActionError(tr("actions.isn_ssh_server", id=entry['id']))
     KNOWN_HOSTS.parent.mkdir(parents=True, exist_ok=True)
     KNOWN_HOSTS.touch(exist_ok=True)
     client = paramiko.SSHClient()
@@ -187,7 +188,7 @@ def ssh_exec(entry, params):
     password = entry["fields"].get("password") if entry["fields"].get("auth_method") != "key" else None
     if sudo:
         if not password:
-            raise ActionError("sudo requiere que la credencial use autenticación por contraseña")
+            raise ActionError(tr("actions.sudo_needs_credential_use_password"))
         # -k forces sudo to ask, so the password line is always consumed by sudo, not the command.
         command = "sudo -k -S -p '' sh -c " + shlex.quote(command)
     timeout = float(params.get("timeout") or 120)
@@ -236,7 +237,7 @@ def ssh_upload(entry, params):
     _require(params, "local_path", "remote_path")
     local = Path(params["local_path"]).expanduser().resolve()
     if not local.is_file():
-        raise ActionError(f"No existe el archivo local: {local}")
+        raise ActionError(tr("actions.local_file_doesn_exist", local=local))
     client, new_host_key = _connect(entry)
     try:
         with client.open_sftp() as sftp:
@@ -251,9 +252,9 @@ def ssh_download(entry, params):
     _require(params, "remote_path", "local_path")
     local = Path(params["local_path"]).expanduser().resolve()
     if local.exists() and not params.get("overwrite"):
-        raise ActionError(f"El archivo local ya existe: {local} (usa overwrite=true)")
+        raise ActionError(tr("actions.local_file_already_exists_use", local=local))
     if not local.parent.is_dir():
-        raise ActionError(f"No existe la carpeta local: {local.parent}")
+        raise ActionError(tr("actions.local_folder_doesn_exist", parent=local.parent))
     client, new_host_key = _connect(entry)
     try:
         with client.open_sftp() as sftp:
@@ -270,7 +271,7 @@ def ssh_download(entry, params):
 def _resolve_executable(name):
     """Look the command up on PATH only (never the current directory or a given path)."""
     if any(sep in name for sep in ("/", "\\", ":")):
-        raise ActionError("argv[0] debe ser un nombre de comando, no una ruta")
+        raise ActionError(tr("actions.argv_0_must_be_command"))
     if sys.platform == "win32":
         exts = [e.lower() for e in os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";") if e]
         candidates = [name] if Path(name).suffix.lower() in exts else [name + ext for ext in exts]
@@ -283,7 +284,7 @@ def _resolve_executable(name):
             path = os.path.join(directory, candidate)
             if os.path.isfile(path) and os.access(path, os.X_OK):
                 return path
-    raise ActionError(f"Comando no encontrado en PATH: {name}")
+    raise ActionError(tr("actions.command_not_found_in_path", name=name))
 
 
 def _command_name(name):
@@ -294,12 +295,12 @@ def _command_name(name):
 def _check_command(entry, params):
     argv = params.get("argv")
     if not isinstance(argv, list) or not argv or not all(isinstance(a, str) for a in argv):
-        raise ActionError("argv debe ser una lista de strings no vacía")
+        raise ActionError(tr("actions.argv_must_be_non_empty"))
     if any(sep in argv[0] for sep in ("/", "\\", ":")):
-        raise ActionError("argv[0] debe ser un nombre de comando, no una ruta")
+        raise ActionError(tr("actions.argv_0_must_be_command"))
     allowed = {c.lower() for c in (entry["policy"].get("commands") or {}).get("allowed", [])}
     if _command_name(argv[0]) not in allowed:
-        raise ActionError(f"'{argv[0]}' no está en los comandos permitidos de '{entry['id']}': {', '.join(sorted(allowed)) or '(ninguno)'}")
+        raise ActionError(tr("actions.isn_among_allowed_commands", value=argv[0], id=entry['id'], value2=', '.join(sorted(allowed)) or '(ninguno)'))
     return argv
 
 
@@ -309,14 +310,14 @@ def run_command(entry, params):
     executable = _resolve_executable(argv[0])
     if Path(executable).suffix.lower() in (".bat", ".cmd") and any(CMD_METACHARS & set(a) for a in argv[1:]):
         # .bat/.cmd go through cmd.exe, which would interpret these characters.
-        raise ActionError("Argumentos con caracteres especiales de cmd.exe no permitidos para scripts .bat/.cmd")
+        raise ActionError(tr("actions.arguments_with_cmd_exe_special"))
 
     env = dict(os.environ)
     for name, template in (commands.get("env") or {}).items():
         env[name] = substitute(template, entry)
     cwd = params.get("cwd") or None
     if cwd and not Path(cwd).is_dir():
-        raise ActionError(f"No existe el directorio: {cwd}")
+        raise ActionError(tr("actions.directory_doesn_exist", cwd=cwd))
 
     timeout = float(params.get("timeout") or 300)
     try:
@@ -346,10 +347,10 @@ def check_github_secret(params):
     _require(params, "repo", "name")
     repo = str(params["repo"])
     if not GITHUB_REPO_RE.match(repo) or any(part.strip(".") == "" for part in repo.split("/")):
-        raise ActionError("repo debe tener la forma propietario/repositorio")
+        raise ActionError(tr("actions.repo_must_look_like_owner"))
     name = str(params["name"])
     if not SECRET_NAME_RE.match(name) or name.upper().startswith("GITHUB_"):
-        raise ActionError("Nombre de secret no válido: solo letras, números y _, sin empezar por número ni por GITHUB_")
+        raise ActionError(tr("actions.invalid_secret_name_only_letters"))
 
 
 def _github_secrets_url(params):
@@ -366,7 +367,7 @@ def _github(token_entry, method, url, json_body=None):
         params["json_body"] = json_body
     response = http_request(token_entry, params)
     if response["status"] >= 300:
-        raise ActionError(f"GitHub respondió {response['status']}: {response['body'][:500]}")
+        raise ActionError(tr("actions.github_answered", status=response['status'], value=response['body'][:500]))
     return response
 
 
@@ -398,7 +399,7 @@ ACTIONS = {
 def precheck(action, entry, params):
     """Reject requests that can never succeed before asking the user to approve them."""
     if action.startswith("ssh_") and entry.get("template") != "ssh":
-        raise ActionError(f"'{entry['id']}' no es un servidor SSH")
+        raise ActionError(tr("actions.isn_ssh_server", id=entry['id']))
     if action == "http_request":
         _check_destination(entry, params)
     elif action == "run_command":

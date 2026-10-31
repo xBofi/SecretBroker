@@ -5,6 +5,8 @@ import hashlib
 import json
 import os
 
+from .i18n import tr
+
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
@@ -33,7 +35,7 @@ def new_kdf():
 
 def derive_key(password, kdf):
     if kdf.get("name") != "scrypt":
-        raise ValueError(f"KDF no soportado: {kdf.get('name')}")
+        raise ValueError(tr("crypto.unsupported_kdf", get=kdf.get('name')))
     return hashlib.scrypt(
         password.encode("utf-8"), salt=unb64(kdf["salt"]),
         n=kdf["n"], r=kdf["r"], p=kdf["p"], maxmem=512 * 1024 * 1024, dklen=32,
@@ -62,7 +64,7 @@ def unwrap_with_password(password, wrap):
     try:
         return open_sealed(derive_key(password, wrap["kdf"]), wrap, _kdf_aad(wrap["kdf"]))
     except InvalidTag:
-        raise WrongPassword("Contraseña maestra incorrecta") from None
+        raise WrongPassword(tr("service.wrong_master_password")) from None
 
 
 def _hkdf(material, info):
@@ -99,11 +101,11 @@ def open_from(private_key, sealed, aad):
 def decrypt_legacy_v1(password, doc):
     """Version 1 vaults encrypted the payload directly with scrypt(master password)."""
     if doc.get("version") != 1:
-        raise ValueError("No es una bóveda de la versión 1")
+        raise ValueError(tr("crypto.not_version_1_vault"))
     header = {"version": doc["version"], "kdf": doc["kdf"]}
     try:
         plaintext = open_sealed(derive_key(password, doc["kdf"]), doc,
                                 json.dumps(header, sort_keys=True).encode("utf-8"))
     except InvalidTag:
-        raise WrongPassword("Contraseña maestra incorrecta") from None
+        raise WrongPassword(tr("service.wrong_master_password")) from None
     return json.loads(plaintext)

@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from cryptography.exceptions import InvalidTag
 
 from . import crypto, templates
+from .i18n import tr
 
 PLAIN_FORMAT = "secretbroker-export"
 ENCRYPTED_FORMAT = "secretbroker-encrypted-export"
@@ -48,7 +49,7 @@ def _aad(header):
 def encrypt(document, password):
     """scrypt(password) -> AES-256-GCM over the plain export; the header is authenticated too."""
     if len(password or "") < MIN_PASSWORD_LEN:
-        raise ExportError(f"La contraseña del archivo debe tener al menos {MIN_PASSWORD_LEN} caracteres")
+        raise ExportError(tr("exports.file_password_must_have_at", MIN_PASSWORD_LEN=MIN_PASSWORD_LEN))
     header = {"format": ENCRYPTED_FORMAT, "version": VERSION, "kdf": crypto.new_kdf()}
     key = crypto.derive_key(password, header["kdf"])
     sealed = crypto.seal(key, json.dumps(document).encode("utf-8"), _aad(header))
@@ -57,15 +58,15 @@ def encrypt(document, password):
 
 def decrypt(doc, password):
     if doc.get("format") != ENCRYPTED_FORMAT or doc.get("version") != VERSION:
-        raise ExportError("Este archivo no es una exportación cifrada de SecretBroker compatible")
+        raise ExportError(tr("exports.this_file_isn_compatible_encrypted"))
     header = {"format": doc["format"], "version": doc["version"], "kdf": doc.get("kdf") or {}}
     try:
         key = crypto.derive_key(password or "", header["kdf"])
         plaintext = crypto.open_sealed(key, doc, _aad(header))
     except InvalidTag:
-        raise ExportError("La contraseña no abre este archivo", "wrong_password") from None
+        raise ExportError(tr("exports.password_doesn_open_this_file"), "wrong_password") from None
     except (KeyError, TypeError, ValueError):
-        raise ExportError("El archivo está dañado") from None
+        raise ExportError(tr("exports.file_is_damaged")) from None
     return json.loads(plaintext)
 
 
@@ -94,7 +95,7 @@ def to_csv(entries):
 def build(entries, fmt, password=None, app_version=""):
     """The text of the file to write."""
     if fmt not in FORMATS:
-        raise ExportError("Formato de exportación no válido")
+        raise ExportError(tr("exports.invalid_export_format"))
     if fmt == "csv":
         return to_csv(entries)
     document = plain_document(entries, app_version)

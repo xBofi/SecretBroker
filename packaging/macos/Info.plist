@@ -22,7 +22,11 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleDevelopmentRegion</key>
-    <string>es</string>
+    <string>en</string>
+    <!-- The window's language is the app's own (Settings); macOS's sheets (Touch ID, Keychain) follow the user's
+         languages. tools/build_macos.sh adds a <code>.lproj folder per locale, with InfoPlist.strings from lproj/. -->
+    <key>CFBundleAllowMixedLocalizations</key>
+    <true/>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.utilities</string>
     <key>LSMinimumSystemVersion</key>
@@ -33,9 +37,10 @@
     <true/>
     <key>NSHumanReadableCopyright</key>
     <string>© 2026 xBofi. MIT License.</string>
-    <!-- Touch ID's prompt names the reason itself (touchid.REASON); this is the text macOS shows when asked. -->
+    <!-- Touch ID's prompt names the reason itself (the touchid.reason message); this is the text macOS shows when
+         asked. Translated in lproj/<code>.lproj/InfoPlist.strings. -->
     <key>NSFaceIDUsageDescription</key>
-    <string>SecretBroker usa Touch ID para confirmar que eres tú antes de abrir la bóveda o mostrar una contraseña.</string>
+    <string>SecretBroker uses Touch ID to confirm it's you before opening the vault or showing a password.</string>
     <!-- Team invite links (secretbroker://join?...), handled by app._listen_for_links. -->
     <key>CFBundleURLTypes</key>
     <array>

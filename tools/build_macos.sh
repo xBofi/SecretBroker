@@ -85,6 +85,16 @@ install -m 0755 "$MAC/SecretBroker" "$APP/Contents/MacOS/SecretBroker"
 sed "s/@VERSION@/$VERSION/g" "$MAC/Info.plist" > "$APP/Contents/Info.plist"
 plutil -lint "$APP/Contents/Info.plist" >/dev/null
 printf 'APPL????' > "$APP/Contents/PkgInfo"
+# One <code>.lproj per language the window speaks (secretbroker/web/locales), so macOS's own sheets (Touch ID,
+# Keychain) are in the user's language; InfoPlist.strings where packaging/macos/lproj has one.
+for locale in "$REPO"/secretbroker/web/locales/*.json; do
+    code=$(basename "$locale" .json)
+    mkdir -p "$RES/$code.lproj"
+    if [ -f "$MAC/lproj/$code.lproj/InfoPlist.strings" ]; then
+        install -m 0644 "$MAC/lproj/$code.lproj/InfoPlist.strings" "$RES/$code.lproj/"
+        plutil -lint "$RES/$code.lproj/InfoPlist.strings" >/dev/null
+    fi
+done
 "$PY" -I "$REPO/tools/make_icon.py" --iconset "$BUILD_DIR/SecretBroker.iconset" >/dev/null
 iconutil -c icns -o "$RES/SecretBroker.icns" "$BUILD_DIR/SecretBroker.iconset"
 install -m 0755 "$MAC/secretbroker-setup" "$MAC/sb" "$RES/"

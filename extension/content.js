@@ -10,6 +10,8 @@
   if (window.__secretBrokerLoaded) return;
   window.__secretBrokerLoaded = true;
   const ext = globalThis.browser || globalThis.chrome;
+  // chrome.i18n with named values, in the order the message declares them (_locales/*/messages.json).
+  const msg = (key, values = {}) => ext.i18n.getMessage(key, Object.values(values).map(String)) || key;
   const send = (message) => ext.runtime.sendMessage(message).catch(() => null);
 
   // --------------------------------------------------------------------------------------- field detection
@@ -146,18 +148,18 @@
   }
 
   function apply(what, values) {
-    if (!frameUsable()) return { ok: false, error: 'El formulario está en un marco demasiado pequeño para verlo: no se rellena.' };
+    if (!frameUsable()) return { ok: false, error: msg('form_is_in_frame_too') };
     const field = target();
     const group = field && groupOf(field);
     if (what === 'totp') {
       const otp = group && group.kind === 'totp' ? group.otp
         : [...document.querySelectorAll('input')].filter((i) => fillable(i) && isOtp(i)).slice(0, 1);
-      if (!otp.length || !values.totp) return { ok: false, error: 'No hay un campo de código 2FA visible en esta página.' };
+      if (!otp.length || !values.totp) return { ok: false, error: msg('there_no_visible_2fa_code') };
       if (otp.length > 1) otp.forEach((box, i) => type(box, values.totp[i] || ''));
       else type(otp[0], values.totp);
       return { ok: true };
     }
-    if (!group || group.kind !== 'login') return { ok: false, error: 'No hay un formulario de inicio de sesión visible en esta página.' };
+    if (!group || group.kind !== 'login') return { ok: false, error: msg('there_no_visible_login_form') };
     if (group.username && values.username) type(group.username, values.username);
     if (group.password && values.password) type(group.password, values.password);
     hideMenu();
@@ -278,7 +280,7 @@
     if (rect.width < 90 || rect.height < 18) { removeButton(); return; }
     attach();
     if (!button) {
-      button = make('button', { class: 'button', title: 'Rellenar con SecretBroker', 'aria-label': 'Rellenar con SecretBroker',
+      button = make('button', { class: 'button', title: msg('fill_in_with_secretbroker'), 'aria-label': msg('fill_in_with_secretbroker'),
         onmousedown: (event) => event.preventDefault(),  // keep the focus in the field
         onclick: (event) => { if (event.isTrusted) toggleMenu(); } }, logo());
       layer.append(button);
@@ -330,25 +332,25 @@
     if (menu) { hideMenu(); return; }
     const group = lastField && groupOf(lastField);
     const wantsTotp = group && group.kind === 'totp';
-    menu = make('div', { class: 'menu', role: 'listbox' }, make('div', { class: 'note' }, 'Buscando…'));
+    menu = make('div', { class: 'menu', role: 'listbox' }, make('div', { class: 'note' }, msg('searching')));
     layer.append(menu);
     placeMenu();
     const answer = await send({ type: 'logins' });
     if (!menu) return;
     const head = (domain) => make('div', { class: 'head' }, logo(),
       make('span', {}, 'SecretBroker', domain ? ' · ' : '', domain ? make('b', {}, domain) : null));
-    const openApp = make('div', { class: 'foot' }, make('button', { class: 'link', onclick: (e) => { if (e.isTrusted) { send({ type: 'open_app' }); hideMenu(); } } }, 'Abrir SecretBroker'));
+    const openApp = make('div', { class: 'foot' }, make('button', { class: 'link', onclick: (e) => { if (e.isTrusted) { send({ type: 'open_app' }); hideMenu(); } } }, msg('open_secretbroker')));
     const note = (...content) => menu.replaceChildren(head(), make('div', { class: 'note' }, ...content), openApp);
     const hello = answer && answer.hello;
-    if (!hello || !hello.ok) { note((hello && hello.error) || 'No se puede hablar con SecretBroker.'); return; }
-    if (!hello.result.paired) { note('Conecta este navegador: pulsa el icono de SecretBroker en la barra del navegador y luego «Conectar».'); return; }
-    if (hello.result.state !== 'unlocked') { note(make('b', {}, 'SecretBroker está bloqueado.'), ' Desbloquéalo y vuelve a pulsar aquí.'); return; }
+    if (!hello || !hello.ok) { note((hello && hello.error) || msg('can_talk_secretbroker')); return; }
+    if (!hello.result.paired) { note(msg('connect_this_browser_click_secretbroker')); return; }
+    if (hello.result.state !== 'unlocked') { note(make('b', {}, msg('secretbroker_is_locked')), msg('unlock_it_and_click_here')); return; }
     const list = answer.list;
-    if (!list || !list.ok) { note((list && list.error) || 'No se pudo consultar.'); return; }
+    if (!list || !list.ok) { note((list && list.error) || msg('couldn_look_it_up')); return; }
     const { domain, logins } = list.result;
     const shown = wantsTotp ? logins.filter((l) => l.totp) : logins;
     if (!shown.length) {
-      note(wantsTotp ? `Ninguna credencial de ${domain} tiene código 2FA.` : make('span', {}, 'No hay nada guardado para ', make('b', {}, domain), '.'));
+      note(wantsTotp ? msg('no_credential_for_has_2fa', { domain }) : msg('nothing_saved_for', { domain }));
       return;
     }
     menuItems = shown.map((login) => {
@@ -359,11 +361,11 @@
         if (result && !result.ok && result.error) toast(result.error);
       };
       const item = make('button', { class: 'item', role: 'option', disabled: !login.can_fill,
-        title: login.can_fill ? `Rellenar en ${list.result.host}` : 'Credencial del equipo de solo uso: rellenarla se la mostraría a la página',
+        title: login.can_fill ? msg('fill_in_on', { host: list.result.host }) : msg('use_only_team_credential_filling'),
         onclick: (event) => { if (event.isTrusted) choose(); } },
       make('span', { class: 'avatar' }, initial(login.name)),
       make('span', { class: 'text' }, make('div', { class: 'name' }, login.name),
-        make('div', { class: 'user' }, login.can_fill ? (wantsTotp ? 'Código 2FA' : login.username || 'Sin usuario') : 'Solo uso: no se rellena')));
+        make('div', { class: 'user' }, login.can_fill ? (wantsTotp ? msg('2fa_code') : login.username || msg('no_username')) : msg('use_only_not_filled_in'))));
       item.choose = choose;
       return item;
     });
@@ -440,14 +442,14 @@
       const result = await send({ type: 'offer_answer', id: offer.id, save });
       bar.remove();
       bar = null;
-      if (save) toast(result && result.ok ? (update ? 'Contraseña actualizada en SecretBroker' : 'Guardado en SecretBroker') : (result && result.error) || 'No se pudo guardar');
+      if (save) toast(result && result.ok ? (update ? msg('password_updated_in_secretbroker') : msg('saved_in_secretbroker')) : (result && result.error) || msg('couldn_save'));
     };
-    const primary = make('button', { class: 'btn primary', onclick: (e) => { if (e.isTrusted) answer(true, primary); } }, update ? 'Actualizar' : 'Guardar');
+    const primary = make('button', { class: 'btn primary', onclick: (e) => { if (e.isTrusted) answer(true, primary); } }, update ? msg('update') : msg('save'));
     bar = make('div', { class: 'bar', role: 'dialog', 'aria-label': 'SecretBroker' },
       make('div', { class: 'title' }, logo(),
-        update ? `¿Actualizar la contraseña de «${offer.name}»?` : '¿Guardar esta contraseña en SecretBroker?'),
+        update ? msg('update_password', { name: offer.name }) : msg('save_this_password_in_secretbroker')),
       make('p', {}, `${offer.username} · ${offer.host}`),
-      make('div', { class: 'actions' }, make('button', { class: 'btn', onclick: (e) => { if (e.isTrusted) answer(false); } }, 'Ahora no'), primary));
+      make('div', { class: 'actions' }, make('button', { class: 'btn', onclick: (e) => { if (e.isTrusted) answer(false); } }, msg('not_now')), primary));
     layer.append(bar);
   }
 

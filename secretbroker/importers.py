@@ -17,6 +17,7 @@ from urllib.parse import unquote, urlsplit
 
 from . import exports, exposure, presets, templates, totp
 from .vault import ID_RE, TAG_RE
+from .i18n import tr
 
 MAX_ITEMS = 5000
 FORMATS = {
@@ -60,17 +61,17 @@ def detect(text, filename=""):
         try:
             doc = json.loads(stripped)
         except ValueError:
-            raise ImportFileError("El archivo parece JSON pero no se puede leer") from None
+            raise ImportFileError(tr("importers.file_looks_like_json_but")) from None
         if doc.get("format") == exports.ENCRYPTED_FORMAT:
             return "secretbroker_encrypted"
         if doc.get("format") == exports.PLAIN_FORMAT:
             return "secretbroker"
         if isinstance(doc.get("items"), list):
             return "bitwarden_json"
-        raise ImportFileError("No se reconoce este JSON. Exporta desde Bitwarden en formato .json (sin cifrar).")
+        raise ImportFileError(tr("importers.this_json_isn_recognised_export"))
     headers = {h.strip().lower() for h in next(csv.reader(io.StringIO(stripped)), [])}
     if not headers:
-        raise ImportFileError("El archivo está vacío")
+        raise ImportFileError(tr("importers.file_is_empty"))
     if "login_password" in headers:
         return "bitwarden_csv"
     if "title" in headers and headers & {"otpauth", "archived", "website", "favorite"} and "group" not in headers:
@@ -84,22 +85,22 @@ def detect(text, filename=""):
     if headers & set(COLUMNS["password"]):
         return "csv"
     if re.search(r"^[A-Za-z_][A-Za-z0-9_]*\s*=", stripped, re.M):
-        raise ImportFileError("Parece un .env: impórtalo con «sb import» en la carpeta del proyecto.")
-    raise ImportFileError("No se reconoce el formato. Exporta desde tu gestor en CSV o, en Bitwarden, en JSON sin cifrar.")
+        raise ImportFileError(tr("importers.it_looks_like_env_import"))
+    raise ImportFileError(tr("importers.format_isn_recognised_export_from"))
 
 
 def parse(text, fmt="auto", password=None, filename=""):
     """(candidates, skipped). A candidate is an entry without id or policy; skipped: [{name, reason}]."""
     fmt = detect(text, filename) if fmt in (None, "", "auto") else fmt
     if fmt not in FORMATS:
-        raise ImportFileError("Formato no válido")
+        raise ImportFileError(tr("app.invalid_format"))
     if fmt == "bitwarden_json":
         found = _bitwarden_json(json.loads(text))
     elif fmt in ("secretbroker", "secretbroker_encrypted"):
         doc = json.loads(text)
         if fmt == "secretbroker_encrypted":
             if not password:
-                raise ImportFileError("Este archivo está cifrado: escribe su contraseña", "password_required")
+                raise ImportFileError(tr("importers.this_file_is_encrypted_type"), "password_required")
             try:
                 doc = exports.decrypt(doc, password)
             except exports.ExportError as exc:
@@ -109,7 +110,7 @@ def parse(text, fmt="auto", password=None, filename=""):
         found = _csv(text, fmt)
     candidates, skipped = found
     if len(candidates) > MAX_ITEMS:
-        raise ImportFileError(f"Demasiadas credenciales en un archivo (máximo {MAX_ITEMS})")
+        raise ImportFileError(tr("importers.too_many_credentials_in_one", MAX_ITEMS=MAX_ITEMS))
     return fmt, candidates, skipped
 
 
@@ -118,7 +119,7 @@ def parse(text, fmt="auto", password=None, filename=""):
 
 def _bitwarden_json(doc):
     if doc.get("encrypted"):
-        raise ImportFileError("Este archivo de Bitwarden está cifrado. Exporta de nuevo en formato «.json» (sin cifrar).")
+        raise ImportFileError(tr("importers.this_bitwarden_file_is_encrypted"))
     folders = {f.get("id"): f.get("name") for f in doc.get("folders") or [] if isinstance(f, dict)}
     candidates, skipped = [], []
     for item in doc["items"]:
@@ -149,12 +150,12 @@ def _csv(text, fmt):
     try:
         header = [h.strip().lower() for h in next(reader)]
     except StopIteration:
-        raise ImportFileError("El archivo está vacío") from None
+        raise ImportFileError(tr("importers.file_is_empty")) from None
     index = {}
     for key, names in COLUMNS.items():
         index[key] = next((header.index(n) for n in names if n in header), None)
     if index["password"] is None:
-        raise ImportFileError("El CSV no tiene una columna de contraseña")
+        raise ImportFileError(tr("importers.csv_has_no_password_column"))
     known = {i for i in index.values() if i is not None}
     candidates, skipped = [], []
     for row in reader:
@@ -180,7 +181,7 @@ def _csv(text, fmt):
 
 def _secretbroker(doc):
     if doc.get("format") != exports.PLAIN_FORMAT or doc.get("version") != exports.VERSION:
-        raise ImportFileError("Este archivo no es una exportación de SecretBroker compatible")
+        raise ImportFileError(tr("importers.this_file_isn_compatible_secretbroker"))
     candidates = []
     for entry in doc.get("entries") or []:
         if not isinstance(entry, dict) or entry.get("template") not in templates.TEMPLATES:
@@ -281,7 +282,7 @@ def _add(candidates, skipped, name, url, username, password, notes, otp, extra, 
         extra = list(extra) + [f"Dirección: {url}"]
     name = name or _host(web) or (server[1]["host"] if server else "") or username or "Importada"
     if not password.strip():
-        skipped.append({"name": name, "reason": "No tiene contraseña"})
+        skipped.append({"name": name, "reason": tr("importers.it_has_no_password")})
         return
     # A login's 2FA goes to its own field (the app shows the code); anything else keeps it in the notes.
     seed = _totp(otp) if otp and username and not server else None
@@ -303,7 +304,7 @@ def _add(candidates, skipped, name, url, username, password, notes, otp, extra, 
 def _note(candidates, skipped, name, notes, extra, folder):
     text = _notes(notes, None, extra)
     if not text:
-        skipped.append({"name": name or "(sin nombre)", "reason": "Nota vacía"})
+        skipped.append({"name": name or "(sin nombre)", "reason": tr("importers.empty_note")})
         return
     candidates.append(_candidate(name or "Nota", "generic", {"value": text + "\n"}, folder))
 

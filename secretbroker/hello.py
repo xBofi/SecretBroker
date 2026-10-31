@@ -3,6 +3,8 @@
 import asyncio
 import sys
 
+from .i18n import tr
+
 KEY_NAME = "SecretBroker"
 LABEL = "Windows Hello"  # what the app calls the biometric proof (macOS: touchid.LABEL)
 
@@ -17,7 +19,7 @@ class HelloCancelled(HelloError):
 
 def _winrt():
     if sys.platform != "win32":
-        raise HelloError("Windows Hello solo existe en Windows")
+        raise HelloError(tr("hello.windows_hello_only_exists_on"))
     from winrt.windows.security.credentials import (
         KeyCredentialCreationOption, KeyCredentialManager, KeyCredentialStatus,
     )
@@ -30,12 +32,12 @@ def _check(status, statuses):
     if status == statuses.SUCCESS:
         return
     if status in (statuses.USER_CANCELED, statuses.USER_PREFERS_PASSWORD):
-        raise HelloCancelled("Verificación cancelada")
+        raise HelloCancelled(tr("app.verification_cancelled"))
     if status == statuses.NOT_FOUND:
-        raise HelloError("Windows Hello no está configurado para SecretBroker en este usuario")
+        raise HelloError(tr("hello.windows_hello_isn_set_up"))
     if status == statuses.SECURITY_DEVICE_LOCKED:
-        raise HelloError("El dispositivo de seguridad está bloqueado; inténtalo más tarde")
-    raise HelloError(f"Windows Hello devolvió un error ({status})")
+        raise HelloError(tr("hello.security_device_is_locked_try"))
+    raise HelloError(tr("hello.windows_hello_returned_error", status=status))
 
 
 def is_supported():

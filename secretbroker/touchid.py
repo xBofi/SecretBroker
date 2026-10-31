@@ -18,10 +18,10 @@ import threading
 import time
 
 from .hello import HelloCancelled, HelloError  # noqa: F401  (the app catches these for every system)
+from .i18n import tr
 
 LABEL = "Touch ID"
 KEY_TAG = b"com.secretbroker.touchid"
-REASON = "confirmar que eres tú en SecretBroker"
 SUPPORTED_CACHE_SECONDS = 30
 
 ERR_ITEM_NOT_FOUND = -25300
@@ -36,7 +36,7 @@ _guard = threading.Lock()
 
 def _frameworks():
     if sys.platform != "darwin":
-        raise HelloError("Touch ID solo existe en macOS")
+        raise HelloError(tr("touchid.only_exists_on_macos"))
     import LocalAuthentication
     import Security
     return Security, LocalAuthentication
@@ -49,15 +49,15 @@ def _code(error):
         return 0
 
 
-def _fail(error, doing):
+def _fail(error, doing_key):
     code = _code(error)
     if code == ERR_USER_CANCELED or code in LA_CANCELLED:
-        raise HelloCancelled("Verificación cancelada")
+        raise HelloCancelled(tr("app.verification_cancelled"))
     if code == LA_LOCKOUT:
-        raise HelloError("Touch ID está bloqueado tras varios intentos: desbloquea el Mac con tu contraseña y vuelve a probar")
+        raise HelloError(tr("touchid.locked_out"))
     if code == ERR_MISSING_ENTITLEMENT:
-        raise HelloError("Esta versión de SecretBroker no está firmada: Touch ID no puede guardar su clave")
-    raise HelloError(f"Touch ID devolvió un error al {doing} ({code})")
+        raise HelloError(tr("touchid.app_not_signed"))
+    raise HelloError(tr(doing_key, code=code))
 
 
 def _key_query(Security, context=None, ref=True):
@@ -101,7 +101,7 @@ def _public_der(Security, private_key):
     from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
     point, error = Security.SecKeyCopyExternalRepresentation(Security.SecKeyCopyPublicKey(private_key), None)
     if point is None:
-        _fail(error, "leer la clave")
+        _fail(error, "touchid.error_reading_key")
     public = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), bytes(point))  # X9.63: 04 || X || Y
     return public.public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)
 
@@ -117,7 +117,7 @@ def create_key():
         None, Security.kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
         Security.kSecAccessControlPrivateKeyUsage | Security.kSecAccessControlBiometryCurrentSet, None)
     if access is None:
-        _fail(error, "preparar la clave")
+        _fail(error, "touchid.error_preparing_key")
     attributes = {
         Security.kSecAttrKeyType: Security.kSecAttrKeyTypeECSECPrimeRandom,
         Security.kSecAttrKeySizeInBits: 256,
@@ -132,7 +132,7 @@ def create_key():
     }
     key, error = Security.SecKeyCreateRandomKey(attributes, None)
     if key is None:
-        _fail(error, "crear la clave")
+        _fail(error, "touchid.error_creating_key")
     _supported["at"] = 0.0
     return _public_der(Security, key)
 
@@ -141,16 +141,16 @@ def sign(message):
     """Sign with the Touch ID key. macOS shows its fingerprint sheet every time."""
     Security, LocalAuthentication = _frameworks()
     context = LocalAuthentication.LAContext.alloc().init()
-    context.setLocalizedReason_(REASON)
+    context.setLocalizedReason_(tr("touchid.reason"))  # macOS shows it under «SecretBroker wants to…»
     status, key = Security.SecItemCopyMatching(_key_query(Security, context), None)
     if status == ERR_ITEM_NOT_FOUND:
-        raise HelloError("Touch ID no está configurado para SecretBroker en este usuario: actívalo de nuevo en Ajustes")
+        raise HelloError(tr("touchid.isn_set_up"))
     if status != 0 or key is None:
-        raise HelloError(f"Touch ID devolvió un error al buscar la clave ({status})")
+        raise HelloError(tr("touchid.error_finding_key", status=status))
     signature, error = Security.SecKeyCreateSignature(
         key, Security.kSecKeyAlgorithmECDSASignatureMessageX962SHA256, bytes(message), None)
     if signature is None:
-        _fail(error, "firmar")
+        _fail(error, "touchid.error_signing")
     return bytes(signature)
 
 

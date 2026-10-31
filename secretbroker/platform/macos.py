@@ -27,6 +27,7 @@ from pathlib import Path
 
 from .. import touchid as biometric  # noqa: F401  Touch ID (falls back to password proofs where it cannot work)
 from ._common import INTERFACE, InstallCancelled, ProtectError, key_file, open_sealed, seal, write_private
+from ..i18n import tr
 
 NAME = "macos"
 OS_LABEL = "macOS"
@@ -163,7 +164,7 @@ def protect_for_service(data, entropy, folder):
 def unprotect_for_service(blob, entropy, folder):
     path = Path(folder) / SERVICE_KEY_FILE
     if not path.exists():
-        raise ProtectError("Falta la clave de este equipo")
+        raise ProtectError(tr("linux.this_computer_key_is_missing"))
     return open_sealed(key_file(path), blob, entropy)
 
 
@@ -191,7 +192,7 @@ def _keychain_key_now(create):
     key = os.urandom(32)
     Security.SecItemDelete(query)
     attributes = {**query, Security.kSecValueData: NSData.dataWithBytes_length_(key, len(key)),
-                  Security.kSecAttrLabel: "SecretBroker (abrir con la sesión)"}
+                  Security.kSecAttrLabel: tr("macos.keychain_item_label")}
     # Any error (a refused or unexpected attribute included) leaves the 0600 file to the caller: never worse.
     return key if Security.SecItemAdd(attributes, None)[0] == 0 else None
 
@@ -227,11 +228,11 @@ def unprotect_for_user(blob, entropy):
     if kind == b"k":
         key = _keychain_key(create=False)
         if key is None:
-            raise ProtectError("El Llavero de la sesión no está disponible")
+            raise ProtectError(tr("macos.session_keychain_isn_available"))
     elif kind == b"f" and (user_dir() / USER_KEY_FILE).exists():
         key = key_file(user_dir() / USER_KEY_FILE)
     else:
-        raise ProtectError("Formato de clave protegida desconocido")
+        raise ProtectError(tr("common.unknown_protected_key_format"))
     return open_sealed(key, rest, entropy)
 
 
@@ -502,7 +503,7 @@ def run_installer(path):
         message = (result.stderr or result.stdout or "").strip()
         if "-128" in message or re.search(r"cancel", message, re.IGNORECASE):  # the user closed the dialog
             raise InstallCancelled()
-        raise OSError(message.splitlines()[-1] if message else "installer falló")
+        raise OSError(message.splitlines()[-1] if message else tr("macos.installer_failed"))
     return "restart"
 
 

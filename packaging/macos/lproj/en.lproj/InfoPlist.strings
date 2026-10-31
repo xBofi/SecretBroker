@@ -1,0 +1,2 @@
+/* The Info.plist texts in English (packaging/macos/Info.plist holds the same). */
+"NSFaceIDUsageDescription" = "SecretBroker uses Touch ID to confirm it's you before opening the vault or showing a password.";

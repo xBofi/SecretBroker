@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "Código 2FA"
+  },
+  "2fa_code_copied": {
+    "message": "Código 2FA copiado"
+  },
+  "browser": {
+    "message": "Navegador"
+  },
+  "can_talk_secretbroker": {
+    "message": "No se puede hablar con SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "No se puede hablar con SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "No se puede hablar con SecretBroker. Ábrelo y vuelve a intentarlo."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Comprueba que SecretBroker muestra este mismo código y pulsa «Conectar»."
+  },
+  "cmd_fill": {
+    "message": "Rellenar el inicio de sesión de esta web"
+  },
+  "cmd_open": {
+    "message": "Abrir SecretBroker"
+  },
+  "code": {
+    "message": "Código"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Confírmalo en SecretBroker"
+  },
+  "connect": {
+    "message": "Conectar $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Conecta este navegador"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Conecta este navegador: pulsa el icono de SecretBroker en la barra del navegador y luego «Conectar»."
+  },
+  "copy_2fa_code": {
+    "message": "Copiar código 2FA"
+  },
+  "copy_password": {
+    "message": "Copiar contraseña"
+  },
+  "copy_username": {
+    "message": "Copiar usuario"
+  },
+  "couldn_connect": {
+    "message": "No se pudo conectar."
+  },
+  "couldn_copy": {
+    "message": "No se pudo copiar"
+  },
+  "couldn_fill_it_in": {
+    "message": "No se pudo rellenar"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "No se encontró dónde rellenarlo."
+  },
+  "couldn_look_it_up": {
+    "message": "No se pudo consultar."
+  },
+  "couldn_save": {
+    "message": "No se pudo guardar"
+  },
+  "create_your_vault_first": {
+    "message": "Crea tu bóveda primero"
+  },
+  "ext_description": {
+    "message": "Rellena tus contraseñas guardadas en SecretBroker, solo en su web y solo cuando tú lo pides."
+  },
+  "fill_in": {
+    "message": "Rellenar"
+  },
+  "fill_in_on": {
+    "message": "Rellenar en $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Rellenar con SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Rellenar sin abrir esta ventana"
+  },
+  "form_from": {
+    "message": "Formulario de"
+  },
+  "form_is_in_frame_too": {
+    "message": "El formulario está en un marco demasiado pequeño para verlo: no se rellena."
+  },
+  "form_is_in_hidden_or": {
+    "message": "El formulario está en un marco oculto o muy pequeño: no se rellena."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Instala SecretBroker y abre Ajustes › Navegador. Si acabas de instalarlo, reinicia el navegador."
+  },
+  "it_no_longer_pending": {
+    "message": "Ya no está pendiente."
+  },
+  "it_only_fills_in_on": {
+    "message": "Solo se rellena en la web de cada contraseña."
+  },
+  "loading": {
+    "message": "Cargando"
+  },
+  "name": {
+    "message": "Nombre"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Ninguna credencial de $domain$ tiene código 2FA.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· sin https"
+  },
+  "no_username": {
+    "message": "Sin usuario"
+  },
+  "not_now": {
+    "message": "Ahora no"
+  },
+  "nothing_matches": {
+    "message": "Nada coincide."
+  },
+  "nothing_saved_for": {
+    "message": "No hay nada guardado para $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "No hay nada guardado para $domain$. Inicia sesión y te ofreceré guardarlo.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "En otras webs"
+  },
+  "on_this_website": {
+    "message": "En esta web"
+  },
+  "open": {
+    "message": "Abrir $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Ábrelo y vuelve a intentarlo."
+  },
+  "open_it_can_be_filled": {
+    "message": "Abrir $host$ (allí se puede rellenar)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Abrir SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Abre SecretBroker y crea tu bóveda para guardar contraseñas."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Abre una web para ver sus contraseñas."
+  },
+  "open_website_you_want_sign": {
+    "message": "Abre la web donde quieres entrar."
+  },
+  "page_has_changed_try_again": {
+    "message": "La página ha cambiado. Vuelve a intentarlo."
+  },
+  "password_copied": {
+    "message": "Contraseña copiada"
+  },
+  "password_updated": {
+    "message": "Contraseña actualizada"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Contraseña actualizada en SecretBroker"
+  },
+  "save": {
+    "message": "Guardar"
+  },
+  "save_this_login": {
+    "message": "¿Guardar este inicio de sesión?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "¿Guardar esta contraseña en SecretBroker?"
+  },
+  "saved": {
+    "message": "Guardado"
+  },
+  "saved_for": {
+    "message": "Guardada para $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Guardado en SecretBroker"
+  },
+  "search": {
+    "message": "Buscar"
+  },
+  "search_secretbroker": {
+    "message": "Buscar en SecretBroker"
+  },
+  "searching": {
+    "message": "Buscando…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker no ha contestado a tiempo."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker está bloqueado."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker está bloqueado"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker está bloqueado. Desbloquéalo y vuelve a intentarlo."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "Falta SecretBroker en este ordenador"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker no está instalado en este ordenador, o falta conectarlo con el navegador."
+  },
+  "that_way_it_can_fill": {
+    "message": "Así podrá rellenar tus contraseñas. SecretBroker te pedirá que lo confirmes con un clic."
+  },
+  "there_are_no_saved_logins": {
+    "message": "No hay inicios de sesión guardados para $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "No hay un campo de código 2FA visible en esta página."
+  },
+  "there_no_visible_login_form": {
+    "message": "No hay un formulario de inicio de sesión visible en esta página."
+  },
+  "this_page_can_be_filled": {
+    "message": "Esta página no se puede rellenar."
+  },
+  "this_team_credential_is_use": {
+    "message": "Esta credencial del equipo es de solo uso: no se rellena en el navegador."
+  },
+  "unlock": {
+    "message": "Desbloquear"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Desbloquéalo y vuelve a pulsar aquí."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Desbloquéalo para rellenar tus contraseñas."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Desbloquea SecretBroker y vuelve a pulsar «Conectar»."
+  },
+  "update": {
+    "message": "Actualizar"
+  },
+  "update_password": {
+    "message": "¿Actualizar la contraseña de «$name$»?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Solo uso: no se rellena"
+  },
+  "use_only_on_team_not": {
+    "message": "Solo uso en el equipo: no se rellena"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Credencial del equipo de solo uso: rellenarla se la mostraría a la página"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Las credenciales del equipo de solo uso las puede usar la IA, pero no se muestran: rellenarla se la daría a la página."
+  },
+  "username_copied": {
+    "message": "Usuario copiado"
+  },
+  "you_re_on": {
+    "message": "Estás en"
+  }
+}

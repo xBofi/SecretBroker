@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from . import autofill, crypto, platform, templates, totp
 from .crypto import WrongPassword  # noqa: F401  (re-exported for callers)
 from .templates import PLACEHOLDER_RE
+from .i18n import tr
 
 FORMAT_VERSION = 2
 VAULT_AAD = b"secretbroker/vault/v2"
@@ -56,7 +57,7 @@ class ValidationError(Exception):
 
 def check_master_password(password):
     if len(password or "") < MIN_PASSWORD_LEN:
-        raise ValidationError(f"La contraseña maestra debe tener al menos {MIN_PASSWORD_LEN} caracteres")
+        raise ValidationError(tr("vault.master_password_must_have_at", MIN_PASSWORD_LEN=MIN_PASSWORD_LEN))
 
 
 def _check_template_string(template, available, where):
@@ -67,32 +68,32 @@ def _check_template_string(template, available, where):
 
 def validate_entry(entry):
     if not ID_RE.match(entry.get("id", "")):
-        raise ValidationError("El identificador solo admite minúsculas, números, '-', '_' y '.' (máx. 64)")
+        raise ValidationError(tr("vault.identifier_only_accepts_lowercase_letter"))
     if not entry.get("name", "").strip():
-        raise ValidationError("Ponle un nombre a la credencial")
+        raise ValidationError(tr("vault.give_credential_name"))
     template_id = entry.get("template")
     if template_id not in templates.TEMPLATES:
-        raise ValidationError(f"Plantilla desconocida: {template_id}")
+        raise ValidationError(tr("vault.unknown_template", template_id=template_id))
     tags = entry.get("tags") or []
     if not isinstance(tags, list) or len(tags) > 10 or not all(isinstance(t, str) and TAG_RE.match(t) for t in tags):
-        raise ValidationError("Etiquetas no válidas: hasta 10, en minúsculas, sin espacios (p. ej. tienda, produccion)")
+        raise ValidationError(tr("vault.invalid_tags_up_10_lowercase"))
     if entry.get("expires"):
         try:
             datetime.strptime(str(entry["expires"]), "%Y-%m-%d")
         except ValueError:
-            raise ValidationError("La fecha de caducidad debe ser AAAA-MM-DD") from None
+            raise ValidationError(tr("vault.expiry_date_must_be_yyyy")) from None
     if entry.get("rotate_every_days") is not None and entry["rotate_every_days"] not in ROTATE_EVERY_DAYS:
-        raise ValidationError("Cada cuánto rotarla: " + ", ".join(f"{d} días" for d in ROTATE_EVERY_DAYS if d) + " o 0 (nunca)")
+        raise ValidationError(tr("vault.rotate_every_invalid", days=", ".join(str(d) for d in ROTATE_EVERY_DAYS if d)))
     if entry.get("check_every_hours") is not None and not valid_check_hours(entry["check_every_hours"]):
-        raise ValidationError("Cada cuánto comprobarla: un número de horas, -1 (solo una vez) o 0 (nunca)")
+        raise ValidationError(tr("vault.how_often_check_it_number"))
     if entry.get("rotation_guide") is not None and not isinstance(entry["rotation_guide"], dict):
-        raise ValidationError("Guía de rotación no válida")
+        raise ValidationError(tr("vault.invalid_rotation_guide"))
     if entry.get("shared") is not None:
         _check_shared(entry["shared"])
     if entry.get("test_request") is not None:
         _check_test_request(entry["test_request"])
     if entry.get("used_in") is not None and clean_used_in(entry["used_in"]) != entry["used_in"]:
-        raise ValidationError(f"Dónde se usa: hasta {USED_IN_MAX} sitios, de {USED_IN_TEXT_MAX} caracteres como mucho")
+        raise ValidationError(tr("vault.where_it_used_up_places", USED_IN_MAX=USED_IN_MAX, USED_IN_TEXT_MAX=USED_IN_TEXT_MAX))
     if entry.get("autofill") is not None:
         try:
             autofill.validate(entry["autofill"])
@@ -102,11 +103,11 @@ def validate_entry(entry):
     draft = bool(entry.get("draft"))  # prepared by the AI: everything but the secret, which the user adds
     for spec in templates.active_specs(template_id, fields):
         if spec["required"] and not fields.get(spec["name"]) and not (draft and spec["secret"]):
-            raise ValidationError(f"Falta el campo «{spec['label']}»")
+            raise ValidationError(tr("vault.field_is_missing", label=spec['label']))
         if spec["kind"] == "number" and fields.get(spec["name"]):
             value = str(fields[spec["name"]])
             if not value.isdigit() or not 0 < int(value) < 65536:
-                raise ValidationError(f"«{spec['label']}» debe ser un número de puerto válido")
+                raise ValidationError(tr("vault.must_be_valid_port_number", label=spec['label']))
 
     if fields.get("totp"):
         try:
@@ -120,39 +121,39 @@ def validate_entry(entry):
     available = templates.placeholder_values(entry)
     policy = entry.get("policy", {})
     if policy.get("approval", "session") not in APPROVAL_MODES:
-        raise ValidationError("Modo de aprobación no válido")
+        raise ValidationError(tr("vault.invalid_approval_mode"))
 
     http = policy.get("http") or {}
     auth = http.get("auth") or {}
     kind = auth.get("kind", "none")
     if kind not in AUTH_KINDS:
-        raise ValidationError("Tipo de autenticación HTTP no válido")
+        raise ValidationError(tr("vault.invalid_http_authentication_type"))
     if kind in ("header", "query"):
         if not auth.get("name"):
-            raise ValidationError("Indica el nombre de la cabecera o parámetro de autenticación")
+            raise ValidationError(tr("vault.give_name_authentication_header_or"))
         _check_template_string(auth.get("template") or "{{value}}", available, "Autenticación HTTP")
     if kind == "basic" and not (fields.get("username") and fields.get("password")):
-        raise ValidationError("HTTP Basic necesita usuario y contraseña")
+        raise ValidationError(tr("vault.http_basic_needs_username_and"))
     for host in http.get("allowed_hosts", []):
         if not re.match(r"^(\*\.)?[a-z0-9.-]+$|^\[?[0-9a-f:.]+\]?$", host):
-            raise ValidationError(f"Dominio no válido: {host}")
+            raise ValidationError(tr("vault.invalid_domain", host=host))
 
     commands = policy.get("commands") or {}
     for name, template in (commands.get("env") or {}).items():
         if not ENV_NAME_RE.match(name):
-            raise ValidationError(f"Nombre de variable de entorno no válido: {name}")
+            raise ValidationError(tr("vault.invalid_environment_variable_name", name=name))
         _check_template_string(template, available, f"Variable {name}")
     for command in commands.get("allowed", []):
         if not re.match(r"^[A-Za-z0-9_.+-]+$", command):
-            raise ValidationError(f"Nombre de comando no válido (sin rutas): {command}")
+            raise ValidationError(tr("vault.invalid_command_name_no_paths", command=command))
 
 
 def _check_shared(shared):
     if not isinstance(shared, dict) or not all(isinstance(shared.get(k), str) and shared[k]
                                                for k in ("org", "collection", "item")):
-        raise ValidationError("Datos de equipo no válidos")
+        raise ValidationError(tr("vault.invalid_team_data"))
     if shared.get("permission") not in SHARE_PERMISSIONS:
-        raise ValidationError("Permiso de equipo no válido")
+        raise ValidationError(tr("vault.invalid_team_permission"))
 
 
 TEST_METHODS = ("GET", "HEAD")
@@ -162,14 +163,14 @@ def _check_test_request(test):
     """A request that tells whether an API key works (see exposure.check_alive): read-only, and only to
     one of the credential's allowed hosts (checked again when it runs)."""
     if not isinstance(test, dict) or set(test) - {"method", "url", "status"}:
-        raise ValidationError("Petición de prueba no válida")
+        raise ValidationError(tr("vault.invalid_test_request"))
     if test.get("method") not in TEST_METHODS:
-        raise ValidationError("La petición de prueba solo puede ser GET o HEAD (no debe cambiar nada)")
+        raise ValidationError(tr("vault.test_request_can_only_be"))
     url = test.get("url")
     if not isinstance(url, str) or not re.match(r"^https?://[^\s/]+(/\S*)?$", url) or len(url) > 500:
-        raise ValidationError("La petición de prueba necesita una dirección completa (https://…)")
+        raise ValidationError(tr("vault.test_request_needs_full_address"))
     if not isinstance(test.get("status"), int) or not 200 <= test["status"] <= 399:
-        raise ValidationError("La respuesta esperada de la prueba debe ser un código entre 200 y 399")
+        raise ValidationError(tr("vault.test_expected_response_must_be"))
 
 
 def shared_content(entry):
@@ -203,14 +204,14 @@ def clean_used_in(places):
     if isinstance(places, str):
         places = places.splitlines()
     if not isinstance(places, list):
-        raise ValidationError("Dónde se usa: una lista de sitios")
+        raise ValidationError(tr("vault.where_it_used_list_places"))
     cleaned = []
     for place in places:
         place = " ".join(str(place).split())
         if place and place not in cleaned:
             cleaned.append(place[:USED_IN_TEXT_MAX])
     if len(cleaned) > USED_IN_MAX:
-        raise ValidationError(f"Dónde se usa: como mucho {USED_IN_MAX} sitios")
+        raise ValidationError(tr("vault.where_it_used_places_at", USED_IN_MAX=USED_IN_MAX))
     return cleaned
 
 
@@ -344,7 +345,7 @@ class Vault:
 
     def create(self, master_password, entries=None):
         if self.exists():
-            raise ValidationError("Ya existe una bóveda")
+            raise ValidationError(tr("vault.vault_already_exists"))
         check_master_password(master_password)
         with self._lock:
             self._key = os.urandom(32)
@@ -366,7 +367,7 @@ class Vault:
         try:
             key = platform.unprotect_for_service(self.device_file.read_bytes(), DEVICE_ENTROPY, self.data_dir)
         except OSError:
-            raise ValidationError("No se pudo usar la clave de este PC. Desbloquea con la contraseña maestra.") from None
+            raise ValidationError(tr("vault.couldn_use_this_pc_key")) from None
         self._open(doc, key)
 
     def restore(self, doc_bytes, master_password):
@@ -374,12 +375,12 @@ class Vault:
         opens it. The previous file is kept next to it. Leaves the restored vault unlocked."""
         doc = json.loads(doc_bytes)
         if doc.get("version") != FORMAT_VERSION:
-            raise ValidationError("Esta copia no es de una bóveda de SecretBroker compatible")
+            raise ValidationError(tr("vault.this_backup_isn_from_compatible"))
         key = crypto.unwrap_with_password(master_password, doc["master"])
         try:
             json.loads(crypto.open_sealed(key, doc, VAULT_AAD))
         except Exception:
-            raise ValidationError("La copia está dañada") from None
+            raise ValidationError(tr("vault.backup_is_damaged")) from None
         with self._lock:
             self.lock()
             if self.exists():
@@ -554,7 +555,7 @@ class Vault:
             self._require_unlocked()
             entries = self._payload["entries"]
             if entry["id"] != replaces and entry["id"] in entries:
-                raise ValidationError(f"Ya existe una credencial con el identificador '{entry['id']}'")
+                raise ValidationError(tr("vault.credential_with_identifier_already_exist", id=entry['id']))
             old = entries.pop(replaces, None) if replaces else None
             entry = copy.deepcopy(entry)
             entry["updated"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -578,7 +579,7 @@ class Vault:
                 try:
                     validate_entry(entry)
                     if entry["id"] in stored or entry["id"] in added:
-                        raise ValidationError(f"Ya existe una credencial con el identificador '{entry['id']}'")
+                        raise ValidationError(tr("vault.credential_with_identifier_already_exist", id=entry['id']))
                 except ValidationError as exc:
                     results.append((entry.get("id"), str(exc)))
                     continue
@@ -606,14 +607,14 @@ class Vault:
     def _load_doc(self):
         doc = json.loads(self.file.read_bytes())
         if doc.get("version") != FORMAT_VERSION:
-            raise ValidationError(f"Versión de bóveda no soportada: {doc.get('version')}")
+            raise ValidationError(tr("vault.unsupported_vault_version", get=doc.get('version')))
         return doc
 
     def _open(self, doc, key):
         try:
             payload = json.loads(crypto.open_sealed(key, doc, VAULT_AAD))
         except Exception:
-            raise ValidationError("La bóveda está dañada o la clave no corresponde") from None
+            raise ValidationError(tr("vault.vault_is_damaged_or_key")) from None
         with self._lock:
             self._key, self._payload, self._master_wrap = key, payload, doc["master"]
             # The stored public key is not authenticated: rewrite it if missing (vaults up to 0.3) or altered.

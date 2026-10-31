@@ -51,4 +51,4 @@ secretbroker = "secretbroker.app:main"
 packages = ["secretbroker", "secretbroker.platform"]
 
 [tool.setuptools.package-data]
-secretbroker = ["web/*", "assets/*", "data/*"]
+secretbroker = ["web/*", "web/locales/*", "locales/*", "assets/*", "data/*"]

@@ -22,8 +22,11 @@
   --radius-sm: 6px;
   --radius: 8px;
   --radius-lg: 10px;
-  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  /* Segoe first; the rest cover Cyrillic, Greek and CJK on Windows, macOS and Linux (see the :lang() rules). */
+  --font-fallback: system-ui, -apple-system, "Noto Sans", "Microsoft YaHei UI", "Yu Gothic UI", "Malgun Gothic",
+    "PingFang SC", "Hiragino Sans", "Noto Sans CJK SC", sans-serif;
+  --font: "Segoe UI Variable Text", "Segoe UI", var(--font-fallback);
+  --font-display: "Segoe UI Variable Display", "Segoe UI", var(--font-fallback);
   --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
   --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px; --fs-lg: 16px; --fs-xl: 22px;
   --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600;
@@ -436,9 +439,9 @@ details.advanced > .inner { padding: 6px 0 4px 24px; display: flex; flex-directi
 .day-head { position: sticky; top: 0; z-index: 1; background: var(--bg); padding: 16px 0 6px; border-bottom: 1px solid var(--line);
   font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--muted); letter-spacing: .02em; }
 .activity > .day-head:first-child { padding-top: 0; }
-.event { display: grid; grid-template-columns: 44px 104px minmax(0, 1fr) auto; gap: 12px; align-items: start;
+.event { display: grid; grid-template-columns: minmax(44px, max-content) 104px minmax(0, 1fr) auto; gap: 12px; align-items: start;
   padding: 9px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
-.event .time { color: var(--faint); font-variant-numeric: tabular-nums; padding-top: 1px; }
+.event .time { color: var(--faint); font-variant-numeric: tabular-nums; padding-top: 1px; white-space: nowrap; }
 .event .actor { display: flex; align-items: center; gap: 6px; color: var(--muted); min-width: 0; white-space: nowrap; }
 .event .actor > span:last-child { overflow: hidden; text-overflow: ellipsis; }
 .event .actor .icon { width: 15px; height: 15px; }
@@ -943,3 +946,22 @@ code.prompt-text { font-family: var(--font-mono); }
 .start-card > .icon { color: var(--faint); }
 .start-icon { width: 36px; height: 36px; flex: none; border-radius: var(--radius); display: grid; place-items: center;
   background: var(--interactive-soft); color: var(--interactive); }
+
+/* ---------- other languages ---------- */
+/* Texts may be 40% longer (German, Finnish) or set in CJK: nothing has a width that a label must fit. */
+:lang(ja) { --font-fallback: system-ui, "Yu Gothic UI", "Meiryo UI", "Hiragino Sans", "Noto Sans CJK JP", sans-serif; }
+:lang(ko) { --font-fallback: system-ui, "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", sans-serif; }
+:lang(zh-TW), :lang(zh-HK) { --font-fallback: system-ui, "Microsoft JhengHei UI", "PingFang TC", "Noto Sans CJK TC", sans-serif; }
+p, .help, .lead, .muted, .subtitle, .banner, .warning { overflow-wrap: break-word; hyphens: auto; }
+.nav button { min-width: 0; }
+.nav button > .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.content-header, .modal-foot, .auth-actions, .inline-form { flex-wrap: wrap; }
+.modal-foot .btn, .content-header .btn { max-width: 100%; }
+.search { width: min(260px, 36vw); }
+.setting { flex-wrap: wrap; }
+.setting > .control { min-width: min(200px, 100%); max-width: 100%; }
+.finding .source, .event .actor > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-grid-head > span { overflow-wrap: anywhere; hyphens: auto; line-height: 1.25; padding: 0 2px; }
+.language-select { width: auto; max-width: 220px; }
+.auth-language { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); }
+.auth-language .input { height: 30px; padding-block: 0; font-size: var(--fs-sm); }

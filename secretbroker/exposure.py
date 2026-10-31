@@ -23,6 +23,7 @@ import paramiko
 from . import actions, templates
 from .inject import ActionError, encodings
 from .vault import secret_fields
+from .i18n import tr
 
 MIN_NEEDLE = 8          # shorter values would match everywhere
 MAX_NEEDLE = 1024       # longer values are matched by their last bytes (the app overlaps its reads by this much)
@@ -188,7 +189,7 @@ def check_alive(entry):
             client.close()
             return {"status": "ok", "provider": "SSH"}
         except paramiko.AuthenticationException:
-            return {"status": "invalid", "provider": "SSH", "message": "El servidor rechaza la credencial"}
+            return {"status": "invalid", "provider": "SSH", "message": tr("exposure.server_rejects_credential")}
         except (ActionError, paramiko.SSHException, OSError) as exc:
             return {"status": "unknown", "provider": "SSH", "message": unreachable(exc, "el servidor")}
     provider = provider_for(entry)
@@ -201,11 +202,11 @@ def check_alive(entry):
     except httpx.HTTPError as exc:
         return {"status": "unknown", "provider": name, "message": unreachable(exc, name)}
     if response.status_code in (401, 403):
-        return {"status": "invalid", "provider": name, "message": f"{name} rechaza la clave (HTTP {response.status_code})"}
+        return {"status": "invalid", "provider": name, "message": tr("exposure.rejects_key_http", name=name, status_code=response.status_code)}
     if response.is_success or response.status_code == 429:  # rate limited means the key was recognised
         return {"status": "ok", "provider": name}
     return {"status": "unknown", "provider": name, "http": response.status_code,
-            "message": f"Respuesta inesperada (HTTP {response.status_code}){_said(response)}"}
+            "message": tr("exposure.unexpected_response_http", status_code=response.status_code, _said=_said(response))}
 
 
 def _check_test_request(entry):
@@ -220,21 +221,21 @@ def _check_test_request(entry):
     http["auth"] = http.get("auth") if (http.get("auth") or {}).get("kind", "none") != "none" else implied.get("auth") or {"kind": "none"}
     if http["auth"].get("kind", "none") == "none":
         return {"status": "unknown", "provider": name,
-                "message": "La credencial no dice cómo poner la clave en una petición (Editar › cómo se envía la clave)"}
+                "message": tr("exposure.credential_doesn_say_how_put")}
     probe = {**entry, "policy": {**(entry.get("policy") or {}), "http": http}}
     try:
         response = actions.http_request(probe, {"method": test["method"], "url": test["url"], "timeout": CHECK_TIMEOUT})
     except ActionError as exc:
-        return {"status": "unknown", "provider": name, "message": f"La petición de prueba no es válida: {exc}"}
+        return {"status": "unknown", "provider": name, "message": tr("exposure.test_request_isn_valid", exc=exc)}
     except httpx.HTTPError as exc:
         return {"status": "unknown", "provider": name, "message": unreachable(exc, name)}
     status = response["status"]
     if status == test["status"]:
         return {"status": "ok", "provider": name}
     if status in (401, 403):
-        return {"status": "invalid", "provider": name, "message": f"{name} rechaza la clave (HTTP {status})"}
+        return {"status": "invalid", "provider": name, "message": tr("exposure.rejects_key_http_2", name=name, status=status)}
     return {"status": "unknown", "provider": name, "http": status,
-            "message": f"La prueba esperaba HTTP {test['status']} y {name} respondió HTTP {status}"}
+            "message": tr("exposure.test_expected_http_and_answered", status=test['status'], name=name, status2=status)}
 
 
 def test_host(entry):
@@ -310,8 +311,9 @@ def last_checked(record):
 
 
 def _plural(count, source):
-    singular, plural = SOURCE_LABELS.get(source, (source, source))
-    return f"{count} {singular if count == 1 else plural}"
+    if source not in SOURCE_LABELS:
+        return f"{count} {source}"
+    return tr(f"exposure.places_{source}", count=count)  # SOURCE_LABELS above is their Spanish source
 
 
 def _places(findings):
@@ -320,7 +322,7 @@ def _places(findings):
         by_source[finding["source"]] = by_source.get(finding["source"], 0) + 1
     order = list(SOURCE_LABELS)
     parts = [_plural(n, s) for s, n in sorted(by_source.items(), key=lambda i: order.index(i[0]) if i[0] in order else 99)]
-    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " y " + parts[-1]
+    return parts[0] if len(parts) == 1 else tr("exposure.list_and", names=", ".join(parts[:-1]), last=parts[-1])
 
 
 def _age_days(entry, timestamp):
@@ -343,27 +345,26 @@ def assess(entry, record, timestamp, details):
     gone = [f for f in findings if not f["present"] and not f.get("ignored")]
     ignored = [f for f in findings if f.get("ignored")]
     if present:
-        text = f"Está en claro en {_places(present)}."
+        text = tr("exposure.reason_present", places=_places(present))
         if any(f["source"] == "ai" for f in present):
-            text += " Una IA la ha visto: se envió a su proveedor."
+            text += " " + tr("exposure.reason_ai_saw")
         reasons.append(("exposed", text))
     if gone:
-        reasons.append(("warning", f"Estuvo en claro en {_places(gone)}. Aunque ya no esté, conviene rotarla."))
+        reasons.append(("warning", tr("exposure.reason_gone", places=_places(gone))))
 
     alive = record.get("alive") or {}
     if alive.get("status") == "invalid":
         if alive.get("was_ok"):
-            reasons.append(("exposed", f"Ha dejado de funcionar: {alive.get('message', '')}. Si no la has revocado tú, "
-                                       "es probable que el proveedor la haya detectado filtrada."))
+            reasons.append(("exposed", tr("exposure.reason_stopped", message=alive.get("message", ""))))
         else:
-            reasons.append(("warning", f"No funciona: {alive.get('message', '')}."))
+            reasons.append(("warning", tr("exposure.reason_invalid", message=alive.get("message", ""))))
     pwned = (record.get("pwned") or {}).get("count")
     if pwned:
-        reasons.append(("exposed", f"Esta contraseña aparece {pwned:,} veces en filtraciones públicas.".replace(",", ".")))
+        reasons.append(("exposed", tr("exposure.reason_pwned", count=pwned, times=f"{pwned:,}".replace(",", tr("health.thousands_separator")))))
 
     age = _age_days(entry, timestamp)
     if age is not None and age > STALE_DAYS:
-        reasons.append(("warning", f"No se ha cambiado en {age // 30} meses."))
+        reasons.append(("warning", tr("exposure.reason_stale", count=age // 30)))
 
     levels = [level for level, _ in reasons]
     if "exposed" in levels:
@@ -374,7 +375,7 @@ def assess(entry, record, timestamp, details):
         level = "ok"
     else:
         level = "unknown"
-        reasons.append(("unknown", "Aún no se ha buscado en tus archivos."))
+        reasons.append(("unknown", tr("exposure.reason_unknown")))
 
     result = {
         "id": entry["id"], "level": level,
