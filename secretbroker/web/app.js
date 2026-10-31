@@ -23,9 +23,17 @@ function el(tag, props, ...children) {
   }
   for (const child of children.flat(Infinity)) {
     if (child === null || child === undefined || child === false) continue;
-    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+    node.append(child instanceof Node ? child : document.createTextNode(osText(String(child))));
   }
   return node;
+}
+
+// The copy names Windows; on Linux (and later macOS) the same sentences name that system (info().os_label, set in
+// boot). «Windows Hello» stays: it is only shown where Hello exists.
+function osText(text) {
+  const label = window.SB_OS_LABEL;
+  if (!label || label === 'Windows' || !text.includes('Win')) return text;
+  return text.replace(/Windows(?! Hello)/g, label).replace(/ \(Win\+L\)/g, '');
 }
 
 function icon(name, size = '') {
@@ -211,6 +219,7 @@ const AUTH_LABELS = { none: 'No añadir', header: 'En una cabecera', query: 'Com
 
 async function boot() {
   state.info = await api().info();
+  window.SB_OS_LABEL = state.info.os_label;
   applyPalette(state.info.prefs.palette);
   for (const t of state.info.templates.templates) TEMPLATES[t.id] = t;
   DB_ENGINES = state.info.templates.db_engines;
@@ -515,7 +524,7 @@ function renderSetup() {
     box.classList.remove('centered');
     box.replaceChildren(
       el('div', { class: 'auth-head' }, steps(2), el('h2', { style: 'margin-top:12px' }, 'Elige una contraseña maestra')),
-      el('p', { class: 'lead' }, 'Cifra la bóveda. En el día a día la abrirás con Windows Hello o tu sesión; esta la necesitarás para restaurar copias o en otro PC.'),
+      el('p', { class: 'lead' }, `Cifra la bóveda. En el día a día la abrirás con ${state.info.hello_supported ? 'Windows Hello o ' : ''}tu sesión; esta la necesitarás para restaurar copias o en otro PC.`),
       thenImport ? el('p', { class: 'help' }, 'Después elegirás el archivo exportado de tu otro gestor.') : null,
       el('div', { class: 'field' }, el('label', {}, 'Contraseña maestra'), pw, strengthMeter(pw.input)),
       el('div', { class: 'field' }, el('label', {}, 'Repítela'), confirm),
@@ -625,7 +634,7 @@ function renderLock() {
     busy(sessionButton, true);
     const ok = await api().session_unlock();
     busy(sessionButton, false);
-    if (!ok) { errorText.textContent = 'No se ha podido abrir con la sesión de Windows. Usa la contraseña.'; state.info.session_unlock_here = false; return; }
+    if (!ok) { errorText.textContent = osText('No se ha podido abrir con la sesión de Windows. Usa la contraseña.'); state.info.session_unlock_here = false; return; }
     done('session');
   });
 
@@ -4305,7 +4314,7 @@ function renderSettings(content) {
     el('div', { class: 'content-header' }, el('h1', {}, 'Ajustes')),
     el('div', { class: 'content-body' }, el('div', { class: 'settings' },
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Seguridad'),
-        setting('Windows Hello', 'Desbloquea y muestra contraseñas con tu PIN, huella o cara.', helloControl),
+        (state.info.os || 'windows') === 'windows' ? setting('Windows Hello', 'Desbloquea y muestra contraseñas con tu PIN, huella o cara.', helloControl) : null,
         setting('Contraseña maestra', 'Si la olvidas, puedes cambiarla aquí tras confirmar con Windows.',
           el('button', { class: 'btn', onclick: () => changeMasterPassword(false) }, 'Cambiar')),
         setting('Abrir con mi sesión de Windows', 'La bóveda se abre sola al entrar en Windows y se cierra al bloquearlo (Win+L), sin escribir contraseñas. Protege de errores de la IA, no de alguien que use tu sesión.', sessionToggle),

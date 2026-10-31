@@ -1,0 +1,27 @@
+#!/bin/sh
+# SecretBroker .deb: before removing (not on an update). Disconnects the AI apps of each owner, deletes their
+# preferences and stops the services, like the Windows uninstaller. The vaults stay until purge.
+set -e
+
+if [ "$1" = "remove" ]; then
+    for root in /var/lib/secretbroker/*/; do
+        [ -d "$root" ] || continue
+        user=$(basename "$root")
+        home=$(getent passwd "$user" | cut -d: -f6) || continue
+        [ -n "$home" ] && [ -d "$home" ] || continue
+        runuser -u "$user" -- env HOME="$home" /opt/secretbroker/venv/bin/python -I -c \
+            "from secretbroker import integrations; integrations.remove_all()" || true
+    done
+    if [ -d /run/systemd/system ]; then
+        for unit in $(systemctl list-units --all --plain --no-legend 'secretbroker@*.service' | awk '{ print $1 }'); do
+            systemctl stop "$unit" || true
+        done
+        for unit in $(systemctl list-unit-files --plain --no-legend 'secretbroker@*.service' | awk '{ print $1 }'); do
+            systemctl disable "$unit" >/dev/null 2>&1 || true
+        done
+        find /etc/systemd/system -name 'secretbroker@*.service' -type l -delete 2>/dev/null || true
+    fi
+    pkill -u secretbroker -f 'secretbroker.service' 2>/dev/null || true
+fi
+
+exit 0

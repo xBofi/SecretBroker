@@ -20,6 +20,11 @@ dependencies = [
     "winrt-Windows.Security.Cryptography>=3; sys_platform == 'win32'",
     "winrt-Windows.Security.Cryptography.Core>=3; sys_platform == 'win32'",
     "winrt-Windows.Storage.Streams>=3; sys_platform == 'win32'",
+    # Linux: pywebview's Qt backend (window, tray icon, clipboard) and the Secret Service keyring
+    "QtPy>=2.4; sys_platform == 'linux'",
+    "PyQt6>=6.6; sys_platform == 'linux'",
+    "PyQt6-WebEngine>=6.6; sys_platform == 'linux'",
+    "secretstorage>=3.3; sys_platform == 'linux'",
 ]
 
 [project.optional-dependencies]
@@ -34,7 +39,7 @@ secretbroker-service = "secretbroker.service:main"
 secretbroker = "secretbroker.app:main"
 
 [tool.setuptools]
-packages = ["secretbroker"]
+packages = ["secretbroker", "secretbroker.platform"]
 
 [tool.setuptools.package-data]
 secretbroker = ["web/*", "assets/*"]

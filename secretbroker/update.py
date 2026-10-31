@@ -1,6 +1,7 @@
 """Updates from GitHub Releases, accepted only when signed with the release key.
 
-Every release carries SecretBroker-Setup-<version>.exe and a .sig file: an Ed25519 signature over
+Every release carries an installer per system (Windows: SecretBroker-Setup-<version>.exe, Ubuntu:
+secretbroker_<version>_amd64.deb; see platform.INSTALLER_RE) and a .sig file each: an Ed25519 signature over
 SIGNED_PREFIX + version + NUL + SHA-256(installer). The public key below lives in Program Files with
 the rest of the code, so only an administrator can change which key is trusted. Binding the version
 stops an old (vulnerable) signed release from being offered as a new one.
@@ -19,14 +20,14 @@ import httpx
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
-from . import __version__
+from . import __version__, platform
 
 REPO = "xBofi/SecretBroker"
 RELEASES_URL = f"https://github.com/{REPO}/releases"
 LATEST_API = f"https://api.github.com/repos/{REPO}/releases/latest"
 PUBLIC_KEY = "Y54EWQu13b79ilylP/cAvqFDvzxjkwiYkEq/puedHos="  # base64 raw Ed25519; the private half is the UPDATE_SIGNING_KEY secret
 SIGNED_PREFIX = b"SecretBroker release\0"
-INSTALLER_RE = re.compile(r"^SecretBroker-Setup-(\d+\.\d+\.\d+)\.exe$")
+INSTALLER_RE = re.compile(platform.INSTALLER_RE)
 CHECK_EVERY_SECONDS = 6 * 3600
 TIMEOUT = 30
 MAX_INSTALLER_BYTES = 200 * 1024 * 1024
@@ -115,8 +116,9 @@ def download(latest, folder):
     verify(latest["version"], data, signature)
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
-    for old in folder.glob("SecretBroker-Setup-*.exe"):
-        old.unlink(missing_ok=True)
+    for old in folder.iterdir():
+        if INSTALLER_RE.match(old.name):
+            old.unlink(missing_ok=True)
     path = folder / latest["installer"]["name"]
     tmp = path.with_suffix(".part")
     tmp.write_bytes(data)

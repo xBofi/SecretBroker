@@ -6,7 +6,6 @@ import json
 import logging
 import logging.handlers
 import os
-import subprocess
 import sys
 import threading
 import time
@@ -15,11 +14,12 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from . import __version__, client, generator, hello, integrations, links, paths, resident, scanner, templates, winsec
+from . import __version__, client, generator, integrations, links, paths, platform, resident, scanner, templates
 from .client import BrokerError, BrokerUnavailable
 
+hello = platform.biometric  # Windows Hello; elsewhere is_supported() is False (TODO: Touch ID, fprintd)
 WEB_DIR = Path(__file__).with_name("web")
-ICON = Path(__file__).with_name("assets") / "icon.ico"
+ICON = Path(__file__).with_name("assets") / ("icon.ico" if platform.NAME == "windows" else "icon.png")
 CLIPBOARD_CLEAR_SECONDS = 30
 AUTO_SCAN_HOURS = 12
 SESSION_FILE = client.SESSION_FILE  # the same file client.reopen_with_session reads
@@ -83,7 +83,8 @@ class Api:
         return {"version": __version__, "installed": paths.is_installed(),
                 "hello_supported": hello.is_supported(), "templates": templates.export(), "providers": links.catalog(),
                 "prefs": integrations.load_prefs(), "integrations": integrations.status(),
-                "start_with_windows": resident.start_with_windows(), "session_unlock_here": self.has_session_unlock()}
+                "start_with_windows": resident.start_with_windows(), "session_unlock_here": self.has_session_unlock(),
+                "os": platform.NAME, "os_label": platform.OS_LABEL}
 
     def set_pref(self, key, value):
         if key in ("palette", "auto_scan", "scan_folders"):
@@ -296,14 +297,11 @@ class Api:
         return folder
 
     def show_location(self, location):
-        """Show a file where a secret was found in Explorer."""
+        """Show a file where a secret was found in Explorer (Linux: the file manager)."""
         path = Path(location[4:] if location.startswith("git:") else location)
         if location.startswith("env:") or not path.exists():
             return False
-        if path.is_dir():
-            subprocess.Popen(["explorer", str(path)])
-        else:
-            subprocess.Popen(["explorer", "/select,", str(path)])
+        platform.show_in_folder(path)
         return True
 
     def ignore_finding(self, entry_id, location, ignore=True):
@@ -383,17 +381,25 @@ class Api:
 
     def install_update(self):
         """Download and verify the new version (in the service), then run its installer.
-        Windows asks for administrator consent; the installer closes this app and reopens it."""
+        The system asks for administrator consent (UAC, polkit). Windows' installer closes this app and reopens
+        it; on Linux apt installs the package and the app starts again by itself."""
         result = self.call("update_download", {})
         if not result["ok"]:
             return result
         try:
-            os.startfile(result["result"]["path"], "open", "/SILENT /SUPPRESSMSGBOXES /NORESTART")
+            after = platform.run_installer(result["result"]["path"])
+        except platform.InstallCancelled:
+            return {"ok": False, "code": "cancelled", "error": "Cancelado"}
         except OSError as exc:
-            if getattr(exc, "winerror", None) == 1223:  # the user said no to UAC
-                return {"ok": False, "code": "cancelled", "error": "Cancelado"}
             return {"ok": False, "code": "error", "error": f"No se pudo abrir el instalador: {exc}"}
+        if after == "restart":
+            threading.Timer(1.5, self._restart).start()
         return {"ok": True, "result": result["result"]["version"]}
+
+    def _restart(self):
+        """Start the newly installed version, then quit: it takes over once this instance is gone."""
+        platform.spawn_detached(["/bin/sh", "-c", 'sleep 2; exec "$0" -I -m secretbroker.app', platform.python_gui()])
+        self.quit()
 
     def open_link(self, url):
         """Open a provider page (API keys, billing...) in the default browser."""
@@ -440,7 +446,11 @@ class Api:
 
         Only asynchronous Win32 calls: pywebview's restore()/on_top wait for the UI thread, which
         can be waiting for this very call to return (a JS API call), and the window froze."""
-        if not self._hwnd or sys.platform != "win32":
+        if platform.NAME != "windows":
+            if self._window:  # pywebview (Qt) shows it from its own thread; never wait for it here
+                threading.Thread(target=self._show_portable, daemon=True).start()
+            return
+        if not self._hwnd:
             return
         user32 = ctypes.windll.user32
         hwnd = ctypes.c_void_p(self._hwnd)
@@ -454,6 +464,13 @@ class Api:
             user32.FlashWindow(hwnd, True)
         except OSError:
             pass
+
+    def _show_portable(self):
+        try:
+            self._window.show()
+            self._window.restore()
+        except Exception:
+            log.exception("show window")
 
     def focus(self):
         self._bring_to_front()
@@ -482,11 +499,20 @@ class Api:
         return {k: data.get(k) or "" for k in ("server", "email", "code")}
 
     def hide(self):
-        if self._hwnd and sys.platform == "win32":
+        if platform.NAME != "windows" and self._window:
+            if not (self._tray and self._tray.available):
+                # No icon next to the clock (GNOME without the AppIndicator extension): a hidden window could
+                # not be found again, so it stays in the dock, minimized, still answering the AI.
+                threading.Thread(target=self._window.minimize, daemon=True).start()
+                return
+            threading.Thread(target=self._window.hide, daemon=True).start()
+        elif self._hwnd and sys.platform == "win32":
             ctypes.windll.user32.ShowWindowAsync(ctypes.c_void_p(self._hwnd), 0)  # SW_HIDE
-            if not self._hidden_once and self._tray:
-                self._hidden_once = True
-                self._tray.notify("SecretBroker sigue activo", "Está junto al reloj para atender a la IA. Ciérralo desde ese icono.")
+        else:
+            return
+        if not self._hidden_once and self._tray:
+            self._hidden_once = True
+            self._tray.notify("SecretBroker sigue activo", "Está junto al reloj para atender a la IA. Ciérralo desde ese icono.")
 
     def quit(self):
         self._quitting = True
@@ -585,7 +611,7 @@ class Api:
         result = self.call("enable_session_unlock", {}, proof)
         if result["ok"]:
             SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
-            SESSION_FILE.write_bytes(winsec.dpapi_protect(result.pop("result")["token"].encode(), SESSION_ENTROPY))
+            SESSION_FILE.write_bytes(platform.protect_for_user(result.pop("result")["token"].encode(), SESSION_ENTROPY))
         return result
 
     def disable_session_unlock(self):
@@ -695,58 +721,12 @@ def _default_backup_folder():
     return base / "SecretBroker"
 
 
-# ----------------------------------------------------------------- clipboard (Windows)
+# ----------------------------------------------------------------- clipboard
 
 
 def _copy_to_clipboard(text, auto_clear=True):
-    if sys.platform != "win32":
-        return
-    from ctypes import wintypes
-    user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
-    user32.OpenClipboard.argtypes = [wintypes.HWND]
-    user32.SetClipboardData.argtypes = [wintypes.UINT, wintypes.HANDLE]
-    user32.SetClipboardData.restype = wintypes.HANDLE
-    user32.RegisterClipboardFormatW.argtypes = [wintypes.LPCWSTR]
-    kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
-    kernel32.GlobalAlloc.restype = wintypes.HGLOBAL
-    kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
-    kernel32.GlobalLock.restype = ctypes.c_void_p
-    kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
-
-    def put(fmt, data):
-        handle = kernel32.GlobalAlloc(0x0002, len(data))  # GMEM_MOVEABLE
-        ctypes.memmove(kernel32.GlobalLock(handle), data, len(data))
-        kernel32.GlobalUnlock(handle)
-        user32.SetClipboardData(fmt, handle)
-
-    for _ in range(10):
-        if user32.OpenClipboard(None):
-            break
-        time.sleep(0.05)
-    else:
-        return
-    try:
-        user32.EmptyClipboard()
-        put(13, (text + "\0").encode("utf-16-le"))  # CF_UNICODETEXT
-        if auto_clear:
-            # Keep passwords out of Windows clipboard history and cloud clipboard.
-            zero = (0).to_bytes(4, "little")
-            put(user32.RegisterClipboardFormatW("ExcludeClipboardContentFromMonitorProcessing"), zero)
-            put(user32.RegisterClipboardFormatW("CanIncludeInClipboardHistory"), zero)
-            put(user32.RegisterClipboardFormatW("CanUploadToCloudClipboard"), zero)
-    finally:
-        user32.CloseClipboard()
-
-    if auto_clear:
-        sequence = user32.GetClipboardSequenceNumber()
-
-        def clear():
-            time.sleep(CLIPBOARD_CLEAR_SECONDS)
-            if user32.GetClipboardSequenceNumber() == sequence and user32.OpenClipboard(None):
-                user32.EmptyClipboard()
-                user32.CloseClipboard()
-
-        threading.Thread(target=clear, daemon=True).start()
+    """Secrets stay out of clipboard history (and Windows' cloud clipboard) and are cleared after a while."""
+    platform.copy_to_clipboard(text, auto_clear, CLIPBOARD_CLEAR_SECONDS)
 
 
 # ----------------------------------------------------------------- entry point
@@ -792,10 +772,7 @@ def _keep_join_link(argv):
 
 
 def _single_instance():
-    if sys.platform != "win32":
-        return True
-    ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\SecretBrokerApp" + paths.instance_suffix())
-    return ctypes.windll.kernel32.GetLastError() != 183  # ERROR_ALREADY_EXISTS
+    return platform.single_instance()
 
 
 def main():
@@ -811,6 +788,8 @@ def main():
     os.environ.setdefault("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
                           "--disable-background-timer-throttling --disable-renderer-backgrounding "
                           "--disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion")
+    os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--disable-background-timer-throttling "
+                          "--disable-renderer-backgrounding --disable-backgrounding-occluded-windows")
     if sys.platform == "win32":
         try:
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("SecretBroker.App")
@@ -827,7 +806,11 @@ def main():
     window.events.closing += lambda: True if api._quitting else (api.hide() or False)
     # WebView2 would otherwise try to write next to python.exe (read-only under Program Files).
     storage = paths.user_dir() / "webview"
-    webview.start(private_mode=True, storage_path=str(storage))
+    if platform.NAME == "linux":
+        # Qt: the tray icon (QSystemTrayIcon) and the clipboard live on the same GUI thread (see platform.linux.gui_call).
+        webview.start(private_mode=True, storage_path=str(storage), gui="qt", icon=str(ICON))
+    else:
+        webview.start(private_mode=True, storage_path=str(storage))
 
 
 def _start_logging():
@@ -853,21 +836,23 @@ def _step(name, action):
 
 
 def _start_resident(api):
-    if sys.platform != "win32" or api._tray:
+    if api._tray or getattr(api, "_resident", False):
         return
-    api._tray = resident.Tray(api, ICON)
+    api._resident = True
+    api._tray = resident.make_tray(api, ICON)
     _step("show event", lambda: resident.listen_for_show(api.show))
-    _step("tray icon", api._tray.start)
+    if api._tray:
+        _step("tray icon", api._tray.start)
 
     def watch():
-        watcher = resident.Watcher(api, on_status=api._tray.update)
-        watcher.notify = api._tray.notify
+        watcher = resident.Watcher(api, on_status=api._tray.update if api._tray else None)
+        watcher.notify = api._tray.notify if api._tray else platform.notify
         watcher.start()
 
     _step("watcher", watch)
     _step("MCP over HTTP", lambda: resident.serve_mcp(api.show))
     if paths.is_installed():
-        _step("start with Windows", lambda: resident.set_start_with_windows(resident.start_with_windows()))
+        _step("start with the session", lambda: resident.set_start_with_windows(resident.start_with_windows()))
     threading.Thread(target=lambda: _step("Claude Code connection", integrations.upgrade_claude_code), daemon=True).start()
 
 
@@ -883,6 +868,12 @@ def _let_windows_close(api, args):
 def _on_shown(window, api, background=False):
     """pywebview has no icon option on Windows: set it on the underlying WinForms form. Also keep
     the window handle, to raise the window later without going through the UI thread."""
+    if platform.NAME != "windows":
+        _start_resident(api)  # first: hiding needs to know whether there is an icon next to the clock
+        if background:
+            api._hidden_once = True
+            api.hide()
+        return
     try:
         from System import Action
         from System.Drawing import Icon

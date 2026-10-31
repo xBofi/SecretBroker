@@ -12,18 +12,17 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 import time
 from pathlib import Path
 
-from . import client, paths
+from . import client, paths, platform
 
 BLOCK_BYTES = 1024 * 1024
 BATCH_BYTES = 2 * 1024 * 1024           # raw bytes per request (base64 keeps it under the service limit)
 MAX_PROJECT_FILE_BYTES = 5 * 1024 * 1024
 MAX_FILES_PER_FOLDER = 50_000
 CACHE_FILE = paths.user_dir() / "scan_cache.json"  # a separate instance (SECRETBROKER_HOME) keeps its own
-CREATE_NO_WINDOW = 0x08000000
+CREATE_NO_WINDOW = platform.NO_WINDOW
 
 SKIP_DIRS = {
     ".git", ".hg", ".svn", "node_modules", ".venv", "venv", "__pycache__", ".mypy_cache", ".pytest_cache",
@@ -74,7 +73,8 @@ def _home():
 
 
 def _appdata():
-    return Path(os.environ.get("APPDATA", _home() / "AppData" / "Roaming"))
+    """Where programs keep their settings: %APPDATA% on Windows, ~/.config on Linux."""
+    return platform.roaming_dir(_home())
 
 
 def project_folders(extra=()):
@@ -94,7 +94,8 @@ def project_folders(extra=()):
             path = Path(candidate).resolve()
         except (OSError, ValueError):
             continue
-        if not path.is_dir() or path == home or path in home.parents or (home / "AppData") in (path, *path.parents):
+        if not path.is_dir() or path == home or path in home.parents \
+                or any(app_dir in (path, *path.parents) for app_dir in platform.profile_app_dirs(home)):
             continue
         folders.append(path)
     # Nested folders are scanned with their parent.
@@ -118,7 +119,7 @@ def fixed_files():
     files += [("config", home / name) for name in CONFIG_FILES]
     files += [("config", appdata / name) for name in APPDATA_CONFIG_FILES]
     files += [("config", p) for p in _glob(home / ".ssh", "*")]
-    files += [("history", p) for p in _glob(appdata / "Microsoft/Windows/PowerShell/PSReadLine", "*_history.txt")]
+    files += [("history", p) for p in platform.history_files(home)]  # PowerShell, fish...
     files += [("history", home / name) for name in HISTORY_FILES]
     # The copy the app leaves when it removes a secret from one of these (app.REDACT_BACKUP_SUFFIX) still has it.
     files += [(source, path.with_name(path.name + ".secretbroker.bak")) for source, path in files if source in ("ai", "history")]
@@ -148,24 +149,11 @@ def walk_folder(folder):
 
 
 def environment_variables():
-    """The user's environment, as saved in Windows and as this process sees it."""
+    """The user's environment, as saved in the system (Windows: the registry; Linux: /etc/environment and
+    environment.d) and as this process sees it."""
     values = dict(os.environ)
-    if sys.platform == "win32":
-        import winreg
-        for hive, key in ((winreg.HKEY_CURRENT_USER, "Environment"),
-                          (winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment")):
-            try:
-                with winreg.OpenKey(hive, key) as handle:
-                    index = 0
-                    while True:
-                        try:
-                            name, value, _ = winreg.EnumValue(handle, index)
-                        except OSError:
-                            break
-                        values.setdefault(name, str(value))
-                        index += 1
-            except OSError:
-                pass
+    for name, value in platform.saved_environment().items():
+        values.setdefault(name, value)
     return values
 
 
@@ -174,7 +162,7 @@ def _git(repo, *args):
     if not git:
         return None
     return subprocess.Popen([git, "-C", str(repo), *args], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                            stdin=subprocess.DEVNULL, creationflags=CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+                            stdin=subprocess.DEVNULL, creationflags=CREATE_NO_WINDOW)
 
 
 def _git_refs(repo):

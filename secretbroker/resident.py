@@ -1,5 +1,6 @@
 """What keeps the desktop app useful while its window is hidden: the icon next to the clock, starting
-with Windows, following the Windows session (lock / unlock), and serving the AI's tools over HTTP.
+with the session, following the session (lock / unlock), and serving the AI's tools over HTTP.
+What differs per operating system (autostart, lock screen, a second start) is in secretbroker.platform.
 
 Serving the MCP tools from the app (instead of a process started by Claude Code) is what lets Claude
 Code reconnect by itself after an update: the installer restarts the app and Claude Code retries a
@@ -7,45 +8,29 @@ dropped HTTP server, while a stdio server that was killed stays dead until the u
 """
 
 import asyncio
-import ctypes
 import hmac
 import logging
 import os
 import sys
 import threading
 import time
-from pathlib import Path
 
-from . import client, integrations, paths
+from . import client, integrations, paths, platform
 from .client import BrokerError, BrokerUnavailable
 
 log = logging.getLogger("secretbroker.resident")
-RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-RUN_VALUE = "SecretBroker"
-SHOW_EVENT = "Local\\SecretBrokerShow" + paths.instance_suffix()
 WATCH_SECONDS = 2
 
 
-# ----------------------------------------------------------------- start with Windows
+# ----------------------------------------------------------------- start with the session (Windows: the Run key)
 
 
 def startup_command():
-    pythonw = Path(sys.executable).with_name("pythonw.exe")
-    return f'"{pythonw if pythonw.exists() else sys.executable}" -I -m secretbroker.app --background'
+    return platform.autostart_command()
 
 
 def set_start_with_windows(enabled):
-    if sys.platform != "win32":
-        return
-    import winreg
-    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as key:
-        if enabled:
-            winreg.SetValueEx(key, RUN_VALUE, 0, winreg.REG_SZ, startup_command())
-        else:
-            try:
-                winreg.DeleteValue(key, RUN_VALUE)
-            except FileNotFoundError:
-                pass
+    platform.set_autostart(bool(enabled))
 
 
 def start_with_windows():
@@ -57,45 +42,22 @@ def start_with_windows():
 
 def signal_running_instance():
     """Called when the app is already running: ask it to show its window."""
-    kernel32 = ctypes.windll.kernel32
-    handle = kernel32.OpenEventW(0x0002, False, SHOW_EVENT)  # EVENT_MODIFY_STATE
-    if handle:
-        kernel32.SetEvent(handle)
-        kernel32.CloseHandle(handle)
+    platform.signal_running_instance()
 
 
 def listen_for_show(show):
-    kernel32 = ctypes.windll.kernel32
-    kernel32.CreateEventW.restype = ctypes.c_void_p
-    handle = kernel32.CreateEventW(None, False, False, SHOW_EVENT)
-
-    def wait():
-        while kernel32.WaitForSingleObject(ctypes.c_void_p(handle), 0xFFFFFFFF) == 0:
-            show()
-
-    threading.Thread(target=wait, daemon=True, name="show-event").start()
+    platform.listen_for_show(show)
 
 
-# ----------------------------------------------------------------- Windows session
-
-
-class _SessionInfo(ctypes.Structure):
-    # WTSINFOEXW: the union after Level is 8-byte aligned (it holds LARGE_INTEGERs)
-    _fields_ = [("Level", ctypes.c_uint32), ("_pad", ctypes.c_uint32), ("SessionId", ctypes.c_uint32),
-                ("SessionState", ctypes.c_int32), ("SessionFlags", ctypes.c_int32)]
+# ----------------------------------------------------------------- the session (lock screen)
 
 
 def workstation_locked():
-    """True while the Windows lock screen is showing."""
-    wtsapi = ctypes.windll.wtsapi32
-    buffer, size = ctypes.c_void_p(), ctypes.c_uint32()
-    # WTS_CURRENT_SERVER_HANDLE, WTS_CURRENT_SESSION, WTSSessionInfoEx
-    if not wtsapi.WTSQuerySessionInformationW(None, ctypes.c_uint32(0xFFFFFFFF), 25, ctypes.byref(buffer), ctypes.byref(size)):
-        return False
+    """True while the lock screen is showing."""
     try:
-        return ctypes.cast(buffer, ctypes.POINTER(_SessionInfo)).contents.SessionFlags == 0  # WTS_SESSIONSTATE_LOCK
-    finally:
-        wtsapi.WTSFreeMemory(buffer)
+        return platform.session_locked()
+    except NotImplementedError:
+        return False
 
 
 class Watcher:
@@ -139,7 +101,7 @@ class Watcher:
 
     def _step(self):
         status = client.request("status", {"gui": True}, timeout=10)
-        locked = workstation_locked() if sys.platform == "win32" else False
+        locked = workstation_locked()
         if status["session_unlock"]:
             if locked and self._locked is False and status["state"] == "unlocked":
                 status = client.request("lock", {"reason": "windows"})
@@ -179,6 +141,7 @@ class Tray:
         self._icon = None
         self._status = {}
         self._ready = threading.Event()
+        self.available = True  # the desktop shows icons next to the clock (Linux: see QtTray)
 
     def start(self):
         try:
@@ -270,6 +233,95 @@ class Tray:
                 Application.ExitThread()
             except Exception:
                 pass
+
+
+class QtTray(Tray):
+    """Linux: a QSystemTrayIcon on the Qt thread of pywebview's Qt backend. Desktops show it as a
+    StatusNotifierItem (KDE; GNOME through Ubuntu's AppIndicator extension), and it shows notifications."""
+
+    def start(self):
+        from .platform import linux
+        self.available = False
+        ready = threading.Event()
+
+        def build():
+            try:
+                self._build()
+            except Exception:
+                log.exception("tray icon")
+            finally:
+                ready.set()
+
+        if linux.gui_call(build):
+            ready.wait(5)
+
+    def _build(self):
+        from qtpy.QtGui import QIcon
+        from qtpy.QtWidgets import QMenu, QSystemTrayIcon
+
+        menu = QMenu()
+        self._open = menu.addAction("Abrir SecretBroker")
+        self._pause = menu.addAction("Pausar la IA")
+        self._lock = menu.addAction("Bloquear")
+        menu.addSeparator()
+        self._quit = menu.addAction("Salir")
+        font = self._open.font()
+        font.setBold(True)
+        self._open.setFont(font)
+        self._open.triggered.connect(lambda *_: self.api.show())
+        self._pause.triggered.connect(lambda *_: self._toggle_pause())
+        self._lock.triggered.connect(lambda *_: self._safe(lambda: client.request("lock")))
+        self._quit.triggered.connect(lambda *_: self.api.quit())
+        menu.aboutToShow.connect(self._refresh_menu)
+
+        icon = QSystemTrayIcon(QIcon(str(self.icon_path)))
+        icon.setToolTip("SecretBroker")
+        icon.setContextMenu(menu)
+        activations = (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick)
+        icon.activated.connect(lambda reason: self.api.show() if reason in activations else None)
+        icon.messageClicked.connect(lambda: self.api.show())
+        icon.show()
+        self._menu, self._icon = menu, icon
+        self.available = QSystemTrayIcon.isSystemTrayAvailable()
+        if not self.available:
+            log.info("no system tray here (GNOME needs the AppIndicator extension): closing minimizes instead")
+
+        self._info = QSystemTrayIcon.MessageIcon.Information
+
+    def _refresh_menu(self):
+        status = self._status
+        self._pause.setText("Reanudar la IA" if status.get("ai_paused") else "Pausar la IA")
+        self._lock.setEnabled(status.get("state") == "unlocked")
+
+    def update(self, status):
+        from .platform import linux
+        self._status = status
+        if self._icon is not None:
+            text = "SecretBroker · IA en pausa" if status.get("ai_paused") else (
+                "SecretBroker · bloqueado" if status.get("state") == "locked" else "SecretBroker")
+            linux.gui_call(lambda: self._icon.setToolTip(text))
+
+    def notify(self, title, text):
+        from .platform import linux
+        from qtpy.QtWidgets import QSystemTrayIcon
+        if self._icon is not None and QSystemTrayIcon.supportsMessages():
+            linux.gui_call(lambda: self._icon.showMessage(title, text, self._info, 5000))
+        else:
+            platform.notify(title, text)
+
+    def close(self):
+        from .platform import linux
+        if self._icon is not None:
+            linux.gui_call(self._icon.hide)
+
+
+def make_tray(api, icon_path):
+    """The icon next to the clock for this system, or None where there is none yet (macOS: TODO)."""
+    if platform.NAME == "windows":
+        return Tray(api, icon_path)
+    if platform.NAME == "linux":
+        return QtTray(api, icon_path)
+    return None
 
 
 # ----------------------------------------------------------------- the AI's tools over HTTP

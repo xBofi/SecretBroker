@@ -9,6 +9,7 @@ import base64
 import json
 import socket
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,8 @@ from pathlib import Path
 
 HOME = Path(tempfile.mkdtemp(prefix="secretbroker-test-"))
 os.environ["SECRETBROKER_HOME"] = str(HOME)  # must be set before importing secretbroker
+if not shutil.which("python"):  # Ubuntu only has python3: the commands below run `python`, from this venv
+    os.environ["PATH"] = os.path.dirname(sys.executable) + os.pathsep + os.environ.get("PATH", "")
 
 from cryptography.hazmat.primitives import hashes, serialization  # noqa: E402
 from cryptography.hazmat.primitives.asymmetric import padding, rsa  # noqa: E402
@@ -26,7 +29,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey 
 
 from nacl.public import PrivateKey, SealedBox  # noqa: E402
 
-from secretbroker import actions, cli, client, crypto, exposure, links, rotation, update, winsec  # noqa: E402
+from secretbroker import actions, cli, client, crypto, exposure, links, platform, rotation, update  # noqa: E402
 from secretbroker.client import BrokerError, BrokerUnavailable  # noqa: E402
 from secretbroker.service import Service  # noqa: E402
 
@@ -136,7 +139,7 @@ def main():
     (HOME / "data").mkdir(parents=True, exist_ok=True)
     (HOME / "data" / "audit.log").write_text(json.dumps({"ts": "2026-01-01T00:00:00", "secret": "vault",
                                                          "action": "legacy-event", "detail": "", "status": "ok"}) + "\n")
-    service = Service(HOME, owner=f"{os.environ.get('USERDOMAIN')}\\{os.environ.get('USERNAME')}", isolated=False)
+    service = Service(HOME, owner=platform.default_owner(), isolated=False)
     service.start()
 
     print("Vault creation and legacy import")
@@ -389,7 +392,7 @@ def main():
     check(bool(token), "turning on the session unlock is one click after a proof")
     session_file = client.SESSION_FILE
     session_file.parent.mkdir(parents=True, exist_ok=True)
-    session_file.write_bytes(winsec.dpapi_protect(token.encode(), client.SESSION_ENTROPY))
+    session_file.write_bytes(platform.protect_for_user(token.encode(), client.SESSION_ENTROPY))
     service._lock_vault(reason="idle")
     check(client.request("status")["lock_reason"] == "idle", "the app knows the vault locked for inactivity")
     check(any(v["id"] == "echo-api" for v in client.call("list_secrets")), "the AI's next request opens it again, no password")

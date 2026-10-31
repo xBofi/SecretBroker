@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 import uvicorn  # noqa: E402
 from cryptography.exceptions import InvalidTag  # noqa: E402
 
-from secretbroker import teams  # noqa: E402
+from secretbroker import platform, teams  # noqa: E402
 from secretbroker.service import AI_OPS, Service  # noqa: E402
 from secretbroker_server import config, mail  # noqa: E402
 from secretbroker_server.web import create_app  # noqa: E402
@@ -101,7 +101,7 @@ class Person:
     """One desktop: its own service and vault, driven like the app does (presence token = one click)."""
 
     def __init__(self, label):
-        self.service = Service(HOME / label, owner=f"{os.environ.get('USERDOMAIN')}\\{os.environ.get('USERNAME')}",
+        self.service = Service(HOME / label, owner=platform.default_owner(),
                                isolated=False)
         self.presence = self.ok("create_vault", master_password=MASTER)["presence"]
 

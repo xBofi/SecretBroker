@@ -1,0 +1,30 @@
+#!/bin/sh
+# SecretBroker .deb: after unpacking. Creates the service account and starts the service for the desktop users.
+set -e
+
+desktop_users() {
+    getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 && $7 !~ /(nologin|false)$/ && $6 != "" { print $1 }'
+}
+
+if [ "$1" = "configure" ]; then
+    if ! getent passwd secretbroker >/dev/null; then
+        useradd --system --user-group --home-dir /var/lib/secretbroker --no-create-home \
+            --shell /usr/sbin/nologin --comment "SecretBroker service" secretbroker
+    fi
+    install -d -o root -g root -m 0755 /var/lib/secretbroker
+
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reload || true
+        # Every desktop account gets its own service (the app starts it on demand too, see 50-secretbroker.rules);
+        # on an update the running ones restart with the new version.
+        for user in $(desktop_users); do
+            systemctl enable "secretbroker@$user.service" >/dev/null 2>&1 || true
+            systemctl restart "secretbroker@$user.service" || echo "secretbroker: no se pudo arrancar el servicio de $user" >&2
+        done
+    fi
+
+    if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database -q /usr/share/applications || true; fi
+    if command -v gtk-update-icon-cache >/dev/null 2>&1; then gtk-update-icon-cache -q -t /usr/share/icons/hicolor || true; fi
+fi
+
+exit 0

@@ -1,0 +1,20 @@
+#!/bin/sh
+# SecretBroker .deb: after removing. "remove" keeps the vaults (/var/lib/secretbroker/<owner>/data) so that
+# installing again finds them; "purge" deletes them and the service account.
+set -e
+
+case "$1" in
+    remove)
+        rm -rf /var/lib/secretbroker/*/public
+        if [ -d /run/systemd/system ]; then systemctl daemon-reload || true; fi
+        ;;
+    purge)
+        rm -rf /var/lib/secretbroker
+        if getent passwd secretbroker >/dev/null; then userdel secretbroker || true; fi
+        if getent group secretbroker >/dev/null; then groupdel secretbroker 2>/dev/null || true; fi
+        if [ -d /run/systemd/system ]; then systemctl daemon-reload || true; fi
+        ;;
+esac
+
+if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database -q /usr/share/applications || true; fi
+exit 0

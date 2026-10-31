@@ -19,7 +19,7 @@ for name in ("SECRETBROKER_HOME", "USERPROFILE", "HOME", "APPDATA", "LOCALAPPDAT
 
 import httpx  # noqa: E402
 
-from secretbroker import client, exposure, scanner  # noqa: E402
+from secretbroker import client, exposure, platform, scanner  # noqa: E402
 from secretbroker.client import BrokerError  # noqa: E402
 from secretbroker.service import Service  # noqa: E402
 
@@ -97,7 +97,7 @@ def scan(session):
 def main():
     project = make_profile()
     os.environ["SB_TEST_TOKEN"] = LEAKED
-    service = Service(ROOT / "broker", owner=f"{os.environ.get('USERDOMAIN')}\\{os.environ.get('USERNAME')}", isolated=False)
+    service = Service(ROOT / "broker", owner=platform.default_owner(), isolated=False)
     service.start()
     client.request("create_vault", {"master_password": MASTER})
     call("save_entry", {"entry": api_entry("leaky", LEAKED)}, PROOF)

@@ -4,7 +4,7 @@ SecretBroker has two products built from one repository:
 
 | Part | What it is | Where it runs |
 |---|---|---|
-| **SecretBroker Desktop** (`secretbroker/`) | Personal vault + broker that lets AI agents *use* credentials without reading them. Windows today. | The user's PC, as an isolated Windows service + tray app |
+| **SecretBroker Desktop** (`secretbroker/`) | Personal vault + broker that lets AI agents *use* credentials without reading them. Windows and Ubuntu; macOS in progress (§6). | The user's PC, as an isolated service (its own system account) + tray app |
 | **SecretBroker Server** (`server/`) | Zero-knowledge sync and sharing server for teams. Self-hostable (Docker), and the same code runs the hosted SaaS. | Any Linux host / container |
 
 The server **never sees a secret, a credential name or a collection name**. It stores ciphertext, public keys and the
@@ -494,10 +494,70 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
 * Credential list: a team mark on shared rows, collection chips next to the tag filter, «Sin enviar» / «Cambiar:
   salió Bob» badges, and with a team account a checkbox on hover (shift-click for a range) to «Compartir N en…».
 
-## 6. Roadmap beyond this release
+## 6. Platforms
 
-* Cross-platform desktop (macOS Keychain/Touch ID, Linux Secret Service) — the core is plain Python; `winsec`/`hello`
-  are the only Windows-specific modules and should become a platform interface.
+Everything that depends on the operating system goes through `secretbroker.platform` (`platform/__init__.py`
+picks `windows.py`, `linux.py` or `macos.py`; `_common.INTERFACE` lists what each must provide, and
+`tests/test_platform.py` checks that all three do). The rest of the code never tests `sys.platform` for these.
+
+| Concern | Windows | Linux (Ubuntu 22.04 / 24.04) | macOS (not finished) |
+|---|---|---|---|
+| Service account | local account `SecretBroker`, hidden, no interactive/network logon | system user `secretbroker` (nologin) | TODO: `_secretbroker` role account |
+| Starting the service | scheduled task at boot (`installer/configure.ps1`) | systemd template unit `secretbroker@<owner>.service`, enabled per desktop account | TODO: LaunchDaemon per owner |
+| Data (`data/`) | `C:\ProgramData\SecretBroker\data`, ACL: service account only | `/var/lib/secretbroker/<owner>/data`, 0700 `secretbroker` | `/Library/Application Support/SecretBroker/<owner>` |
+| `broker.json` (`public/`) | ACL: users read | `public/` is `secretbroker:<owner's group>` 2750 (setgid), `broker.json` 0640: **only the owner** reads the token | same as Linux |
+| Device key ("unlock with this PC") | DPAPI under the service account | AES-GCM with a 32-byte key in `data/machine.key` (0600); the device key file alone (e.g. in a backup) opens nothing | same as Linux for now |
+| "Open with my session" token | DPAPI under the user | Secret Service (GNOME Keyring / KWallet) holds the key, else a 0600 file in `~/.local/state/secretbroker` | TODO: login Keychain |
+| Account password proof | `LogonUser` | PAM, service `/etc/pam.d/secretbroker` (pam_unix only); the unit adds the `shadow` group so pam_unix may check another account | TODO: PAM / OpenDirectory |
+| Biometric proof | Windows Hello (TPM key) | none yet: password proofs (fprintd is a TODO) | TODO: Touch ID |
+| Lock screen | `WTSQuerySessionInformation` | logind `LockedHint`, else the screensaver's D-Bus `GetActive` | TODO: `CGSessionCopyCurrentDictionary` |
+| Start with the session | `HKCU\…\Run` | `~/.config/autostart/secretbroker.desktop` | TODO: LaunchAgent |
+| Tray, notifications | WinForms `NotifyIcon` | Qt `QSystemTrayIcon` (StatusNotifierItem; GNOME needs Ubuntu's AppIndicator extension, otherwise closing minimizes), Qt / `notify-send` | TODO |
+| Web view | WebView2 (pywebview WinForms) | QtWebEngine (pywebview Qt) | pywebview Cocoa |
+| One window | named mutex + event | Unix socket in `$XDG_RUNTIME_DIR`, peer uid checked | TODO |
+| Clipboard | Win32, excluded from history / cloud clipboard | Qt clipboard with `x-kde-passwordManagerHint` (else wl-copy / xclip), cleared after 30 s | `pbcopy` (TODO: concealed type) |
+| Updates | signed `SecretBroker-Setup-<v>.exe`, UAC | signed `secretbroker_<v>_amd64.deb` (release.yml builds it on 22.04), `pkexec apt-get install`, then the app restarts | TODO: `.dmg` |
+| AI apps, shells | `%APPDATA%`, PSReadLine history, registry environment | `~/.config`, fish / pwsh history, `/etc/environment` + `environment.d` | `~/Library/Application Support` |
+
+### 6.1 Linux isolation
+
+The design mirrors Windows: the owner's programs, AI agents included, run as the owner and can neither read the
+service's memory (another uid) nor its files.
+
+* `secretbroker@<owner>.service` runs `python -I -m secretbroker.service --isolated --root /var/lib/secretbroker/<owner>`
+  as `secretbroker`, `UMask=0027`. systemd creates `/var/lib/secretbroker/<owner>` (`StateDirectory`); the root-run
+  `ExecStartPre=+…/secretbroker-prepare` creates `data/` (0700) and `public/` (owner's group, setgid 2750), refusing
+  owners that are not desktop accounts (uid 1000–59999). Each instance runs with `TemporaryFileSystem=/var/lib/secretbroker`
+  plus a bind mount of its own folder, so one owner's service cannot even see another's vault; also `ProtectSystem=strict`,
+  `PrivateTmp`, `PrivateDevices`, kernel protections and `LimitCORE=0` (no core dumps with secrets).
+* The owner reads `broker.json` (port, token, the service's public key) through the group; no other user can, unlike
+  Windows where every local user may read it (the token alone does not unlock anything there either). This relies on
+  the owner's primary group being their own, as Ubuntu creates it (`USERGROUPS=yes`); members of a shared primary
+  group could read the token too.
+* The app finds the service through `paths.is_installed()` (`/var/lib/secretbroker/$USER/public` exists). If it is
+  stopped, `client.ensure_service` asks systemd to start the user's own unit; `/usr/share/polkit-1/rules.d/50-secretbroker.rules`
+  allows exactly `start`/`restart` of `secretbroker@<that user>.service` for a local, active session, and nothing else
+  (polkit 0.106+; on 22.04 the rule is ignored and `postinst` has already enabled the unit for every desktop account).
+* Verifying the account password needs `/etc/shadow`: the unit adds the `shadow` group to the service only
+  (`SupplementaryGroups=`), not to the account.
+
+### 6.2 Ubuntu package
+
+`tools/build_deb.sh` (run on Linux or WSL) builds `dist/secretbroker_<version>_amd64.deb`, one package for 22.04 and
+24.04: a standalone CPython 3.12 (python-build-standalone, checksum pinned) in `/opt/secretbroker/python` and a venv
+with SecretBroker and its dependencies in `/opt/secretbroker/venv` (22.04's Python is 3.10). `tools/deb_trim_qt.py`
+drops the Qt modules the app never loads, and the build checks that the web view still renders. It installs with a
+double click in the software installer: `postinst` creates the `secretbroker` user and enables and (re)starts the unit
+for every desktop account; a menu entry (`/usr/share/applications/secretbroker.desktop`, also the handler of
+`secretbroker://` invite links), the icon, and `/usr/bin/sb` / `/usr/bin/secretbroker` are installed. `prerm` (remove,
+not upgrade) disconnects each owner's AI apps and deletes their preferences, like the Windows uninstaller; `postrm
+purge` deletes `/var/lib/secretbroker` and the account; a plain remove keeps the vaults for a later reinstall.
+
+## 7. Roadmap beyond this release
+
+* macOS: fill in the `TODO(macos)` in `platform/macos.py` (Keychain, Touch ID, LaunchDaemon, lock screen) and a
+  signed, notarized `.dmg`. Linux: fprintd as a biometric proof; a signed apt repository so updates also arrive
+  through the system updater; Fedora (`.rpm`).
 * English/Spanish UI (i18n of `web/app.js`).
 * SSO (OIDC) and SCIM for the hosted SaaS; Postgres backend; org-wide policies (minimum rotation period, AI levels).
 * A CLI-only client for servers/CI that reads a collection with a machine identity (service accounts).
