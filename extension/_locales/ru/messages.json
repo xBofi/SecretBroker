@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "Код 2FA"
+  },
+  "2fa_code_copied": {
+    "message": "Код 2FA скопирован"
+  },
+  "browser": {
+    "message": "Браузер"
+  },
+  "can_talk_secretbroker": {
+    "message": "Нет связи с SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Нет связи с SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Нет связи с SecretBroker. Откройте его и попробуйте снова."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Проверьте, что SecretBroker показывает тот же код, и нажмите «Подключить»."
+  },
+  "cmd_fill": {
+    "message": "Заполнить вход для этого сайта"
+  },
+  "cmd_open": {
+    "message": "Открыть SecretBroker"
+  },
+  "code": {
+    "message": "Код"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Подтвердите это в SecretBroker"
+  },
+  "connect": {
+    "message": "Подключить $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Подключить этот браузер"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Подключите этот браузер: нажмите значок SecretBroker на панели браузера, затем «Подключить»."
+  },
+  "copy_2fa_code": {
+    "message": "Скопировать код 2FA"
+  },
+  "copy_password": {
+    "message": "Скопировать пароль"
+  },
+  "copy_username": {
+    "message": "Скопировать имя пользователя"
+  },
+  "couldn_connect": {
+    "message": "Не удалось подключиться."
+  },
+  "couldn_copy": {
+    "message": "Не удалось скопировать"
+  },
+  "couldn_fill_it_in": {
+    "message": "Не удалось заполнить"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Не удалось найти, куда вводить."
+  },
+  "couldn_look_it_up": {
+    "message": "Не удалось найти."
+  },
+  "couldn_save": {
+    "message": "Не удалось сохранить"
+  },
+  "create_your_vault_first": {
+    "message": "Сначала создайте хранилище"
+  },
+  "ext_description": {
+    "message": "Заполняет пароли, которые вы храните в SecretBroker, — только на их собственном сайте и только когда вы попросите."
+  },
+  "fill_in": {
+    "message": "Заполнить"
+  },
+  "fill_in_on": {
+    "message": "Заполнить на $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Заполнить через SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Заполнять, не открывая это окно"
+  },
+  "form_from": {
+    "message": "Форма с"
+  },
+  "form_is_in_frame_too": {
+    "message": "Форма находится во фрейме, слишком маленьком, чтобы её увидеть: она не заполняется."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Форма находится в скрытом или очень маленьком фрейме: она не заполняется."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Установите SecretBroker и откройте «Настройки › Браузер». Если вы только что его установили, перезапустите браузер."
+  },
+  "it_no_longer_pending": {
+    "message": "Запрос больше не ожидает ответа."
+  },
+  "it_only_fills_in_on": {
+    "message": "Заполняет только на собственном сайте каждого пароля."
+  },
+  "loading": {
+    "message": "Загрузка"
+  },
+  "name": {
+    "message": "Название"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Ни у одной записи для $domain$ нет кода 2FA.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· без https"
+  },
+  "no_username": {
+    "message": "Без имени пользователя"
+  },
+  "not_now": {
+    "message": "Не сейчас"
+  },
+  "nothing_matches": {
+    "message": "Ничего не найдено."
+  },
+  "nothing_saved_for": {
+    "message": "Для $domain$ ничего не сохранено.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Для $domain$ ничего не сохранено. Войдите, и я предложу сохранить данные.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "На других сайтах"
+  },
+  "on_this_website": {
+    "message": "На этом сайте"
+  },
+  "open": {
+    "message": "Открыть $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Откройте его и попробуйте снова."
+  },
+  "open_it_can_be_filled": {
+    "message": "Открыть $host$ (там можно заполнить)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Открыть SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Откройте SecretBroker и создайте хранилище, чтобы сохранять пароли."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Откройте сайт, чтобы увидеть его пароли."
+  },
+  "open_website_you_want_sign": {
+    "message": "Откройте сайт, на который хотите войти."
+  },
+  "page_has_changed_try_again": {
+    "message": "Страница изменилась. Попробуйте снова."
+  },
+  "password_copied": {
+    "message": "Пароль скопирован"
+  },
+  "password_updated": {
+    "message": "Пароль обновлён"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Пароль обновлён в SecretBroker"
+  },
+  "save": {
+    "message": "Сохранить"
+  },
+  "save_this_login": {
+    "message": "Сохранить эти данные для входа?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Сохранить этот пароль в SecretBroker?"
+  },
+  "saved": {
+    "message": "Сохранено"
+  },
+  "saved_for": {
+    "message": "Сохранено для $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Сохранено в SecretBroker"
+  },
+  "search": {
+    "message": "Поиск"
+  },
+  "search_secretbroker": {
+    "message": "Поиск в SecretBroker"
+  },
+  "searching": {
+    "message": "Поиск…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker не ответил вовремя."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker заблокирован."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker заблокирован"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker заблокирован. Разблокируйте его и попробуйте снова."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "На этом компьютере нет SecretBroker"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker не установлен на этом компьютере или ещё не подключён к браузеру."
+  },
+  "that_way_it_can_fill": {
+    "message": "Тогда расширение сможет заполнять ваши пароли. SecretBroker попросит подтвердить это одним кликом."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Для $domain$ нет сохранённых данных для входа.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "На этой странице нет видимого поля для кода 2FA."
+  },
+  "there_no_visible_login_form": {
+    "message": "На этой странице нет видимой формы входа."
+  },
+  "this_page_can_be_filled": {
+    "message": "Эту страницу нельзя заполнить."
+  },
+  "this_team_credential_is_use": {
+    "message": "Эта командная запись — только для использования: в браузере она не заполняется."
+  },
+  "unlock": {
+    "message": "Разблокировать"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Разблокируйте его и нажмите здесь снова."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Разблокируйте его, чтобы заполнять пароли."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Разблокируйте SecretBroker и снова нажмите «Подключить»."
+  },
+  "update": {
+    "message": "Обновить"
+  },
+  "update_password": {
+    "message": "Обновить пароль «$name$»?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Только использование: не заполняется"
+  },
+  "use_only_on_team_not": {
+    "message": "В команде только использование: не заполняется"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Командная запись только для использования: при заполнении её увидела бы страница"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Командные записи «только для использования» может использовать ИИ, но они не показываются: при заполнении страница получила бы значение."
+  },
+  "username_copied": {
+    "message": "Имя пользователя скопировано"
+  },
+  "you_re_on": {
+    "message": "Вы на"
+  }
+}

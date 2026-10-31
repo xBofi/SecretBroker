@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "2FA kodu"
+  },
+  "2fa_code_copied": {
+    "message": "2FA kodu kopyalandı"
+  },
+  "browser": {
+    "message": "Tarayıcı"
+  },
+  "can_talk_secretbroker": {
+    "message": "SecretBroker ile iletişim kurulamıyor."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "SecretBroker ile iletişim kurulamıyor"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "SecretBroker ile iletişim kurulamıyor. Açıp yeniden deneyin."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "SecretBroker'ın aynı kodu gösterdiğini kontrol edin ve “Bağlan”a tıklayın."
+  },
+  "cmd_fill": {
+    "message": "Bu sitenin girişini doldur"
+  },
+  "cmd_open": {
+    "message": "SecretBroker'ı aç"
+  },
+  "code": {
+    "message": "Kod"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "SecretBroker'da onaylayın"
+  },
+  "connect": {
+    "message": "$browser$ tarayıcısını bağla",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Bu tarayıcıyı bağla"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Bu tarayıcıyı bağlayın: tarayıcı araç çubuğundaki SecretBroker simgesine, ardından “Bağlan”a tıklayın."
+  },
+  "copy_2fa_code": {
+    "message": "2FA kodunu kopyala"
+  },
+  "copy_password": {
+    "message": "Parolayı kopyala"
+  },
+  "copy_username": {
+    "message": "Kullanıcı adını kopyala"
+  },
+  "couldn_connect": {
+    "message": "Bağlanılamadı."
+  },
+  "couldn_copy": {
+    "message": "Kopyalanamadı"
+  },
+  "couldn_fill_it_in": {
+    "message": "Doldurulamadı"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Nereye doldurulacağı bulunamadı."
+  },
+  "couldn_look_it_up": {
+    "message": "Aranamadı."
+  },
+  "couldn_save": {
+    "message": "Kaydedilemedi"
+  },
+  "create_your_vault_first": {
+    "message": "Önce kasanızı oluşturun"
+  },
+  "ext_description": {
+    "message": "SecretBroker'da sakladığınız parolaları yalnızca kendi sitelerinde ve yalnızca siz istediğinizde doldurur."
+  },
+  "fill_in": {
+    "message": "Doldur"
+  },
+  "fill_in_on": {
+    "message": "$host$ üzerinde doldur",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "SecretBroker ile doldur"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Bu pencereyi açmadan doldur"
+  },
+  "form_from": {
+    "message": "Formun kaynağı"
+  },
+  "form_is_in_frame_too": {
+    "message": "Form, görülemeyecek kadar küçük bir çerçevede: doldurulmaz."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Form, gizli veya çok küçük bir çerçevede: doldurulmaz."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "SecretBroker'ı yükleyin ve Ayarlar › Tarayıcı'yı açın. Yeni yüklediyseniz tarayıcıyı yeniden başlatın."
+  },
+  "it_no_longer_pending": {
+    "message": "Artık beklemede değil."
+  },
+  "it_only_fills_in_on": {
+    "message": "Yalnızca her parolanın kendi sitesinde doldurur."
+  },
+  "loading": {
+    "message": "Yükleniyor"
+  },
+  "name": {
+    "message": "Ad"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "$domain$ için hiçbir kimlik bilgisinin 2FA kodu yok.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· https yok"
+  },
+  "no_username": {
+    "message": "Kullanıcı adı yok"
+  },
+  "not_now": {
+    "message": "Şimdi değil"
+  },
+  "nothing_matches": {
+    "message": "Eşleşen yok."
+  },
+  "nothing_saved_for": {
+    "message": "$domain$ için kayıtlı bir şey yok.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "$domain$ için kayıtlı bir şey yok. Giriş yapın, kaydetmeyi önereyim.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Diğer sitelerde"
+  },
+  "on_this_website": {
+    "message": "Bu sitede"
+  },
+  "open": {
+    "message": "$host$ sitesini aç",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Açıp yeniden deneyin."
+  },
+  "open_it_can_be_filled": {
+    "message": "$host$ sitesini aç (orada doldurulabilir)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "SecretBroker'ı aç"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Parola kaydetmek için SecretBroker'ı açın ve kasanızı oluşturun."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Parolalarını görmek için bir site açın."
+  },
+  "open_website_you_want_sign": {
+    "message": "Giriş yapmak istediğiniz siteyi açın."
+  },
+  "page_has_changed_try_again": {
+    "message": "Sayfa değişti. Yeniden deneyin."
+  },
+  "password_copied": {
+    "message": "Parola kopyalandı"
+  },
+  "password_updated": {
+    "message": "Parola güncellendi"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Parola SecretBroker'da güncellendi"
+  },
+  "save": {
+    "message": "Kaydet"
+  },
+  "save_this_login": {
+    "message": "Bu giriş kaydedilsin mi?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Bu parola SecretBroker'a kaydedilsin mi?"
+  },
+  "saved": {
+    "message": "Kaydedildi"
+  },
+  "saved_for": {
+    "message": "$site$ için kaydedildi",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "SecretBroker'a kaydedildi"
+  },
+  "search": {
+    "message": "Ara"
+  },
+  "search_secretbroker": {
+    "message": "SecretBroker'da ara"
+  },
+  "searching": {
+    "message": "Aranıyor…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker zamanında yanıt vermedi."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker kilitli."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker kilitli"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker kilitli. Kilidi açıp yeniden deneyin."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "Bu bilgisayarda SecretBroker yok"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker bu bilgisayarda yüklü değil veya henüz tarayıcıya bağlanması gerekiyor."
+  },
+  "that_way_it_can_fill": {
+    "message": "Böylece parolalarınızı doldurabilir. SecretBroker sizden tek tıkla onaylamanızı isteyecek."
+  },
+  "there_are_no_saved_logins": {
+    "message": "$domain$ için kayıtlı giriş yok.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Bu sayfada görünür bir 2FA kodu alanı yok."
+  },
+  "there_no_visible_login_form": {
+    "message": "Bu sayfada görünür bir giriş formu yok."
+  },
+  "this_page_can_be_filled": {
+    "message": "Bu sayfa doldurulamaz."
+  },
+  "this_team_credential_is_use": {
+    "message": "Bu ekip kimlik bilgisi yalnızca kullanım içindir: tarayıcıda doldurulmaz."
+  },
+  "unlock": {
+    "message": "Kilidi aç"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Kilidi açın ve buraya yeniden tıklayın."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Parolalarınızı doldurmak için kilidi açın."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "SecretBroker'ın kilidini açın ve yeniden “Bağlan”a tıklayın."
+  },
+  "update": {
+    "message": "Güncelle"
+  },
+  "update_password": {
+    "message": "“$name$” parolası güncellensin mi?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Yalnızca kullanım: doldurulmaz"
+  },
+  "use_only_on_team_not": {
+    "message": "Ekipte yalnızca kullanım: doldurulmaz"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Yalnızca kullanım ekip kimlik bilgisi: doldurmak onu sayfaya gösterir"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Yalnızca kullanım ekip kimlik bilgilerini YZ kullanabilir ama gösterilmezler: doldurmak değeri sayfaya verir."
+  },
+  "username_copied": {
+    "message": "Kullanıcı adı kopyalandı"
+  },
+  "you_re_on": {
+    "message": "Bulunduğunuz yer"
+  }
+}

@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "Код 2FA"
+  },
+  "2fa_code_copied": {
+    "message": "Код 2FA скопійовано"
+  },
+  "browser": {
+    "message": "Браузер"
+  },
+  "can_talk_secretbroker": {
+    "message": "Немає зв'язку із SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Немає зв'язку із SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Немає зв'язку із SecretBroker. Відкрийте його й спробуйте знову."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Перевірте, що SecretBroker показує той самий код, і натисніть «Підключити»."
+  },
+  "cmd_fill": {
+    "message": "Заповнити вхід для цього сайту"
+  },
+  "cmd_open": {
+    "message": "Відкрити SecretBroker"
+  },
+  "code": {
+    "message": "Код"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Підтвердьте це в SecretBroker"
+  },
+  "connect": {
+    "message": "Підключити $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Підключити цей браузер"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Підключіть цей браузер: натисніть значок SecretBroker на панелі браузера, потім «Підключити»."
+  },
+  "copy_2fa_code": {
+    "message": "Скопіювати код 2FA"
+  },
+  "copy_password": {
+    "message": "Скопіювати пароль"
+  },
+  "copy_username": {
+    "message": "Скопіювати ім'я користувача"
+  },
+  "couldn_connect": {
+    "message": "Не вдалося підключитися."
+  },
+  "couldn_copy": {
+    "message": "Не вдалося скопіювати"
+  },
+  "couldn_fill_it_in": {
+    "message": "Не вдалося заповнити"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Не вдалося знайти, куди вводити."
+  },
+  "couldn_look_it_up": {
+    "message": "Не вдалося знайти."
+  },
+  "couldn_save": {
+    "message": "Не вдалося зберегти"
+  },
+  "create_your_vault_first": {
+    "message": "Спершу створіть сховище"
+  },
+  "ext_description": {
+    "message": "Заповнює паролі, які ви зберігаєте в SecretBroker, — лише на їхньому власному сайті й лише коли ви попросите."
+  },
+  "fill_in": {
+    "message": "Заповнити"
+  },
+  "fill_in_on": {
+    "message": "Заповнити на $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Заповнити через SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Заповнювати, не відкриваючи це вікно"
+  },
+  "form_from": {
+    "message": "Форма з"
+  },
+  "form_is_in_frame_too": {
+    "message": "Форма розташована у фреймі, замалому, щоб її побачити: її не заповнюємо."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Форма розташована в прихованому або дуже малому фреймі: її не заповнюємо."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Установіть SecretBroker і відкрийте «Налаштування › Браузер». Якщо ви щойно його встановили, перезапустіть браузер."
+  },
+  "it_no_longer_pending": {
+    "message": "Запит більше не очікує відповіді."
+  },
+  "it_only_fills_in_on": {
+    "message": "Заповнює лише на власному сайті кожного пароля."
+  },
+  "loading": {
+    "message": "Завантаження"
+  },
+  "name": {
+    "message": "Назва"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Жоден запис для $domain$ не має коду 2FA.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· без https"
+  },
+  "no_username": {
+    "message": "Без імені користувача"
+  },
+  "not_now": {
+    "message": "Не зараз"
+  },
+  "nothing_matches": {
+    "message": "Нічого не знайдено."
+  },
+  "nothing_saved_for": {
+    "message": "Для $domain$ нічого не збережено.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Для $domain$ нічого не збережено. Увійдіть, і я запропоную зберегти дані.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "На інших сайтах"
+  },
+  "on_this_website": {
+    "message": "На цьому сайті"
+  },
+  "open": {
+    "message": "Відкрити $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Відкрийте його й спробуйте знову."
+  },
+  "open_it_can_be_filled": {
+    "message": "Відкрити $host$ (там можна заповнити)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Відкрити SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Відкрийте SecretBroker і створіть сховище, щоб зберігати паролі."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Відкрийте сайт, щоб побачити його паролі."
+  },
+  "open_website_you_want_sign": {
+    "message": "Відкрийте сайт, на який хочете ввійти."
+  },
+  "page_has_changed_try_again": {
+    "message": "Сторінка змінилася. Спробуйте знову."
+  },
+  "password_copied": {
+    "message": "Пароль скопійовано"
+  },
+  "password_updated": {
+    "message": "Пароль оновлено"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Пароль оновлено в SecretBroker"
+  },
+  "save": {
+    "message": "Зберегти"
+  },
+  "save_this_login": {
+    "message": "Зберегти ці дані для входу?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Зберегти цей пароль у SecretBroker?"
+  },
+  "saved": {
+    "message": "Збережено"
+  },
+  "saved_for": {
+    "message": "Збережено для $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Збережено в SecretBroker"
+  },
+  "search": {
+    "message": "Пошук"
+  },
+  "search_secretbroker": {
+    "message": "Пошук у SecretBroker"
+  },
+  "searching": {
+    "message": "Пошук…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker не відповів вчасно."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker заблоковано."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker заблоковано"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker заблоковано. Розблокуйте його й спробуйте знову."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "На цьому комп'ютері немає SecretBroker"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker не встановлено на цьому комп'ютері або його ще не підключено до браузера."
+  },
+  "that_way_it_can_fill": {
+    "message": "Тоді розширення зможе заповнювати ваші паролі. SecretBroker попросить підтвердити це одним кліком."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Для $domain$ немає збережених даних для входу.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "На цій сторінці немає видимого поля для коду 2FA."
+  },
+  "there_no_visible_login_form": {
+    "message": "На цій сторінці немає видимої форми входу."
+  },
+  "this_page_can_be_filled": {
+    "message": "Цю сторінку не можна заповнити."
+  },
+  "this_team_credential_is_use": {
+    "message": "Цей командний запис — лише для використання: у браузері його не заповнюємо."
+  },
+  "unlock": {
+    "message": "Розблокувати"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Розблокуйте його й натисніть тут знову."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Розблокуйте його, щоб заповнювати паролі."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Розблокуйте SecretBroker і знову натисніть «Підключити»."
+  },
+  "update": {
+    "message": "Оновити"
+  },
+  "update_password": {
+    "message": "Оновити пароль «$name$»?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Лише використання: не заповнюється"
+  },
+  "use_only_on_team_not": {
+    "message": "У команді лише використання: не заповнюється"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Командний запис лише для використання: під час заповнення його побачила б сторінка"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Командні записи «лише для використання» може використовувати ШІ, але вони не показуються: під час заповнення сторінка отримала б значення."
+  },
+  "username_copied": {
+    "message": "Ім'я користувача скопійовано"
+  },
+  "you_re_on": {
+    "message": "Ви на"
+  }
+}
