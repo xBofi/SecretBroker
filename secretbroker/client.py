@@ -121,7 +121,6 @@ def session_token():
     """The token of "open with my Windows session", or None when it is off on this PC."""
     try:
         return platform.unprotect_for_user(SESSION_FILE.read_bytes(), SESSION_ENTROPY).decode()
-
     except (OSError, ValueError, UnicodeDecodeError):
         return None
 

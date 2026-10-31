@@ -304,7 +304,6 @@ class Api:
         platform.show_in_folder(path)
         return True
 
-
     def ignore_finding(self, entry_id, location, ignore=True):
         """Ignore one place where a secret was found (kept by the service with the finding)."""
         return self.call("exposure_ignore", {"session": self._scan_session, "id": entry_id, "location": location,
@@ -508,7 +507,6 @@ class Api:
                 return
             threading.Thread(target=self._window.hide, daemon=True).start()
         elif self._hwnd and sys.platform == "win32":
-
             ctypes.windll.user32.ShowWindowAsync(ctypes.c_void_p(self._hwnd), 0)  # SW_HIDE
         else:
             return
@@ -871,13 +869,12 @@ def _on_shown(window, api, background=False):
     """pywebview has no icon option on Windows: set it on the underlying WinForms form. Also keep
     the window handle, to raise the window later without going through the UI thread."""
     if platform.NAME != "windows":
+        _start_resident(api)  # first: hiding needs to know whether there is an icon next to the clock
         if background:
             api._hidden_once = True
             api.hide()
-        _start_resident(api)
         return
     try:
-
         from System import Action
         from System.Drawing import Icon
         form = window.native

@@ -165,7 +165,6 @@ A member of an organization, with some permission on a collection.
   without the master password. Use full-disk encryption (Ubuntu's installer offers it). Windows has the same limit
   against an attacker who can also recover the service account's DPAPI master key from the disk.
 
-
 ## 4. Out of scope
 
 - Compromise of the provider or server that legitimately receives a key.

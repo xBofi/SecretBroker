@@ -324,7 +324,6 @@ def make_tray(api, icon_path):
     return None
 
 
-
 # ----------------------------------------------------------------- the AI's tools over HTTP
 
 

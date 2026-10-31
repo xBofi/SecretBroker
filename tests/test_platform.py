@@ -57,8 +57,13 @@ except OSError:
     check(True, "service key: another entropy is refused")
 
 if platform.NAME != "macos":
+    import time
+    started = time.monotonic()
     blob = platform.protect_for_user(b"session-token", b"session/v1")
     check(platform.unprotect_for_user(blob, b"session/v1") == b"session-token", "user key: round trip")
+    check(time.monotonic() - started < 15, "user key: never waits for a prompt")
+    if platform.NAME == "linux":
+        print("     (kept in " + ("the Secret Service keyring" if blob[:1] == b"s" else "a 0600 file") + ")")
 
 if platform.NAME == "linux":
     import stat

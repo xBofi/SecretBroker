@@ -388,7 +388,6 @@ def remove_all():
     platform.remove_autostart()  # start with the session (see resident.set_start_with_windows)
 
 
-
 def status():
     return {"claude_code": claude_code_status(), "claude_desktop": claude_desktop_status()}
 

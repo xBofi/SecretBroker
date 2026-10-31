@@ -467,6 +467,5 @@ purge` deletes `/var/lib/secretbroker` and the account; a plain remove keeps the
   signed, notarized `.dmg`. Linux: fprintd as a biometric proof; a signed apt repository so updates also arrive
   through the system updater; Fedora (`.rpm`).
 * English/Spanish UI (i18n of `web/app.js`).
-
 * SSO (OIDC) and SCIM for the hosted SaaS; Postgres backend; org-wide policies (minimum rotation period, AI levels).
 * A CLI-only client for servers/CI that reads a collection with a machine identity (service accounts).

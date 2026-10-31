@@ -165,7 +165,6 @@ def _git(repo, *args):
                             stdin=subprocess.DEVNULL, creationflags=CREATE_NO_WINDOW)
 
 
-
 def _git_refs(repo):
     """Changes whenever a commit, branch or stash is added: the history must be read again."""
     process = _git(repo, "for-each-ref", "--format=%(objectname) %(refname)")

@@ -53,7 +53,6 @@ read it, and starts the service (`secretbroker@<user>.service`) at boot. Open **
 icon next to the clock needs the AppIndicator extension, which Ubuntu enables by default. Removing the package keeps
 the vaults; purging deletes them. To build the package yourself: `tools/build_deb.sh` on Linux or WSL.
 
-
 ## Quick start
 
 1. **Create your vault.** Pick a master password. Optionally enable Windows Hello (PIN, fingerprint, face) and

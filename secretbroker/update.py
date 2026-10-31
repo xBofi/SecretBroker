@@ -119,7 +119,6 @@ def download(latest, folder):
     for old in folder.iterdir():
         if INSTALLER_RE.match(old.name):
             old.unlink(missing_ok=True)
-
     path = folder / latest["installer"]["name"]
     tmp = path.with_suffix(".part")
     tmp.write_bytes(data)

@@ -48,7 +48,6 @@ tools/build_deb.sh        # -> dist/secretbroker_<versión>_amd64.deb
 
 El diseño (aislamiento, polkit, PAM) está en `docs/ARCHITECTURE.md`, sección «Platforms».
 
-
 ## Uso
 
 - **Plantillas**: web o servicio, API key, servidor SSH, base de datos, AWS u otro secreto. Cada una muestra solo los campos que necesita.

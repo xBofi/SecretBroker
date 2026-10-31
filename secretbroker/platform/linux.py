@@ -32,6 +32,7 @@ PAM_SERVICE = "secretbroker"  # /etc/pam.d/secretbroker, installed by the .deb (
 SERVICE_KEY_FILE = "machine.key"
 USER_KEY_FILE = "user.key"
 SECRET_ATTRIBUTES = {"application": "SecretBroker", "purpose": "session-unlock"}
+SECRET_SERVICE_SECONDS = 5
 DESKTOP_FILE = "secretbroker{suffix}.desktop"
 
 
@@ -194,18 +195,36 @@ def unprotect_for_service(blob, entropy, folder):
 
 
 def _secret_service_key(create):
-    """A random key kept in the user's keyring (GNOME Keyring / KWallet via the Secret Service), or None."""
+    """A random key kept in the user's keyring (GNOME Keyring / KWallet via the Secret Service), or None.
+
+    Never waits for the user: creating a keyring or unlocking a locked one shows a prompt, and this also runs
+    when the AI's request reopens the vault (client.session_token). The login keyring is open once the user
+    has logged in; anything else falls back to the key file. A keyring that does not answer in time too."""
+    result = {}
+
+    def work():
+        try:
+            result["key"] = _keyring_key(create)
+        except Exception:
+            result["key"] = None
+
+    worker = threading.Thread(target=work, daemon=True, name="secret-service")
+    worker.start()
+    worker.join(SECRET_SERVICE_SECONDS)
+    return result.get("key")
+
+
+def _keyring_key(create):
     try:
         import secretstorage
+        from secretstorage.collection import get_collection_by_alias
     except ImportError:
         return None
+    connection = secretstorage.dbus_init()
     try:
-        connection = secretstorage.dbus_init()
-        collection = secretstorage.get_default_collection(connection)
+        collection = get_collection_by_alias(connection, "default")  # never creates one (that prompts)
         if collection.is_locked():
-            collection.unlock()
-            if collection.is_locked():
-                return None
+            return None
         attributes = {**SECRET_ATTRIBUTES, "instance": _suffix() or "default"}
         for item in collection.search_items(attributes):
             secret = item.get_secret()
@@ -216,8 +235,8 @@ def _secret_service_key(create):
         key = os.urandom(32)
         collection.create_item("SecretBroker (abrir con la sesión)", attributes, key, replace=True)
         return key
-    except Exception:
-        return None
+    finally:
+        connection.close()
 
 
 def protect_for_user(data, entropy):

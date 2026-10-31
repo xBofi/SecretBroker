@@ -2692,7 +2692,6 @@ def main():
     parser.add_argument("--isolated", action="store_true", help="Modo instalado con cuenta de servicio dedicada")
     args = parser.parse_args()
     owner = args.owner or platform.default_owner()
-
     root = Path(args.root or paths.root())
     if sys.stderr is None:  # pythonw: keep crash reports somewhere
         (root / "data").mkdir(parents=True, exist_ok=True)
