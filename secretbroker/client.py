@@ -35,10 +35,12 @@ def _broker_info():
         raise BrokerUnavailable("El servicio SecretBroker no está en marcha") from None
 
 
-def request(op, params=None, timeout=600):
+def request(op, params=None, timeout=600, client=None):
     info = _broker_info()
     nonce = os.urandom(16)
     message = {"token": info["token"], "op": op, "params": params or {}, "nonce": crypto.b64(nonce)}
+    if client:
+        message["client"] = client  # the AI program (MCP client name), for «Clientes conectados»
     try:
         with socket.create_connection(("127.0.0.1", info["port"]), timeout=5) as sock:
             sock.settimeout(timeout)
@@ -116,14 +118,14 @@ def _wait(condition, seconds):
     return False
 
 
-def call(op, params=None, open_app=None):
+def call(op, params=None, open_app=None, client=None):
     """Like request(), but if the vault is locked or an approval needs the app, open it, wait and retry once.
     open_app shows the app; by default it is started (or, if it is already running, brought forward)."""
     if not ensure_service():
         raise BrokerUnavailable("El servicio SecretBroker no está en marcha. Pide al usuario que lo revise.")
     for attempt in (1, 2):
         try:
-            return request(op, params or {})
+            return request(op, params or {}, client=client)
         except BrokerError as exc:
             if attempt == 2 or exc.code not in ("locked", "gui_required"):
                 raise

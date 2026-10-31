@@ -320,11 +320,70 @@ function changePasswordGuided(entry) {
 // ======================================================================= import
 
 const IMPORT_STATUS = { new: ['Nueva', 'is-ok'], duplicate: ['Ya está', ''], conflict: ['Otra contraseña', 'is-warning'] };
+const IMPORT_BATCH = 100;  // credentials per call: the vault is saved once per batch, and the progress moves
+// Where each manager keeps its export, menu by menu (the file format is detected from its content).
+const IMPORT_SOURCES = [
+  ['bitwarden', 'Bitwarden', [
+    ['En la web o la app de escritorio: ', el('b', {}, 'Herramientas → Exportar caja fuerte'), ' (en la app: ', el('b', {}, 'Archivo → Exportar caja fuerte'), ').'],
+    ['Formato de archivo: ', el('b', {}, '.json'), ' (no «.json (Encrypted)»). También vale .csv, pero el .json trae más: carpetas, notas, claves SSH y códigos 2FA.'],
+    ['Escribe tu contraseña maestra de Bitwarden y guarda el archivo.']]],
+  ['onepassword', '1Password', [
+    ['En la app de escritorio de 1Password 8: ', el('b', {}, 'Archivo → Exportar'), ' y elige tu cuenta.'],
+    ['Escribe tu contraseña de 1Password y elige el formato ', el('b', {}, 'CSV'), ' (el formato .1pux no se puede leer).'],
+    ['Guarda el archivo.']]],
+  ['keepass', 'KeePassXC / KeePass', [
+    ['KeePassXC: ', el('b', {}, 'Base de datos → Exportar → Exportar a CSV…'), '.'],
+    ['KeePass 2: ', el('b', {}, 'Archivo → Exportar → KeePass CSV (1.x)'), '.'],
+    ['Los códigos 2FA de KeePassXC (columna TOTP) se importan como «Código 2FA».']]],
+  ['chrome', 'Chrome / Edge', [
+    ['Chrome: ', el('b', {}, 'Configuración → Autocompletar y contraseñas → Gestor de contraseñas de Google → Configuración → Exportar contraseñas → Descargar archivo'), '.'],
+    ['Edge: ', el('b', {}, 'Configuración → Perfiles → Contraseñas → … (Más acciones) → Exportar contraseñas'), '.'],
+    ['Windows te pedirá tu PIN o contraseña antes de guardar el .csv.']]],
+  ['firefox', 'Firefox', [
+    ['Menú ', el('b', {}, '☰ → Contraseñas'), ' (o escribe ', el('code', {}, 'about:logins'), ' en la barra de direcciones).'],
+    ['En el menú ', el('b', {}, '…'), ' de arriba a la derecha: ', el('b', {}, 'Exportar contraseñas…'), '.'],
+    ['Confirma con tu contraseña de Windows y guarda el .csv.']]],
+  ['secretbroker', 'SecretBroker', [
+    ['En el otro PC: ', el('b', {}, 'Credenciales → … → Exportar → Cifrada'), '.'],
+    ['Aquí te pedirá la contraseña que elegiste para el archivo.']]],
+];
+const IMPORT_SOURCE_KEY = 'importSource';
 
-async function openImport() {
-  const path = await api().pick_import_file();
-  if (!path) return;
-  previewImport(path, null);
+// Step 1: which manager, with how to export from it; then pick the file.
+function openImport() {
+  let source = 'bitwarden';
+  try { source = localStorage.getItem(IMPORT_SOURCE_KEY) || source; } catch { /* the first one */ }
+  if (!IMPORT_SOURCES.some(([id]) => id === source)) source = 'bitwarden';
+  const tabs = el('div', { class: 'source-tabs', role: 'tablist' });
+  const steps = el('ol', { class: 'steps-list' });
+  const render = () => {
+    tabs.replaceChildren(IMPORT_SOURCES.map(([id, label]) => el('button', {
+      type: 'button', role: 'tab', 'aria-selected': id === source ? 'true' : 'false', class: id === source ? 'active' : '',
+      onclick: () => { source = id; try { localStorage.setItem(IMPORT_SOURCE_KEY, id); } catch { /* not remembered */ } render(); },
+    }, label)));
+    // The steps hold nodes: clone them, so each drawing gets its own.
+    steps.replaceChildren(IMPORT_SOURCES.find(([id]) => id === source)[2].map((parts) =>
+      el('li', {}, parts.map((p) => (p instanceof Node ? p.cloneNode(true) : p)))));
+  };
+  render();
+  const pick = el('button', { class: 'btn primary' }, icon('upload', 'sm'), 'Elegir el archivo…');
+  const modal = openModal({
+    title: 'Importar de otro gestor',
+    wide: true,
+    body: [
+      el('p', { class: 'muted' }, 'Exporta tus datos desde el otro gestor y elige aquí el archivo. Antes de importar verás la lista (solo nombres).'),
+      tabs, steps,
+      el('p', { class: 'help' }, '¿Las claves de un proyecto en un .env? ',
+        el('button', { class: 'link', type: 'button', onclick: () => { modal.close(); openEnvImportHelp(); } }, 'Usa «sb import»'), '.'),
+    ],
+    footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, 'Cancelar'), pick],
+  });
+  pick.addEventListener('click', async () => {
+    const path = await api().pick_import_file();
+    if (!path) return;
+    modal.close();
+    previewImport(path, null);
+  });
 }
 
 async function previewImport(path, password) {
@@ -348,70 +407,144 @@ function askFilePassword(path, error) {
   setTimeout(() => pw.input.focus(), 50);
 }
 
+// Step 2: the list (names only), what happens to each one, and the «only development keys» filter.
 function showImportPreview(path, password, preview) {
   const chosen = new Set(preview.items.filter((i) => i.selected).map((i) => i.key));
+  const devCount = preview.items.filter((i) => i.dev).length;
+  let devOnly = false;
   const button = el('button', { class: 'btn primary' });
   const all = el('input', { type: 'checkbox' });
+  const shown = () => preview.items.filter((i) => !devOnly || i.dev);
   const sync = () => {
     button.textContent = chosen.size ? `Importar ${chosen.size}` : 'Importar';
     button.disabled = !chosen.size;
-    all.checked = chosen.size === preview.items.length && chosen.size > 0;
+    const visible = shown();
+    all.checked = visible.length > 0 && visible.every((i) => chosen.has(i.key));
   };
-  const boxes = [];
-  const rows = preview.items.map((item) => {
+  const list = el('div', { class: 'import-list' });
+  const boxes = new Map();
+  const rows = new Map(preview.items.map((item) => {
     const box = el('input', { type: 'checkbox', checked: chosen.has(item.key) });
-    boxes.push([box, item]);
+    boxes.set(item.key, box);
     box.addEventListener('change', () => { if (box.checked) chosen.add(item.key); else chosen.delete(item.key); sync(); });
     const [label, cls] = IMPORT_STATUS[item.status] || [item.status, ''];
-    return el('label', { class: 'import-row' }, box, glyph(item.template),
+    return [item.key, el('label', { class: 'import-row' }, box, glyph(item.template),
       el('div', { class: 'meta' }, el('div', { class: 'title' }, item.name),
-        el('div', { class: 'subtitle' }, [item.subtitle, item.tags.join(', '), item.notes ? 'con notas privadas' : '', item.reason].filter(Boolean).join(' · '))),
-      el('span', { class: `level ${cls}` }, label));
-  });
+        el('div', { class: 'subtitle' }, [item.subtitle, item.tags.join(', '), item.totp ? 'con código 2FA' : '',
+          item.notes ? 'con notas privadas' : '', item.reason].filter(Boolean).join(' · '))),
+      el('span', { class: `level ${cls}` }, label))];
+  }));
+  const drawList = () => list.replaceChildren(shown().map((i) => rows.get(i.key)));
   all.addEventListener('change', () => {
-    for (const [box, item] of boxes) { box.checked = all.checked; if (all.checked) chosen.add(item.key); else chosen.delete(item.key); }
+    for (const item of shown()) { boxes.get(item.key).checked = all.checked; if (all.checked) chosen.add(item.key); else chosen.delete(item.key); }
     sync();
   });
+  const devToggle = el('input', { type: 'checkbox' });
+  devToggle.addEventListener('change', () => {
+    devOnly = devToggle.checked;
+    // Only the development keys stay ticked; turning it off brings back the ones that are new.
+    for (const item of preview.items) {
+      const on = devOnly ? item.dev && (chosen.has(item.key) || item.selected) : item.selected;
+      boxes.get(item.key).checked = on;
+      if (on) chosen.add(item.key); else chosen.delete(item.key);
+    }
+    drawList();
+    sync();
+  });
+  drawList();
   sync();
   const counts = ['new', 'duplicate', 'conflict'].map((s) => [s, preview.items.filter((i) => i.status === s).length]).filter(([, n]) => n);
   const modal = openModal({
     title: `Importar de ${preview.label}`,
     wide: true,
     body: [
-      el('p', { class: 'muted' }, `${preview.items.length} credenciales en el archivo: `,
-        counts.map(([s, n]) => `${n} ${{ new: 'nuevas', duplicate: 'ya están en la bóveda', conflict: 'con otra contraseña' }[s]}`).join(', '),
+      el('p', { class: 'muted' }, `${plural(preview.items.length, 'credencial', 'credenciales')} en el archivo: `,
+        counts.map(([s, n]) => `${n} ${{ new: n === 1 ? 'nueva' : 'nuevas', duplicate: n === 1 ? 'ya está en la bóveda' : 'ya están en la bóveda', conflict: 'con otra contraseña' }[s]}`).join(', '),
         '. Solo ves nombres: los valores van directos a la bóveda cifrada.'),
+      devCount && devCount < preview.items.length ? el('label', { class: 'check-row dev-filter' }, devToggle,
+        el('span', {}, 'Solo claves de desarrollo (API keys, SSH, bases de datos)', el('span', { class: 'faint' }, ` · ${devCount}`))) : null,
       preview.items.length ? el('label', { class: 'check-row', style: 'margin:4px 0' }, all, 'Seleccionar todas') : null,
-      el('div', { class: 'import-list' }, rows),
+      list,
       preview.skipped.length ? el('details', { class: 'findings' },
-        el('summary', {}, `${preview.skipped.length} no se importan`),
+        el('summary', {}, `${preview.skipped.length} no se ${preview.skipped.length === 1 ? 'importa' : 'importan'}`),
         preview.skipped.map((s) => el('div', { class: 'small muted' }, `${s.name}: ${s.reason}`))) : null,
-      el('p', { class: 'help' }, 'Las notas, los códigos TOTP y los campos extra se guardan como «Notas privadas»: la IA no los ve. ',
+      el('p', { class: 'help' }, 'Los códigos 2FA de las webs van a su campo «Código 2FA»; las notas y los campos extra, a «Notas privadas». La IA no ve ninguno. ',
         'Los permisos de la IA salen de la plantilla, como al crearlas a mano.'),
     ],
     footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, 'Cancelar'), button],
   });
-  button.addEventListener('click', async () => {
-    busy(button, true);
-    const result = await withProof((p) => api().import_file(path, preview.format, [...chosen], password, p), 'Para importar credenciales.');
-    busy(button, false);
-    if (!result.ok) { if (result.code !== 'cancelled') toast(result.error, 'error'); return; }
+  button.addEventListener('click', () => {
     modal.close();
-    await loadEntries();
-    renderMain();
-    importDone(path, result.result);
+    runImport(path, password, preview, preview.items.filter((i) => chosen.has(i.key)).map((i) => i.key));
   });
 }
 
-// The file holds every password in clear: strongly suggest deleting it.
+// Step 3: in batches, with «312 de 1000», then an honest summary.
+async function runImport(path, password, preview, keys) {
+  const bar = el('span', { style: 'width:0%' });
+  const count = el('div', { class: 'import-count' }, `0 de ${keys.length}`);
+  const modal = openModal({
+    title: `Importando de ${preview.label}`,
+    body: [count, el('div', { class: 'progress import-progress' }, bar),
+      el('p', { class: 'help' }, 'Se guardan cifradas a medida que avanzan. No cierres la app.')],
+    footer: null,
+    confirmClose: () => 'La importación sigue: si cierras esto, termina igual y al acabar verás el resumen.',
+  });
+  const created = [];
+  const failed = [];
+  let stopped = null;
+  for (let start = 0; start < keys.length; start += IMPORT_BATCH) {
+    const part = keys.slice(start, start + IMPORT_BATCH);
+    const last = start + IMPORT_BATCH >= keys.length;
+    const result = preview.import_id
+      ? await withProof((p) => api().import_batch(preview.import_id, part, last, p), 'Para importar credenciales.')
+      : await withProof((p) => api().import_file(path, preview.format, part, password, p), 'Para importar credenciales.');
+    if (!result.ok) { stopped = result; break; }
+    created.push(...result.result.created);
+    failed.push(...result.result.failed);
+    const done = Math.min(start + IMPORT_BATCH, keys.length);
+    count.textContent = `${done} de ${keys.length}`;
+    bar.style.width = `${Math.round((done / keys.length) * 100)}%`;
+  }
+  modal.close();
+  await loadEntries();
+  renderMain();
+  if (stopped && stopped.code === 'cancelled' && !created.length) return;
+  importDone(path, { format: preview.format, created, failed, stopped, preview, keys });
+}
+
+// What happened to each one: created, skipped (with why) and failed (with why). The file holds every
+// password in clear: strongly suggest deleting it.
 function importDone(path, result) {
   const name = path.split(/[\\/]/).pop();
   const own = result.format === 'secretbroker_encrypted';
+  const preview = result.preview || { items: [], skipped: [] };
+  const picked = new Set(result.keys || []);
+  const notImported = (result.stopped ? [] : preview.items.filter((i) => !picked.has(i.key)));
+  const unpicked = (status) => notImported.filter((i) => i.status === status).length;
+  const skippedLines = [
+    unpicked('duplicate') ? `${unpicked('duplicate')} ya estaban en la bóveda` : null,
+    unpicked('conflict') ? `${unpicked('conflict')} con otra contraseña que no elegiste` : null,
+    unpicked('new') ? `${unpicked('new')} que dejaste sin marcar` : null,
+    ...Object.entries(preview.skipped.reduce((acc, s) => ({ ...acc, [s.reason]: (acc[s.reason] || 0) + 1 }), {}))
+      .map(([reason, n]) => `${n} · ${reason}`),
+  ].filter(Boolean);
+  const skippedTotal = notImported.length + preview.skipped.length;
   const remove = el('button', { class: 'btn solid-danger' }, icon('trash', 'sm'), 'Borrar el archivo');
+  const stat = (n, label, cls) => el('div', { class: `import-stat ${n ? cls : ''}` }, el('div', { class: 'n' }, String(n)), el('div', { class: 'label' }, label));
   const modal = openModal({
-    title: `${result.created.length} ${result.created.length === 1 ? 'credencial importada' : 'credenciales importadas'}`,
+    title: result.stopped ? 'Importación interrumpida'
+      : `${result.created.length} ${result.created.length === 1 ? 'credencial importada' : 'credenciales importadas'}`,
     body: [
-      result.failed.length ? el('div', {}, el('p', { class: 'muted' }, 'No se pudieron importar:'),
+      el('div', { class: 'import-stats' },
+        stat(result.created.length, result.created.length === 1 ? 'creada' : 'creadas', 'is-ok'),
+        stat(skippedTotal, skippedTotal === 1 ? 'saltada' : 'saltadas', ''),
+        stat(result.failed.length, result.failed.length === 1 ? 'con error' : 'con errores', 'is-danger')),
+      result.stopped ? el('div', { class: 'warning is-danger' }, icon('alert', 'sm'), el('span', {},
+        `Se paró en ${result.created.length + result.failed.length} de ${(result.keys || []).length}: ${result.stopped.error}. Las que ya estaban hechas se han guardado; vuelve a importar el archivo para seguir (las importadas saldrán como «Ya está»).`)) : null,
+      skippedLines.length ? el('details', { class: 'findings' }, el('summary', {}, 'Saltadas'),
+        skippedLines.map((line) => el('div', { class: 'small muted' }, line))) : null,
+      result.failed.length ? el('details', { class: 'findings', open: true }, el('summary', {}, 'Con errores'),
         result.failed.map((f) => el('div', { class: 'small error-text' }, `${f.name}: ${f.reason}`))) : null,
       own ? el('p', { class: 'muted' }, 'El archivo está cifrado: puedes guardarlo como copia o borrarlo.')
         : el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {},
@@ -432,6 +565,102 @@ function importDone(path, result) {
     modal.close();
     toast('Archivo borrado');
   });
+}
+
+// «…» next to «Nueva»: import and export, labelled.
+function importExportMenu() {
+  const menu = el('div', { class: 'menu hidden', role: 'menu' },
+    el('button', { class: 'menu-item', role: 'menuitem', type: 'button', onclick: () => { close(); openImport(); } }, icon('upload', 'sm'), 'Importar…'),
+    el('button', { class: 'menu-item', role: 'menuitem', type: 'button', onclick: () => { close(); openExport(); } }, icon('download', 'sm'), 'Exportar…'));
+  const button = el('button', { class: 'btn icon-only', type: 'button', title: 'Más: importar y exportar', 'aria-label': 'Más acciones', 'aria-haspopup': 'menu' }, icon('more', 'sm'));
+  const wrap = el('span', { class: 'popover-wrap' }, button, menu);
+  const outside = (event) => { if (!wrap.contains(event.target)) close(); };
+  const close = () => { menu.classList.add('hidden'); button.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', outside); };
+  button.addEventListener('click', () => {
+    if (!menu.classList.contains('hidden')) { close(); return; }
+    menu.classList.remove('hidden');
+    button.setAttribute('aria-expanded', 'true');
+    document.addEventListener('mousedown', outside);
+    menu.querySelector('button').focus();
+  });
+  menu.addEventListener('keydown', (event) => { if (event.key === 'Escape') { event.stopPropagation(); close(); button.focus(); } });
+  return wrap;
+}
+
+// ======================================================================= 2FA codes
+
+// The detail of a login with a 2FA seed: the current code with a ring counting down, and «Copiar». The code is
+// computed by the service; the page asks for it only while this is on screen (and never keeps the seed).
+const TOTP_RING = 2 * Math.PI * 9;
+
+function totpProp(entry, spec) {
+  const digits = el('div', { class: 'v totp-code secret' }, '••• •••');
+  const arc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  arc.setAttribute('cx', '12'); arc.setAttribute('cy', '12'); arc.setAttribute('r', '9'); arc.setAttribute('class', 'arc');
+  const ring = el('span', { class: 'totp-ring', title: 'Segundos hasta el código siguiente' });
+  ring.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" class="track"/></svg>';
+  ring.firstChild.append(arc);
+  const seconds = el('span', { class: 'totp-seconds' });
+  ring.append(seconds);
+  let shown = false;
+  let remaining = 0;
+  let period = 30;
+  let timer = null;
+  const reveal = el('button', { class: 'btn icon-only', title: 'Mostrar el código' }, icon('eye', 'sm'));
+  const copy = el('button', { class: 'btn icon-only', title: 'Copiar el código' }, icon('copy', 'sm'));
+  const node = el('div', { class: 'prop totp-prop' },
+    el('div', { style: 'min-width:0' }, el('div', { class: 'k' }, shortLabel(spec.label)),
+      el('div', { class: 'totp-line' }, ring, digits)),
+    el('div', { class: 'actions' }, reveal, copy));
+  const draw = (code) => {
+    digits.textContent = code ? `${code.slice(0, Math.ceil(code.length / 2))} ${code.slice(Math.ceil(code.length / 2))}` : '••• •••';
+    digits.className = `v totp-code ${code ? 'revealed selectable' : 'secret'}`;
+    reveal.title = code ? 'Ocultar el código' : 'Mostrar el código';
+    reveal.replaceChildren(icon(code ? 'eyeOff' : 'eye', 'sm'));
+  };
+  const tick = () => {
+    if (!node.isConnected) { clearInterval(timer); return; }
+    remaining -= 1;
+    if (remaining <= 0) { fetchCode(true); return; }
+    paint();
+  };
+  const paint = () => {
+    seconds.textContent = shown ? String(remaining) : '';
+    arc.style.strokeDasharray = `${TOTP_RING}`;
+    arc.style.strokeDashoffset = `${TOTP_RING * (1 - (shown ? remaining / period : 1))}`;
+    ring.classList.toggle('ending', shown && remaining <= 5);
+  };
+  // auto: refresh by itself, without ever asking for Hello or a password (then the eye does it).
+  const fetchCode = async (auto) => {
+    clearInterval(timer);
+    const result = auto
+      ? await api().totp_code(entry.id, false, true, null)
+      : await withProof((p) => api().totp_code(entry.id, false, false, p), `Para ver el código 2FA de ${entry.name}.`);
+    if (!node.isConnected) return;
+    if (!result.ok) {
+      shown = false; draw(null); paint();
+      if (!auto && result.code !== 'cancelled') toast(result.error, 'error');
+      return;
+    }
+    shown = true;
+    ({ remaining, period } = result.result);
+    draw(result.result.code);
+    paint();
+    timer = setInterval(tick, 1000);
+  };
+  reveal.addEventListener('click', () => {
+    if (shown) { shown = false; clearInterval(timer); draw(null); paint(); return; }
+    fetchCode(false);
+  });
+  copy.addEventListener('click', async () => {
+    const result = await withProof((p) => api().totp_code(entry.id, true, false, p), `Para copiar el código 2FA de ${entry.name}.`);
+    if (result.ok) toast(`Código 2FA copiado · válido ${result.result.remaining} s más`);
+    else if (result.code !== 'cancelled') toast(result.error, 'error');
+  });
+  draw(null);
+  paint();
+  fetchCode(true);
+  return node;
 }
 
 // ======================================================================= export

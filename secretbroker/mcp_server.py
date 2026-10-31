@@ -1,5 +1,6 @@
 ﻿"""MCP server for AI agents: a thin client of the SecretBroker service. It never holds secrets."""
 
+import contextvars
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
@@ -37,11 +38,37 @@ mcp = MCPServer(
 
 # Replaced by the desktop app when it serves the tools itself: it shows its own window instead.
 open_app = client.launch_app
+# The program calling the tools (Claude Code, Cursor…), from the MCP handshake: the app shows when each was last used.
+_client_name = contextvars.ContextVar("secretbroker_mcp_client", default=None)
+
+
+def _client_of(ctx):
+    try:
+        params = ctx.session.client_params
+        if params is not None and params.client_info and params.client_info.name:
+            return str(params.client_info.name)[:60]
+    except AttributeError:
+        pass
+    request = getattr(ctx, "request", None)
+    agent = getattr(request, "headers", {}).get("user-agent", "") if request is not None else ""
+    return agent.split("/")[0].strip()[:60] or None
+
+
+async def _remember_client(ctx, call_next):
+    token = _client_name.set(_client_of(ctx)) if ctx.method == "tools/call" else None
+    try:
+        return await call_next(ctx)
+    finally:
+        if token is not None:
+            _client_name.reset(token)
+
+
+mcp.middleware.append(_remember_client)
 
 
 def _call(op, params=None):
     try:
-        return client.call(op, params, open_app=open_app)
+        return client.call(op, params, open_app=open_app, client=_client_name.get())
     except (BrokerError, BrokerUnavailable) as exc:
         raise ToolError(str(exc)) from None
 

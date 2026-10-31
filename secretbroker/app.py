@@ -47,6 +47,9 @@ PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal", "rotat
 ROTATION_OPS = ("rotation_begin", "rotation_discard", "rotation_apply", "rotation_secret", "retry_uploads", "set_test_request")
 PRESENCE_OPS += ROTATION_OPS
 PROOF_OPS |= set(ROTATION_OPS)
+# A login's current 2FA code (see service.op_totp_code): one click too.
+PRESENCE_OPS += ("totp_code",)
+PROOF_OPS.add("totp_code")
 # Where a secret found in clear may be removed in place (see exposure.REDACTABLE_SOURCES): conversations
 # of Claude Code and Codex, and shell histories. A copy of the file is kept next to it, just in case.
 REDACT_BACKUP_SUFFIX = ".secretbroker.bak"
@@ -94,6 +97,57 @@ class Api:
             return {"ok": True}
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
+
+    def ai_clients(self):
+        """Every AI app the app can connect ({id, label, status}) with when it last used SecretBroker
+        (`last`, `requests`), and `others`: programs that used it and the app doesn't know by name."""
+        try:
+            used = client.request("ai_clients", timeout=10)
+        except (BrokerError, BrokerUnavailable):
+            used = []
+        apps = integrations.clients()
+        by_id, others = {}, []
+        for record in used:  # newest first
+            client_id = integrations.client_of(record.get("name"))
+            if client_id is None:
+                others.append({"label": record.get("name"), "last": record.get("last"), "requests": record.get("requests", 0)})
+            elif client_id not in by_id:
+                by_id[client_id] = record
+            else:
+                by_id[client_id] = {**by_id[client_id], "requests": by_id[client_id].get("requests", 0) + record.get("requests", 0)}
+        for app in apps:
+            record = by_id.get(app["id"]) or {}
+            app.update(last=record.get("last"), requests=record.get("requests", 0))
+        return {"ok": True, "result": {"clients": apps, "others": others}}
+
+    def connect_ai(self, client_id):
+        return self._integration(lambda: integrations.connect(client_id))
+
+    def totp_code(self, entry_id, copy=False, auto=False, proof=None):
+        """A login's current 2FA code: shown (the code, for this moment) or copied to the clipboard.
+        `auto` (the detail refreshing it by itself) never asks for Hello or a password: it answers
+        proof_required and the page shows «Mostrar» instead."""
+        params = {"id": entry_id, "copy": bool(copy)}
+        if auto:
+            if not self._presence:
+                return {"ok": False, "code": "proof_required", "error": "Verifica tu identidad"}
+            try:
+                result = client.request("totp_code", {**params, "proof": {"kind": "presence", "token": self._presence}})
+            except BrokerError as exc:
+                return {"ok": False, "code": exc.code, "error": str(exc)}
+            except BrokerUnavailable as exc:
+                return {"ok": False, "code": "unavailable", "error": str(exc)}
+            result = {"ok": True, "result": result}
+        else:
+            result = self.call("totp_code", params, proof)
+        if result["ok"]:
+            presence = result["result"].pop("presence", None)
+            if presence:
+                self._presence = presence  # proved it: one click again from now on
+            if copy:
+                _copy_to_clipboard(result["result"].pop("code"))
+                result["result"]["clear"] = CLIPBOARD_CLEAR_SECONDS
+        return result
 
     def status(self):
         try:
@@ -557,8 +611,18 @@ class Api:
             text = data.decode("cp1252", errors="replace")  # old KeePass / Excel CSVs
         params = {"content": text, "source": Path(path).name, "format": fmt, "selected": selected, "password": password or None}
         result = self.call("import_file", params, proof)
-        if result["ok"] and selected is not None:
-            self._import_path = str(path)
+        if result["ok"]:
+            self._import_reading = str(path)
+            if selected is not None:
+                self._import_path = str(path)
+        return result
+
+    def import_batch(self, import_id, selected, done=False, proof=None):
+        """Import part of a previewed file (the service kept its plan): the page sends a few hundred at a
+        time to show progress, and the vault is saved once per batch."""
+        result = self.call("import_file", {"import_id": import_id, "selected": list(selected or []), "done": bool(done)}, proof)
+        if result["ok"]:
+            self._import_path = getattr(self, "_import_reading", None)
         return result
 
     def delete_import_source(self):

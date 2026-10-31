@@ -17,7 +17,7 @@ import re
 import threading
 from datetime import datetime, timezone
 
-from . import crypto, templates, winsec
+from . import crypto, templates, totp, winsec
 from .crypto import WrongPassword  # noqa: F401  (re-exported for callers)
 from .templates import PLACEHOLDER_RE
 
@@ -103,6 +103,11 @@ def validate_entry(entry):
             if not value.isdigit() or not 0 < int(value) < 65536:
                 raise ValidationError(f"«{spec['label']}» debe ser un número de puerto válido")
 
+    if fields.get("totp"):
+        try:
+            totp.validate(fields["totp"])
+        except totp.TotpError as exc:
+            raise ValidationError(str(exc)) from None
     if draft:
         entry = {**entry, "fields": {**fields, **{n: "x" for n in templates.secret_field_names(template_id)
                                                    if not fields.get(n)}}}
@@ -167,6 +172,7 @@ def shared_content(entry):
     which is always the local user's own (docs/ARCHITECTURE.md 2.5)."""
     content = {k: copy.deepcopy(v) for k, v in entry.items() if k not in LOCAL_ONLY_KEYS}
     (content.get("policy") or {}).pop("approval", None)
+    (content.get("policy") or {}).pop("ai_totp", None)  # letting the AI type the 2FA code is this user's choice too
     return content
 
 
@@ -548,6 +554,31 @@ class Vault:
                 entry["secret_since"] = old["secret_since"]  # unknown for entries saved before 0.5
             entries[entry["id"]] = entry
             self._save()
+
+    def put_many(self, entries):
+        """Add new entries and save the vault once (an import of thousands). Each one is checked on its
+        own: returns [(entry_id, error or None)] in order, and only the valid ones are stored."""
+        results, now = [], datetime.now(timezone.utc).isoformat(timespec="seconds")
+        with self._lock:
+            self._require_unlocked()
+            stored = self._payload["entries"]
+            added = {}
+            for entry in entries:
+                try:
+                    validate_entry(entry)
+                    if entry["id"] in stored or entry["id"] in added:
+                        raise ValidationError(f"Ya existe una credencial con el identificador '{entry['id']}'")
+                except ValidationError as exc:
+                    results.append((entry.get("id"), str(exc)))
+                    continue
+                entry = copy.deepcopy(entry)
+                entry["updated"] = entry["secret_since"] = now
+                added[entry["id"]] = entry
+                results.append((entry["id"], None))
+            if added:
+                stored.update(added)
+                self._save()
+        return results
 
     def delete(self, entry_id):
         with self._lock:

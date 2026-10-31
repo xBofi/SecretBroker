@@ -521,8 +521,12 @@ function renderSetup() {
       el('div', { style: 'display:flex;gap:8px' }, button, el('button', { class: 'btn ghost lg', onclick: finish }, 'Ahora no')));
   };
 
+  // Every way through the setup ends connecting the user's AI (connect.js), then the app opens.
   const finish = () => {
     masterPassword = null;
+    renderConnectAi(box, done);
+  };
+  const done = () => {
     if (thenImport) state.afterUnlock = 'import';
     state.setupActive = false;
     state.screen = null;
@@ -774,16 +778,11 @@ function renderCredentials(content) {
   const header = el('div', { class: 'content-header' },
     el('h1', {}, 'Credenciales'),
     state.entries.length ? el('div', { class: 'search' }, icon('search', 'sm'), search) : null,
-    el('button', { class: 'btn icon-only', title: 'Importar de otro gestor', onclick: openImport }, icon('upload', 'sm')),
+    importExportMenu(),  // personal.js: «…» with Importar and Exportar
     el('button', { class: 'btn primary', title: 'Nueva (Ctrl+N)', onclick: () => openEditor(null) }, icon('plus', 'sm'), 'Nueva'));
 
   if (!state.entries.length) {
-    content.replaceChildren(header, el('div', { class: 'content-body' }, el('div', { class: 'empty' },
-      el('p', {}, 'Aún no hay credenciales.'),
-      el('div', { style: 'display:flex;gap:8px;justify-content:center' },
-        el('button', { class: 'btn primary', onclick: () => openEditor(null) }, 'Añadir la primera'),
-        el('button', { class: 'btn', onclick: openImport }, 'Importar de otro gestor')),
-      el('p', { class: 'help' }, 'Bitwarden, 1Password, KeePass, Chrome, Edge o Firefox.'))));
+    content.replaceChildren(header, el('div', { class: 'content-body' }, emptyCredentials()));  // connect.js
     return;
   }
 
@@ -947,6 +946,7 @@ function renderDetail(panel) {
           el('div', { style: 'min-width:0' }, el('div', { class: 'k' }, shortLabel(spec.label)), el('div', { class: 'v secret' }, '••••••••••')),
           el('span', { class: 'faint small', title: PERMISSION_HELP.use }, 'Solo uso'));
       }
+      if (spec.name === 'totp') return totpProp(entry, spec);  // personal.js: the live 2FA code
       const key = `${entry.id}:${spec.name}`;
       const revealed = state.revealed[key];
       const reveal = el('button', { class: 'btn icon-only', title: revealed ? 'Ocultar' : 'Mostrar' }, icon(revealed ? 'eyeOff' : 'eye', 'sm'));
@@ -1947,6 +1947,9 @@ function showForm(templateId, entry) {
   const commandsInput = el('input', { class: 'input mono', placeholder: 'gh, psql, aws', spellcheck: 'false' });
   const envInput = el('textarea', { class: 'input mono', rows: 3, placeholder: 'GITHUB_TOKEN={{value}}', spellcheck: 'false' });
   const placeholderList = el('div', { class: 'placeholder-list' });
+  // A login's 2FA code is never the AI's unless the user says so here (then it can type {{totp_code}}).
+  const totpForAi = el('input', { type: 'checkbox', checked: !!policy.ai_totp });
+  totpForAi.addEventListener('change', () => updatePlaceholders());
 
   const syncAuthDetails = () => authDetails.classList.toggle('hidden', !['header', 'query'].includes(authKind.value));
   const applyPolicy = (p, onlyUntouched) => {
@@ -1974,6 +1977,7 @@ function showForm(templateId, entry) {
       .filter((s) => s.substitutable && (f[s.name] || (s.secret && secretsSet.includes(s.name)) || values[s.name]))
       .map((s) => s.name);
     if (templateId === 'database') names.push('connection_url');
+    if (totpForAi.checked && (f.totp || secretsSet.includes('totp'))) names.push('totp_code');
     placeholderList.replaceChildren(names.map((n) => el('code', {}, `{{${n}}}`)));
   };
 
@@ -2006,6 +2010,8 @@ function showForm(templateId, entry) {
       el('div', { class: 'field' }, el('label', {}, 'Programas que pueden usarla'), commandsInput,
         el('div', { class: 'help' }, 'Solo nombres, como gh o psql. La reciben en las variables de entorno de abajo.')),
       el('div', { class: 'field' }, el('label', {}, 'Variables de entorno'), envInput),
+      templateId === 'web_login' ? el('div', { class: 'field' }, el('label', { class: 'check-row' }, totpForAi, 'Dejar que la IA escriba el código 2FA'),
+        el('div', { class: 'help' }, 'Como ', el('code', {}, '{{totp_code}}'), ', sin verlo. Déjalo apagado salvo que un proceso automático lo necesite: por defecto la IA no tiene tus códigos 2FA.')) : null,
       el('div', { class: 'field' }, el('label', {}, 'Nombre para la IA'), idInput),
       el('div', { class: 'field' }, el('label', {}, 'Datos que la IA puede insertar sin verlos'), placeholderList)));
 
@@ -2043,6 +2049,7 @@ function showForm(templateId, entry) {
     }
     const allowed = commandsInput.value.split(',').map((c) => c.trim()).filter(Boolean);
     if (allowed.length || Object.keys(env).length) newPolicy.commands = { allowed, env };
+    if (templateId === 'web_login' && totpForAi.checked) newPolicy.ai_totp = true;
     return {
       id: idInput.value.trim() || slugify(nameInput.value), name: nameInput.value.trim(), template: templateId,
       description: notes.value.trim(), fields, policy: newPolicy,
@@ -2461,7 +2468,7 @@ async function renderAccess(content) {
   const paused = state.status.ai_paused;
   const body = el('div', { class: 'content-body' }, el('div', { class: 'spinner' }));
   content.replaceChildren(el('div', { class: 'content-header' }, el('h1', {}, 'Acceso de la IA')), body);
-  const [result, permissions] = await Promise.all([api().call('grants'), api().call('ai_permissions')]);
+  const [result, permissions, clients] = await Promise.all([api().call('grants'), api().call('ai_permissions'), loadAiClients()]);
   const grants = result.ok ? result.result : [];
   const approved = grants.filter((g) => g.kind === 'approved');
   const free = grants.filter((g) => g.kind === 'never');
@@ -2476,6 +2483,7 @@ async function renderAccess(content) {
       el('div', { class: 'subtitle' }, g.kind === 'never' ? 'Nunca pregunta' : g.until ? `Hasta ${formatTime(g.until)}` : 'Hasta que bloquees')),
     control);
   body.replaceChildren(el('div', { class: 'settings' },
+    aiClientsGroup(clients, () => renderAccess(content)),  // connect.js
     el('div', { class: `pause-card ${paused ? 'paused' : ''}` },
       el('div', { class: 'meta' },
         el('h3', {}, paused ? 'La IA está en pausa' : 'La IA puede trabajar'),

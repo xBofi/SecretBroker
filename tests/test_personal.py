@@ -16,7 +16,7 @@ HOME = Path(tempfile.mkdtemp(prefix="secretbroker-personal-"))
 os.environ["SECRETBROKER_HOME"] = str(HOME)  # must be set before importing secretbroker
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from secretbroker import client, exports, generator, health, importers, service as service_module  # noqa: E402
+from secretbroker import client, exports, generator, health, importers, totp, service as service_module  # noqa: E402
 from secretbroker.client import BrokerError  # noqa: E402
 from secretbroker.service import Service  # noqa: E402
 
@@ -86,6 +86,31 @@ def check_generator():
         check(not generator.is_weak(strong), "strong: a generated or random password")
 
 
+def check_totp():
+    print("TOTP (RFC 6238)")
+    import base64
+    # Appendix B of RFC 6238: the seed is "12345678901234567890" repeated to the hash's size, 8 digits.
+    seeds = {"SHA1": b"1234567890" * 2, "SHA256": b"1234567890" * 3 + b"12", "SHA512": b"1234567890" * 6 + b"1234"}
+    vectors = [(59, "94287082", "46119246", "90693936"), (1111111109, "07081804", "68084774", "25091201"),
+               (1111111111, "14050471", "67062674", "99943326"), (1234567890, "89005924", "91819424", "93441116"),
+               (2000000000, "69279037", "90698825", "38618901"), (20000000000, "65353130", "77737706", "47863826")]
+    for moment, *codes in vectors:
+        got = [totp.code(f"otpauth://totp/RFC:test?secret={base64.b32encode(seeds[a]).decode()}&algorithm={a}&digits=8", moment)["code"]
+               for a in ("SHA1", "SHA256", "SHA512")]
+        check(got == codes, f"T={moment}: {got}")
+    plain = totp.code("jbsw y3dp ehpk 3pxp", 59)
+    check(plain["digits"] == 6 and len(plain["code"]) == 6 and plain["period"] == 30 and plain["remaining"] == 1,
+          "a bare base32 seed (spaces, lowercase): 6 digits every 30 s, and the seconds left")
+    check(totp.parse("otpauth://totp/GitHub:ana%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=GitHub")["account"] == "ana@example.com",
+          "an otpauth URI's issuer and account")
+    for bad in ("", "not base32!", "otpauth://hotp/x?secret=JBSWY3DPEHPK3PXP&counter=1", "otpauth://totp/x?secret=JBSWY3DPEHPK3PXP&algorithm=MD5"):
+        try:
+            totp.parse(bad)
+            check(False, f"refuses {bad!r}")
+        except totp.TotpError:
+            check(True, f"refuses {bad!r}")
+
+
 def check_importers():
     print("Importers")
     expected = {"bitwarden.json": "bitwarden_json", "bitwarden.csv": "bitwarden_csv", "onepassword.csv": "onepassword_csv",
@@ -102,9 +127,10 @@ def check_importers():
     check(hosting["template"] == "web_login" and hosting["fields"]["url"] == "https://panel.example.com/login"
           and hosting["fields"]["username"] == "ana@example.com" and hosting["fields"]["password"] == "fake-Hosting-pass-01",
           "Bitwarden login -> web login with url, user and password")
-    check("Cuenta de la empresa" in hosting["fields"]["notes"] and "otpauth://" in hosting["fields"]["notes"]
+    check("Cuenta de la empresa" in hosting["fields"]["notes"] and "otpauth://" not in hosting["fields"]["notes"]
           and "PIN: fake-pin-4321" in hosting["fields"]["notes"] and hosting["tags"] == ["trabajo"],
-          "notes, TOTP and custom fields go to the private notes; the folder becomes a tag")
+          "notes and custom fields go to the private notes; the folder becomes a tag")
+    check(hosting["fields"]["totp"].startswith("otpauth://totp/"), "a login's TOTP goes to its own 2FA field, not the notes")
     check(by_name["GitHub token"]["template"] == "api_key" and by_name["GitHub token"]["fields"]["base_url"] == "https://api.github.com",
           "an obvious API key (ghp_...) without user becomes a GitHub API key")
     check(by_name["Códigos de recuperación"]["template"] == "generic", "a secure note becomes a secret")
@@ -137,6 +163,29 @@ def check_importers():
         check(False, "a .env is sent to sb import")
     except importers.ImportFileError as exc:
         check("sb import" in str(exc), "a .env is sent to sb import")
+
+    one_totp = importers.parse('"Title","Url","Username","Password","OTPAuth","Tags","Notes"\n'
+                               '"Correo","https://mail.example.com","ana","fake-Mail-pass-09","otpauth://totp/Mail:ana?secret=JBSWY3DPEHPK3PXP&issuer=Mail","",""\n'
+                               '"Raro","https://odd.example.com","ana","fake-Odd-pass-10","no es un código","",""\n')[1]
+    check(one_totp[0]["fields"]["totp"].startswith("otpauth://") and "notes" not in one_totp[0]["fields"],
+          "1Password's OTPAuth column becomes the 2FA field")
+    check("totp" not in one_totp[1]["fields"] and "no es un código" in one_totp[1]["fields"]["notes"],
+          "a TOTP the app can't read stays in the private notes, so nothing is lost")
+    kpx = importers.parse('"Group","Title","Username","Password","URL","Notes","TOTP"\n'
+                          '"Root","VPN","ana","fake-Vpn-pass-11","https://vpn.example.com","","JBSW Y3DP EHPK 3PXP"\n'
+                          '"Root/Dev","BD pedidos","app","fake-Db-pass-12","postgres://db.example.com:6543/orders","",""\n'
+                          '"Root/Dev","Bastión","deploy","fake-Ssh-pass-13","ssh://bastion.example.com:2222","",""\n'
+                          '"Root/Dev","Stripe API token","","sk_live_fakeFAKEfake0123456789","","",""\n'
+                          '"Root","Netflix","ana","fake-Tv-pass-14","https://netflix.com","",""\n', "auto")[1]
+    by = {c["name"]: c for c in kpx}
+    check(by["VPN"]["fields"]["totp"] == "JBSW Y3DP EHPK 3PXP", "KeePassXC's TOTP column (a base32 seed) becomes the 2FA field")
+    check(by["BD pedidos"]["template"] == "database" and by["BD pedidos"]["fields"]["engine"] == "postgresql"
+          and by["BD pedidos"]["fields"]["port"] == "6543" and by["BD pedidos"]["fields"]["database"] == "orders",
+          "a postgres:// address becomes a database")
+    check(by["Bastión"]["template"] == "ssh" and by["Bastión"]["fields"]["port"] == "2222", "an ssh:// address becomes an SSH server")
+    dev = {c["name"] for c in kpx if importers.is_dev(c)}
+    check(dev == {"BD pedidos", "Bastión", "Stripe API token"}, f"the development keys filter: databases, SSH and API keys ({dev})")
+    check(importers.is_dev(by_name["GitHub token"]) and not importers.is_dev(hosting), "a GitHub token is one; a web login is not")
 
     planned = importers.plan(chrome, [])
     check([p["status"] for p in planned] == ["new", "duplicate", "new"] and planned[1]["reason"] == "Repetida en el archivo",
@@ -205,6 +254,65 @@ def check_service():
         again = call("import_file", params, one_click)
         check(all(i["status"] == "duplicate" and not i["selected"] for i in again["items"]), "importing the same file again: all duplicates, unselected")
 
+        print("2FA codes")
+        check("totp" in hosting["secrets_set"] and "totp" not in hosting["fields"], "the 2FA seed is hidden like a secret")
+        check("totp_code" not in service_module.AI_OPS, "the AI can't ask for 2FA codes")
+        expect_error(lambda: call("totp_code", {"id": hosting["id"]}), "proof_required", "a 2FA code needs the app that unlocked")
+        code = call("totp_code", {"id": hosting["id"]}, one_click)
+        check(re.fullmatch(r"\d{6}", code["code"]) and 0 < code["remaining"] <= 30 and code["period"] == 30,
+              f"one click: the current code and the seconds left ({code['remaining']} s)")
+        check(code["code"] == totp.code("otpauth://totp/Example?secret=FAKEFAKEFAKE")["code"], "computed by the service from the seed")
+        view = next(s for s in client.request("list_secrets") if s["id"] == hosting["id"])
+        check("{{totp_code}}" not in view["placeholders"] and "FAKEFAKE" not in json.dumps(view), "by default the AI has no 2FA code")
+        stored = next(e for e in client.request("entries") if e["id"] == hosting["id"])
+        allowed = {k: stored[k] for k in ("id", "name", "template", "description", "tags")}
+        allowed.update(fields={**stored["fields"], "password": None, "totp": None, "notes": None},
+                       policy={**stored["policy"], "ai_totp": True})
+        call("save_entry", {"entry": allowed, "replaces": hosting["id"]}, PROOF)
+        view = next(s for s in client.request("list_secrets") if s["id"] == hosting["id"])
+        check("{{totp_code}}" in view["placeholders"], "if the user allows it, the AI may type it as {{totp_code}}")
+        bad = {**allowed, "fields": {**allowed["fields"], "totp": "esto no es base32!"}}
+        expect_error(lambda: call("save_entry", {"entry": bad, "replaces": hosting["id"]}, PROOF), "invalid", "a seed that isn't valid is refused")
+
+        print("Import in batches")
+        rows = "".join(f'"Cuenta {n}","https://site{n}.example.com","user{n}","fake-Batch-pass-{n:04}","","",""\n' for n in range(250))
+        rows += '"Rota","https://broken.example.com","user","fake-Broken-pass","","",""\n'
+        big = '"Title","Url","Username","Password","OTPAuth","Tags","Notes"\n' + rows
+        preview = call("import_file", {"content": big, "source": "big.csv"}, one_click)
+        check(len(preview["items"]) == 251 and preview["import_id"], "a preview of 251 with an import id")
+        keys = [i["key"] for i in preview["items"]]
+        service.vault.put({"id": preview["items"][-1]["id"], "name": "Ocupa el sitio", "template": "generic",
+                           "fields": {"value": "fake-taken"}, "policy": {"approval": "session"}})  # taken meanwhile
+        saves = []
+        original_save = service.vault._save
+        service.vault._save = lambda: (saves.append(1), original_save())
+        created, failed = [], []
+        for start in range(0, len(keys), 100):
+            part = call("import_file", {"import_id": preview["import_id"], "selected": keys[start:start + 100],
+                                        "done": start + 100 >= len(keys)}, one_click)
+            created += part["created"]
+            failed += part["failed"]
+        service.vault._save = original_save
+        check(len(created) == 250 and len(failed) == 1 and "Ya existe" in failed[0]["reason"] and failed[0]["key"] == keys[-1],
+              f"250 created, 1 failed with its reason ({len(created)}, {failed[:1]})")
+        check(len(saves) == 3, f"the vault is saved once per batch, not once per credential ({len(saves)})")
+        expect_error(lambda: call("import_file", {"import_id": preview["import_id"], "selected": [0]}, one_click), "expired",
+                     "the plan is forgotten after the last batch")
+        for entry in created:
+            service.vault.delete(entry["id"])
+        service.vault.delete(preview["items"][-1]["id"])
+
+        print("AI clients")
+        client.request("list_secrets", client="claude-code")
+        client.request("list_secrets", client="Cursor")
+        client.request("list_secrets", client="claude-code")
+        client.request("entries", client="evil")  # not an AI request: not recorded
+        client.request("list_secrets", client="bad\nname")
+        clients = {c["name"]: c for c in client.request("ai_clients")}
+        check(set(clients) == {"claude-code", "Cursor"} and clients["claude-code"]["requests"] == 2 and clients["claude-code"]["last"],
+              "the service remembers which AI program made requests, and when")
+        check("ai_clients" not in service_module.AI_OPS, "only the app reads that list")
+
         for name in ("chrome.csv", "firefox.csv", "onepassword.csv"):
             preview = call("import_file", {"content": fixture(name), "source": name}, one_click)
             call("import_file", {"content": fixture(name), "source": name,
@@ -257,6 +365,7 @@ def check_service():
 
 def main():
     check_generator()
+    check_totp()
     check_importers()
     check_exports()
     check_service()

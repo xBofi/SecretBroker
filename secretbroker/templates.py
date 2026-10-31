@@ -3,6 +3,8 @@
 import re
 from urllib.parse import quote, urlsplit
 
+from . import totp
+
 PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-z_]+)\s*\}\}")
 
 
@@ -65,6 +67,12 @@ TEMPLATES = {
                    help="La IA solo podrá usar esta credencial con esta web."),
             _field("username", "Usuario o email", required=True),
             _field("password", "Contraseña", "secret", required=True, secret=True),
+            # The 2FA seed: kept like the private notes (not a key, never given to the AI as such). The
+            # service computes the current code; the AI gets it only as {{totp_code}} if the user allows it.
+            _field("totp", "Código 2FA (TOTP) (opcional)", "secret", secret=True, substitutable=False, note=True,
+                   hint="otpauth://totp/… o la clave en base32",
+                   help="La clave que da la web al activar la verificación en dos pasos (debajo del QR). "
+                        "SecretBroker te muestra el código de 6 cifras; la IA no lo ve."),
         ],
     },
     "api_key": {
@@ -141,7 +149,7 @@ for _template in TEMPLATES.values():
     _template["fields"].append(_notes())
 
 SECRET_FIELDS = sorted({f["name"] for t in TEMPLATES.values() for f in t["fields"] if f["secret"] and not f["note"]})
-COMPUTED_SECRETS = ("connection_url",)
+COMPUTED_SECRETS = ("connection_url", "totp_code")
 
 
 def field_specs(template_id):
@@ -165,8 +173,18 @@ def key_field_names(template_id):
     return [s["name"] for s in field_specs(template_id) if s["secret"] and not s["note"]]
 
 
+def totp_for_ai(entry):
+    """The user let the AI type this login's current 2FA code ({{totp_code}}). Off unless they chose it."""
+    return bool(entry["fields"].get("totp") and (entry.get("policy") or {}).get("ai_totp"))
+
+
 def computed_values(entry):
     fields = entry["fields"]
+    if totp_for_ai(entry):
+        try:
+            return {"totp_code": totp.code(fields["totp"])["code"]}
+        except totp.TotpError:
+            return {}
     if entry["template"] == "database" and fields.get("host"):
         engine = DB_ENGINES.get(fields.get("engine") or "postgresql", DB_ENGINES["other"])
         if engine["scheme"]:
