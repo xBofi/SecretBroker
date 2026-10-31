@@ -23,7 +23,8 @@ in [SECURITY.md](../SECURITY.md).
 
 1. **The user's Windows session**: the app window, the AI agent, the user's other programs.
 2. **The SecretBroker service**: a separate, non-interactive Windows account, code in Program Files run with `python -I`.
-   Only it can read the vault files.
+   Only it can read the vault files. On Linux: the system user `secretbroker` (one sandboxed systemd unit per owner),
+   code in `/opt/secretbroker` owned by root; see ARCHITECTURE.md §6.1.
 3. **Remote endpoints**: providers and servers that receive the injected key.
 4. **The team server**: stores ciphertext, public keys and routing metadata. Untrusted for confidentiality.
 5. **The update channel**: GitHub Releases. Untrusted; every installer is signature-checked.
@@ -77,6 +78,8 @@ A program running as the user, without administrator rights.
   limits how long the key stays in memory). Revealing, copying, editing, exporting and sharing still need Hello or a
   password once after such an unlock.
 - Malware with administrator rights (or a user who runs the AI agent as administrator) defeats the account isolation.
+  On Linux the same holds for root and for members of `sudo` who use it. The `secretbroker` service has the `shadow`
+  group (to check the account password with PAM), so code execution inside the service would expose password hashes.
 
 ### 3.3 Malicious teammate
 
@@ -149,7 +152,8 @@ A member of an organization, with some permission on a collection.
 
 **Mitigations**
 - The vault is AES-256-GCM under a random data key wrapped by scrypt (128 MiB) of the master password; on the PC the
-  copy is additionally wrapped with DPAPI.
+  copy is additionally wrapped with DPAPI (Linux: AES-GCM with a key in a separate 0600 file of the service account,
+  which a backup of the vault does not include).
 - Backups are the encrypted vault; restoring needs the master password the backup had.
 - Online guessing through the app is slowed with increasing delays after each failure.
 
@@ -157,6 +161,10 @@ A member of an organization, with some permission on a collection.
 - A weak master password can be brute-forced offline from a stolen backup, slowly. Choose a long passphrase.
 - Windows Hello and Windows-password recovery work only on the original PC; they do not help an attacker with a backup,
   but they also mean the backup alone is only as strong as the master password.
+- Linux has no DPAPI: a stolen *unencrypted disk* holds both `device_key.bin` and `machine.key`, so the vault opens
+  without the master password. Use full-disk encryption (Ubuntu's installer offers it). Windows has the same limit
+  against an attacker who can also recover the service account's DPAPI master key from the disk.
+
 
 ## 4. Out of scope
 

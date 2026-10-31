@@ -17,8 +17,9 @@ working, and walks you through rotating it everywhere it is used.
  AI ── MCP: "use 'github'" ─────▶    - runs it and redacts output  ◀──   response without secrets
 ```
 
-> **Status.** SecretBroker Desktop runs on **Windows 10/11** today. Its interface is in **Spanish** for now; English
-> (and other languages) is on the [roadmap](docs/ROADMAP.md). The team server runs anywhere Docker runs.
+> **Status.** SecretBroker Desktop runs on **Windows 10/11** and **Ubuntu 22.04 / 24.04**; macOS is in progress. Its
+> interface is in **Spanish** for now; English (and other languages) is on the [roadmap](docs/ROADMAP.md). The team
+> server runs anywhere Docker runs.
 
 ## Screenshots
 
@@ -40,6 +41,18 @@ Ed25519 signature and only then installs it. Your vault and settings are kept. U
 it asks whether to delete the vault (the default is to keep it).
 
 > The installer is not Authenticode-signed yet, so Windows SmartScreen may warn ("More info" → "Run anyway").
+
+### Ubuntu
+
+1. Download `secretbroker_<version>_amd64.deb`.
+2. Double-click it and choose **Install** in the software installer (it asks for your password once).
+
+The package installs to `/opt/secretbroker` (with its own Python, so 22.04 works too), creates a `secretbroker` system
+user that cannot log in, keeps each user's vault in `/var/lib/secretbroker/<user>` where only that user's service can
+read it, and starts the service (`secretbroker@<user>.service`) at boot. Open **SecretBroker** from the app grid. The
+icon next to the clock needs the AppIndicator extension, which Ubuntu enables by default. Removing the package keeps
+the vaults; purging deletes them. To build the package yourself: `tools/build_deb.sh` on Linux or WSL.
+
 
 ## Quick start
 

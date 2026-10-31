@@ -38,6 +38,17 @@ powershell -ExecutionPolicy Bypass -File .\tools\build_installer.ps1
 
 El resultado es `dist\SecretBroker-Setup-<versión>.exe`, de unos 26 MB, con Python y todas las dependencias incluidos. El `.exe` no está firmado, así que Windows SmartScreen mostrará «Windows protegió su PC» (Más información → Ejecutar de todas formas). Para distribuirlo sin ese aviso hay que firmarlo con un certificado de firma de código.
 
+### Ubuntu (22.04 y 24.04)
+
+Se instala con doble clic en `secretbroker_<versión>_amd64.deb` (el instalador de software pide la contraseña una vez). Va a `/opt/secretbroker` con su propio Python, crea el usuario de sistema `secretbroker`, guarda la bóveda de cada usuario en `/var/lib/secretbroker/<usuario>` (solo su servicio puede leerla) y arranca `secretbroker@<usuario>.service` con el equipo. Para generar el paquete, en Linux o WSL:
+
+```bash
+tools/build_deb.sh        # -> dist/secretbroker_<versión>_amd64.deb
+```
+
+El diseño (aislamiento, polkit, PAM) está en `docs/ARCHITECTURE.md`, sección «Platforms».
+
+
 ## Uso
 
 - **Plantillas**: web o servicio, API key, servidor SSH, base de datos, AWS u otro secreto. Cada una muestra solo los campos que necesita.
