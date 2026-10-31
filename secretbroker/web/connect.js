@@ -7,15 +7,14 @@
 // api().ai_clients() → {clients: [{id, label, status: connected | disconnected | missing, last, requests}], others}
 // (when each one last made a request comes from the service, which records the MCP client's name).
 
-const AI_TEST_PROMPT = 'Usa SecretBroker: llama a list_secrets y dime qué credenciales tengo guardadas, sin mostrar ningún valor.';
-const AI_CLIENT_AFTER = {
-  claude_code: 'Abre una sesión nueva de Claude Code para que lo vea.',
-  claude_desktop: 'Cierra Claude Desktop del todo (también junto al reloj) y ábrelo otra vez.',
-  cursor: 'Reinicia Cursor para que lo vea.',
-  vscode: 'Recarga VS Code y usa Copilot Chat en modo Agente.',
-  windsurf: 'Reinicia Windsurf para que lo vea.',
-  codex: 'Abre una sesión nueva de Codex para que lo vea.',
-};
+const AI_CLIENT_AFTER = localized(() => ({
+  claude_code: t('connect_ai.open_new_claude_code_session'),
+  claude_desktop: t('connect_ai.quit_claude_desktop_completely_next'),
+  cursor: t('connect_ai.restart_cursor_so_sees'),
+  vscode: t('connect_ai.reload_vs_code_and_use'),
+  windsurf: t('connect_ai.restart_windsurf_so_sees'),
+  codex: t('connect_ai.open_new_codex_session_so'),
+}));
 const AI_CLIENT_POLL_MS = 1500;
 
 async function loadAiClients() {
@@ -29,8 +28,8 @@ function anyAiConnected(data) {
 
 // «Última petición hoy 10:02 · 34 peticiones», «Conectado · aún sin peticiones».
 function aiClientUse(c) {
-  if (c.last) return `Última petición ${whenText(c.last)} · ${plural(c.requests || 0, 'petición', 'peticiones')}`;
-  return c.status === 'connected' ? 'Conectado · aún sin peticiones' : c.status === 'missing' ? 'No instalado en este PC' : 'Sin conectar';
+  if (c.last) return t('ai_client_use.last_request', { when: whenText(c.last), plural: tn('ai.requests_count', c.requests || 0) });
+  return c.status === 'connected' ? t('ai_client_use.connected_no_requests_yet') : c.status === 'missing' ? t('ai_client_use.not_installed_on_this_pc') : t('ai_client_use.not_connected');
 }
 
 async function connectAiClient(c, button) {
@@ -44,12 +43,12 @@ async function connectAiClient(c, button) {
 
 // One row per AI app: its state and, when installed but not connected, «Conectar».
 function aiClientRow(c, onChange, { showUse = true } = {}) {
-  const connect = el('button', { class: 'btn' }, 'Conectar');
+  const connect = el('button', { class: 'btn' }, t('common.connect'));
   connect.addEventListener('click', async () => { if (await connectAiClient(c, connect)) onChange(); });
   const connected = c.status === 'connected';
   const control = connected
-    ? el('span', { class: 'level is-ok' }, icon('check', 'sm'), 'Conectado')
-    : c.status === 'missing' ? el('span', { class: 'faint small' }, 'No instalado') : connect;
+    ? el('span', { class: 'level is-ok' }, icon('check', 'sm'), t('common.connected'))
+    : c.status === 'missing' ? el('span', { class: 'faint small' }, t('common.not_installed')) : connect;
   return el('div', { class: `ai-client ${c.status}`, 'data-client': c.id },
     el('div', { class: 'ai-client-mark' }, (c.label || '?').charAt(0)),
     el('div', { class: 'meta' }, el('div', { class: 'title' }, c.label),
@@ -60,14 +59,14 @@ function aiClientRow(c, onChange, { showUse = true } = {}) {
 // The prompt to try it, with its own copy button.
 function aiTestPrompt() {
   return el('div', { class: 'prompt-box' },
-    el('div', { class: 'prompt-text selectable' }, AI_TEST_PROMPT),
-    el('button', { class: 'btn', title: 'Copiar la frase', onclick: async () => { await api().copy_text(AI_TEST_PROMPT); toast('Copiada: pégala en tu IA'); } },
-      icon('copy', 'sm'), 'Copiar'));
+    el('div', { class: 'prompt-text selectable' }, t('connect_ai.use_secretbroker_call_list_secrets')),
+    el('button', { class: 'btn', title: t('ai_test_prompt.copy_phrase'), onclick: async () => { await api().copy_text(t('connect_ai.use_secretbroker_call_list_secrets')); toast(t('ai_test_prompt.copied_paste_into_your_ai')); } },
+      icon('copy', 'sm'), t('common.copy')));
 }
 
 // Waits for the next request of any AI app and says which one: «✓ Recibida de Claude Code».
 function aiFirstRequestWatcher(baseline, onReceived) {
-  const line = el('div', { class: 'wait-line', role: 'status' }, el('div', { class: 'spinner' }), el('span', {}, 'Esperando la primera petición…'));
+  const line = el('div', { class: 'wait-line', role: 'status' }, el('div', { class: 'spinner' }), el('span', {}, t('ai_first_request_watcher.waiting_for_first_request')));
   const total = (data) => data.clients.reduce((n, c) => n + (c.requests || 0), 0) + data.others.reduce((n, c) => n + (c.requests || 0), 0);
   const start = total(baseline);
   const timer = setInterval(async () => {
@@ -77,8 +76,8 @@ function aiFirstRequestWatcher(baseline, onReceived) {
     clearInterval(timer);
     const latest = [...data.clients, ...data.others].filter((c) => c.last).sort((a, b) => (a.last < b.last ? 1 : -1))[0];
     line.classList.add('received');
-    line.replaceChildren(icon('check', 'sm'), el('span', {}, `Recibida de ${latest ? latest.label : 'tu IA'}`),
-      el('span', { class: 'faint small' }, '· SecretBroker ya está trabajando con tu IA'));
+    line.replaceChildren(icon('check', 'sm'), el('span', {}, t('ai_first_request_watcher.received_from', { value: latest ? latest.label : t('ai_first_request_watcher.your_ai') })),
+      el('span', { class: 'faint small' }, t('ai_first_request_watcher.secretbroker_is_now_working_with')));
     if (onReceived) onReceived(latest, data);
   }, AI_CLIENT_POLL_MS);
   return line;
@@ -90,8 +89,8 @@ function aiClientList(data, rerender) {
   const missing = data.clients.filter((c) => c.status === 'missing');
   return el('div', { class: 'ai-client-list' },
     installed.map((c) => aiClientRow(c, rerender)),
-    installed.length ? null : el('p', { class: 'muted small' }, 'No encontramos ninguna IA compatible instalada en este PC.'),
-    missing.length ? el('p', { class: 'faint small ai-missing' }, `No instalados: ${listJoin(missing.map((c) => c.label))}.`) : null);
+    installed.length ? null : el('p', { class: 'muted small' }, t('ai_client_list.we_didn_find_any_compatible')),
+    missing.length ? el('p', { class: 'faint small ai-missing' }, t('ai_client_list.not_installed', { names: listJoin(missing.map((c) => c.label)) })) : null);
 }
 
 // ----------------------------------------------------------------------- first run: «Conecta tu IA»
@@ -103,11 +102,11 @@ async function renderConnectAi(box, onDone, progress) {
   box.replaceChildren(el('div', { class: 'spinner' }));
   let data = await loadAiClients();
   const baseline = data;
-  const finish = el('button', { class: 'btn primary lg' }, 'Continuar');
+  const finish = el('button', { class: 'btn primary lg' }, t('common.continue'));
   finish.addEventListener('click', onDone);
-  const later = el('button', { class: 'btn ghost lg', onclick: onDone }, 'Ahora no');
+  const later = el('button', { class: 'btn ghost lg', onclick: onDone }, t('connect_ai.not_now'));
   const watcher = aiFirstRequestWatcher(baseline, () => {
-    finish.textContent = 'Empezar a usar SecretBroker';
+    finish.textContent = t('connect_ai.start_using_secretbroker');
     later.remove();
   });
   const list = el('div', {});
@@ -117,11 +116,11 @@ async function renderConnectAi(box, onDone, progress) {
   };
   draw(false);
   box.replaceChildren(
-    el('div', { class: 'auth-head' }, progress || el('div', { class: 'eyebrow' }, 'Último paso'),
-      el('h2', { style: progress ? 'margin-top:12px' : null }, 'Conecta tu IA')),
-    el('p', { class: 'lead' }, 'SecretBroker funciona con la IA que ya usas. Conéctala con un clic: podrá usar tus claves, nunca verlas.'),
+    el('div', { class: 'auth-head' }, progress || el('div', { class: 'eyebrow' }, t('connect_ai.last_step')),
+      el('h2', { style: progress ? 'margin-top:12px' : null }, t('common.connect_your_ai'))),
+    el('p', { class: 'lead' }, t('connect_ai.secretbroker_works_with_ai_you')),
     list,
-    el('div', { class: 'field' }, el('label', {}, 'Pruébalo: pega esto en tu IA'), aiTestPrompt()),
+    el('div', { class: 'field' }, el('label', {}, t('common.try_paste_this_into_your')), aiTestPrompt()),
     watcher,
     el('div', { style: 'display:flex;gap:8px' }, finish, later));
   setTimeout(() => finish.focus(), 50);
@@ -135,35 +134,35 @@ function aiClientsGroup(data, rerender) {
   const others = data.others.map((o) => ({ ...o, id: '', status: 'connected' }));
   const rows = [...used, ...others];
   return el('div', { class: 'settings-group ai-clients-card' },
-    el('div', { class: 'group-head' }, el('h3', { class: 'muted' }, 'Clientes conectados'),
-      el('button', { class: 'btn ghost', onclick: () => openConnectAi(rerender) }, icon('plus', 'sm'), 'Conectar otra IA')),
+    el('div', { class: 'group-head' }, el('h3', { class: 'muted' }, t('ai_clients_group.connected_clients')),
+      el('button', { class: 'btn ghost', onclick: () => openConnectAi(rerender) }, icon('plus', 'sm'), t('ai_clients_group.connect_another_ai'))),
     rows.length
       ? rows.map((c) => el('div', { class: 'access-row' },
         el('div', { class: 'ai-client-mark' }, (c.label || '?').charAt(0)),
         el('div', { class: 'meta' }, el('div', { class: 'title' }, c.label), el('div', { class: 'subtitle' }, aiClientUse(c))),
         // «Activo»: used in the last day. An app that hasn't asked for anything in a while just shows when it last did.
         c.last ? (Date.now() - new Date(c.last).getTime() < 86400000
-          ? el('span', { class: 'level is-ok', title: formatTime(c.last) }, el('span', { class: 'level-dot' }), 'Activo') : null)
-          : el('span', { class: 'faint small' }, 'Esperando su primera petición')))
+          ? el('span', { class: 'level is-ok', title: formatTime(c.last) }, el('span', { class: 'level-dot' }), t('common.active')) : null)
+          : el('span', { class: 'faint small' }, t('ai_clients_group.waiting_for_its_first_request'))))
       : el('div', { class: 'ai-clients-empty' },
         el('p', { class: 'muted small' }, waiting.length
-          ? `Ninguna IA está conectada todavía. Tienes ${listJoin(waiting.map((c) => c.label))}: conéctalo con un clic.`
-          : 'Ninguna IA está conectada todavía.'),
+          ? t('ai_clients_group.no_ai_is_connected_yet', { names: listJoin(waiting.map((c) => c.label)) })
+          : t('ai_clients_group.no_ai_is_connected_yet_2')),
         waiting.slice(0, 3).map((c) => aiClientRow(c, rerender, { showUse: false }))));
 }
 
 function openConnectAi(onClose) {
   const body = el('div', {}, el('div', { class: 'spinner' }));
   const modal = openModal({
-    title: 'Conecta tu IA',
-    body: [el('p', { class: 'muted' }, 'Con un clic, la IA podrá usar tus claves a través de SecretBroker sin verlas.'), body],
-    footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn primary', onclick: () => modal.close() }, 'Hecho')],
+    title: t('common.connect_your_ai'),
+    body: [el('p', { class: 'muted' }, t('open_connect_ai.with_one_click_ai_will')), body],
+    footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn primary', onclick: () => modal.close() }, t('common.done'))],
     onClose: () => { if (onClose) onClose(); },
   });
   const draw = async () => {
     const data = await loadAiClients();
     body.replaceChildren(aiClientList(data, draw),
-      el('div', { class: 'field', style: 'margin-top:14px' }, el('label', {}, 'Pruébalo: pega esto en tu IA'), aiTestPrompt()),
+      el('div', { class: 'field', style: 'margin-top:14px' }, el('label', {}, t('common.try_paste_this_into_your')), aiTestPrompt()),
       aiFirstRequestWatcher(data));
   };
   draw();
@@ -178,16 +177,16 @@ function emptyCredentials() {
     icon('chevronRight', 'sm'));
   const aiSlot = el('div', {});
   const node = el('div', { class: 'empty-start' },
-    el('h2', {}, 'Empieza tu bóveda'),
-    el('p', { class: 'muted' }, 'Guarda aquí tus claves de API, contraseñas y accesos: la IA podrá usarlos sin verlos.'),
+    el('h2', {}, t('empty_credentials.start_your_vault')),
+    el('p', { class: 'muted' }, t('empty_credentials.store_your_api_keys_passwords')),
     el('div', { class: 'start-list' },
-      start('plus', 'Añadir una credencial', 'Una web, una API key, un servidor SSH, una base de datos… Con plantillas para OpenAI, GitHub, Stripe y más.', () => openEditor(null)),
-      start('upload', 'Importar de otro gestor', 'Bitwarden, 1Password, KeePassXC, Chrome, Edge o Firefox. Ves la lista antes de importar.', openImport),
-      start('terminal', 'Importar un .env de un proyecto', 'Pasa las claves de un proyecto a la bóveda con «sb import» y deja de tenerlas en claro.', openEnvImportHelp),
+      start('plus', t('empty_credentials.add_credential'), t('empty_credentials.website_api_key_ssh_server'), () => openEditor(null)),
+      start('upload', t('common.import_from_another_manager'), t('empty_credentials.bitwarden_1password_keepassxc_chrome_edg'), openImport),
+      start('terminal', t('common.import_project_env'), t('empty_credentials.move_project_keys_into_vault'), openEnvImportHelp),
       aiSlot));
   loadAiClients().then((data) => {
     if (!anyAiConnected(data)) {
-      aiSlot.replaceWith(start('bot', 'Conectar tu IA', 'Claude Code, Claude Desktop, Cursor, VS Code, Windsurf o Codex, con un clic.', () => openConnectAi(() => renderMain())));
+      aiSlot.replaceWith(start('bot', t('empty_credentials.connect_your_ai'), t('empty_credentials.claude_code_claude_desktop_cursor'), () => openConnectAi(() => renderMain())));
     }
   });
   return node;
@@ -195,20 +194,20 @@ function emptyCredentials() {
 
 function openEnvImportHelp() {
   const command = (text) => el('div', { class: 'prompt-box' }, el('code', { class: 'prompt-text selectable' }, text),
-    el('button', { class: 'btn icon-only', title: 'Copiar', onclick: async () => { await api().copy_text(text); toast('Copiado'); } }, icon('copy', 'sm')));
+    el('button', { class: 'btn icon-only', title: t('common.copy'), onclick: async () => { await api().copy_text(text); toast(t('common.copied')); } }, icon('copy', 'sm')));
   const modal = openModal({
-    title: 'Importar un .env de un proyecto',
+    title: t('common.import_project_env'),
     body: [
-      el('p', { class: 'muted' }, 'En la carpeta del proyecto, abre una terminal y ejecuta:'),
+      el('p', { class: 'muted' }, t('open_env_import_help.in_project_folder_open_terminal')),
       command('sb import .env --delete'),
       el('ol', { class: 'steps-list' },
-        el('li', {}, 'SecretBroker te enseña aquí la lista de variables (solo nombres) para que la confirmes con un clic.'),
-        el('li', {}, 'Guarda cada clave como una credencial y escribe un archivo ', el('code', {}, '.secretbroker'), ' sin valores, que puedes subir a git.'),
-        el('li', {}, 'Con ', el('code', {}, '--delete'), ', borra el .env: las claves ya no quedan en claro en el disco.')),
-      el('p', { class: 'muted' }, 'Después arranca tu app con las claves de la bóveda:'),
+        el('li', {}, t('open_env_import_help.secretbroker_shows_you_list_variables')),
+        el('li', {}, t('open_env_import_help.saves_each_key_as_credential'), el('code', {}, '.secretbroker'), t('open_env_import_help.without_values_which_you_can')),
+        el('li', {}, t('open_env_import_help.with'), el('code', {}, '--delete'), t('open_env_import_help.deletes_env_keys_no_longer'))),
+      el('p', { class: 'muted' }, t('open_env_import_help.then_start_your_app_with')),
       command('sb run -- npm run dev'),
-      el('p', { class: 'help' }, 'También puedes pedírselo a tu IA: «Pasa el .env de este proyecto a SecretBroker». Lo hace sin ver los valores.'),
+      el('p', { class: 'help' }, t('open_env_import_help.you_can_also_ask_your')),
     ],
-    footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn primary', onclick: () => modal.close() }, 'Entendido')],
+    footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn primary', onclick: () => modal.close() }, t('open_env_import_help.understood'))],
   });
 }
