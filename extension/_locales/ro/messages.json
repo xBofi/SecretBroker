@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "Cod 2FA"
+  },
+  "2fa_code_copied": {
+    "message": "Cod 2FA copiat"
+  },
+  "browser": {
+    "message": "Browser"
+  },
+  "can_talk_secretbroker": {
+    "message": "Nu se poate comunica cu SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Nu se poate comunica cu SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Nu se poate comunica cu SecretBroker. Deschide-l și încearcă din nou."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Verifică dacă SecretBroker arată același cod și dă clic pe „Conectează”."
+  },
+  "cmd_fill": {
+    "message": "Completează datele de conectare pentru acest site"
+  },
+  "cmd_open": {
+    "message": "Deschide SecretBroker"
+  },
+  "code": {
+    "message": "Cod"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Confirmă în SecretBroker"
+  },
+  "connect": {
+    "message": "Conectează $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Conectează acest browser"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Conectează acest browser: dă clic pe pictograma SecretBroker din bara de instrumente a browserului, apoi pe „Conectează”."
+  },
+  "copy_2fa_code": {
+    "message": "Copiază codul 2FA"
+  },
+  "copy_password": {
+    "message": "Copiază parola"
+  },
+  "copy_username": {
+    "message": "Copiază utilizatorul"
+  },
+  "couldn_connect": {
+    "message": "Nu s-a putut conecta."
+  },
+  "couldn_copy": {
+    "message": "Nu s-a putut copia"
+  },
+  "couldn_fill_it_in": {
+    "message": "Nu s-a putut completa"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Nu s-a găsit unde să se completeze."
+  },
+  "couldn_look_it_up": {
+    "message": "Nu s-a putut căuta."
+  },
+  "couldn_save": {
+    "message": "Nu s-a putut salva"
+  },
+  "create_your_vault_first": {
+    "message": "Creează-ți mai întâi seiful"
+  },
+  "ext_description": {
+    "message": "Completează parolele pe care le păstrezi în SecretBroker, doar pe site-ul lor și doar când ceri tu."
+  },
+  "fill_in": {
+    "message": "Completează"
+  },
+  "fill_in_on": {
+    "message": "Completează pe $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Completează cu SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Completează fără să deschizi această fereastră"
+  },
+  "form_from": {
+    "message": "Formular de pe"
+  },
+  "form_is_in_frame_too": {
+    "message": "Formularul e într-un cadru prea mic pentru a fi văzut: nu se completează."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Formularul e într-un cadru ascuns sau foarte mic: nu se completează."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Instalează SecretBroker și deschide Setări › Browser. Dacă tocmai l-ai instalat, repornește browserul."
+  },
+  "it_no_longer_pending": {
+    "message": "Nu mai e în așteptare."
+  },
+  "it_only_fills_in_on": {
+    "message": "Completează doar pe site-ul fiecărei parole."
+  },
+  "loading": {
+    "message": "Se încarcă"
+  },
+  "name": {
+    "message": "Nume"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Nicio credențială pentru $domain$ nu are cod 2FA.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· fără https"
+  },
+  "no_username": {
+    "message": "Fără utilizator"
+  },
+  "not_now": {
+    "message": "Nu acum"
+  },
+  "nothing_matches": {
+    "message": "Nimic nu se potrivește."
+  },
+  "nothing_saved_for": {
+    "message": "Nimic salvat pentru $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Nimic salvat pentru $domain$. Conectează-te și îți voi propune să salvezi.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Pe alte site-uri"
+  },
+  "on_this_website": {
+    "message": "Pe acest site"
+  },
+  "open": {
+    "message": "Deschide $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Deschide-l și încearcă din nou."
+  },
+  "open_it_can_be_filled": {
+    "message": "Deschide $host$ (acolo se poate completa)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Deschide SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Deschide SecretBroker și creează-ți seiful ca să salvezi parole."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Deschide un site ca să-i vezi parolele."
+  },
+  "open_website_you_want_sign": {
+    "message": "Deschide site-ul la care vrei să te conectezi."
+  },
+  "page_has_changed_try_again": {
+    "message": "Pagina s-a schimbat. Încearcă din nou."
+  },
+  "password_copied": {
+    "message": "Parolă copiată"
+  },
+  "password_updated": {
+    "message": "Parolă actualizată"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Parolă actualizată în SecretBroker"
+  },
+  "save": {
+    "message": "Salvează"
+  },
+  "save_this_login": {
+    "message": "Salvezi aceste date de conectare?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Salvezi această parolă în SecretBroker?"
+  },
+  "saved": {
+    "message": "Salvat"
+  },
+  "saved_for": {
+    "message": "Salvat pentru $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Salvat în SecretBroker"
+  },
+  "search": {
+    "message": "Caută"
+  },
+  "search_secretbroker": {
+    "message": "Caută în SecretBroker"
+  },
+  "searching": {
+    "message": "Se caută…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker nu a răspuns la timp."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker e blocat."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker e blocat"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker e blocat. Deblochează-l și încearcă din nou."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "SecretBroker lipsește de pe acest calculator"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker nu e instalat pe acest calculator sau trebuie încă conectat la browser."
+  },
+  "that_way_it_can_fill": {
+    "message": "Așa îți poate completa parolele. SecretBroker îți va cere să confirmi cu un clic."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Nu există date de conectare salvate pentru $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Pe această pagină nu există un câmp vizibil pentru codul 2FA."
+  },
+  "there_no_visible_login_form": {
+    "message": "Pe această pagină nu există un formular de conectare vizibil."
+  },
+  "this_page_can_be_filled": {
+    "message": "Această pagină nu poate fi completată."
+  },
+  "this_team_credential_is_use": {
+    "message": "Această credențială a echipei e doar pentru utilizare: nu se completează în browser."
+  },
+  "unlock": {
+    "message": "Deblochează"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Deblochează-l și dă din nou clic aici."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Deblochează-l ca să-ți completezi parolele."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Deblochează SecretBroker și dă din nou clic pe „Conectează”."
+  },
+  "update": {
+    "message": "Actualizează"
+  },
+  "update_password": {
+    "message": "Actualizezi parola pentru „$name$”?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Doar utilizare: nu se completează"
+  },
+  "use_only_on_team_not": {
+    "message": "Doar utilizare în echipă: nu se completează"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Credențială a echipei doar pentru utilizare: completarea ar arăta-o paginii"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Credențialele echipei doar pentru utilizare pot fi folosite de IA, dar nu sunt afișate: completarea ar da-o paginii."
+  },
+  "username_copied": {
+    "message": "Utilizator copiat"
+  },
+  "you_re_on": {
+    "message": "Ești pe"
+  }
+}

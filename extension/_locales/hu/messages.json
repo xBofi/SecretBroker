@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "2FA-kód"
+  },
+  "2fa_code_copied": {
+    "message": "2FA-kód kimásolva"
+  },
+  "browser": {
+    "message": "Böngésző"
+  },
+  "can_talk_secretbroker": {
+    "message": "Nem sikerül kommunikálni a SecretBrokerrel."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Nem sikerül kommunikálni a SecretBrokerrel"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Nem sikerül kommunikálni a SecretBrokerrel. Nyisd meg, és próbáld újra."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Ellenőrizd, hogy a SecretBroker ugyanezt a kódot mutatja-e, és kattints a „Csatlakozás” gombra."
+  },
+  "cmd_fill": {
+    "message": "A webhely bejelentkezési adatainak kitöltése"
+  },
+  "cmd_open": {
+    "message": "SecretBroker megnyitása"
+  },
+  "code": {
+    "message": "Kód"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Erősítsd meg a SecretBrokerben"
+  },
+  "connect": {
+    "message": "Csatlakozás: $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Böngésző csatlakoztatása"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Csatlakoztasd ezt a böngészőt: kattints a SecretBroker ikonjára a böngésző eszköztárán, majd a „Csatlakozás” gombra."
+  },
+  "copy_2fa_code": {
+    "message": "2FA-kód másolása"
+  },
+  "copy_password": {
+    "message": "Jelszó másolása"
+  },
+  "copy_username": {
+    "message": "Felhasználónév másolása"
+  },
+  "couldn_connect": {
+    "message": "Nem sikerült csatlakozni."
+  },
+  "couldn_copy": {
+    "message": "Nem sikerült másolni"
+  },
+  "couldn_fill_it_in": {
+    "message": "Nem sikerült kitölteni"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Nem található, hová kell kitölteni."
+  },
+  "couldn_look_it_up": {
+    "message": "Nem sikerült megkeresni."
+  },
+  "couldn_save": {
+    "message": "Nem sikerült menteni"
+  },
+  "create_your_vault_first": {
+    "message": "Előbb hozd létre a széfedet"
+  },
+  "ext_description": {
+    "message": "Kitölti a SecretBrokerben tárolt jelszavaidat – csak a saját webhelyükön, és csak ha kéred."
+  },
+  "fill_in": {
+    "message": "Kitöltés"
+  },
+  "fill_in_on": {
+    "message": "Kitöltés itt: $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Kitöltés a SecretBrokerrel"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Kitöltés az ablak megnyitása nélkül"
+  },
+  "form_from": {
+    "message": "Űrlap innen:"
+  },
+  "form_is_in_frame_too": {
+    "message": "Az űrlap túl kicsi keretben van ahhoz, hogy látható legyen: nem lesz kitöltve."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Az űrlap rejtett vagy nagyon kicsi keretben van: nem lesz kitöltve."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Telepítsd a SecretBrokert, és nyisd meg a Beállítások › Böngésző részt. Ha most telepítetted, indítsd újra a böngészőt."
+  },
+  "it_no_longer_pending": {
+    "message": "Már nincs függőben."
+  },
+  "it_only_fills_in_on": {
+    "message": "Minden jelszót csak a saját webhelyén tölt ki."
+  },
+  "loading": {
+    "message": "Betöltés"
+  },
+  "name": {
+    "message": "Név"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "A(z) $domain$ webhelyhez tartozó hitelesítő adatok egyikének sincs 2FA-kódja.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· nincs https"
+  },
+  "no_username": {
+    "message": "Nincs felhasználónév"
+  },
+  "not_now": {
+    "message": "Most nem"
+  },
+  "nothing_matches": {
+    "message": "Nincs találat."
+  },
+  "nothing_saved_for": {
+    "message": "Nincs mentve semmi ehhez: $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Nincs mentve semmi ehhez: $domain$. Jelentkezz be, és felajánlom a mentést.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Más webhelyeken"
+  },
+  "on_this_website": {
+    "message": "Ezen a webhelyen"
+  },
+  "open": {
+    "message": "$host$ megnyitása",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Nyisd meg, és próbáld újra."
+  },
+  "open_it_can_be_filled": {
+    "message": "$host$ megnyitása (ott kitölthető)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "SecretBroker megnyitása"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Jelszavak mentéséhez nyisd meg a SecretBrokert, és hozd létre a széfedet."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Nyiss meg egy webhelyet, hogy lásd a jelszavait."
+  },
+  "open_website_you_want_sign": {
+    "message": "Nyisd meg a webhelyet, ahová be szeretnél jelentkezni."
+  },
+  "page_has_changed_try_again": {
+    "message": "Az oldal megváltozott. Próbáld újra."
+  },
+  "password_copied": {
+    "message": "Jelszó kimásolva"
+  },
+  "password_updated": {
+    "message": "Jelszó frissítve"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Jelszó frissítve a SecretBrokerben"
+  },
+  "save": {
+    "message": "Mentés"
+  },
+  "save_this_login": {
+    "message": "Mented ezt a bejelentkezést?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Mented ezt a jelszót a SecretBrokerbe?"
+  },
+  "saved": {
+    "message": "Mentve"
+  },
+  "saved_for": {
+    "message": "Mentve ehhez: $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Mentve a SecretBrokerbe"
+  },
+  "search": {
+    "message": "Keresés"
+  },
+  "search_secretbroker": {
+    "message": "Keresés a SecretBrokerben"
+  },
+  "searching": {
+    "message": "Keresés…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "A SecretBroker nem válaszolt időben."
+  },
+  "secretbroker_is_locked": {
+    "message": "A SecretBroker zárolva van."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "A SecretBroker zárolva van"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "A SecretBroker zárolva van. Oldd fel, és próbáld újra."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "A SecretBroker hiányzik erről a számítógépről"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "A SecretBroker nincs telepítve erre a számítógépre, vagy még csatlakoztatni kell a böngészőhöz."
+  },
+  "that_way_it_can_fill": {
+    "message": "Így ki tudja tölteni a jelszavaidat. A SecretBroker egy kattintásos megerősítést kér."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Nincs mentett bejelentkezés ehhez: $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Ezen az oldalon nincs látható 2FA-kódmező."
+  },
+  "there_no_visible_login_form": {
+    "message": "Ezen az oldalon nincs látható bejelentkezési űrlap."
+  },
+  "this_page_can_be_filled": {
+    "message": "Ez az oldal nem tölthető ki."
+  },
+  "this_team_credential_is_use": {
+    "message": "Ez a csapatszintű hitelesítő adat csak használható: a böngészőben nem lesz kitöltve."
+  },
+  "unlock": {
+    "message": "Feloldás"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Oldd fel, és kattints ide újra."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "A jelszavaid kitöltéséhez oldd fel."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Oldd fel a SecretBrokert, és kattints újra a „Csatlakozás” gombra."
+  },
+  "update": {
+    "message": "Frissítés"
+  },
+  "update_password": {
+    "message": "Frissíted a(z) „$name$” jelszavát?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Csak használat: nincs kitöltve"
+  },
+  "use_only_on_team_not": {
+    "message": "Csak használat a csapatban: nincs kitöltve"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Csak használható csapatszintű hitelesítő adat: a kitöltéssel az oldal látná"
+  },
+  "use_only_team_credentials_can": {
+    "message": "A csak használható csapatszintű hitelesítő adatokat az MI használhatja, de nem jelennek meg: a kitöltéssel az oldal megkapná."
+  },
+  "username_copied": {
+    "message": "Felhasználónév kimásolva"
+  },
+  "you_re_on": {
+    "message": "Itt vagy:"
+  }
+}
