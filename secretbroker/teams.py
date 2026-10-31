@@ -23,7 +23,7 @@ from cryptography.exceptions import InvalidSignature, InvalidTag
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
-from . import crypto, templates
+from . import autofill, crypto, templates
 from .crypto import b64, unb64
 from .vault import ID_RE, SHARE_PERMISSIONS, SHARE_WRITE, ValidationError, secret_fields, shared_content
 from .i18n import tr
@@ -276,6 +276,8 @@ def effective_content(entry):
             content["fields"][name] = value
     if "description" in pending:
         content["description"] = pending["description"]
+    if "fill" in pending:
+        _set_fill_part(content, pending["fill"])
     return content
 
 
@@ -298,6 +300,7 @@ def _destination(content):
 
 def widening_changes(old, new):
     """Human-readable lines for every way `new` sends a secret somewhere `old` did not (empty: nothing wider)."""
+    sites = new_fill_sites(old, new)
     old, new = _destination(old), _destination(new)
     lines = []
     if old["template"] != new["template"]:
@@ -311,6 +314,8 @@ def widening_changes(old, new):
     hosts = new_hosts(old, new)
     if hosts:
         lines.append("Webs nuevas: " + ", ".join(hosts))
+    if sites:
+        lines.append("Autorrellenado del navegador en webs nuevas: " + ", ".join(sites))
     if (http(old).get("auth") or {"kind": "none"}) != (http(new).get("auth") or {"kind": "none"}):
         lines.append("Cómo se envía la clave: " + str((http(new).get("auth") or {}).get("kind", "none")))
     commands = lambda d: d["policy"].get("commands") or {}
@@ -328,6 +333,46 @@ def new_hosts(old, new):
     """The web hosts `new` may send the key to and `old` could not (the change review names them)."""
     http = lambda d: _destination(d)["policy"].get("http") or {}
     return [h for h in http(new).get("allowed_hosts") or [] if h not in (http(old).get("allowed_hosts") or [])]
+
+
+def new_fill_sites(old, new):
+    """The pages where the browser would fill the web login `new` and would not fill `old` (its address and autofill
+    sites, autofill.py): a password filled on a page is handed to that page, so a teammate's (or a removed one's,
+    before leaving) new address waits for review like a new web for the AI."""
+    if new.get("template") != "web_login":
+        return []
+    new_mode = (new.get("autofill") or {}).get("match", "domain")
+    if new_mode == "never":
+        return []
+    old_mode = (old.get("autofill") or {}).get("match", "domain")
+    before = autofill.saved_sites(old) if old.get("template") == "web_login" else []
+    labels = []
+    for _, site in autofill.saved_sites(new):
+        broad = new_mode == "domain" and autofill.has_own_domain(site.host)  # any subdomain too
+        if any(autofill.site_matches(saved, site, old_mode) is None
+               and (not broad or (old_mode == "domain" and autofill.has_own_domain(saved.host))) for _, saved in before):
+            continue
+        label = autofill.registrable_domain(site.host) + (f":{site.port}" if site.port else "") if broad else site.label
+        label = ("http://" if site.scheme == "http" else "") + label
+        if label not in labels:
+            labels.append(label)
+    return labels
+
+
+def _fill_part(content):
+    """What decides where the browser fills a web login: {url, autofill}."""
+    return {"url": (content.get("fields") or {}).get("url"), "autofill": copy.deepcopy(content.get("autofill"))}
+
+
+def _set_fill_part(entry, part):
+    if part["url"] in (None, ""):
+        entry["fields"].pop("url", None)
+    else:
+        entry["fields"]["url"] = part["url"]
+    if part["autofill"] is None:
+        entry.pop("autofill", None)
+    else:
+        entry["autofill"] = copy.deepcopy(part["autofill"])
 
 
 def secret_fp(vault, entry):
@@ -1823,6 +1868,9 @@ class Team:
             if texts:
                 pending["description"] = content.get("description") or ""
                 entry["description"] = local.get("description") or ""
+            if new_fill_sites(local, content):  # the browser keeps filling only where it did
+                pending["fill"] = _fill_part(content)
+                _set_fill_part(entry, _fill_part(local))
         entry["policy"] = copy.deepcopy(local.get("policy") or {})
         shared["pending_policy"] = pending
         return entry

@@ -152,7 +152,10 @@ async function fill(tab, frame, id, what) {
   if (frame.frameId !== 0) params.frame_url = frame.url;
   const answer = await native('fill', params);
   if (!answer.ok) return answer;
-  const applied = await ext.tabs.sendMessage(tab.id, { type: 'apply', what, values: answer.result }, { frameId: frame.frameId })
+  // The service checked the address it was given; the frame gets the values only if it still shows that origin
+  // (it may have navigated elsewhere since it reported its form, or while the service answered).
+  const origin = new URL(frame.frameId !== 0 ? frame.url : tab.url).origin;
+  const applied = await ext.tabs.sendMessage(tab.id, { type: 'apply', what, values: answer.result, origin }, { frameId: frame.frameId })
     .catch(() => ({ ok: false, error: msg('page_has_changed_try_again') }));
   return applied && applied.ok ? { ok: true } : { ok: false, code: 'not_filled', error: (applied && applied.error) || msg('couldn_find_where_fill_it') };
 }

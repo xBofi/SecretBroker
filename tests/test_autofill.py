@@ -18,7 +18,7 @@ os.environ["SECRETBROKER_HOME"] = str(HOME)  # must be set before importing secr
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from secretbroker import autofill, client, native_host, service as service_module  # noqa: E402
+from secretbroker import autofill, client, native_host, service as service_module, teams  # noqa: E402
 from secretbroker.client import BrokerError  # noqa: E402
 from secretbroker.service import Service  # noqa: E402
 
@@ -158,6 +158,39 @@ def entry(entry_id, name, url, username, password, **extra):
     return {"id": entry_id, "name": name, "template": "web_login", "description": "",
             "fields": {"url": url, "username": username, "password": password, **extra.pop("fields", {})},
             "policy": {"approval": "session"}, **extra}
+
+
+def check_team_review():
+    """A password filled on a page is handed to that page: a teammate's new address for a shared web login waits
+    for review like a new web for the AI (else someone about to be removed could add their own site, and get the
+    password the team sets after rotating it, the day someone fills it there)."""
+    print("Team changes to where the browser fills")
+    base = entry("bank", "Banco", "https://bank.example.com", "ana", "s3cret")
+    wider = lambda **change: teams.new_fill_sites(base, {**base, **change})
+    check(wider() == [], "nothing new")
+    check(wider(fields={**base["fields"], "url": "https://login.bank.example.com/x"}) == [],
+          "another page of the same domain is not new")
+    check(wider(fields={**base["fields"], "url": "https://bank-example.evil.net"}) == ["evil.net"], "a new domain is")
+    check(wider(autofill={"sites": ["examp1e.com"]}) == ["examp1e.com"], "so is an extra autofill site")
+    check(wider(fields={**base["fields"], "url": "http://bank.example.com"}) == ["http://example.com"],
+          "and plain http where it was https")
+    narrow = {**base, "autofill": {"match": "host"}}
+    check(teams.new_fill_sites(narrow, base) == ["example.com"], "and widening exact-host matching to the domain")
+    check(teams.new_fill_sites(base, {**base, "autofill": {"match": "never"}}) == [], "never filling is not wider")
+    lines = teams.widening_changes(base, {**base, "autofill": {"sites": ["evil.net"]}})
+    check(any("evil.net" in line for line in lines), "the change to review names it")
+
+    content = {**base, "name": "Banco nuevo", "autofill": {"sites": ["evil.net"]},
+               "fields": {**base["fields"], "url": "https://evil.net/login"}}
+    shared = {"permission": "edit"}
+    held = teams.Team._quarantine(base, content, shared, {"name": "Bob"}, teams.widening_changes(base, content))
+    check(held["name"] == "Banco nuevo" and held["fields"]["url"] == "https://bank.example.com"
+          and not held.get("autofill"), "quarantined: the name applies, the browser keeps filling only the old site")
+    page = autofill.parse("https://evil.net/login", page=True)
+    check(not autofill.match_entry(held, page), "so evil.net gets nothing until the user accepts")
+    accepted = teams.effective_content({**held, "shared": shared})
+    check(accepted["fields"]["url"] == "https://evil.net/login" and accepted["autofill"] == {"sites": ["evil.net"]},
+          "accepting applies it (and it is what the server already has, so nothing is pushed back)")
 
 
 def check_host():
@@ -318,6 +351,52 @@ def check_host():
         service.stop()
 
 
+# The content script with just enough of a page around it to answer the background's messages (Node, no browser).
+CONTENT_HARNESS = r"""
+const fs = require('fs'), vm = require('vm');
+const node = () => ({ style: {}, append() {}, appendChild() {}, remove() {}, querySelector: () => node(),
+  querySelectorAll: () => [], attachShadow: () => node(), addEventListener() {}, setAttribute() {}, classList: { toggle() {} } });
+let listener = null;
+const page = {
+  location: { origin: 'https://evil.example.net', href: 'https://evil.example.net/' },
+  document: { ...node(), documentElement: node(), createElement: node, activeElement: null, addEventListener() {} },
+  innerWidth: 800, innerHeight: 600, addEventListener() {}, getComputedStyle: () => ({}),
+  MutationObserver: class { observe() {} }, HTMLInputElement: class {}, HTMLElement: class {}, Event: class {},
+  chrome: { i18n: { getMessage: (key) => key }, runtime: { id: 'us', sendMessage: () => Promise.resolve(null),
+    onMessage: { addListener: (f) => { listener = f; } } } },
+};
+page.window = page; page.top = page;
+Object.defineProperty(page.HTMLInputElement.prototype, 'value', { set() {}, configurable: true });
+vm.createContext(page);
+vm.runInContext(fs.readFileSync(process.argv[2], 'utf8'), page);
+const ask = (origin) => { let answer; listener({ type: 'apply', what: 'login', values: { username: 'u', password: 'p' },
+  origin }, { id: 'us' }, (a) => { answer = a; }); return answer; };
+console.log(JSON.stringify({ other: ask('https://bank.example.com'), same: ask('https://evil.example.net') }));
+"""
+
+
+def check_content_script():
+    print("Content script")
+    import shutil
+    node = shutil.which("node")
+    if not node:
+        print("  (skipped: no Node.js)")
+        return
+    script = Path(tempfile.mkdtemp(prefix="sb-content-")) / "harness.js"
+    script.write_text(CONTENT_HARNESS, encoding="utf-8")
+    result = subprocess.run([node, str(script), str(ROOT / "extension" / "content.js")], capture_output=True, text=True,
+                            encoding="utf-8", timeout=60)
+    try:
+        answers = json.loads(result.stdout.strip().splitlines()[-1])
+    except (IndexError, ValueError):
+        check(False, "the content script runs: " + (result.stderr or result.stdout)[-300:])
+        return
+    check(answers["other"] == {"ok": False, "error": "page_has_changed_try_again"},
+          "values for another origin (the frame navigated since the service matched it) are never filled")
+    check(answers["same"]["ok"] is False and answers["same"]["error"] != "page_has_changed_try_again",
+          "the page that was matched is filled (here: it has no form)")
+
+
 def check_registration():
     print("Registration")
     launcher = Path(tempfile.mkdtemp(prefix="sb-host-")) / "secretbroker-host"
@@ -357,7 +436,9 @@ def check_registration():
 
 def main():
     check_domains()
+    check_team_review()
     check_host()
+    check_content_script()
     check_registration()
     print(f"\n{'ALL PASSED' if not failures else f'{failures} FAILED'}  (home: {HOME})")
     sys.exit(1 if failures else 0)

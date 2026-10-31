@@ -147,7 +147,9 @@
     return all.find(isPassword) || all.find(isOtp) || all.find(isUsername) || null;
   }
 
-  function apply(what, values) {
+  function apply(what, values, origin) {
+    // Only the page the service matched: a frame that navigated to another site since keeps nothing.
+    if (location.origin !== origin) return { ok: false, error: msg('page_has_changed_try_again') };
     if (!frameUsable()) return { ok: false, error: msg('form_is_in_frame_too') };
     const field = target();
     const group = field && groupOf(field);
@@ -468,7 +470,7 @@
 
   ext.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== ext.runtime.id || !message) return false;
-    if (message.type === 'apply') sendResponse(apply(message.what, message.values || {}));
+    if (message.type === 'apply') sendResponse(apply(message.what, message.values || {}, message.origin));
     else if (message.type === 'frame_visible') sendResponse(frameVisible(message.url));
     else if (message.type === 'offer') { showOffer(message.offer); sendResponse(true); }
     else if (message.type === 'toast') { if (window === window.top) toast(message.text); sendResponse(true); }
