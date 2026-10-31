@@ -29,9 +29,9 @@ jobs:
     env:
       PYTHONIOENCODING: utf-8
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
           python-version: "3.12"
 
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
       - name: Build dependencies
         run: |
@@ -99,7 +99,7 @@ jobs:
           sudo apt-get purge -y -qq secretbroker
           test ! -e /var/lib/secretbroker
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: secretbroker-deb
           path: dist/secretbroker_*_amd64.deb
@@ -111,7 +111,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
       - name: Build the .pkg
         run: bash tools/build_macos.sh
@@ -128,9 +128,13 @@ jobs:
           test "$(stat -f '%Su %Lp' "$root/data")" = "_secretbroker 700"
           ! sudo -u nobody cat "$root/public/broker.json" 2>/dev/null
           /Applications/SecretBroker.app/Contents/Resources/python/bin/python3 -I -c "from secretbroker import client, paths; assert paths.is_installed(); print(client.request('status')['state'])"
+          # Root and the service never run code from /Applications (an admin's programs can replace it).
+          test "$(stat -f '%Su %Lp' /Library/PrivilegedHelperTools/com.secretbroker.setup)" = "root 755"
+          test "$(stat -f '%Su' "/Library/Application Support/SecretBroker/.runtime/python/bin/python3")" = root
+          pgrep -f "SecretBroker/.runtime/python/bin/python3 -I -m secretbroker.service" >/dev/null
           test -L /usr/local/bin/sb && test -f "$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.secretbroker.autofill.json"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: secretbroker-pkg
           path: dist/SecretBroker-*-macos-*.pkg
@@ -140,9 +144,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
           python-version: "3.12"
 
