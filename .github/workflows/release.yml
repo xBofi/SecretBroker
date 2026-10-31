@@ -65,6 +65,11 @@ jobs:
       - name: Platform layer
         run: $PY tests/test_platform.py
 
+      - name: Translations
+        run: $PY tools/check_locales.py
+        env:
+          PYTHONIOENCODING: utf-8
+
       - name: End-to-end tests
         run: $PY tests/test_e2e.py
 

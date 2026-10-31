@@ -156,12 +156,39 @@ def check_code():
     return problems
 
 
+# On macOS the page swaps «Windows Hello (PIN, …)» and «your PIN, …» for Touch ID's wording (app.js, osText): these
+# texts must contain the os.* phrases word for word, or the Mac would show Windows Hello's.
+TOUCH_ID_PHRASES = (
+    ("setup.windows_hello_pin_fingerprint_or", "Windows Hello ({os.hello_means})"),
+    ("settings.unlock_and_show_passwords_with", "{os.your_hello_means}"),
+)
+
+
+def check_touch_id(langs):
+    report = {}
+    for path in sorted((WEB / "locales").glob("*.json")):
+        lang = path.stem
+        if langs and lang not in langs and lang != "en":
+            continue
+        data, error = load(path)
+        if error:
+            continue
+        problems = []
+        for key, pattern in TOUCH_ID_PHRASES:
+            phrase = re.sub(r"\{(os\.\w+)\}", lambda m: str(data.get(m.group(1), m.group(0))), pattern)
+            if key in data and phrase not in str(data[key]):
+                problems.append(f"{key}: must contain «{phrase}» exactly as written (macOS replaces it with Touch ID's)")
+        report[lang] = problems
+    return report
+
+
 def main(argv):
     langs = set(argv)
     failed = False
     sections = [(name, check_catalog(name, folder, langs)) for name, folder in CATALOGS if folder.is_dir()]
     if EXTENSION.is_dir():
         sections.append(("extension", check_extension(langs)))
+    sections.append(("touch id", check_touch_id(langs)))
     for name, report in sections:
         for lang, problems in sorted(report.items()):
             errors = [p for p in problems if not p.startswith("warning:")]
