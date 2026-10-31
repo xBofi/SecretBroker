@@ -258,6 +258,7 @@ item says and what is deleted is signed with the author's Ed25519 key and checke
   `items[].deletion`. A client deletes its copy only if a pinned writer signed it with a `seq` above the one it
   knows; anything else is ignored (the credential stays; an editor's next edit writes it again over the tombstone),
   reported (`notes.unsigned`, a notice, `team_unsigned` in Actividad) and shown as an error of that collection.
+  Apps before 0.16 delete without signing, so a team should update every desktop together.
 * **Collections from before 0.16** have no list. The first sync of a manager whose PC trusts every member signs one
   with a re-key (which also signs the items); until then they work as before.
 * **Who did it.** Actividad records each incoming change (`team_add`, `team_update`, `team_review`,

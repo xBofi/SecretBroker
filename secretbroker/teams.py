@@ -1445,7 +1445,12 @@ class Team:
         waiting = {}
         with self._api(state) as api:
             self._refresh_me(api, state)
-            self._sync_account_data(api, state)
+            try:
+                self._sync_account_data(api, state)
+            except TeamError as exc:
+                if exc.code in ("offline", "reconnect"):
+                    raise
+                print(f"team account data: {detail(exc)}", file=sys.stderr)  # pins stay as they are here
             state["orgs"] = {r["id"]: {"name": r["name"], "role": r["role"], "status": r.get("status")}
                              for r in api.call("GET", "/orgs")}
             listed = api.call("GET", "/collections")

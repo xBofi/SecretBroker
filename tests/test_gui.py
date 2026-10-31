@@ -32,8 +32,16 @@ MASTER = "una contraseña de prueba larga"
 ACCOUNT = "cuenta del equipo de prueba 42"
 failures = 0
 # A local SecretBroker Server for the teams flow (plain http only because it is on this PC).
-os.environ.update(SB_ALLOW_HTTP="1", SB_PUBLIC_URL="http://127.0.0.1", SB_SIGNUPS="open", SB_DATA_DIR=str(HOME / "server"))
+os.environ.update(SB_ALLOW_HTTP="1", SB_PUBLIC_URL="http://127.0.0.1", SB_SIGNUPS="open", SB_DATA_DIR=str(HOME / "server"),
+                  SB_EMAIL_VERIFICATION="required", SB_SMTP_HOST="smtp.example", SB_SMTP_FROM="secrets@example.com")
 sys.path.insert(0, str(ROOT / "server"))
+OUTBOX = []  # what the team server would e-mail (verification codes)
+
+
+def email_code(address):
+    import re
+    found = wait_for(lambda: [m for m in OUTBOX if m["To"] == address], 10, 0.05)
+    return re.search(r"\b(\d{8})\b", found[-1].get_content()).group(1) if found else ""
 
 
 def check(condition, message):
@@ -195,8 +203,10 @@ def fake_psql():
 
 def start_team_server():
     import uvicorn
-    from secretbroker_server import config
+    from secretbroker_server import config, mail
     from secretbroker_server.web import create_app
+
+    mail.deliver = lambda settings, msg: OUTBOX.append(msg)
 
     port = free_port()
     server = uvicorn.Server(uvicorn.Config(create_app(config.from_env()), host="127.0.0.1", port=port, log_level="warning"))
@@ -1156,6 +1166,13 @@ def teams_flow(page, env):
     check(len(code.split()) == 8 and code.replace(" ", "").isdigit() and code in page.text(), f"the code is groups of digits ({code})")
     check("Confirma que eres tú" not in page.text(), "linking the account asked no other password")
     check(wait_for(lambda: "Sincronizado" in page.text() or "Sin sincronizar" in page.text(), 10), "the sync state shows")
+    check(wait_for(lambda: "Verifica tu e-mail" in page.text() and "alicia@example.com" in page.text(), 10),
+          "a new account is asked to verify its e-mail (invites only reach verified addresses)")
+    calm_shot(page, "12-team-verify")
+    fill(page, "12345678", email_code("alicia@example.com"))
+    page.click("Verificar")
+    check(wait_for(lambda: "E-mail verificado" in page.text() and "Verifica tu e-mail" not in page.text(), 15),
+          "typing the code from the e-mail verifies it, once")
     calm_shot(page, "12-team-no-org")
 
     fill(page, "Nombre del equipo o la empresa", "Acme")
@@ -1172,6 +1189,7 @@ def teams_flow(page, env):
     presence = bob.handle("create_vault", {"master_password": MASTER})["result"]["presence"]
     act = lambda op, **params: bob.handle(op, {**params, "proof": {"kind": "presence", "token": presence}})
     bob_status = act("team_connect", server_url=TEAM_URL, email="bob@example.com", password=ACCOUNT, mode="register", name="Bob")["result"]
+    act("team_verify_email", code=email_code("bob@example.com"))
     check(tab(page, "Personas"), "the Personas tab")
     check(wait_for(lambda: "SecretBroker no envía e-mails" in page.text(), 10), "inviting says honestly that no e-mail is sent")
     fill(page, "e-mail de la persona", "bob@example.com")
