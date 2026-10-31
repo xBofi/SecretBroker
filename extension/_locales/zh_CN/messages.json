@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "2FA 验证码"
+  },
+  "2fa_code_copied": {
+    "message": "2FA 验证码已复制"
+  },
+  "browser": {
+    "message": "浏览器"
+  },
+  "can_talk_secretbroker": {
+    "message": "无法与 SecretBroker 通信。"
+  },
+  "can_talk_secretbroker_2": {
+    "message": "无法与 SecretBroker 通信"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "无法与 SecretBroker 通信。请打开它后重试。"
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "确认 SecretBroker 显示的是同一个代码，然后点击“连接”。"
+  },
+  "cmd_fill": {
+    "message": "填充此网站的登录信息"
+  },
+  "cmd_open": {
+    "message": "打开 SecretBroker"
+  },
+  "code": {
+    "message": "代码"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "在 SecretBroker 中确认"
+  },
+  "connect": {
+    "message": "连接 $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "连接此浏览器"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "连接此浏览器：点击浏览器工具栏中的 SecretBroker 图标，然后点击“连接”。"
+  },
+  "copy_2fa_code": {
+    "message": "复制 2FA 验证码"
+  },
+  "copy_password": {
+    "message": "复制密码"
+  },
+  "copy_username": {
+    "message": "复制用户名"
+  },
+  "couldn_connect": {
+    "message": "无法连接。"
+  },
+  "couldn_copy": {
+    "message": "无法复制"
+  },
+  "couldn_fill_it_in": {
+    "message": "无法填充"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "找不到要填充的位置。"
+  },
+  "couldn_look_it_up": {
+    "message": "无法查找。"
+  },
+  "couldn_save": {
+    "message": "无法保存"
+  },
+  "create_your_vault_first": {
+    "message": "请先创建你的保险库"
+  },
+  "ext_description": {
+    "message": "填充你保存在 SecretBroker 中的密码，仅限其对应的网站，且仅在你要求时。"
+  },
+  "fill_in": {
+    "message": "填充"
+  },
+  "fill_in_on": {
+    "message": "在 $host$ 上填充",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "用 SecretBroker 填充"
+  },
+  "fill_in_without_opening_this": {
+    "message": "无需打开此窗口即可填充"
+  },
+  "form_from": {
+    "message": "表单来自"
+  },
+  "form_is_in_frame_too": {
+    "message": "表单位于一个小到看不见的框架中：不会填充。"
+  },
+  "form_is_in_hidden_or": {
+    "message": "表单位于隐藏或非常小的框架中：不会填充。"
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "安装 SecretBroker 并打开“设置 › 浏览器”。如果你刚安装，请重启浏览器。"
+  },
+  "it_no_longer_pending": {
+    "message": "它已不再待处理。"
+  },
+  "it_only_fills_in_on": {
+    "message": "只在每个密码对应的网站上填充。"
+  },
+  "loading": {
+    "message": "正在加载"
+  },
+  "name": {
+    "message": "名称"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "$domain$ 的凭据都没有 2FA 验证码。",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· 无 https"
+  },
+  "no_username": {
+    "message": "无用户名"
+  },
+  "not_now": {
+    "message": "以后再说"
+  },
+  "nothing_matches": {
+    "message": "没有匹配项。"
+  },
+  "nothing_saved_for": {
+    "message": "$domain$ 没有保存任何内容。",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "$domain$ 没有保存任何内容。登录后我会提示你保存。",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "在其他网站上"
+  },
+  "on_this_website": {
+    "message": "在此网站上"
+  },
+  "open": {
+    "message": "打开 $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "请打开它后重试。"
+  },
+  "open_it_can_be_filled": {
+    "message": "打开 $host$（可以在那里填充）",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "打开 SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "打开 SecretBroker 并创建保险库来保存密码。"
+  },
+  "open_website_see_its_passwords": {
+    "message": "打开一个网站以查看其密码。"
+  },
+  "open_website_you_want_sign": {
+    "message": "打开你要登录的网站。"
+  },
+  "page_has_changed_try_again": {
+    "message": "页面已更改。请重试。"
+  },
+  "password_copied": {
+    "message": "密码已复制"
+  },
+  "password_updated": {
+    "message": "密码已更新"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "已在 SecretBroker 中更新密码"
+  },
+  "save": {
+    "message": "保存"
+  },
+  "save_this_login": {
+    "message": "保存此登录信息？"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "将此密码保存到 SecretBroker？"
+  },
+  "saved": {
+    "message": "已保存"
+  },
+  "saved_for": {
+    "message": "已为 $site$ 保存",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "已保存到 SecretBroker"
+  },
+  "search": {
+    "message": "搜索"
+  },
+  "search_secretbroker": {
+    "message": "搜索 SecretBroker"
+  },
+  "searching": {
+    "message": "正在搜索…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker 没有及时响应。"
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker 已锁定。"
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker 已锁定"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker 已锁定。请解锁后重试。"
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "这台电脑上没有 SecretBroker"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "这台电脑上没有安装 SecretBroker，或者它还需要与浏览器连接。"
+  },
+  "that_way_it_can_fill": {
+    "message": "这样它就能填充你的密码。SecretBroker 会请你一键确认。"
+  },
+  "there_are_no_saved_logins": {
+    "message": "$domain$ 没有保存的登录信息。",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "此页面上没有可见的 2FA 验证码字段。"
+  },
+  "there_no_visible_login_form": {
+    "message": "此页面上没有可见的登录表单。"
+  },
+  "this_page_can_be_filled": {
+    "message": "无法填充此页面。"
+  },
+  "this_team_credential_is_use": {
+    "message": "此团队凭据为仅限使用：不会在浏览器中填充。"
+  },
+  "unlock": {
+    "message": "解锁"
+  },
+  "unlock_it_and_click_here": {
+    "message": " 解锁后再次点击这里。"
+  },
+  "unlock_it_fill_in_your": {
+    "message": "解锁后即可填充你的密码。"
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "解锁 SecretBroker，然后再次点击“连接”。"
+  },
+  "update": {
+    "message": "更新"
+  },
+  "update_password": {
+    "message": "更新“$name$”的密码？",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "仅限使用：不会填充"
+  },
+  "use_only_on_team_not": {
+    "message": "团队中仅限使用：不会填充"
+  },
+  "use_only_team_credential_filling": {
+    "message": "仅限使用的团队凭据：填充会将其暴露给页面"
+  },
+  "use_only_team_credentials_can": {
+    "message": "仅限使用的团队凭据可以由 AI 使用，但不会显示：填充会把它交给页面。"
+  },
+  "username_copied": {
+    "message": "用户名已复制"
+  },
+  "you_re_on": {
+    "message": "当前网站"
+  }
+}

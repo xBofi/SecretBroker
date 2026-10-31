@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "Kodiċi 2FA"
+  },
+  "2fa_code_copied": {
+    "message": "Kodiċi 2FA kkupjat"
+  },
+  "browser": {
+    "message": "Browser"
+  },
+  "can_talk_secretbroker": {
+    "message": "Ma nistgħux nitkellmu ma' SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Ma nistgħux nitkellmu ma' SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Ma nistgħux nitkellmu ma' SecretBroker. Iftħu u erġa' pprova."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Iċċekkja li SecretBroker juri l-istess kodiċi u kklikkja “Qabbad”."
+  },
+  "cmd_fill": {
+    "message": "Imla l-login għal dan is-sit"
+  },
+  "cmd_open": {
+    "message": "Iftaħ SecretBroker"
+  },
+  "code": {
+    "message": "Kodiċi"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Ikkonfermah f'SecretBroker"
+  },
+  "connect": {
+    "message": "Qabbad $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Qabbad dan il-browser"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Qabbad dan il-browser: ikklikkja l-ikona ta' SecretBroker fit-toolbar tal-browser, imbagħad “Qabbad”."
+  },
+  "copy_2fa_code": {
+    "message": "Ikkopja l-kodiċi 2FA"
+  },
+  "copy_password": {
+    "message": "Ikkopja l-password"
+  },
+  "copy_username": {
+    "message": "Ikkopja l-isem tal-utent"
+  },
+  "couldn_connect": {
+    "message": "Ma setax jikkonnettja."
+  },
+  "couldn_copy": {
+    "message": "Ma setax jiġi kkupjat"
+  },
+  "couldn_fill_it_in": {
+    "message": "Ma setax jimtela"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Ma sibniex fejn għandu jimtela."
+  },
+  "couldn_look_it_up": {
+    "message": "Ma setax jiġi mfittex."
+  },
+  "couldn_save": {
+    "message": "Ma setax jiġi ssejvjat"
+  },
+  "create_your_vault_first": {
+    "message": "L-ewwel oħloq il-kaxxa-forti tiegħek"
+  },
+  "ext_description": {
+    "message": "Timla l-passwords li żżomm f'SecretBroker, biss fis-sit tagħhom u biss meta titlob int."
+  },
+  "fill_in": {
+    "message": "Imla"
+  },
+  "fill_in_on": {
+    "message": "Imla fuq $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Imla b'SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Imla mingħajr ma tiftaħ din it-tieqa"
+  },
+  "form_from": {
+    "message": "Formola minn"
+  },
+  "form_is_in_frame_too": {
+    "message": "Il-formola tinsab f'frame żgħir wisq biex jidher: ma timtliex."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Il-formola tinsab f'frame moħbi jew żgħir ħafna: ma timtliex."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Installa SecretBroker u iftaħ Issettjar › Browser. Jekk għadek kif installajtu, erġa' ibda l-browser."
+  },
+  "it_no_longer_pending": {
+    "message": "M'għadhiex pendenti."
+  },
+  "it_only_fills_in_on": {
+    "message": "Timla biss fis-sit ta' kull password."
+  },
+  "loading": {
+    "message": "Qed jitgħabba"
+  },
+  "name": {
+    "message": "Isem"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "L-ebda kredenzjali għal $domain$ m'għandha kodiċi 2FA.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· mingħajr https"
+  },
+  "no_username": {
+    "message": "Mingħajr isem tal-utent"
+  },
+  "not_now": {
+    "message": "Mhux issa"
+  },
+  "nothing_matches": {
+    "message": "Xejn ma jaqbel."
+  },
+  "nothing_saved_for": {
+    "message": "Xejn issejvjat għal $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Xejn issejvjat għal $domain$. Idħol u noffrilek li nissejvjah.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Fuq siti oħra"
+  },
+  "on_this_website": {
+    "message": "Fuq dan is-sit"
+  },
+  "open": {
+    "message": "Iftaħ $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Iftħu u erġa' pprova."
+  },
+  "open_it_can_be_filled": {
+    "message": "Iftaħ $host$ (jista' jimtela hemmhekk)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Iftaħ SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Iftaħ SecretBroker u oħloq il-kaxxa-forti tiegħek biex tissejvja l-passwords."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Iftaħ sit biex tara l-passwords tiegħu."
+  },
+  "open_website_you_want_sign": {
+    "message": "Iftaħ is-sit li trid tidħol fih."
+  },
+  "page_has_changed_try_again": {
+    "message": "Il-paġna nbidlet. Erġa' pprova."
+  },
+  "password_copied": {
+    "message": "Password ikkupjata"
+  },
+  "password_updated": {
+    "message": "Password aġġornata"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Password aġġornata f'SecretBroker"
+  },
+  "save": {
+    "message": "Issejvja"
+  },
+  "save_this_login": {
+    "message": "Tissejvja dan il-login?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Tissejvja din il-password f'SecretBroker?"
+  },
+  "saved": {
+    "message": "Issejvjata"
+  },
+  "saved_for": {
+    "message": "Issejvjata għal $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Issejvjata f'SecretBroker"
+  },
+  "search": {
+    "message": "Fittex"
+  },
+  "search_secretbroker": {
+    "message": "Fittex f'SecretBroker"
+  },
+  "searching": {
+    "message": "Qed infittxu…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker ma wieġebx fil-ħin."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker huwa bblokkat."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker huwa bblokkat"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker huwa bblokkat. Iżblokkah u erġa' pprova."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "SecretBroker nieqes fuq dan il-kompjuter"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker mhuwiex installat fuq dan il-kompjuter, jew għad irid jitqabbad mal-browser."
+  },
+  "that_way_it_can_fill": {
+    "message": "B'hekk tkun tista' timla l-passwords tiegħek. SecretBroker jitolbok tikkonfermah bi klikk waħda."
+  },
+  "there_are_no_saved_logins": {
+    "message": "M'hemmx logins issejvjati għal $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "M'hemmx qasam viżibbli għall-kodiċi 2FA f'din il-paġna."
+  },
+  "there_no_visible_login_form": {
+    "message": "M'hemmx formola tal-login viżibbli f'din il-paġna."
+  },
+  "this_page_can_be_filled": {
+    "message": "Din il-paġna ma tistax timtela."
+  },
+  "this_team_credential_is_use": {
+    "message": "Din il-kredenzjali tat-tim hija għall-użu biss: ma timtliex fil-browser."
+  },
+  "unlock": {
+    "message": "Iżblokka"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Iżblokkah u erġa' kklikkja hawn."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Iżblokkah biex timla l-passwords tiegħek."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Iżblokka SecretBroker u erġa' kklikkja “Qabbad”."
+  },
+  "update": {
+    "message": "Aġġorna"
+  },
+  "update_password": {
+    "message": "Taġġorna l-password ta' “$name$”?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Użu biss: ma timtliex"
+  },
+  "use_only_on_team_not": {
+    "message": "Użu biss fit-tim: ma timtliex"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Kredenzjali tat-tim għall-użu biss: jekk timtela turiha lill-paġna"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Il-kredenzjali tat-tim għall-użu biss jistgħu jintużaw mill-IA, iżda ma jintwerewx: jekk timtela tagħtiha lill-paġna."
+  },
+  "username_copied": {
+    "message": "Isem tal-utent ikkupjat"
+  },
+  "you_re_on": {
+    "message": "Qiegħed fuq"
+  }
+}

@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "Cód 2FA"
+  },
+  "2fa_code_copied": {
+    "message": "Cód 2FA cóipeáilte"
+  },
+  "browser": {
+    "message": "Brabhsálaí"
+  },
+  "can_talk_secretbroker": {
+    "message": "Ní féidir labhairt le SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Ní féidir labhairt le SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Ní féidir labhairt le SecretBroker. Oscail é agus bain triail eile as."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Seiceáil go dtaispeánann SecretBroker an cód céanna seo agus cliceáil “Ceangail”."
+  },
+  "cmd_fill": {
+    "message": "Líon isteach an logáil isteach don suíomh seo"
+  },
+  "cmd_open": {
+    "message": "Oscail SecretBroker"
+  },
+  "code": {
+    "message": "Cód"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Deimhnigh in SecretBroker é"
+  },
+  "connect": {
+    "message": "Ceangail $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Ceangail an brabhsálaí seo"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Ceangail an brabhsálaí seo: cliceáil deilbhín SecretBroker i mbarra uirlisí an bhrabhsálaí, ansin “Ceangail”."
+  },
+  "copy_2fa_code": {
+    "message": "Cóipeáil an cód 2FA"
+  },
+  "copy_password": {
+    "message": "Cóipeáil an pasfhocal"
+  },
+  "copy_username": {
+    "message": "Cóipeáil an t-ainm úsáideora"
+  },
+  "couldn_connect": {
+    "message": "Níorbh fhéidir ceangal."
+  },
+  "couldn_copy": {
+    "message": "Níorbh fhéidir cóipeáil"
+  },
+  "couldn_fill_it_in": {
+    "message": "Níorbh fhéidir é a líonadh isteach"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Níorbh fhéidir a aimsiú cá líonfaí isteach é."
+  },
+  "couldn_look_it_up": {
+    "message": "Níorbh fhéidir é a lorg."
+  },
+  "couldn_save": {
+    "message": "Níorbh fhéidir sábháil"
+  },
+  "create_your_vault_first": {
+    "message": "Cruthaigh do thaisceadán ar dtús"
+  },
+  "ext_description": {
+    "message": "Líonann sí isteach na pasfhocail a choinníonn tú in SecretBroker, ar a suíomh féin amháin agus nuair a iarrann tú é amháin."
+  },
+  "fill_in": {
+    "message": "Líon isteach"
+  },
+  "fill_in_on": {
+    "message": "Líon isteach ar $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Líon isteach le SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Líon isteach gan an fhuinneog seo a oscailt"
+  },
+  "form_from": {
+    "message": "Foirm ó"
+  },
+  "form_is_in_frame_too": {
+    "message": "Tá an fhoirm i bhfráma atá róbheag le feiceáil: ní líontar isteach í."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Tá an fhoirm i bhfráma folaithe nó an-bheag: ní líontar isteach í."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Suiteáil SecretBroker agus oscail Socruithe › Brabhsálaí. Má tá sé díreach suiteáilte agat, atosaigh an brabhsálaí."
+  },
+  "it_no_longer_pending": {
+    "message": "Níl sé ar feitheamh a thuilleadh."
+  },
+  "it_only_fills_in_on": {
+    "message": "Ní líonann sí isteach ach ar shuíomh gach pasfhocail féin."
+  },
+  "loading": {
+    "message": "Á lódáil"
+  },
+  "name": {
+    "message": "Ainm"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Níl cód 2FA ag aon dintiúr do $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· gan https"
+  },
+  "no_username": {
+    "message": "Gan ainm úsáideora"
+  },
+  "not_now": {
+    "message": "Ní anois"
+  },
+  "nothing_matches": {
+    "message": "Níl aon rud comhoiriúnach."
+  },
+  "nothing_saved_for": {
+    "message": "Níl aon rud sábháilte do $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Níl aon rud sábháilte do $domain$. Sínigh isteach agus tairgfidh mé é a shábháil.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Ar shuíomhanna eile"
+  },
+  "on_this_website": {
+    "message": "Ar an suíomh seo"
+  },
+  "open": {
+    "message": "Oscail $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Oscail é agus bain triail eile as."
+  },
+  "open_it_can_be_filled": {
+    "message": "Oscail $host$ (is féidir é a líonadh isteach ansin)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Oscail SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Oscail SecretBroker agus cruthaigh do thaisceadán chun pasfhocail a shábháil."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Oscail suíomh gréasáin chun a phasfhocail a fheiceáil."
+  },
+  "open_website_you_want_sign": {
+    "message": "Oscail an suíomh ar mian leat síniú isteach ann."
+  },
+  "page_has_changed_try_again": {
+    "message": "D'athraigh an leathanach. Bain triail eile as."
+  },
+  "password_copied": {
+    "message": "Pasfhocal cóipeáilte"
+  },
+  "password_updated": {
+    "message": "Pasfhocal nuashonraithe"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Pasfhocal nuashonraithe in SecretBroker"
+  },
+  "save": {
+    "message": "Sábháil"
+  },
+  "save_this_login": {
+    "message": "Sábháil an logáil isteach seo?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Sábháil an pasfhocal seo in SecretBroker?"
+  },
+  "saved": {
+    "message": "Sábháilte"
+  },
+  "saved_for": {
+    "message": "Sábháilte do $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Sábháilte in SecretBroker"
+  },
+  "search": {
+    "message": "Cuardaigh"
+  },
+  "search_secretbroker": {
+    "message": "Cuardaigh SecretBroker"
+  },
+  "searching": {
+    "message": "Á chuardach…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "Níor fhreagair SecretBroker in am."
+  },
+  "secretbroker_is_locked": {
+    "message": "Tá SecretBroker glasáilte."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "Tá SecretBroker glasáilte"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "Tá SecretBroker glasáilte. Díghlasáil é agus bain triail eile as."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "Tá SecretBroker ar iarraidh ar an ríomhaire seo"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "Níl SecretBroker suiteáilte ar an ríomhaire seo, nó ní mór é a cheangal leis an mbrabhsálaí fós."
+  },
+  "that_way_it_can_fill": {
+    "message": "Ar an mbealach sin is féidir léi do phasfhocail a líonadh isteach. Iarrfaidh SecretBroker ort é a dheimhniú le cliceáil amháin."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Níl aon logáil isteach sábháilte do $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Níl aon réimse cóid 2FA le feiceáil ar an leathanach seo."
+  },
+  "there_no_visible_login_form": {
+    "message": "Níl aon fhoirm logála isteach le feiceáil ar an leathanach seo."
+  },
+  "this_page_can_be_filled": {
+    "message": "Ní féidir an leathanach seo a líonadh isteach."
+  },
+  "this_team_credential_is_use": {
+    "message": "Tá an dintiúr foirne seo le húsáid amháin: ní líontar isteach sa bhrabhsálaí é."
+  },
+  "unlock": {
+    "message": "Díghlasáil"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Díghlasáil é agus cliceáil anseo arís."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Díghlasáil é chun do phasfhocail a líonadh isteach."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Díghlasáil SecretBroker agus cliceáil “Ceangail” arís."
+  },
+  "update": {
+    "message": "Nuashonraigh"
+  },
+  "update_password": {
+    "message": "Nuashonraigh pasfhocal “$name$”?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Úsáid amháin: ní líontar isteach é"
+  },
+  "use_only_on_team_not": {
+    "message": "Úsáid amháin san fhoireann: ní líontar isteach é"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Dintiúr foirne le húsáid amháin: dá líonfaí isteach é thaispeánfaí don leathanach é"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Is féidir leis an IS dintiúir foirne le húsáid amháin a úsáid, ach ní thaispeántar iad: dá líonfaí isteach é thabharfaí don leathanach é."
+  },
+  "username_copied": {
+    "message": "Ainm úsáideora cóipeáilte"
+  },
+  "you_re_on": {
+    "message": "Tá tú ar"
+  }
+}
