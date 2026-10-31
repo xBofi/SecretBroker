@@ -211,6 +211,10 @@ def run(app, env, devtools, api_port, client, integrations):
     hwnd = wait_for(lambda: app_window(pid))
     check(hwnd and visible(hwnd), "the window opens")
     check(wait_for(lambda: "Tus claves, usadas sin ser vistas" in page.text()), "first screen: create a vault")
+    welcome = page.text()
+    check("Apruebas con un clic, una vez o para todo el día" in welcome and "este equipo" not in welcome
+          and "Restaurar una copia" in welcome and "Importar de otro gestor" in welcome,
+          "the welcome says approvals are one click, and offers restoring or importing")
     page.shot("01-welcome")
 
     print("Create the vault and a credential")
@@ -239,6 +243,7 @@ def run(app, env, devtools, api_port, client, integrations):
     check("Copia diaria automática" in page.js("state.view = 'settings'; renderMain(); new Promise(r => setTimeout(() => r(document.body.innerText), 800))"),
           "settings show backups")
     check("Importar de otro gestor" in page.text() and "Exportar" in page.text(), "settings offer import and export")
+    shell_checks(page)
 
     print("Generator and health")
     page.js("openGenerator()")
@@ -447,7 +452,15 @@ def run(app, env, devtools, api_port, client, integrations):
     check(enabled and enabled["ok"] and (HOME / "user" / "session.bin").exists(), "turned on; the token is kept for this Windows user")
     page.js("lockNow()")
     check(wait_for(lambda: "Abrir con mi sesión de Windows" in page.text(), 5), "the lock screen offers one click")
+    check(page.js("document.querySelector('.auth .btn.primary').innerText.trim()") == "Abrir con mi sesión de Windows"
+          and "Contraseña maestra" not in page.js("document.querySelector('.auth').innerText")
+          and page.js("document.activeElement === document.querySelector('.auth .btn.primary')"),
+          "one primary way, focused; the password is folded under «Otras formas de desbloquear»")
     page.shot("09-lock-session")
+    page.js("document.querySelector('details.other-unlock').open = true")
+    check(wait_for(lambda: page.js("!!document.querySelector('details.other-unlock input[type=password]').offsetParent"), 5),
+          "the other ways are one click away")
+    page.shot("09-lock-other-ways")
     page.click("Abrir con mi sesión de Windows")
     check(wait_for(lambda: client.request("status")["state"] == "unlocked", 10), "one click opens it, no password")
 
@@ -485,6 +498,84 @@ def calm_shot(page, name):
     page.js("document.getElementById('toasts').replaceChildren()")
     time.sleep(0.4)
     page.shot(name)
+
+
+def shell_checks(page):
+    """The app shell: status dot, toasts, dialogs, the AI's access, Ajustes, Actividad, both themes."""
+    print("App shell")
+    page.js("state.view = 'credentials'; renderMain()")
+    check(wait_for(lambda: page.js("!!document.querySelector('#sidebar-state .dot')"), 5)
+          and page.js("document.querySelector('#sidebar-state .dot').className.trim()") == "dot",
+          "unlocked with nothing to do: the status dot is not amber")
+
+    page.js("['Guardado', 'Guardado', 'Guardado', 'Uno', 'Dos', 'Tres'].forEach((m) => toast(m)); toast('Falló', 'error')")
+    toasts = page.js("[...document.querySelectorAll('#toasts .toast')].map((t) => t.innerText.trim())")
+    check(len(toasts) == 3 and toasts[-1] == "Falló", f"at most three toasts, the newest last ({toasts})")
+    page.js("document.getElementById('toasts').replaceChildren(); toast('Guardado'); toast('Guardado'); toast('Guardado')")
+    check(page.js("document.querySelectorAll('#toasts .toast').length") == 1
+          and "×3" in page.js("document.querySelector('#toasts .toast').innerText"), "the same message merges into one (×3)")
+    box = page.js("(() => { const r = document.querySelector('#toasts .toast').getBoundingClientRect(); return [r.right, r.bottom, innerWidth, innerHeight]; })()")
+    check(box[2] - box[0] < 40 and box[3] - box[1] < 40, f"toasts sit bottom right ({box})")
+    check(page.js("getComputedStyle(document.getElementById('toasts')).pointerEvents") == "none"
+          and page.js("!!document.querySelector('#toasts .toast .close') && !!document.querySelector('#toasts .toast .icon')"),
+          "only the toasts take clicks; each has an icon and a close button")
+    page.js("document.querySelectorAll('.nav button')[4].click()")
+    check(wait_for(lambda: page.js("!document.querySelector('#toasts .toast')"), 3), "changing view clears the toasts")
+
+    print("Dialogs")
+    page.js("""(() => { const a = openModal({ title: 'Paso 1', body: el('p', {}, 'uno') }); a.close();
+      openModal({ title: 'Un título muy largo que no cabe en la cabecera del diálogo y tiene que acabar con puntos suspensivos', body: el('p', {}, 'dos') }); })()""")
+    check(page.js("document.querySelectorAll('#modal-root > *').length") == 1 and page.js("!!document.querySelector('.overlay.continued')"),
+          "a step that replaces a dialog keeps the same scrim (no flash)")
+    title = page.js("(() => { const h = document.querySelector('.modal-head h2'); return [h.scrollWidth > h.clientWidth, getComputedStyle(h).textOverflow]; })()")
+    check(title == [True, "ellipsis"], f"a long dialog title ends in an ellipsis ({title})")
+    page.shot("03-dialog-dark")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    check(wait_for(lambda: page.js("!document.querySelector('#modal-root > *')"), 3), "and the scrim goes once the last one closes")
+
+    print("The AI's access")
+    page.js("state.view = 'access'; renderMain()")
+    check(wait_for(lambda: page.js("document.querySelectorAll('.ai-row').length") >= 6, 10), "one row per capability")
+    text = page.text()
+    check("Valor recomendado" not in text and all(g in text for g in ("Usar", "Modificar", "Publicar")),
+          "grouped (Usar · Modificar · Publicar), without a subtitle on rows left as recommended")
+    check(page.js("[...document.querySelectorAll('.ai-grid-head span[title]')].length") == 4,
+          "the levels are explained once, as column tooltips")
+    check(page.js("document.querySelectorAll('.ai-row input[type=radio]:checked').length") == page.js("document.querySelectorAll('.ai-row').length"),
+          "each row has its level checked")
+
+    print("Ajustes")
+    page.js("state.view = 'settings'; renderMain()")
+    wait_for(lambda: "Bloqueo automático" in page.text(), 10)
+    widths = page.js("[...document.querySelectorAll('.setting > .control > select, .setting > .control > span > select')].map((s) => s.offsetWidth)")
+    check(len(widths) >= 4 and len(set(widths)) == 1, f"the selects in Ajustes have one width ({widths})")
+    rights = page.js("[...document.querySelectorAll('.settings-group:first-of-type .setting > .control')].map((c) => Math.round(c.getBoundingClientRect().right))")
+    check(len(set(rights)) == 1, f"and the controls line up on the right ({rights})")
+
+    print("Actividad")
+    page.js("state.view = 'activity'; renderMain()")
+    check(wait_for(lambda: page.js("!!document.querySelector('.event')"), 10), "the activity lists events")
+    check(page.js("document.querySelector('.day-head').innerText.trim()") == "Hoy", "grouped by day")
+    check(page.js("[...document.querySelectorAll('.event .actor')].every((a) => a.innerText.trim() === 'Tú')"), "who did it: you")
+    check(page.js("!document.querySelector('.event .chip')"), "nothing failed: no result column noise")
+    page.click("IA", ".activity-filters .tag")
+    check(wait_for(lambda: "Nada así" in page.text(), 5), "the IA filter leaves out what you did")
+    page.click("Todo", ".activity-filters .tag")
+    page.shot("05-activity")
+
+    # The light theme, like Windows set to light.
+    page.send("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": "light"}])
+    page.js("state.view = 'credentials'; renderMain()")
+    time.sleep(0.4)
+    page.shot("02-credentials-light")
+    page.js("openModal({ title: 'Diálogo', body: el('p', {}, 'En el tema claro'), footer: [el('button', { class: 'btn' }, 'Cancelar'), el('button', { class: 'btn primary' }, 'Aceptar')] })")
+    time.sleep(0.3)
+    page.shot("03-dialog-light")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    check(page.js("getComputedStyle(document.querySelector('.nav button.active .icon')).color")
+          != page.js("getComputedStyle(document.body).color"), "the current view is marked in the interactive colour, not the text colour")
+    page.send("Emulation.setEmulatedMedia", features=[])
+    wait_for(lambda: page.js("!document.querySelector('#modal-root > *')"), 3)
 
 
 def teams_flow(page):

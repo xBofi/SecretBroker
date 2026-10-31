@@ -37,10 +37,36 @@ function glyph(templateId, size = '') {
   return el('div', { class: `glyph ${t.icon} ${size}` }, icon(t.icon, size === 'lg' ? 'lg' : ''));
 }
 
+// Bottom right, at most three; the same message again counts up (×2) instead of stacking.
+// kind: '' (done), 'info', 'warning' or 'error'.
+const TOAST_ICONS = { '': 'check', info: 'info', warning: 'alert', error: 'alert' };
+const MAX_TOASTS = 3;
+
 function toast(message, kind = '') {
-  const node = el('div', { class: `toast ${kind}` }, kind === 'error' ? icon('alert', 'sm') : null, message);
-  document.getElementById('toasts').append(node);
-  setTimeout(() => node.remove(), kind === 'error' ? 6000 : 2800);
+  const root = document.getElementById('toasts');
+  const text = String(message);
+  const life = kind === 'error' ? 6000 : 2800;
+  let node = [...root.children].find((t) => t.dataset.kind === kind && t.dataset.text === text);
+  if (node) {
+    node.count += 1;
+    node.querySelector('.times').textContent = `×${node.count}`;
+    root.append(node);  // the newest goes last, nearest the corner
+  } else {
+    node = el('div', { class: `toast ${kind ? `is-${kind}` : ''}`, role: kind === 'error' ? 'alert' : null, 'data-kind': kind, 'data-text': text },
+      icon(TOAST_ICONS[kind] || 'info', 'sm'),
+      el('div', { class: 'message' }, text, el('span', { class: 'times' })),
+      el('button', { class: 'close', type: 'button', title: 'Cerrar', 'aria-label': 'Cerrar', onclick: () => node.remove() }, icon('x', 'sm')));
+    node.count = 1;
+    root.append(node);
+    while (root.children.length > MAX_TOASTS) root.firstElementChild.remove();
+  }
+  clearTimeout(node.timer);
+  node.timer = setTimeout(() => node.remove(), life);
+}
+
+function clearToasts() {
+  const root = document.getElementById('toasts');
+  if (root) root.replaceChildren();
 }
 
 function busy(button, on) {
@@ -196,12 +222,12 @@ function applyPalette(name) {
 }
 
 function onShortcut(event) {
-  const modalRoot = document.getElementById('modal-root');
-  if (event.key === 'Escape' && modalRoot.lastElementChild) {
-    modalRoot.lastElementChild.dispatchEvent(new CustomEvent('dismiss'));
+  const top = openOverlays().pop();
+  if (event.key === 'Escape' && top) {
+    top.dispatchEvent(new CustomEvent('dismiss'));
     return;
   }
-  if (state.screen !== 'main' || modalRoot.lastElementChild || !event.ctrlKey) return;
+  if (state.screen !== 'main' || top || !event.ctrlKey) return;
   const key = event.key.toLowerCase();
   if (key === 'f') { event.preventDefault(); state.view = 'credentials'; renderMain(); document.querySelector('.search .input')?.focus(); }
   else if (key === 'n') { event.preventDefault(); openEditor(null); }
@@ -236,7 +262,7 @@ async function refreshStatus() {
     state.screen = target;
     closeAllModals();
     if (target === 'setup') renderSetup();
-    else if (target === 'lock') { state.info.session_unlock_here = await api().has_session_unlock(); renderLock(); }
+    else if (target === 'lock') { clearToasts(); state.info.session_unlock_here = await api().has_session_unlock(); renderLock(); }
     else await enterMain();
   } else if (target === 'main') {
     updateSidebarState();
@@ -250,7 +276,7 @@ function renderUnavailable(message) {
       el('div', { class: 'auth-head' }, brand(), el('h2', {}, 'No se puede conectar con el servicio')),
       el('p', { class: 'lead' }, message || 'El servicio SecretBroker no responde.'),
       el('p', { class: 'help' }, state.info && state.info.installed
-        ? 'El servicio arranca con Windows. Si acabas de instalar, espera unos segundos o reinicia el equipo.'
+        ? 'El servicio arranca con Windows. Si acabas de instalar, espera unos segundos o reinicia el PC.'
         : 'Reintentando…'))));
 }
 
@@ -267,23 +293,39 @@ function closeAllModals() {
   state.approvalOpen = null;
 }
 
+// The open dialogs, oldest first (without a scrim that is fading out).
+function openOverlays() {
+  return [...document.getElementById('modal-root').children].filter((n) => n.classList.contains('overlay'));
+}
+
 function openModal({ title, body, footer, wide = false, onClose, lead }) {
   let closed = false;
   const close = () => {
     if (closed) return;
     closed = true;
-    overlay.remove();
+    // The last dialog leaves its scrim for a moment: a next step opening right away takes it over
+    // instead of the page flashing between two dialogs.
+    if (openOverlays().length === 1 && overlay.isConnected) {
+      overlay.className = 'scrim-out';
+      overlay.replaceChildren();
+      setTimeout(() => overlay.remove(), 300);
+    } else {
+      overlay.remove();
+    }
     if (onClose) onClose();
   };
-  const overlay = el('div', { class: 'overlay' },
-    el('div', { class: `modal ${wide ? 'wide' : ''}`, role: 'dialog', 'aria-label': title },
-      el('div', { class: 'modal-head' }, lead || null, el('h2', {}, title),
+  const root = document.getElementById('modal-root');
+  const fading = root.querySelector(':scope > .scrim-out');
+  if (fading) fading.remove();
+  const overlay = el('div', { class: `overlay ${fading ? 'continued' : ''}` },
+    el('div', { class: `modal ${wide ? 'wide' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+      el('div', { class: 'modal-head' }, lead || null, el('h2', { title }, title),
         el('button', { class: 'btn icon-only', onclick: close, title: 'Cerrar (Esc)' }, icon('x'))),
       el('div', { class: 'modal-body' }, body),
       footer ? el('div', { class: 'modal-foot' }, footer) : null));
   overlay.addEventListener('mousedown', (event) => { if (event.target === overlay) close(); });
   overlay.addEventListener('dismiss', close);
-  document.getElementById('modal-root').append(overlay);
+  root.append(overlay);
   return { close, overlay };
 }
 
@@ -367,18 +409,24 @@ function renderSetup() {
   $app().replaceChildren(el('div', { class: 'center-screen' }, box));
   const steps = (n) => el('div', { class: 'steps' }, [1, 2, 3].map((i) => el('span', { class: i <= n ? 'done' : '' })));
 
+  // Importing needs a vault to import into: create it first, then the import opens by itself.
+  let thenImport = false;
   const welcome = () => {
+    box.classList.add('centered');
+    const start = el('button', { class: 'btn primary lg', style: 'min-width:220px', onclick: () => { thenImport = false; passwordStep(); } }, 'Empezar');
     box.replaceChildren(
-      el('div', { class: 'auth-head' }, brand(true), el('h1', { style: 'margin-top:12px' }, 'Tus claves, usadas sin ser vistas')),
-      el('p', { class: 'lead' }, 'Guarda contraseñas, API keys y accesos. La IA podrá usarlos para trabajar por ti, pero nunca leerlos.'),
-      el('div', { class: 'points' },
+      el('div', { class: 'auth-head center' }, brand(true), el('h1', { style: 'margin-top:12px' }, 'Tus claves, usadas sin ser vistas')),
+      el('p', { class: 'lead' }, 'Guarda contraseñas, claves de API y accesos. La IA podrá usarlos para trabajar por ti, pero nunca leerlos.'),
+      el('div', { class: 'points', style: 'margin:8px auto 12px;max-width:400px' },
         el('div', {}, icon('bot'), el('div', {}, el('b', {}, 'La IA usa, no ve. '), el('span', { class: 'muted' }, 'Las claves se insertan en cada petición y se borran de las respuestas.'))),
-        el('div', {}, icon('fingerprint'), el('div', {}, el('b', {}, 'Tú decides. '), el('span', { class: 'muted' }, 'Apruebas cada uso con tu PIN, huella o cara.'))),
-        el('div', {}, icon('lock'), el('div', {}, el('b', {}, 'Cifrado local. '), el('span', { class: 'muted' }, 'AES-256 en este equipo. Nada sale a la nube.')))),
-      status.legacy_vault ? el('p', { class: 'help' }, 'Hemos encontrado tu bóveda anterior: podrás importarla en el siguiente paso.') : null,
-      el('div', { style: 'display:flex;gap:8px;align-items:center' },
-        el('button', { class: 'btn primary lg', onclick: passwordStep }, 'Empezar'),
-        el('button', { class: 'btn ghost lg', onclick: () => restoreBackup(() => { state.setupActive = false; state.screen = null; refreshStatus(); }) }, 'Restaurar una copia')));
+        el('div', {}, icon('check'), el('div', {}, el('b', {}, 'Tú decides. '), el('span', { class: 'muted' }, 'Apruebas con un clic, una vez o para todo el día.'))),
+        el('div', {}, icon('lock'), el('div', {}, el('b', {}, 'Cifrado en este PC. '), el('span', { class: 'muted' }, 'Si compartes con tu equipo o haces copias, salen ya cifradas.')))),
+      status.legacy_vault ? el('p', { class: 'help', style: 'text-align:center' }, 'Hemos encontrado tu bóveda anterior: podrás importarla en el siguiente paso.') : null,
+      el('div', { class: 'auth-actions' }, start,
+        el('div', { class: 'secondary' },
+          el('button', { class: 'link muted-link', onclick: () => restoreBackup(() => { state.setupActive = false; state.screen = null; refreshStatus(); }) }, 'Restaurar una copia'),
+          el('button', { class: 'link muted-link', onclick: () => { thenImport = true; passwordStep(); } }, 'Importar de otro gestor'))));
+    setTimeout(() => start.focus(), 50);
   };
 
   const passwordStep = () => {
@@ -422,9 +470,11 @@ function renderSetup() {
     button.addEventListener('click', submit);
     confirm.input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
 
+    box.classList.remove('centered');
     box.replaceChildren(
       el('div', { class: 'auth-head' }, steps(2), el('h2', { style: 'margin-top:12px' }, 'Elige una contraseña maestra')),
-      el('p', { class: 'lead' }, 'Cifra la bóveda. En el día a día usarás Windows Hello; esta la necesitarás para restaurar copias o en otro equipo.'),
+      el('p', { class: 'lead' }, 'Cifra la bóveda. En el día a día la abrirás con Windows Hello o tu sesión; esta la necesitarás para restaurar copias o en otro PC.'),
+      thenImport ? el('p', { class: 'help' }, 'Después elegirás el archivo exportado de tu otro gestor.') : null,
       el('div', { class: 'field' }, el('label', {}, 'Contraseña maestra'), pw, strengthMeter(pw.input)),
       el('div', { class: 'field' }, el('label', {}, 'Repítela'), confirm),
       legacySection,
@@ -445,7 +495,7 @@ function renderSetup() {
     });
     box.replaceChildren(
       el('div', { class: 'auth-head' }, steps(3), el('h2', { style: 'margin-top:12px' }, 'Desbloquea con tu PIN o tu huella')),
-      el('p', { class: 'lead' }, 'Como cuando el navegador te pide el PIN para rellenar una tarjeta. Lo usarás para desbloquear, aprobar usos de la IA y ver contraseñas.'),
+      el('p', { class: 'lead' }, 'Como cuando el navegador te pide el PIN para rellenar una tarjeta. Lo usarás para desbloquear y para ver o copiar contraseñas; las peticiones de la IA se aprueban con un clic.'),
       el('p', { class: 'help' }, 'Si olvidas la contraseña maestra, podrás entrar con Windows Hello y elegir otra.'),
       errorText,
       el('div', { style: 'display:flex;gap:8px' }, button, el('button', { class: 'btn ghost lg', onclick: finish }, 'Ahora no')));
@@ -453,6 +503,7 @@ function renderSetup() {
 
   const finish = () => {
     masterPassword = null;
+    if (thenImport) state.afterUnlock = 'import';
     state.setupActive = false;
     state.screen = null;
     refreshStatus();
@@ -463,14 +514,29 @@ function renderSetup() {
 
 // ======================================================================= lock screen
 
+// One way to unlock in front (the one used last time, else the quickest), the rest folded away.
+const UNLOCK_METHOD_KEY = 'unlockMethod';
+
+function rememberUnlockMethod(method) {
+  try { localStorage.setItem(UNLOCK_METHOD_KEY, method); } catch { /* not remembered: the default order stays */ }
+}
+
 function renderLock() {
   const status = state.status;
   const canDevice = status.device_unlock;
   const helloAvailable = canDevice && status.hello_enrolled && state.info.hello_supported;
+  const sessionAvailable = status.session_unlock && state.info.session_unlock_here;
+  const windowsAvailable = canDevice && status.windows_password;
   const errorText = el('div', { class: 'error-text', style: 'text-align:center' });
 
+  const methods = [sessionAvailable && 'session', helloAvailable && 'hello', 'master', windowsAvailable && 'windows'].filter(Boolean);
+  let last = null;
+  try { last = localStorage.getItem(UNLOCK_METHOD_KEY); } catch { /* use the default order */ }
+  const primary = methods.includes(last) ? last : methods[0];
+  const done = (method) => { rememberUnlockMethod(method); refreshStatus(); };
+
   const master = passwordInput({ placeholder: 'Contraseña maestra', autocomplete: 'current-password' });
-  const masterButton = el('button', { class: `btn ${helloAvailable ? '' : 'primary'}` }, 'Desbloquear');
+  const masterButton = el('button', { class: `btn ${primary === 'master' ? 'primary lg block' : ''}` }, 'Desbloquear');
   const unlockMaster = async () => {
     if (!master.input.value) { master.input.focus(); return; }
     busy(masterButton, true);
@@ -478,30 +544,29 @@ function renderLock() {
     busy(masterButton, false);
     if (!result.ok) { errorText.textContent = result.error; master.input.select(); return; }
     master.input.value = '';
-    refreshStatus();
+    done('master');
   };
   masterButton.addEventListener('click', unlockMaster);
   master.input.addEventListener('keydown', (e) => { if (e.key === 'Enter') unlockMaster(); });
 
-  const sessionAvailable = status.session_unlock && state.info.session_unlock_here;
-  const sessionButton = el('button', { class: 'btn primary lg block' }, icon('unlock', 'sm'), 'Abrir con mi sesión de Windows');
+  const sessionButton = el('button', { class: `btn ${primary === 'session' ? 'primary' : ''} lg block` }, icon('unlock', 'sm'), 'Abrir con mi sesión de Windows');
   sessionButton.addEventListener('click', async () => {
     errorText.textContent = '';
     busy(sessionButton, true);
     const ok = await api().session_unlock();
     busy(sessionButton, false);
     if (!ok) { errorText.textContent = 'No se ha podido abrir con la sesión de Windows. Usa la contraseña.'; state.info.session_unlock_here = false; return; }
-    refreshStatus();
+    done('session');
   });
 
-  const helloButton = el('button', { class: `btn ${sessionAvailable ? '' : 'primary'} lg block` }, icon('fingerprint', 'sm'), 'Desbloquear con Windows Hello');
+  const helloButton = el('button', { class: `btn ${primary === 'hello' ? 'primary' : ''} lg block` }, icon('fingerprint', 'sm'), 'Desbloquear con Windows Hello');
   const unlockHello = async () => {
     errorText.textContent = '';
     busy(helloButton, true);
     const result = await api().call('unlock', {});
     busy(helloButton, false);
     if (!result.ok) { if (result.code !== 'hello_cancelled') errorText.textContent = result.error; return; }
-    refreshStatus();
+    done('hello');
   };
   helloButton.addEventListener('click', unlockHello);
 
@@ -512,19 +577,21 @@ function renderLock() {
     if (proof === 'hello') return unlockHello();
     const result = await api().call('unlock', {}, proof);
     if (!result.ok) { errorText.textContent = result.error; return; }
-    refreshStatus();
+    done('windows');
   };
+  const windowsButton = el('button', { class: `btn ${primary === 'windows' ? 'primary' : ''} lg block`, onclick: unlockWindows },
+    icon('key', 'sm'), 'Usar la contraseña de Windows');
 
   const forgot = () => {
     if (!canDevice) {
       openModal({ title: 'Recuperar el acceso', body: [
-        el('p', {}, 'Este equipo aún no tiene el desbloqueo con Windows activado, así que solo la contraseña maestra puede abrir la bóveda.'),
+        el('p', {}, 'Este PC aún no tiene el desbloqueo con Windows activado, así que solo la contraseña maestra puede abrir la bóveda.'),
         el('p', { class: 'muted' }, 'Por seguridad, no hay otra forma de descifrarla.')] });
       return;
     }
     const modal = openModal({
       title: 'Recuperar el acceso',
-      body: el('p', {}, 'Entra con Windows Hello o con tu contraseña de Windows. Después podrás elegir una contraseña maestra nueva. Solo funciona en este equipo.'),
+      body: el('p', {}, 'Entra con Windows Hello o con tu contraseña de Windows. Después podrás elegir una contraseña maestra nueva. Solo funciona en este PC.'),
       footer: [
         status.windows_password ? el('button', { class: 'btn', onclick: () => { modal.close(); state.afterUnlock = 'change_master'; unlockWindows(); } }, 'Contraseña de Windows') : null,
         helloAvailable ? el('button', { class: 'btn primary', onclick: () => { modal.close(); state.afterUnlock = 'change_master'; unlockHello(); } }, 'Windows Hello') : null,
@@ -532,19 +599,26 @@ function renderLock() {
     });
   };
 
+  const buttons = { session: sessionButton, hello: helloButton, windows: windowsButton };
+  const view = (method) => {
+    if (method !== 'master') return buttons[method];
+    return method === primary
+      ? el('div', { style: 'display:flex;flex-direction:column;gap:10px' }, master, masterButton)
+      : el('div', { style: 'display:flex;gap:8px' }, el('div', { style: 'flex:1' }, master), masterButton);
+  };
+  const others = methods.filter((m) => m !== primary);
+
   $app().replaceChildren(el('div', { class: 'center-screen' },
     el('div', { class: 'auth' },
       el('div', { class: 'auth-head center' }, brand(true), el('h2', { style: 'margin-top:10px' }, 'SecretBroker está bloqueado')),
-      sessionAvailable ? sessionButton : null,
-      helloAvailable ? helloButton : null,
-      canDevice && status.windows_password ? el('div', { style: 'text-align:center' },
-        el('button', { class: 'link muted-link', onclick: unlockWindows }, 'Usar la contraseña de Windows')) : null,
-      canDevice ? el('div', { class: 'divider' }, 'o') : null,
-      el('div', { style: 'display:flex;gap:8px' }, el('div', { style: 'flex:1' }, master), masterButton),
+      view(primary),
       errorText,
-      el('div', { style: 'text-align:center' }, el('button', { class: 'link small', onclick: forgot }, '¿Has olvidado la contraseña maestra?')),
+      others.length ? el('details', { class: 'other-unlock' },
+        el('summary', {}, el('span', { class: 'chev' }, icon('chevronRight', 'sm')), 'Otras formas de desbloquear'),
+        el('div', { class: 'inner' }, others.map(view))) : null,
+      el('div', { style: 'text-align:center' }, el('button', { class: 'link faint-link small', onclick: forgot }, '¿Has olvidado la contraseña maestra?')),
       el('p', { class: 'footnote', style: 'margin-top:24px' }, 'Desbloquea solo en esta ventana. SecretBroker nunca te pedirá la contraseña en otra.'))));
-  if (!helloAvailable && !sessionAvailable) setTimeout(() => master.input.focus(), 50);
+  setTimeout(() => (primary === 'master' ? master.input : buttons[primary]).focus(), 50);
 }
 
 // ======================================================================= main
@@ -553,6 +627,10 @@ async function enterMain() {
   await loadEntries();
   renderMain();
   if (await api().auto_scan()) { state.scan = { running: true }; renderMain(); }
+  if (state.afterUnlock === 'import') {
+    state.afterUnlock = null;
+    openImport();  // personal.js
+  }
   if (state.afterUnlock === 'change_master') {
     state.afterUnlock = null;
     state.view = 'settings';
@@ -581,7 +659,7 @@ function renderMain() {
     el('nav', { class: 'nav' },
       navButton('credentials', 'key', 'Credenciales', state.entries.length),
       navButton('exposure', 'shield', 'Salud', exposedCount(), 'danger'),
-      navButton('access', 'bot', 'Acceso de la IA', state.status.ai_paused ? '‖' : null, 'danger'),
+      navButton('access', 'bot', 'Acceso de la IA', state.status.ai_paused ? el('span', { title: 'IA en pausa' }, icon('pause', 'sm')) : null, 'is-warning'),
       navButton('team', 'users', 'Equipo', teamAttention().length),
       navButton('activity', 'activity', 'Actividad'),
       navButton('settings', 'settings', 'Ajustes')),
@@ -599,28 +677,43 @@ function renderMain() {
 function navButton(view, iconName, label, count, countClass = '') {
   return el('button', {
     class: state.view === view ? 'active' : '',
-    onclick: () => { state.view = view; renderMain(); },
+    onclick: () => { if (state.view !== view) clearToasts(); state.view = view; renderMain(); },
   }, icon(iconName), label, count ? el('span', { class: `count ${countClass}` }, count) : null);
 }
 
 function updateSidebarState() {
   const node = document.getElementById('sidebar-state');
   if (!node || !state.status) return;
-  const minutes = state.status.auto_lock_minutes;
-  const until = state.status.session_unlock ? 'Desbloqueada · sigue a Windows'
+  const status = state.status;
+  const minutes = status.auto_lock_minutes;
+  const until = status.session_unlock ? 'Desbloqueada · sigue a Windows'
     : minutes ? `Desbloqueada · ${minutes >= 60 ? `${minutes / 60} h` : `${minutes} min`}` : 'Desbloqueada';
-  node.replaceChildren(
-    el('span', { class: `dot ${state.status.ai_paused || !state.status.isolated ? 'warn' : ''}` }),
-    el('span', {}, state.status.ai_paused ? 'IA en pausa' : until));
+  // Green while all is normal; amber only for something to do; red when something is stuck.
+  const review = (status.drafts || 0) + teamAttention().length;
+  const blocked = status.team === 'reconnect';
+  const [tone, text] = blocked ? ['blocked', 'Equipo sin sincronizar']
+    : status.ai_paused ? ['warn', 'IA en pausa']
+      : review ? ['warn', review === 1 ? '1 cosa por revisar' : `${review} cosas por revisar`]
+        : ['', until];
+  node.replaceChildren(el('span', { class: `dot ${tone}` }), el('span', {}, text));
+  node.title = [
+    blocked ? 'La sesión del equipo ha caducado: vuelve a entrar en Equipo para seguir sincronizando.' : null,
+    status.ai_paused ? 'La IA está en pausa: no puede usar ninguna credencial. Reanúdala en Acceso de la IA.' : null,
+    status.drafts ? `${status.drafts === 1 ? 'Una credencial preparada' : `${status.drafts} credenciales preparadas`} por la IA ${status.drafts === 1 ? 'espera' : 'esperan'} su clave.` : null,
+    teamAttention().length ? 'Hay cambios del equipo por revisar en Equipo.' : null,
+    status.session_unlock ? 'La bóveda se cierra al bloquear Windows.'
+      : minutes ? `La bóveda se bloquea tras ${until.split(' · ')[1]} sin uso.` : 'La bóveda no se bloquea sola.',
+    status.isolated ? 'El servicio usa una cuenta de Windows propia.' : 'Modo sin aislamiento: el servicio usa tu cuenta de Windows.',
+  ].filter(Boolean).join('\n');
   if (state.paused !== state.status.ai_paused) {  // paused or resumed from the icon next to the clock
     const first = state.paused === undefined;
     state.paused = state.status.ai_paused;
     if (!first) renderMain();
   }
-  node.title = state.status.isolated ? 'Servicio aislado' : 'Modo sin aislamiento';
 }
 
 async function lockNow() {
+  clearToasts();
   await api().call('lock');
   state.revealed = {};
   state.exposure = null;
@@ -700,11 +793,11 @@ function renderCredentials(content) {
       class: `row ${state.selected === entry.id ? 'selected' : ''}`,
       onclick: () => { state.selected = entry.id; renderList(); renderDetail(detail); },
     }, glyph(entry.template), el('div', { class: 'meta' },
-      el('div', { class: 'title' }, entry.name, entry.shared ? el('span', { class: 'shared-mark', title: `Equipo · ${entry.shared.collection_name}` }, icon('users', 'sm')) : null),
+      el('div', { class: 'title' }, el('span', { class: 'name' }, entry.name), entry.shared ? el('span', { class: 'shared-mark', title: `Equipo · ${entry.shared.collection_name}` }, icon('users', 'sm')) : null),
       el('div', { class: 'subtitle' }, subtitleOf(entry))),
     entry.draft ? el('span', { class: 'draft-badge' }, 'Falta la clave')
       : entry.shared && entry.shared.pending_change ? el('span', { class: 'draft-badge', title: 'Un compañero ha cambiado adónde puede ir esta clave' }, 'Revisar cambio')
-      : state.reminders && state.reminders[entry.id] ? el('span', { class: 'draft-badge', title: reminderText(state.reminders[entry.id]) }, reminderShort(state.reminders[entry.id]))
+      : state.reminders && state.reminders[entry.id] ? el('span', { class: `draft-badge ${reminderTone(state.reminders[entry.id])}`, title: reminderText(state.reminders[entry.id]) }, reminderShort(state.reminders[entry.id]))
         : levelDot(entry.id))));
     if (!items.length) list.append(el('p', { class: 'muted', style: 'padding:12px 10px' }, 'Ninguna coincide.'));
   };
@@ -714,6 +807,11 @@ function renderCredentials(content) {
   renderTags();
   renderList();
   renderDetail(detail);
+}
+
+// The same tone in the list badge and in the banner of the detail: red when it no longer works or may have leaked.
+function reminderTone(r) {
+  return ['expired', 'team_access'].includes(r.kind) ? 'is-danger' : '';
 }
 
 function reminderShort(r) {
@@ -806,7 +904,7 @@ function renderDetail(panel) {
       canWrite(entry) ? el('button', { class: 'btn icon-only', title: 'Eliminar', onclick: () => deleteEntry(entry) }, icon('trash', 'sm')) : null),
     entry.draft ? draftSection(entry, () => renderMain()) : null,
     entry.shared && entry.shared.pending_change ? pendingChangeBox(entry) : null,
-    reminder ? el('div', { class: 'warning' }, icon('clock', 'sm'), el('span', {}, reminderText(reminder),
+    reminder ? el('div', { class: `warning ${reminderTone(reminder)}` }, icon('clock', 'sm'), el('span', {}, reminderText(reminder),
       reminder.kind === 'team_access' && reminder.can_rotate && entry.rotation
         ? [' ', el('button', { class: 'link small', onclick: () => rotateGuided(entry) }, 'Rotar con ayuda')] : null)) : null,
     (entry.tags || []).length || entry.expires ? el('div', { class: 'tag-line' },
@@ -1802,23 +1900,112 @@ function exposureCard(item, entry) {
 
 // ----------------------------------------------------------------------- activity
 
+// Events written before the service recorded who did what: the AI is known by its actions.
+const AI_EVENT_ACTIONS = new Set(['http_request', 'ssh_exec', 'ssh_upload', 'ssh_download', 'run_command', 'release_env',
+  'push_github_secret', 'draft', 'request_access', 'import_env']);
+const TEAM_EVENT_ACTIONS = new Set(['share', 'unshare']);
+// Only hosts, paths and commands go in monospace.
+const MONO_EVENT_ACTIONS = new Set(['http_request', 'ssh_exec', 'ssh_upload', 'ssh_download', 'run_command', 'release_env']);
+const ACTIVITY_PAGE = 200;
+const ACTIVITY_FILTERS = [[null, 'Todo', null], ['ai', 'IA', 'bot'], ['denied', 'Denegadas', null], ['team', 'Equipo', 'users']];
+
+// [kind, icon, label]: who did it.
+function eventActor(e) {
+  const actor = e.actor || (AI_EVENT_ACTIONS.has(e.action) ? 'ai' : e.action === 'team_conflict' ? 'team' : 'user');
+  if (actor === 'ai') return ['ai', 'bot', 'IA'];
+  if (actor === 'team') return ['team', 'users', e.by || 'Equipo'];
+  if (actor === 'system') return ['system', 'shield', 'SecretBroker'];
+  return ['user', 'user', 'Tú'];
+}
+
+function isTeamEvent(e) {
+  return e.actor === 'team' || e.action.startsWith('team_') || TEAM_EVENT_ACTIONS.has(e.action);
+}
+
+function dayLabel(date) {
+  const today = new Date();
+  const days = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    - new Date(date.getFullYear(), date.getMonth(), date.getDate())) / 86400000);
+  if (days === 0) return 'Hoy';
+  if (days === 1) return 'Ayer';
+  const text = date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long',
+    year: date.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 async function renderActivity(content) {
+  const filter = state.activityFilter || (state.activityFilter = { kind: null, secret: '' });
   const body = el('div', { class: 'content-body' }, el('div', { class: 'spinner' }));
+  const filters = el('div', { class: 'activity-filters' });
   content.replaceChildren(el('div', { class: 'content-header' }, el('h1', {}, 'Actividad'),
-    el('button', { class: 'btn ghost', onclick: () => renderActivity(content) }, 'Actualizar')), body);
-  const result = await api().call('audit', { limit: 300 });
-  const events = result.ok ? result.result : [];
-  if (!events.length) { body.replaceChildren(el('div', { class: 'empty' }, el('p', {}, 'Aún no hay actividad.'))); return; }
+    el('button', { class: 'btn ghost', onclick: () => renderActivity(content) }, 'Actualizar')), filters, body);
+  const result = await api().call('audit', { limit: ACTIVITY_PAGE });
+  let events = result.ok ? result.result : [];
+  let more = events.length === ACTIVITY_PAGE;
+  if (!events.length) { filters.remove(); body.replaceChildren(el('div', { class: 'empty' }, el('p', {}, 'Aún no hay actividad.'))); return; }
   const names = Object.fromEntries(state.entries.map((e) => [e.id, e.name]));
-  const statusLabel = { ok: 'Hecho', denied: 'Denegado', error: 'Error' };
-  body.replaceChildren(el('table', { class: 'table' },
-    el('thead', {}, el('tr', {}, el('th', {}, 'Cuándo'), el('th', {}, 'Credencial'), el('th', {}, 'Acción'), el('th', {}, 'Resultado'), el('th', {}, 'Detalle'))),
-    el('tbody', {}, events.map((e) => el('tr', {},
-      el('td', { class: 'muted', style: 'white-space:nowrap' }, formatTime(e.ts)),
-      el('td', {}, e.secret === 'vault' ? el('span', { class: 'muted' }, 'Bóveda') : (names[e.secret] || e.secret)),
-      el('td', {}, ACTION_LABELS[e.action] || e.action),
-      el('td', {}, el('span', { class: `status ${e.status}` }, statusLabel[e.status] || e.status)),
-      el('td', { class: 'detail-cell selectable', title: [e.detail, e.message].filter(Boolean).join(' — ') }, e.message || e.detail))))));
+
+  const credentials = el('select', { class: 'input compact', title: 'Solo una credencial' },
+    el('option', { value: '' }, 'Todas las credenciales'),
+    [...state.entries].sort((a, b) => a.name.localeCompare(b.name)).map((e) => el('option', { value: e.id }, e.name)));
+  credentials.value = filter.secret;
+  if (credentials.value !== filter.secret) { filter.secret = ''; credentials.value = ''; }
+  credentials.addEventListener('change', () => { filter.secret = credentials.value; renderFilters(); renderEvents(); });
+  const renderFilters = () => filters.replaceChildren(
+    ACTIVITY_FILTERS.map(([kind, label, iconName]) => el('button', {
+      class: `tag ${filter.kind === kind ? 'active' : ''}`, 'aria-pressed': String(filter.kind === kind),
+      onclick: () => { filter.kind = kind; renderFilters(); renderEvents(); },
+    }, iconName ? icon(iconName, 'sm') : null, label)),
+    credentials);
+
+  const shown = (e) => (!filter.secret || e.secret === filter.secret)
+    && (filter.kind === 'ai' ? eventActor(e)[0] === 'ai'
+      : filter.kind === 'denied' ? e.status === 'denied'
+        : filter.kind === 'team' ? isTeamEvent(e) : true);
+  const row = (e) => {
+    const [kind, actorIcon, actorLabel] = eventActor(e);
+    const date = e.ts ? new Date(e.ts) : null;
+    const failed = e.status === 'denied' || e.status === 'error';
+    const detail = e.message || e.detail;
+    return el('div', { class: 'event' },
+      el('span', { class: 'time', title: date ? date.toLocaleString('es-ES') : '' },
+        date ? date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''),
+      el('span', { class: `actor is-${kind}` }, icon(actorIcon, 'sm'), el('span', {}, actorLabel)),
+      el('div', { class: 'what' },
+        el('div', {}, ACTION_LABELS[e.action] || e.action,
+          e.secret && e.secret !== 'vault' ? el('span', { class: 'credential' }, ` · ${names[e.secret] || e.secret}`) : null),
+        detail ? el('div', { class: `event-detail selectable ${MONO_EVENT_ACTIONS.has(e.action) && !e.message ? 'mono' : ''}`,
+          title: [e.detail, e.message].filter(Boolean).join(' — ') }, detail) : null),
+      failed ? el('span', { class: 'chip is-exposed failed' }, e.status === 'denied' ? 'Denegada' : 'Error') : el('span'));
+  };
+  const loadMore = async (button) => {
+    busy(button, true);
+    const next = await api().call('audit', { limit: ACTIVITY_PAGE, offset: events.length });
+    busy(button, false);
+    if (!next.ok) { toast(next.error, 'error'); return; }
+    events = events.concat(next.result);
+    more = next.result.length === ACTIVITY_PAGE;
+    renderEvents();
+  };
+  const renderEvents = () => {
+    const list = el('div', { class: 'activity' });
+    let day = null;
+    const matching = events.filter(shown);
+    for (const e of matching) {
+      const label = e.ts ? dayLabel(new Date(e.ts)) : 'Sin fecha';
+      if (label !== day) { day = label; list.append(el('div', { class: 'day-head' }, label)); }
+      list.append(row(e));
+    }
+    if (!matching.length) list.append(el('p', { class: 'muted', style: 'padding:12px 0' }, more ? 'Nada así en lo más reciente.' : 'Nada así en la actividad.'));
+    if (more) {
+      const button = el('button', { class: 'btn' }, 'Cargar más');
+      button.addEventListener('click', () => loadMore(button));
+      list.append(el('div', { class: 'activity-more' }, button));
+    }
+    body.replaceChildren(list);
+  };
+  renderFilters();
+  renderEvents();
 }
 
 // ----------------------------------------------------------------------- the AI's access
@@ -1871,6 +2058,14 @@ async function renderAccess(content) {
 }
 
 const AI_LEVEL_LABELS = [['free', 'Libre'], ['notify', 'Avisarme'], ['ask', 'Preguntarme'], ['off', 'Nunca']];
+const AI_LEVEL_HELP = {
+  free: 'Libre: lo hace siguiendo los permisos de cada credencial.',
+  notify: 'Avisarme: igual que Libre, y te llega un aviso de Windows.',
+  ask: 'Preguntarme: te lo pide cada vez.',
+  off: 'Nunca: se lo deniega.',
+};
+// The capabilities in three groups; one the app doesn't know yet goes with «Modificar».
+const AI_CAPABILITY_GROUPS = [['Usar', ['local_env']], ['Modificar', ['create', 'edit_notes', 'edit_config', 'rotate']], ['Publicar', ['github']]];
 
 function permissionsGroup(data, rerender) {
   const save = async (changes) => {
@@ -1880,14 +2075,29 @@ function permissionsGroup(data, rerender) {
   };
   const notify = el('input', { type: 'checkbox', checked: data.notify_uses });
   notify.addEventListener('change', () => save({ notify_uses: notify.checked }));
+  const known = new Set(AI_CAPABILITY_GROUPS.flatMap(([, ids]) => ids));
+  const groups = AI_CAPABILITY_GROUPS.map(([label, ids]) => [label, [
+    ...ids.map((id) => data.capabilities.find((c) => c.id === id)).filter(Boolean),
+    ...(label === 'Modificar' ? data.capabilities.filter((c) => !known.has(c.id)) : []),
+  ]]).filter(([, caps]) => caps.length);
+  const levelName = (level) => AI_LEVEL_LABELS.find(([l]) => l === level)[1];
+  const row = (c) => el('div', { class: `ai-row ${c.level === 'off' ? 'is-off' : ''}`, role: 'radiogroup', 'aria-label': c.label },
+    el('div', { class: 'meta' }, el('div', { class: 'title' }, c.label),
+      c.level === c.default ? null : el('div', { class: 'changed' }, 'Cambiado · ',
+        el('button', { class: 'link', title: `Volver al recomendado: ${levelName(c.default)}`,
+          onclick: () => save({ permissions: { [c.id]: c.default } }) }, 'Restablecer'))),
+    AI_LEVEL_LABELS.map(([level, label]) => {
+      const radio = el('input', { type: 'radio', name: `ai-${c.id}`, value: level, checked: c.level === level, 'aria-label': label });
+      radio.addEventListener('change', () => { if (radio.checked && c.level !== level) save({ permissions: { [c.id]: level } }); });
+      return el('label', { title: AI_LEVEL_HELP[level] }, radio);
+    }));
   return el('div', { class: 'settings-group' },
     el('h3', { class: 'muted' }, 'Qué puede hacer la IA'),
-    el('p', { class: 'muted small' }, 'Libre: lo hace siguiendo los permisos de cada credencial. Avisarme: igual, y te llega un aviso. Preguntarme: te lo pide cada vez. Nunca: se lo deniega.'),
-    data.capabilities.map((c) => setting(c.label, c.level === c.default ? 'Valor recomendado' : '',
-      el('div', { class: 'segmented small' }, AI_LEVEL_LABELS.map(([level, label]) => el('button', {
-        class: c.level === level ? 'active' : '',
-        onclick: () => c.level !== level && save({ permissions: { [c.id]: level } }),
-      }, label))))),
+    el('p', { class: 'muted small', style: 'margin:2px 0 10px' }, 'Además de usar las credenciales. Pasa el ratón por cada columna para ver qué significa.'),
+    el('div', { class: 'ai-grid' },
+      el('div', { class: 'ai-grid-head' }, el('span'),
+        AI_LEVEL_LABELS.map(([level, label]) => el('span', { title: AI_LEVEL_HELP[level] }, label))),
+      groups.map(([label, caps]) => [el('div', { class: 'ai-group' }, label), caps.map(row)])),
     setting('Avisarme cuando use credenciales que no preguntan', 'Un aviso de Windows, como mucho uno cada 10 minutos por credencial.', notify));
 }
 
@@ -1945,7 +2155,7 @@ function confirmModal({ title, text, warning, action, danger = false, onConfirm 
   const modal = openModal({
     title,
     body: [el('p', { class: 'muted' }, text),
-      warning ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, warning)) : null],
+      warning ? el('div', { class: `warning ${danger ? 'is-danger' : ''}` }, icon('alert', 'sm'), el('span', {}, warning)) : null],
     footer: [el('button', { class: 'btn', onclick: () => modal.close() }, 'Cancelar'), button],
   });
   button.addEventListener('click', async () => { if (await onConfirm(button)) modal.close(); });
@@ -2625,7 +2835,8 @@ function reconnectTeam(rerender) {
 // ----------------------------------------------------------------------- settings
 
 function setting(title, description, control) {
-  return el('div', { class: 'setting' }, el('div', { class: 'meta' }, el('h3', {}, title), el('p', {}, description)), control);
+  return el('div', { class: 'setting' }, el('div', { class: 'meta' }, el('h3', {}, title), el('p', {}, description)),
+    control ? el('div', { class: 'control' }, control) : null);
 }
 
 function renderSettings(content) {
@@ -2633,7 +2844,7 @@ function renderSettings(content) {
   const helloSupported = state.info.hello_supported;
 
   const helloControl = !helloSupported
-    ? el('span', { class: 'state-text' }, 'No disponible en este equipo')
+    ? el('span', { class: 'state-text' }, 'No disponible en este PC')
     : status.hello_enrolled
       ? el('div', { style: 'display:flex;gap:12px;align-items:center' }, el('span', { class: 'state-text ok' }, icon('check', 'sm'), 'Activado'),
         el('button', { class: 'btn', onclick: async () => {
@@ -2647,7 +2858,7 @@ function renderSettings(content) {
         if (result.ok) { toast('Windows Hello activado'); await refreshStatus(); renderView(); } else if (result.code !== 'hello_cancelled') toast(result.error, 'error');
       } }, 'Activar');
 
-  const lockSelect = el('select', { class: 'input', style: 'width:auto' },
+  const lockSelect = el('select', { class: 'input' },
     [[15, '15 minutos'], [30, '30 minutos'], [60, '1 hora'], [240, '4 horas'], [0, 'Nunca']].map(([v, label]) => el('option', { value: v }, label)));
   lockSelect.value = String(status.auto_lock_minutes || 0);
   lockSelect.addEventListener('change', async () => {
@@ -2676,7 +2887,7 @@ function renderSettings(content) {
     toast('Guardado');
   });
 
-  const approvalSelect = el('select', { class: 'input', style: 'width:auto' },
+  const approvalSelect = el('select', { class: 'input' },
     [[24, '24 horas'], [8, '8 horas'], [0, 'Hasta que bloquee']].map(([v, label]) => el('option', { value: v }, label)));
   approvalSelect.value = String(status.approval_hours ?? 24);
   approvalSelect.addEventListener('change', async () => {
@@ -2686,7 +2897,7 @@ function renderSettings(content) {
   });
 
   const settingSelect = (key, options, fallback, reason) => {
-    const select = el('select', { class: 'input', style: 'width:auto' }, options.map(([v, label]) => el('option', { value: v }, label)));
+    const select = el('select', { class: 'input' }, options.map(([v, label]) => el('option', { value: v }, label)));
     select.value = String(status[key] ?? fallback);
     select.addEventListener('change', async () => {
       const result = await withProof((p) => api().call('set_settings', { settings: { [key]: Number(select.value) } }, p), reason);
@@ -2702,6 +2913,7 @@ function renderSettings(content) {
     const result = await withProof((p) => api().call('set_settings', { settings: { check_every_hours: hours } }, p), 'Para cambiar cada cuánto se comprueban las claves.');
     if (result.ok) { toast('Guardado'); await refreshStatus(); } else if (result.code !== 'cancelled') toast(result.error, 'error');
   });
+  checkControl.select.style.width = '';  // the same width as the other selects here
 
   const autoScan = el('input', { type: 'checkbox', checked: state.info.prefs.auto_scan !== false });
   autoScan.addEventListener('change', async () => {
@@ -2750,7 +2962,7 @@ function renderSettings(content) {
     el('div', { class: 'content-header' }, el('h1', {}, 'Ajustes')),
     el('div', { class: 'content-body' }, el('div', { class: 'settings' },
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Seguridad'),
-        setting('Windows Hello', 'Desbloquea, aprueba y muestra contraseñas con tu PIN, huella o cara.', helloControl),
+        setting('Windows Hello', 'Desbloquea y muestra contraseñas con tu PIN, huella o cara.', helloControl),
         setting('Contraseña maestra', 'Si la olvidas, puedes cambiarla aquí tras confirmar con Windows.',
           el('button', { class: 'btn', onclick: () => changeMasterPassword(false) }, 'Cambiar')),
         setting('Abrir con mi sesión de Windows', 'La bóveda se abre sola al entrar en Windows y se cierra al bloquearlo (Win+L), sin escribir contraseñas. Protege de errores de la IA, no de alguien que use tu sesión.', sessionToggle),
@@ -2767,7 +2979,7 @@ function renderSettings(content) {
         setting('Claude Code', 'Permite que Claude Code use tus credenciales a través de SecretBroker.', claudeControl),
         setting('Claude Desktop', 'Permite que la app de escritorio de Claude use tus credenciales.', desktopControl),
         setting('Acceso de la IA', status.session_grants
-          ? `${status.session_grants} credencial(es) aprobadas ahora mismo.`
+          ? (status.session_grants === 1 ? 'Una credencial aprobada ahora mismo.' : `${status.session_grants} credenciales aprobadas ahora mismo.`)
           : 'Qué puede usar la IA sin preguntarte, y pausarla.',
         el('button', { class: 'btn', onclick: () => { state.view = 'access'; renderMain(); } }, 'Ver'))),
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Aplicación'),
@@ -2775,7 +2987,7 @@ function renderSettings(content) {
       backupSlot,
       importExportGroup(),  // personal.js
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Exposición'),
-        setting('Analizar al desbloquear', 'Busca copias de tus claves en este equipo al desbloquear, como mucho cada 12 horas.', autoScan),
+        setting('Analizar al desbloquear', 'Busca copias de tus claves en este PC al desbloquear, como mucho cada 12 horas.', autoScan),
         setting('Carpetas de proyectos', 'Se revisan junto con sus historiales de git. Las carpetas donde has usado Claude Code se añaden solas.', addFolder),
         folderList),
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Apariencia'),
@@ -2972,7 +3184,7 @@ async function pollDrafts() {
   if (state.screen === 'main') renderMain();
   const drafts = state.entries.filter((e) => e.draft);
   const newest = drafts.sort((a, b) => String(b.updated).localeCompare(String(a.updated)))[0];
-  if (newest && !state.approvalOpen && !document.getElementById('modal-root').lastElementChild) showDraft(newest);
+  if (newest && !state.approvalOpen && !openOverlays().length) showDraft(newest);
 }
 
 function showDraft(entry) {
@@ -3053,7 +3265,7 @@ function showApproval(request) {
       el('div', { class: 'request-who' }, glyph(request.template),
         el('div', {}, el('div', { style: 'font-weight:600' }, request.secret_name), el('div', { class: 'muted small' }, ACTION_LABELS[request.action] || request.action))),
       el('div', { class: 'request-detail selectable' }, request.detail),
-      destructive ? el('div', { class: 'warning' }, icon('alert', 'sm'), 'Parece que borra, detiene o modifica datos. Revísalo antes de permitirlo.') : null,
+      destructive ? el('div', { class: 'warning is-danger' }, icon('alert', 'sm'), 'Parece que borra, detiene o modifica datos. Revísalo antes de permitirlo.') : null,
       errorText),
     footer: [
       el('button', { class: 'btn danger', onclick: () => decide('deny') }, 'Denegar'),

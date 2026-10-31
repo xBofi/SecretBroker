@@ -83,14 +83,17 @@ AI_CAPABILITIES = {
     "create": ("free", "Preparar credenciales nuevas"),
     "edit_notes": ("free", "Cambiar el nombre y las notas"),
     "edit_config": ("ask", "Cambiar adónde puede ir una clave guardada (webs, programas, variables)"),
-    "local_env": ("free", "Dar claves a tus programas locales (sb run)"),
-    "github": ("free", "Subir claves a los secrets de GitHub"),
+    "local_env": ("free", "Pasar claves a programas de este PC"),
+    "github": ("free", "Guardar claves como secretos de GitHub Actions"),
     "rotate": ("ask", "Rotar claves con su proveedor"),
 }
 MAX_USES = (0, 50, 100, 500)  # uses per hour of one credential before asking again (0: no limit)
 REMINDER_DAYS = (0, 90, 180, 365)
 EXPIRY_WARNING_DAYS = 14
 NOTICE_EVERY_SECONDS = 600  # at most one "the AI used X" notice per credential in this time
+# Who the operation running on this thread is for, written with each audit event: "ai" (an AI_OPS
+# request), "user" (the app) or, outside any request (auto-lock, scheduled checks, team sync), none.
+_ACTOR = threading.local()
 
 
 class ServiceError(Exception):
@@ -177,6 +180,7 @@ class Service:
     def handle(self, op, params):
         if op not in POLL_OPS:
             self._last_activity = time.monotonic()
+        _ACTOR.value = "ai" if op in AI_OPS else "user"
         try:
             if op in AI_OPS and self.pause_file.exists():
                 raise ServiceError("El usuario ha pausado el acceso de la IA en SecretBroker. "
@@ -199,6 +203,8 @@ class Service:
             return {"ok": False, "code": "invalid", "error": str(exc)}
         except KeyError as exc:
             return {"ok": False, "code": "not_found", "error": f"No existe: {exc.args[0] if exc.args else ''}"}
+        finally:
+            _ACTOR.value = None
 
     # ------------------------------------------------------------------ proofs
 
@@ -459,7 +465,7 @@ class Service:
         if strict and level in ("free", "notify"):
             level = "ask"
         if level == "off":
-            raise ServiceError(f"El usuario no permite a la IA: {AI_CAPABILITIES[capability][1].lower()}. "
+            raise ServiceError(f"El usuario no permite a la IA: {AI_CAPABILITIES[capability][1][0].lower() + AI_CAPABILITIES[capability][1][1:]}. "
                                "Pídele que lo haga en la app SecretBroker o que cambie el permiso en «Acceso de la IA».",
                                "forbidden")
         if level == "ask":
@@ -878,15 +884,17 @@ class Service:
         return True
 
     def op_audit(self, params):
+        """The newest events first; `offset` skips that many of the newest (the app's «Cargar más»)."""
         limit = min(int(params.get("limit") or 200), 1000)
+        offset = max(0, int(params.get("offset") or 0))
         private_key = self.vault.audit_private_key()
         try:
             with self.audit_file.open(encoding="utf-8") as log:
-                lines = collections.deque((line for line in log if line.strip()), maxlen=limit)
+                lines = collections.deque((line for line in log if line.strip()), maxlen=limit + offset)
         except OSError:
             return []
         events = []
-        for line in reversed(lines):
+        for line in list(reversed(lines))[offset:]:
             try:
                 events.append(self._open_audit_line(private_key, line))
             except Exception:
@@ -1003,7 +1011,10 @@ class Service:
         stored = self.vault.exposure()
         records = {e["id"]: exposure.record_for(stored, e["id"], exposure.secret_fingerprint(self.vault, e)) for e in entries}
 
+        actor = getattr(_ACTOR, "value", None)
+
         def run(entry):
+            _ACTOR.value = actor  # a pool thread: audit the checks for whoever asked
             alive = exposure.check_entry(entry, records[entry["id"]], timestamp)
             if alive:
                 self._audit(entry["id"], "check", alive["provider"], "ok" if alive["status"] == "ok" else "error",
@@ -1930,7 +1941,8 @@ class Service:
 
     def _audit(self, secret_id, action, detail, status, message=""):
         event = {"ts": datetime.now().isoformat(timespec="seconds"), "secret": secret_id, "action": action,
-                 "detail": detail.splitlines()[0][:300] if detail else "", "status": status}
+                 "detail": detail.splitlines()[0][:300] if detail else "", "status": status,
+                 "actor": getattr(_ACTOR, "value", None) or ("team" if action.startswith("team_") else "system")}
         if message:
             event["message"] = message[:300]
         with self._lock:

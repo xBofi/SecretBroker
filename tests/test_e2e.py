@@ -965,6 +965,12 @@ def main():
     check(any(e["action"] == "http_request" and e["status"] == "denied" for e in events), "audit log records denials")
     check(API_KEY not in json.dumps(events), "audit log has no secrets")
     check(any(e["action"] == "legacy-event" for e in events), "events written in clear by 0.3 are kept")
+    check(all(e.get("actor") == "ai" for e in events if e["action"] in ("http_request", "release_env"))
+          and any(e["action"] == "save" and e.get("actor") == "user" for e in events),
+          "each event says who did it: the AI or the user")
+    newest, older = client.request("audit", {"limit": 2}), client.request("audit", {"limit": 2, "offset": 2})
+    check(len(older) == 2 and [e["ts"] + e["action"] for e in events[:4]] == [e["ts"] + e["action"] for e in newest + older],
+          "«Cargar más» pages back through older events")
     raw = (HOME / "data" / "audit.log").read_text()
     check(all(word not in raw for word in ("legacy-event", "http_request", "/denied", "echo-api")), "audit log on disk is encrypted")
     client.request("lock")

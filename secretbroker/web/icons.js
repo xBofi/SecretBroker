@@ -18,6 +18,8 @@ const ICONS = {
   edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/>',
   trash: '<path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="m6 7 1 13h10l1-13"/><path d="M9 7V4h6v3"/>',
   activity: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  pause: '<rect x="6.5" y="5" width="3.5" height="14" rx="1"/><rect x="14" y="5" width="3.5" height="14" rx="1"/>',
+  user: '<circle cx="12" cy="8" r="3.8"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
   settings: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
   fingerprint: '<path d="M12 11v2.5a9 9 0 0 1-1.6 5"/><path d="M8.6 9.2A4 4 0 0 1 16 11.5v2"/><path d="M8 13.5a12 12 0 0 1-.9 4.5"/><path d="M5.4 7A8 8 0 0 1 20 11.5v1.5"/><path d="M4 11a8 8 0 0 1 .3-2"/><path d="M15.8 17.5a14 14 0 0 1-1.3 3"/><path d="M19.6 16.5c-.2.9-.5 1.8-.8 2.6"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
