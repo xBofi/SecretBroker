@@ -474,7 +474,9 @@ def run(app, env, devtools, api_port, client, integrations):
                    and "Aplica en la base de datos la contraseña nueva de «BD tienda» (shop-db)" in page.text(), 15),
           "or it is saved first, with a request for the AI to apply it")
     page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    wait_for(lambda: page.js("[...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Descartar' && b.offsetParent !== null)"), 5)
     page.click("Descartar")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
 
     print("A database password applied by the service")
     pg = {"id": "pg-api", "name": "Postgres API", "template": "database", "description": "",
@@ -1426,7 +1428,7 @@ def teams_flow(page, env):
     page.click("Compartir 2", ".modal-foot button")
     check(wait_for(lambda: page.js("['other-api', 'shop-db'].every((id) => ((state.entries.find((e) => e.id === id) || {}).shared || {}).collection_name === 'Pruebas')"), 20),
           "a new collection made in the dialog, and both shared in it")
-    check(page.js("state.picked.size") == 0 and page.js("document.querySelector('.bulk-bar').classList.contains('hidden')"),
+    check(wait_for(lambda: page.js("state.picked.size === 0 && document.querySelector('.bulk-bar').classList.contains('hidden')"), 5),
           "the selection is cleared")
 
     print("A teammate widens where the key can go")
