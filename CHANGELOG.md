@@ -2,6 +2,14 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
+## 0.16.1 (2026-10-31)
+
+The first public build of everything in 0.16.0 below (the 0.16.0 tag never produced a release).
+
+- macOS: closing the browser no longer leaves its connection to SecretBroker running for 30 seconds; a password
+  copied from the extension is cleared when the browser closes.
+- Tests: the exposure scan tests compare resolved paths, as on macOS and GitHub's Windows runners.
+
 ## 0.16.0 (2026-10-31)
 
 The biggest release so far: SecretBroker leaves Windows, speaks 32 languages, fills logins in the browser and
