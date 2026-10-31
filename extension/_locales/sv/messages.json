@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "2FA-kod"
+  },
+  "2fa_code_copied": {
+    "message": "2FA-kod kopierad"
+  },
+  "browser": {
+    "message": "Webbläsare"
+  },
+  "can_talk_secretbroker": {
+    "message": "Kan inte kommunicera med SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Kan inte kommunicera med SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Kan inte kommunicera med SecretBroker. Öppna det och försök igen."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Kontrollera att SecretBroker visar samma kod och klicka på ”Anslut”."
+  },
+  "cmd_fill": {
+    "message": "Fyll i inloggningen för den här webbplatsen"
+  },
+  "cmd_open": {
+    "message": "Öppna SecretBroker"
+  },
+  "code": {
+    "message": "Kod"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Bekräfta det i SecretBroker"
+  },
+  "connect": {
+    "message": "Anslut $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Anslut den här webbläsaren"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Anslut den här webbläsaren: klicka på SecretBroker-ikonen i webbläsarens verktygsfält och sedan på ”Anslut”."
+  },
+  "copy_2fa_code": {
+    "message": "Kopiera 2FA-kod"
+  },
+  "copy_password": {
+    "message": "Kopiera lösenord"
+  },
+  "copy_username": {
+    "message": "Kopiera användarnamn"
+  },
+  "couldn_connect": {
+    "message": "Kunde inte ansluta."
+  },
+  "couldn_copy": {
+    "message": "Kunde inte kopiera"
+  },
+  "couldn_fill_it_in": {
+    "message": "Kunde inte fylla i"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Hittade inte var det ska fyllas i."
+  },
+  "couldn_look_it_up": {
+    "message": "Kunde inte söka upp det."
+  },
+  "couldn_save": {
+    "message": "Kunde inte spara"
+  },
+  "create_your_vault_first": {
+    "message": "Skapa ditt valv först"
+  },
+  "ext_description": {
+    "message": "Fyller i lösenorden du har i SecretBroker, bara på deras egen webbplats och bara när du ber om det."
+  },
+  "fill_in": {
+    "message": "Fyll i"
+  },
+  "fill_in_on": {
+    "message": "Fyll i på $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Fyll i med SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Fyll i utan att öppna det här fönstret"
+  },
+  "form_from": {
+    "message": "Formulär från"
+  },
+  "form_is_in_frame_too": {
+    "message": "Formuläret ligger i en ram som är för liten för att synas: det fylls inte i."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Formuläret ligger i en dold eller mycket liten ram: det fylls inte i."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Installera SecretBroker och öppna Inställningar › Webbläsare. Om du nyss installerade det, starta om webbläsaren."
+  },
+  "it_no_longer_pending": {
+    "message": "Den väntar inte längre."
+  },
+  "it_only_fills_in_on": {
+    "message": "Det fyller bara i på varje lösenords egen webbplats."
+  },
+  "loading": {
+    "message": "Läser in"
+  },
+  "name": {
+    "message": "Namn"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Ingen post för $domain$ har en 2FA-kod.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· ingen https"
+  },
+  "no_username": {
+    "message": "Inget användarnamn"
+  },
+  "not_now": {
+    "message": "Inte nu"
+  },
+  "nothing_matches": {
+    "message": "Inga träffar."
+  },
+  "nothing_saved_for": {
+    "message": "Inget sparat för $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Inget sparat för $domain$. Logga in så erbjuder jag att spara det.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "På andra webbplatser"
+  },
+  "on_this_website": {
+    "message": "På den här webbplatsen"
+  },
+  "open": {
+    "message": "Öppna $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Öppna det och försök igen."
+  },
+  "open_it_can_be_filled": {
+    "message": "Öppna $host$ (där kan det fyllas i)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Öppna SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Öppna SecretBroker och skapa ditt valv för att spara lösenord."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Öppna en webbplats för att se dess lösenord."
+  },
+  "open_website_you_want_sign": {
+    "message": "Öppna webbplatsen du vill logga in på."
+  },
+  "page_has_changed_try_again": {
+    "message": "Sidan har ändrats. Försök igen."
+  },
+  "password_copied": {
+    "message": "Lösenord kopierat"
+  },
+  "password_updated": {
+    "message": "Lösenord uppdaterat"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Lösenordet uppdaterat i SecretBroker"
+  },
+  "save": {
+    "message": "Spara"
+  },
+  "save_this_login": {
+    "message": "Spara den här inloggningen?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Spara det här lösenordet i SecretBroker?"
+  },
+  "saved": {
+    "message": "Sparat"
+  },
+  "saved_for": {
+    "message": "Sparat för $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Sparat i SecretBroker"
+  },
+  "search": {
+    "message": "Sök"
+  },
+  "search_secretbroker": {
+    "message": "Sök i SecretBroker"
+  },
+  "searching": {
+    "message": "Söker…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker svarade inte i tid."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker är låst."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker är låst"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker är låst. Lås upp det och försök igen."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "SecretBroker saknas på den här datorn"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker är inte installerat på den här datorn, eller så behöver det fortfarande anslutas till webbläsaren."
+  },
+  "that_way_it_can_fill": {
+    "message": "Då kan det fylla i dina lösenord. SecretBroker ber dig bekräfta med ett klick."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Det finns inga sparade inloggningar för $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Det finns inget synligt fält för 2FA-kod på den här sidan."
+  },
+  "there_no_visible_login_form": {
+    "message": "Det finns inget synligt inloggningsformulär på den här sidan."
+  },
+  "this_page_can_be_filled": {
+    "message": "Den här sidan kan inte fyllas i."
+  },
+  "this_team_credential_is_use": {
+    "message": "Den här teamposten är endast för användning: den fylls inte i i webbläsaren."
+  },
+  "unlock": {
+    "message": "Lås upp"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Lås upp det och klicka här igen."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Lås upp det för att fylla i dina lösenord."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Lås upp SecretBroker och klicka på ”Anslut” igen."
+  },
+  "update": {
+    "message": "Uppdatera"
+  },
+  "update_password": {
+    "message": "Uppdatera lösenordet för ”$name$”?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Endast användning: fylls inte i"
+  },
+  "use_only_on_team_not": {
+    "message": "Endast användning i teamet: fylls inte i"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Teampost endast för användning: om den fylldes i skulle sidan se den"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Teamposter som är endast för användning kan användas av AI:n men visas inte: om den fylldes i skulle sidan få den."
+  },
+  "username_copied": {
+    "message": "Användarnamn kopierat"
+  },
+  "you_re_on": {
+    "message": "Du är på"
+  }
+}

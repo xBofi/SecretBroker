@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "2FA-koodi"
+  },
+  "2fa_code_copied": {
+    "message": "2FA-koodi kopioitu"
+  },
+  "browser": {
+    "message": "Selain"
+  },
+  "can_talk_secretbroker": {
+    "message": "SecretBrokeriin ei saada yhteyttä."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "SecretBrokeriin ei saada yhteyttä"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "SecretBrokeriin ei saada yhteyttä. Avaa se ja yritä uudelleen."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Tarkista, että SecretBroker näyttää saman koodin, ja napsauta ”Yhdistä”."
+  },
+  "cmd_fill": {
+    "message": "Täytä tämän sivuston kirjautumistiedot"
+  },
+  "cmd_open": {
+    "message": "Avaa SecretBroker"
+  },
+  "code": {
+    "message": "Koodi"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Vahvista se SecretBrokerissa"
+  },
+  "connect": {
+    "message": "Yhdistä $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Yhdistä tämä selain"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Yhdistä tämä selain: napsauta selaimen työkalurivillä SecretBroker-kuvaketta ja sitten ”Yhdistä”."
+  },
+  "copy_2fa_code": {
+    "message": "Kopioi 2FA-koodi"
+  },
+  "copy_password": {
+    "message": "Kopioi salasana"
+  },
+  "copy_username": {
+    "message": "Kopioi käyttäjätunnus"
+  },
+  "couldn_connect": {
+    "message": "Yhteyden muodostaminen epäonnistui."
+  },
+  "couldn_copy": {
+    "message": "Kopiointi epäonnistui"
+  },
+  "couldn_fill_it_in": {
+    "message": "Täyttäminen epäonnistui"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Täytettävää kenttää ei löytynyt."
+  },
+  "couldn_look_it_up": {
+    "message": "Hakeminen epäonnistui."
+  },
+  "couldn_save": {
+    "message": "Tallennus epäonnistui"
+  },
+  "create_your_vault_first": {
+    "message": "Luo ensin holvisi"
+  },
+  "ext_description": {
+    "message": "Täyttää SecretBrokeriin tallentamasi salasanat vain niiden omalla sivustolla ja vain kun pyydät."
+  },
+  "fill_in": {
+    "message": "Täytä"
+  },
+  "fill_in_on": {
+    "message": "Täytä: $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Täytä SecretBrokerilla"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Täytä avaamatta tätä ikkunaa"
+  },
+  "form_from": {
+    "message": "Lomake lähteestä"
+  },
+  "form_is_in_frame_too": {
+    "message": "Lomake on kehyksessä, joka on liian pieni näkyäkseen: sitä ei täytetä."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Lomake on piilotetussa tai hyvin pienessä kehyksessä: sitä ei täytetä."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Asenna SecretBroker ja avaa Asetukset › Selain. Jos asensit sen juuri, käynnistä selain uudelleen."
+  },
+  "it_no_longer_pending": {
+    "message": "Se ei ole enää odottamassa."
+  },
+  "it_only_fills_in_on": {
+    "message": "Se täyttää vain kunkin salasanan omalla sivustolla."
+  },
+  "loading": {
+    "message": "Ladataan"
+  },
+  "name": {
+    "message": "Nimi"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Yhdelläkään sivuston $domain$ kohteella ei ole 2FA-koodia.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· ei https"
+  },
+  "no_username": {
+    "message": "Ei käyttäjätunnusta"
+  },
+  "not_now": {
+    "message": "Ei nyt"
+  },
+  "nothing_matches": {
+    "message": "Ei osumia."
+  },
+  "nothing_saved_for": {
+    "message": "Sivustolle $domain$ ei ole tallennettu mitään.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Sivustolle $domain$ ei ole tallennettu mitään. Kirjaudu sisään, niin tarjoan tallentamista.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Muilla sivustoilla"
+  },
+  "on_this_website": {
+    "message": "Tällä sivustolla"
+  },
+  "open": {
+    "message": "Avaa $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Avaa se ja yritä uudelleen."
+  },
+  "open_it_can_be_filled": {
+    "message": "Avaa $host$ (siellä sen voi täyttää)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Avaa SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Avaa SecretBroker ja luo holvisi tallentaaksesi salasanoja."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Avaa sivusto nähdäksesi sen salasanat."
+  },
+  "open_website_you_want_sign": {
+    "message": "Avaa sivusto, jolle haluat kirjautua."
+  },
+  "page_has_changed_try_again": {
+    "message": "Sivu on muuttunut. Yritä uudelleen."
+  },
+  "password_copied": {
+    "message": "Salasana kopioitu"
+  },
+  "password_updated": {
+    "message": "Salasana päivitetty"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Salasana päivitetty SecretBrokeriin"
+  },
+  "save": {
+    "message": "Tallenna"
+  },
+  "save_this_login": {
+    "message": "Tallennetaanko nämä kirjautumistiedot?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Tallennetaanko tämä salasana SecretBrokeriin?"
+  },
+  "saved": {
+    "message": "Tallennettu"
+  },
+  "saved_for": {
+    "message": "Tallennettu: $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Tallennettu SecretBrokeriin"
+  },
+  "search": {
+    "message": "Haku"
+  },
+  "search_secretbroker": {
+    "message": "Hae SecretBrokerista"
+  },
+  "searching": {
+    "message": "Haetaan…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker ei vastannut ajoissa."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker on lukittu."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker on lukittu"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker on lukittu. Avaa sen lukitus ja yritä uudelleen."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "SecretBroker puuttuu tältä tietokoneelta"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBrokeria ei ole asennettu tälle tietokoneelle, tai sitä ei ole vielä yhdistetty selaimeen."
+  },
+  "that_way_it_can_fill": {
+    "message": "Näin se voi täyttää salasanasi. SecretBroker pyytää sinua vahvistamaan sen yhdellä napsautuksella."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Sivustolle $domain$ ei ole tallennettu kirjautumistietoja.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Tällä sivulla ei ole näkyvää 2FA-koodin kenttää."
+  },
+  "there_no_visible_login_form": {
+    "message": "Tällä sivulla ei ole näkyvää kirjautumislomaketta."
+  },
+  "this_page_can_be_filled": {
+    "message": "Tätä sivua ei voi täyttää."
+  },
+  "this_team_credential_is_use": {
+    "message": "Tämä tiimin kohde on vain käyttöön: sitä ei täytetä selaimessa."
+  },
+  "unlock": {
+    "message": "Avaa lukitus"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Avaa sen lukitus ja napsauta tätä uudelleen."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Avaa sen lukitus täyttääksesi salasanasi."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Avaa SecretBrokerin lukitus ja napsauta uudelleen ”Yhdistä”."
+  },
+  "update": {
+    "message": "Päivitä"
+  },
+  "update_password": {
+    "message": "Päivitetäänkö kohteen ”$name$” salasana?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Vain käyttö: ei täytetä"
+  },
+  "use_only_on_team_not": {
+    "message": "Vain käyttö tiimissä: ei täytetä"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Tiimin kohde vain käyttöön: täyttäminen näyttäisi sen sivulle"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Tekoäly voi käyttää vain käyttöön tarkoitettuja tiimin kohteita, mutta niitä ei näytetä: täyttäminen antaisi sen sivulle."
+  },
+  "username_copied": {
+    "message": "Käyttäjätunnus kopioitu"
+  },
+  "you_re_on": {
+    "message": "Olet sivustolla"
+  }
+}
