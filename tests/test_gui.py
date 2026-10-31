@@ -1257,7 +1257,7 @@ def teams_flow(page, env):
     bob_status = act("team_connect", server_url=TEAM_URL, email="bob@example.com", password=ACCOUNT, mode="register", name="Bob")["result"]
     act("team_verify_email", code=email_code("bob@example.com"))
     check(tab(page, "Personas"), "the Personas tab")
-    check(wait_for(lambda: "SecretBroker no envía e-mails" in page.text(), 10), "inviting says honestly that no e-mail is sent")
+    check(wait_for(lambda: "SecretBroker no envía las invitaciones por e-mail" in page.text(), 10), "inviting says honestly that no e-mail is sent")
     fill(page, "e-mail de la persona", "bob@example.com")
     page.click("Invitar")
     check(wait_for(lambda: "Invitación creada para bob@example.com" in page.text() and "secretbroker://join?server=" in page.text(), 15),

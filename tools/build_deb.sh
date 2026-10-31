@@ -13,7 +13,8 @@
 set -euo pipefail
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
-VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' "$REPO/pyproject.toml" | head -1)
+# tr: a Windows checkout mounted in WSL has CRLF lines, and a CR in the version ends up in every path.
+VERSION=$(tr -d '\r' < "$REPO/pyproject.toml" | sed -n 's/^version = "\(.*\)"$/\1/p' | head -1)
 ARCH=amd64
 PYTHON_RELEASE=20241016
 PYTHON_VERSION=3.12.7

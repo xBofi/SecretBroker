@@ -3811,7 +3811,7 @@ function teamPeoplePanel(org, members, admin, rerender) {
   const invited = members.filter((m) => m.status === 'invited');
   return el('div', { class: 'settings-group team-panel' },
     admin ? el('div', { class: 'invite-box' }, el('div', { class: 'inline-form' }, email, role, invite),
-      el('p', { class: 'help' }, 'SecretBroker no envía e-mails: después te damos unas instrucciones y un enlace para que se los pases. Cuando entre, aparecerá aquí con su código de seguridad para que lo confirmes.')) : null,
+      el('p', { class: 'help' }, 'SecretBroker no envía las invitaciones por e-mail: después te damos unas instrucciones y un enlace para que se los pases. Cuando entre, aparecerá aquí con su código de seguridad para que lo confirmes.')) : null,
     people.map(row),
     invited.length ? [el('h3', { class: 'muted sub-head' }, `Invitaciones (${invited.length})`), invited.map(row)] : null);
 }
@@ -3857,7 +3857,7 @@ function inviteInstructions(org, email, code, justInvited = false) {
     title: justInvited ? `Invitación creada para ${email}` : `Instrucciones para ${email}`,
     wide: true,
     body: [
-      el('p', { class: 'muted' }, 'SecretBroker no envía e-mails. Pásale esto por el canal que uséis; el enlace solo rellena su formulario, sin contraseñas.'),
+      el('p', { class: 'muted' }, 'SecretBroker no envía las invitaciones por e-mail. Pásale esto por el canal que uséis; el enlace solo rellena su formulario, sin contraseñas.'),
       el('pre', { class: 'instructions selectable' }, text)],
     footer: [copyLink, el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, 'Cerrar'), copy],
   });

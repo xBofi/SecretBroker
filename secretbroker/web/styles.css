@@ -730,7 +730,7 @@ details.collection > summary .subtitle { color: var(--muted); font-size: var(--f
 .avatar.invited { background: transparent; border: 1px dashed var(--line-strong); color: var(--faint); }
 .fingerprint.big { font-size: var(--fs-lg); letter-spacing: .06em; }
 .instructions { white-space: pre-wrap; font-family: var(--font-mono); font-size: var(--fs-sm); line-height: 1.55; background: var(--bg-subtle);
-  border-radius: var(--radius); padding: 12px 14px; margin-top: 10px; max-height: 300px; overflow: auto; word-break: break-all; }
+  border-radius: var(--radius); padding: 12px 14px; margin-top: 10px; max-height: 300px; overflow: auto; overflow-wrap: anywhere; }
 .notice { display: flex; gap: 8px; align-items: flex-start; font-size: var(--fs-sm); padding: 10px 12px; border-radius: var(--radius); background: var(--interactive-soft); }
 .review-box h3 { line-height: 1.45; }
 .review-box h3 code { font-family: var(--font-mono); font-size: var(--fs-sm); background: var(--fill); border-radius: 4px; padding: 1px 5px; }

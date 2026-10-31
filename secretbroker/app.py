@@ -36,7 +36,8 @@ BACKUPS_KEPT = 10
 # Team changes (see service.TEAM_CHANGE_OPS): one click too.
 TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_invite", "team_accept_invite",
                    "team_confirm_member", "team_set_role", "team_remove_member", "team_create_collection", "team_grant",
-                   "team_revoke", "team_share_entry", "team_share_entries", "team_unshare_entry", "team_accept_change")
+                   "team_revoke", "team_share_entry", "team_share_entries", "team_unshare_entry", "team_accept_change",
+                   "team_verify_email", "team_send_code", "team_resolve_deletions")
 # What the app that unlocked may do with one click (see service.PRESENCE_OPS).
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
                 "import_file", "export_vault") + TEAM_CHANGE_OPS
