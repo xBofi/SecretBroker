@@ -501,8 +501,14 @@ class Api:
 
     def hide(self):
         if platform.NAME != "windows" and self._window:
+            if not (self._tray and self._tray.available):
+                # No icon next to the clock (GNOME without the AppIndicator extension): a hidden window could
+                # not be found again, so it stays in the dock, minimized, still answering the AI.
+                threading.Thread(target=self._window.minimize, daemon=True).start()
+                return
             threading.Thread(target=self._window.hide, daemon=True).start()
         elif self._hwnd and sys.platform == "win32":
+
             ctypes.windll.user32.ShowWindowAsync(ctypes.c_void_p(self._hwnd), 0)  # SW_HIDE
         else:
             return

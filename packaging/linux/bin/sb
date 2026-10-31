@@ -1,0 +1,3 @@
+#!/bin/sh
+# SecretBroker's command line (sb run, sb check, sb import...).
+exec /opt/secretbroker/venv/bin/python -I -m secretbroker.cli "$@"

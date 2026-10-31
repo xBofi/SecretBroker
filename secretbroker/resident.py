@@ -141,6 +141,7 @@ class Tray:
         self._icon = None
         self._status = {}
         self._ready = threading.Event()
+        self.available = True  # the desktop shows icons next to the clock (Linux: see QtTray)
 
     def start(self):
         try:
@@ -240,6 +241,7 @@ class QtTray(Tray):
 
     def start(self):
         from .platform import linux
+        self.available = False
         ready = threading.Event()
 
         def build():
@@ -280,6 +282,10 @@ class QtTray(Tray):
         icon.messageClicked.connect(lambda: self.api.show())
         icon.show()
         self._menu, self._icon = menu, icon
+        self.available = QSystemTrayIcon.isSystemTrayAvailable()
+        if not self.available:
+            log.info("no system tray here (GNOME needs the AppIndicator extension): closing minimizes instead")
+
         self._info = QSystemTrayIcon.MessageIcon.Information
 
     def _refresh_menu(self):

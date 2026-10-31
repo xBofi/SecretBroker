@@ -413,7 +413,7 @@ def listen_for_show(show):
 def gui_call(function):
     """Run `function` on the Qt GUI thread (pywebview's Qt backend), without waiting. False without Qt."""
     try:
-        from qtpy.QtCore import QCoreApplication, QObject, Qt, Signal
+        from qtpy.QtCore import QCoreApplication, QObject, Qt, Signal, Slot
     except Exception:
         return False
     app = QCoreApplication.instance()
@@ -424,9 +424,18 @@ def gui_call(function):
         class Invoker(QObject):
             call = Signal(object)
 
+            @Slot(object)
+            def run(self, function):
+                try:
+                    function()
+                except Exception:
+                    import logging
+                    logging.getLogger("secretbroker.platform").exception("on the GUI thread")
+
         invoker = Invoker()
         invoker.moveToThread(app.thread())
-        invoker.call.connect(lambda fn: fn(), Qt.ConnectionType.QueuedConnection)
+        # A slot of an object that lives on the GUI thread: queued calls run there (a lambda would run nowhere).
+        invoker.call.connect(invoker.run, Qt.ConnectionType.QueuedConnection)
         _invoker = invoker
     _invoker.call.emit(function)
     return True
