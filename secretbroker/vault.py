@@ -312,6 +312,7 @@ class Vault:
         self._payload = None
         self._master_wrap = None
         self._audit_public = None
+        self.revision = 0  # goes up with every change written (the app reloads what it shows)
 
     def exists(self):
         return self.file.exists()
@@ -580,6 +581,7 @@ class Vault:
                 self._save()
 
     def _save(self):
+        self.revision += 1
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self._audit_public = crypto.x25519_public(crypto.derive_x25519(self._key, AUDIT_KEY_INFO))
         doc = {"version": FORMAT_VERSION, "master": self._master_wrap, "audit_public_key": crypto.b64(self._audit_public),

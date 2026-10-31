@@ -159,7 +159,7 @@ class Watcher:
             today = time.strftime("%Y-%m-%d")
             if status.get("reminders") and self._reminded != today and self.notify:
                 self._reminded = today
-                self.notify(f"{status['reminders']} clave(s) necesitan atención",
+                self.notify(("Una credencial necesita" if status['reminders'] == 1 else f"{status['reminders']} credenciales necesitan") + " atención",
                             "Caducadas, a punto de caducar o muy antiguas. Ábrelas en SecretBroker para rotarlas.")
             if self.api.backup_due():
                 self.api.backup_now()

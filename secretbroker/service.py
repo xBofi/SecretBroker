@@ -28,6 +28,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
 from cryptography.hazmat.primitives import serialization
@@ -48,7 +49,7 @@ APPROVAL_TIMEOUT_SECONDS = 120
 GUI_SEEN_SECONDS = 6
 CHALLENGE_TTL_SECONDS = 180
 AGENT_ACTIONS = set(actions.ACTIONS)
-POLL_OPS = {"status", "pending_approvals", "audit", "update_status"}
+POLL_OPS = {"status", "pending_approvals", "audit", "update_status", "notices", "expired_approvals"}
 ALL_PROOFS = ("hello", "windows_password", "master_password")
 APPROVAL_HOURS = (0, 8, 24)  # how long "don't ask again" lasts; 0: until the vault is locked
 AUDIT_AAD = b"secretbroker/audit/v1"
@@ -75,6 +76,16 @@ ROTATION_OPS = ("rotation_begin", "rotation_discard", "rotation_apply", "rotatio
 PRESENCE_OPS += ROTATION_OPS
 TEAM_EXPORT_OPS += ("rotation_secret",)
 TEAM_PUSH_OPS |= {"rotation_apply", "set_test_request"}
+# Everyday work in the app: one click once the user proved it at unlock (master password, Windows password or
+# Hello). They show, change or delete secrets, so like TEAM_EXPORT_OPS a session unlock alone is not enough.
+PROVEN_OPS = ("reveal", "save_entry", "delete_entry", "rotate", "set_settings", "exposure_begin", "enable_session_unlock")
+PRESENCE_OPS += PROVEN_OPS
+PROVEN_PURPOSE = {"reveal": "ver o copiar claves", "save_entry": "cambiar credenciales", "delete_entry": "eliminar credenciales",
+                  "rotate": "rotar claves", "set_settings": "cambiar los ajustes", "exposure_begin": "buscar copias de tus claves",
+                  "enable_session_unlock": "abrir la bóveda con tu sesión de Windows", "export_vault": "exportar la bóveda",
+                  "rotation_secret": "copiar la contraseña nueva"}
+APPROVAL_EXPIRED_SECONDS = 600  # how long the app is told about a request nobody answered in time
+AI_USE_ACTIONS = AGENT_ACTIONS | {"release_env", "push_github_secret"}  # "last used" and "uses today" in approvals
 TEAM_SYNC_SECONDS = 300
 # Everything the AI can ask for. "Pause the AI" refuses all of it without locking the vault.
 AI_OPS = AGENT_ACTIONS | {"list_secrets", "release_env", "push_github_secret", "create_draft", "update_credential",
@@ -144,6 +155,10 @@ class Service:
         self._notice_id = 0
         self._noticed = {}
         self._uses = collections.defaultdict(collections.deque)  # secret id -> monotonic times of recent uses
+        self._usage = None     # secret id -> {"last": iso, "days": {date: count}}: the AI's uses, for approvals
+        self._expired = collections.deque(maxlen=20)  # approvals nobody answered in time (the app says so)
+        self._revision = 0     # what the app shows changed outside the vault (approvals, the AI's uses)
+        self._lock_reason = None  # why the vault is locked: "idle", "manual", "windows" (None: never opened)
         self._server = None
         self.updates = update.Checker()
         self.team = teams.Team(self.vault, on_removed=self._entry_removed)
@@ -186,6 +201,10 @@ class Service:
         if op not in POLL_OPS:
             self._last_activity = time.monotonic()
         _ACTOR.value = "ai" if op in AI_OPS else "user"
+        # Who is asking (Claude Code, Claude Desktop, sb…) and in which folder: shown in approvals and the activity.
+        _ACTOR.client = _clean_client(params.pop("_client", None)) if isinstance(params, dict) else None
+        _ACTOR.reason = str(params.get("reason") or "").strip()[:500] if op in AI_OPS and isinstance(params, dict) else ""
+        _ACTOR.presence = _ACTOR.host = None
         try:
             if op in AI_OPS and self.pause_file.exists():
                 raise ServiceError("El usuario ha pausado el acceso de la IA en SecretBroker. "
@@ -198,7 +217,10 @@ class Service:
             result = handler(params)
             if op in TEAM_PUSH_OPS:
                 self._team_wake.set()
-            return {"ok": True, "result": result}
+            response = {"ok": True, "result": result}
+            if _ACTOR.presence:
+                response["presence"] = _ACTOR.presence  # proved it: one click from now on (see _verify_proof)
+            return response
         except (ServiceError, teams.TeamError) as exc:
             return {"ok": False, "code": exc.code, "error": str(exc)}
         except VaultLocked:
@@ -209,7 +231,7 @@ class Service:
         except KeyError as exc:
             return {"ok": False, "code": "not_found", "error": f"No existe: {exc.args[0] if exc.args else ''}"}
         finally:
-            _ACTOR.value = None
+            _ACTOR.value = _ACTOR.client = _ACTOR.presence = _ACTOR.host = _ACTOR.reason = None
 
     # ------------------------------------------------------------------ proofs
 
@@ -231,15 +253,28 @@ class Service:
                 presence = self._presence
             if presence and presence[1] > time.monotonic() and hmac.compare_digest(
                     str(proof.get("token", "")).encode(), presence[0].encode()):
-                if op in TEAM_EXPORT_OPS and not presence[2]:
+                if (op in TEAM_EXPORT_OPS or op in PROVEN_OPS) and not presence[2]:
                     raise ServiceError("Confirma que eres tú una vez (Windows Hello o contraseña) para "
-                                       + ("exportar la bóveda" if op == "export_vault" else
-                                          "copiar la contraseña nueva" if op == "rotation_secret" else "compartir con otras personas"),
-                                       "proof_required")
+                                       + PROVEN_PURPOSE.get(op, "compartir con otras personas"), "proof_required")
                 return kind
             raise ServiceError("La verificación ha caducado; inténtalo de nuevo", "proof_invalid")
         if kind not in allowed:
             raise ServiceError("Esta operación requiere verificar tu identidad", "proof_required")
+        kind = self._check_proof(op, params, proof, kind)
+        if "presence" in proof and self.vault.is_unlocked and op not in ("unlock", "create_vault", "restore"):
+            # The app that unlocked sends its token with a proof: from now on it is one click, even after
+            # opening with the Windows session. The same token if it is the current one, else a new one.
+            with self._lock:
+                current = self._presence
+                if current and current[1] > time.monotonic() and hmac.compare_digest(
+                        str(proof.get("presence") or "").encode(), current[0].encode()):
+                    self._presence = (current[0], current[1], True)
+                    _ACTOR.presence = current[0]
+            if not getattr(_ACTOR, "presence", None):
+                _ACTOR.presence = self._new_presence()
+        return kind
+
+    def _check_proof(self, op, params, proof, kind):
         if kind == "hello":
             public_key = self._hello_public_key()
             if not public_key:
@@ -315,6 +350,10 @@ class Service:
             "team": self._team_info.get("state"),
             "team_sync": self._team_info.get("last_sync"),  # the GUI reloads when a sync round ends
             "team_held": (self._team_info.get("last") or {}).get("held", 0),  # edits waiting for a re-key
+            # Goes up whenever something the app shows changes (the AI's edits, sb import, team sync, approvals):
+            # the app then reloads what it shows, in place.
+            "revision": self.vault.revision + self._revision,
+            "lock_reason": self._lock_reason if state == "locked" else None,
             "protocol": PROTOCOL_VERSION,
         }
 
@@ -544,13 +583,14 @@ class Service:
     def op_lock(self, params):
         # Locking Windows keeps the timed approvals, like the inactivity lock: it happens many times a day.
         windows = params.get("reason") == "windows"
-        self._lock_vault(forget_approvals=not windows)
+        self._lock_vault(forget_approvals=not windows, reason="windows" if windows else "manual")
         self._audit("vault", "lock", "Windows bloqueado" if windows else "manual", "ok")
         return self.op_status({})
 
-    def _lock_vault(self, forget_approvals=False):
+    def _lock_vault(self, forget_approvals=False, reason=None):
         """Locking by hand forgets every approval; locking after inactivity keeps the timed ones,
         so the user is not asked again for each credential after unlocking."""
+        self._lock_reason = reason
         with self._lock:
             for request in self._approvals.values():
                 request["answer"] = "deny"
@@ -563,11 +603,13 @@ class Service:
     def _auto_lock_loop(self):
         while True:
             time.sleep(10)
-            if not self.vault.is_unlocked or self._approvals or self.session_file.exists():
-                continue  # with the Windows session unlock, the vault locks when Windows does
+            if not self.vault.is_unlocked or self._approvals:
+                continue
+            # With the Windows session unlock too: the app or the AI open it again by themselves, without a
+            # password, the next time they need it (see client.reopen_with_session).
             minutes = self.vault.settings().get("auto_lock_minutes") if self.vault.is_unlocked else None
             if minutes and time.monotonic() - self._last_activity > minutes * 60:
-                self._lock_vault()
+                self._lock_vault(reason="idle")
                 self._audit("vault", "lock", f"inactividad ({minutes} min)", "ok")
 
     # ------------------------------------------------------------------ management (GUI)
@@ -591,6 +633,7 @@ class Service:
         for summary in summaries:
             if summary.get("shared") and summary["id"] in unsent:
                 summary["shared"]["unsent"] = unsent[summary["id"]]  # "rekey" or "pending" (see Team.unsent)
+            summary["last_used"] = self._usage_of(summary["id"])["last_used"]  # «Usadas recientemente»
         return summaries
 
     def op_save_entry(self, params):
@@ -601,6 +644,10 @@ class Service:
         if replaces:
             # Secret fields sent as null mean "keep the stored value".
             old = self.vault.get(replaces)
+            base = params.get("base_updated")
+            if base is not None and base != old.get("updated"):
+                # Changed meanwhile (the AI, a rotation, the team): the editor says what and lets the user choose.
+                raise ServiceError("Cambió mientras editabas", "conflict")
             for name in templates.secret_field_names(entry.get("template", "")):
                 if name in fields and fields[name] is None and old["fields"].get(name):
                     fields[name] = old["fields"][name]
@@ -1059,11 +1106,15 @@ class Service:
         secret_id = params.get("secret_id")
         with self._lock:
             self._grants = {k: v for k, v in self._grants.items() if secret_id and k != secret_id}
+        self._revision += 1
         self._audit(secret_id or "vault", "revoke", "aprobación retirada", "ok")
         return True
 
     def op_audit(self, params):
-        """The newest events first; `offset` skips that many of the newest (the app's «Cargar más»)."""
+        """The newest events first; `offset` skips that many of the newest (the app's «Cargar más»).
+        With `secret_id`, those of one credential (its «Actividad reciente»), like the AI's credential_activity."""
+        if params.get("secret_id"):
+            return self._activity(str(params["secret_id"]), params.get("limit") or 50)
         limit = min(int(params.get("limit") or 200), 1000)
         offset = max(0, int(params.get("offset") or 0))
         private_key = self.vault.audit_private_key()
@@ -1335,6 +1386,36 @@ class Service:
         with self._lock:
             return [{k: v for k, v in r.items() if k not in ("event", "answer")} for r in self._approvals.values()]
 
+    def op_expired_approvals(self, params):
+        """Requests nobody answered in time (the AI got an error), from the last minutes: the app says so."""
+        now = time.monotonic()
+        with self._lock:
+            return [{"id": e["id"], "secret_name": e["secret_name"], "seconds_ago": int(now - e["at"])}
+                    for e in self._expired if now - e["at"] < APPROVAL_EXPIRED_SECONDS]
+
+    def _usage_of(self, secret_id):
+        """When the AI last used a credential and how many times today (for the approval), from the activity."""
+        if self._usage is None:
+            usage = {}
+            try:
+                events = self.op_audit({"limit": 1000})
+            except (VaultLocked, ValueError):
+                events = []
+            for e in reversed(events):
+                actor = e.get("actor") or ("ai" if e.get("action") in AI_USE_ACTIONS else "user")
+                if actor == "ai" and e.get("status") == "ok" and e.get("action") in AI_USE_ACTIONS and e.get("secret"):
+                    self._count_use(usage, e["secret"], e.get("ts") or "")
+            self._usage = usage
+        record = self._usage.get(secret_id) or {}
+        return {"last_used": record.get("last"), "uses_today": record.get("days", {}).get(datetime.now().strftime("%Y-%m-%d"), 0)}
+
+    @staticmethod
+    def _count_use(usage, secret_id, ts):
+        record = usage.setdefault(secret_id, {"last": None, "days": {}})
+        if ts and (not record["last"] or ts > record["last"]):
+            record["last"] = ts
+        record["days"] = {ts[:10]: record["days"].get(ts[:10], 0) + 1}  # only today's count is ever shown
+
     def op_approve(self, params):
         kind = self._verify_proof("approve", params)
         with self._lock:
@@ -1348,7 +1429,7 @@ class Service:
             request["answer"] = scope
             request["event"].set()
         # After proving it with a password or Hello, the next approvals are a single click.
-        return {"presence": self._new_presence()} if kind != "presence" else True
+        return {"presence": getattr(_ACTOR, "presence", None) or self._new_presence()} if kind != "presence" else True
 
     def op_deny(self, params):
         with self._lock:
@@ -1366,6 +1447,7 @@ class Service:
     def _run_action(self, action, params):
         entry = self._get_secret(params.get("secret_id"))
         detail = actions.describe(action, params, entry)
+        _ACTOR.host = _target_host(action, params, entry)  # highlighted in the approval
         redact = Redactor(entry)
         try:
             actions.precheck(action, entry, params)
@@ -1570,7 +1652,7 @@ class Service:
             return {"created": [], "skipped": skipped}
         detail = f"Desde {source}\n" + "\n".join(f"{n['var']}  →  {n['id']}" + (f"  (con {n['paired_var'] or 'su ID'})" if n["paired_id"] else "")
                                                    for n in new)
-        request = {"id": "vault", "name": f"Importar {len(new)} clave(s)", "template": "generic"}
+        request = {"id": "vault", "name": f"Importar {len(new)} {'clave' if len(new) == 1 else 'claves'}", "template": "generic"}
         try:
             self._ask_user(request, "import_env", detail, allow_session=False)
         except ServiceError as exc:
@@ -1639,11 +1721,13 @@ class Service:
 
     def op_ai_activity(self, params):
         """What was done with the credentials (by the AI or the user): no values, only what and when."""
+        return self._activity(params.get("secret_id"), params.get("limit") or 50)
+
+    def _activity(self, secret_id, limit):
         events = self.op_audit({"limit": 1000})
-        secret_id = params.get("secret_id")
         if secret_id:
             events = [e for e in events if e.get("secret") == secret_id]
-        return events[:min(int(params.get("limit") or 50), 200)]
+        return events[:min(int(limit), 200)]
 
     def op_ai_delete(self, params):
         """The AI proposes deleting a credential; the user always confirms (it can't be undone, except
@@ -1956,11 +2040,18 @@ class Service:
         if time.monotonic() - self._gui_seen > GUI_SEEN_SECONDS:
             raise ServiceError("Esta acción necesita la aprobación del usuario y la app SecretBroker no está abierta.",
                                "gui_required")
+        reason = getattr(_ACTOR, "reason", None) or ""
+        if reason:  # shown on its own: not twice
+            detail = "\n".join(line for line in detail.split("\n") if line.strip() not in (reason, f"Motivo: {reason}")).strip("\n")
+        now = datetime.now()
         request = {
             "id": uuid.uuid4().hex, "secret_id": entry["id"], "secret_name": entry.get("name", entry["id"]),
             "template": entry["template"], "action": action, "detail": detail,
             "allow_session": allow_session, "allow_once": allow_once, "secret_ids": grant_ids or [entry["id"]],
-            "created": datetime.now().isoformat(timespec="seconds"),
+            "created": now.isoformat(timespec="seconds"),
+            "expires": (now + timedelta(seconds=APPROVAL_TIMEOUT_SECONDS)).isoformat(timespec="seconds"),
+            "client": getattr(_ACTOR, "client", None), "reason": reason, "host": getattr(_ACTOR, "host", None),
+            **self._usage_of(entry["id"]),
             "event": threading.Event(), "answer": None,
         }
         with self._lock:
@@ -1970,6 +2061,9 @@ class Service:
         finally:
             with self._lock:
                 self._approvals.pop(request["id"], None)
+                if request["answer"] is None:
+                    self._expired.append({"id": request["id"], "secret_name": request["secret_name"], "at": time.monotonic()})
+            self._revision += 1  # approved for a while, or not: the app shows it
         if request["answer"] == "session":
             seconds = self._approval_seconds()
             with self._lock:
@@ -2088,7 +2182,7 @@ class Service:
         if not change and self._team_info.get("state") == "offline":
             self._team_wake.set()  # the server answers again: a sync round puts the state right
         if kind != "presence" and isinstance(result, dict):
-            result = {**result, "presence": self._new_presence()}  # proved it: one click again from now on
+            result = {**result, "presence": getattr(_ACTOR, "presence", None) or self._new_presence()}  # proved it: one click again from now on
         return result
 
     def op_team_overview(self, params):
@@ -2248,6 +2342,13 @@ class Service:
                  "actor": getattr(_ACTOR, "value", None) or ("team" if action.startswith("team_") else "system")}
         if message:
             event["message"] = message[:300]
+        client = getattr(_ACTOR, "client", None)
+        if client:
+            event["client"] = client["name"]
+        if event["actor"] != "user":
+            self._revision += 1  # the app shows the AI's uses (Actividad reciente) and the team's changes
+        if event["actor"] == "ai" and status == "ok" and action in AI_USE_ACTIONS and self._usage is not None:
+            self._count_use(self._usage, secret_id, event["ts"])
         with self._lock:
             public_key = self.vault.audit_public_key()
             if public_key is None:
@@ -2419,6 +2520,26 @@ def _clean_test_request(entry, test):
     if not 200 <= status <= 399:
         raise ValueError("La respuesta esperada debe ser un código entre 200 y 399")
     return {"method": method, "url": url, "status": status}
+
+
+def _clean_client(client):
+    """{name, folder} of the program asking (sent by the MCP server and sb), or None. Shown, never trusted."""
+    if not isinstance(client, dict) or not str(client.get("name") or "").strip():
+        return None
+    folder = str(client.get("folder") or "").strip()
+    return {"name": " ".join(str(client["name"]).split())[:60], "folder": folder[:260] or None}
+
+
+def _target_host(action, params, entry):
+    """The host a request of the AI goes to, or None."""
+    if action == "http_request":
+        try:
+            return urlsplit(str(params.get("url") or "")).hostname
+        except ValueError:
+            return None
+    if action.startswith("ssh_"):
+        return entry["fields"].get("host")
+    return None
 
 
 def _plain_audit_event(line):

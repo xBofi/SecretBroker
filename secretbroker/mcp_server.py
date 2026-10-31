@@ -1,8 +1,10 @@
 ﻿"""MCP server for AI agents: a thin client of the SecretBroker service. It never holds secrets."""
 
+import os
+from pathlib import Path
 from typing import Any
 
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
 from . import client
@@ -37,11 +39,33 @@ mcp = MCPServer(
 
 # Replaced by the desktop app when it serves the tools itself: it shows its own window instead.
 open_app = client.launch_app
+# How the AI apps introduce themselves (clientInfo.name), as the user knows them.
+CLIENT_NAMES = {"claude-code": "Claude Code", "claude-ai": "Claude Desktop", "claude-desktop": "Claude Desktop",
+                "cursor-vscode": "Cursor", "codex-mcp-client": "Codex", "Visual Studio Code": "VS Code"}
 
 
-def _call(op, params=None):
+def _client(ctx):
+    """Who is asking and, run by an agent in a project (stdio), in which folder: the approval shows it."""
+    info = None
     try:
-        return client.call(op, params, open_app=open_app)
+        params = ctx.request_context.session.client_params if ctx else None
+        info = params.client_info if params else None
+    except (ValueError, AttributeError):
+        pass
+    raw = getattr(info, "title", None) or getattr(info, "name", None) or ""
+    name = CLIENT_NAMES.get(getattr(info, "name", None) or "", raw) or "La IA"
+    folder = None
+    if open_app is client.launch_app:  # a process started by the AI app, in its working folder
+        cwd = Path(os.getcwd())
+        if cwd != Path.home() and not any(part.lower() in ("windows", "program files", "program files (x86)", "appdata")
+                                          for part in cwd.parts[1:2] + cwd.parts[3:4]):
+            folder = str(cwd)
+    return {"name": name, "folder": folder}
+
+
+def _call(op, params=None, ctx=None):
+    try:
+        return client.call(op, {**(params or {}), "_client": _client(ctx)}, open_app=open_app)
     except (BrokerError, BrokerUnavailable) as exc:
         raise ToolError(str(exc)) from None
 
@@ -51,11 +75,11 @@ def _drop_none(**params):
 
 
 @mcp.tool()
-def list_secrets() -> list[dict]:
+def list_secrets(ctx: Context | None = None) -> list[dict]:
     """List the stored credentials with their context: name, kind, description (user instructions),
     host, username, allowed web hosts, allowed commands, available placeholders and actions.
     Secret values are never included."""
-    return _call("list_secrets")
+    return _call("list_secrets", None, ctx)
 
 
 @mcp.tool()
@@ -68,6 +92,8 @@ def http_request(
     json_body: Any = None,
     inject_auth: bool = True,
     timeout: int = 60,
+    reason: str | None = None,
+    ctx: Context | None = None,
 ) -> dict:
     """Make an HTTPS request using a stored credential. Only the credential's allowed hosts work.
 
@@ -82,40 +108,45 @@ def http_request(
 
 
 @mcp.tool()
-def ssh_exec(secret_id: str, command: str, sudo: bool = False, timeout: int = 120) -> dict:
+def ssh_exec(secret_id: str, command: str, sudo: bool = False, timeout: int = 120, reason: str | None = None,
+             ctx: Context | None = None) -> dict:
     """Run a shell command on the SSH server of a stored credential (host and user come from the vault).
-    With sudo=true the command runs through `sudo` and the stored password is fed to it automatically."""
-    return _call("ssh_exec", dict(secret_id=secret_id, command=command, sudo=sudo, timeout=timeout))
+    With sudo=true the command runs through `sudo` and the stored password is fed to it automatically.
+    reason: one short sentence on what this is for; the user sees it if asked to approve."""
+    return _call("ssh_exec", _drop_none(secret_id=secret_id, command=command, sudo=sudo, timeout=timeout, reason=reason), ctx)
 
 
 @mcp.tool()
-def ssh_upload(secret_id: str, local_path: str, remote_path: str) -> dict:
-    """Upload a local file to the SSH server of a stored credential via SFTP."""
-    return _call("ssh_upload", dict(secret_id=secret_id, local_path=local_path, remote_path=remote_path))
+def ssh_upload(secret_id: str, local_path: str, remote_path: str, reason: str | None = None,
+               ctx: Context | None = None) -> dict:
+    """Upload a local file to the SSH server of a stored credential via SFTP. reason: one short sentence on what this is for; the user sees it if asked to approve."""
+    return _call("ssh_upload", _drop_none(secret_id=secret_id, local_path=local_path, remote_path=remote_path, reason=reason), ctx)
 
 
 @mcp.tool()
-def ssh_download(secret_id: str, remote_path: str, local_path: str, overwrite: bool = False) -> dict:
-    """Download a file from the SSH server of a stored credential via SFTP."""
-    return _call("ssh_download", dict(
-        secret_id=secret_id, remote_path=remote_path, local_path=local_path, overwrite=overwrite,
-    ))
+def ssh_download(secret_id: str, remote_path: str, local_path: str, overwrite: bool = False, reason: str | None = None,
+                 ctx: Context | None = None) -> dict:
+    """Download a file from the SSH server of a stored credential via SFTP. reason: one short sentence on what this is for; the user sees it if asked to approve."""
+    return _call("ssh_download", _drop_none(
+        secret_id=secret_id, remote_path=remote_path, local_path=local_path, overwrite=overwrite, reason=reason,
+    ), ctx)
 
 
 @mcp.tool()
-def run_command(secret_id: str, argv: list[str], cwd: str | None = None, timeout: int = 300) -> dict:
+def run_command(secret_id: str, argv: list[str], cwd: str | None = None, timeout: int = 300, reason: str | None = None,
+                ctx: Context | None = None) -> dict:
     """Run a local CLI (e.g. gh, aws, psql) with the credential injected as environment variables.
     argv[0] must be one of the credential's allowed commands (a bare name, resolved on PATH).
-    No shell is used. Output is returned with any secret redacted."""
-    return _call("run_command", _drop_none(secret_id=secret_id, argv=argv, cwd=cwd, timeout=timeout))
+    No shell is used. Output is returned with any secret redacted. reason: one short sentence on what this is for; the user sees it if asked to approve."""
+    return _call("run_command", _drop_none(secret_id=secret_id, argv=argv, cwd=cwd, timeout=timeout, reason=reason), ctx)
 
 
 @mcp.tool()
-def request_access(secret_ids: list[str], reason: str) -> dict:
+def request_access(secret_ids: list[str], reason: str, ctx: Context | None = None) -> dict:
     """At the start of a task, ask once for every credential it will need (by id, from list_secrets),
     explaining the task in `reason`. The user approves them all with one click instead of one prompt
     per credential. Credentials set to ask every time still ask on each use."""
-    return _call("request_access", dict(secret_ids=secret_ids, reason=reason))
+    return _call("request_access", dict(secret_ids=secret_ids, reason=reason), ctx)
 
 
 @mcp.tool()
@@ -135,6 +166,7 @@ def create_credential(
     rotation_guide: dict[str, Any] | None = None,
     check_every_hours: int | None = None,
     used_in: list[str] | None = None,
+    ctx: Context | None = None,
 ) -> dict:
     """Prepare a new credential with everything except its secret; the user then only pastes the
     key in the SecretBroker app (it can't be used until then). Never ask for the secret in the chat.
@@ -172,7 +204,7 @@ def create_credential(
         allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands, tags=tags, expires=expires,
         rotate_every_days=rotate_every_days, rotation_guide=rotation_guide, check_every_hours=check_every_hours,
         used_in=used_in,
-    ))
+    ), ctx)
 
 
 @mcp.tool()
@@ -191,6 +223,7 @@ def update_credential(
     check_every_hours: int | None = None,
     used_in: list[str] | None = None,
     test_request: dict[str, Any] | None = None,
+    ctx: Context | None = None,
 ) -> dict:
     """Change a credential's name, notes, tags, expiry date (YYYY-MM-DD), non-secret fields or permissions (only what you pass;
     an empty string clears a field). Name and description change at once. Changes that affect where
@@ -218,37 +251,37 @@ def update_credential(
         allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands, tags=tags, expires=expires,
         rotate_every_days=rotate_every_days, rotation_guide=rotation_guide, check_every_hours=check_every_hours,
         used_in=used_in, test_request=test_request,
-    ))
+    ), ctx)
 
 
 @mcp.tool()
-def check_credential(secret_id: str) -> dict:
+def check_credential(secret_id: str, ctx: Context | None = None) -> dict:
     """Test whether a credential still works (a harmless read-only call to its provider, or an SSH
     login), and see its key's age, expiry date, whether it can be rotated by API and which rotation
     guide the app has for it (builtin, ai or generic: generic means you could research one and store it
     with update_credential's rotation_guide)."""
-    return _call("ai_check", dict(secret_id=secret_id))
+    return _call("ai_check", dict(secret_id=secret_id), ctx)
 
 
 @mcp.tool()
-def rotate_credential(secret_id: str, reason: str) -> dict:
+def rotate_credential(secret_id: str, reason: str, ctx: Context | None = None) -> dict:
     """Replace an API key with a new one issued by its provider (only providers that allow it, see
     check_credential; for the rest, tell the user to use «Rotar con ayuda» in the app). The old key stops working at once; GitHub secrets it was pushed to are updated.
     The user usually confirms it in the app. You never see the new key."""
-    return _call("ai_rotate", dict(secret_id=secret_id, reason=reason))
+    return _call("ai_rotate", dict(secret_id=secret_id, reason=reason), ctx)
 
 
 @mcp.tool()
-def credential_activity(secret_id: str | None = None, limit: int = 50) -> list[dict]:
+def credential_activity(secret_id: str | None = None, limit: int = 50, ctx: Context | None = None) -> list[dict]:
     """Recent activity (uses, approvals, denials, errors, edits), newest first, optionally of one
     credential. No secret values."""
-    return _call("ai_activity", _drop_none(secret_id=secret_id, limit=limit))
+    return _call("ai_activity", _drop_none(secret_id=secret_id, limit=limit), ctx)
 
 
 @mcp.tool()
-def delete_credential(secret_id: str, reason: str) -> dict:
+def delete_credential(secret_id: str, reason: str, ctx: Context | None = None) -> dict:
     """Propose deleting a credential that is no longer needed. The user always confirms it in the app."""
-    return _call("ai_delete", dict(secret_id=secret_id, reason=reason))
+    return _call("ai_delete", dict(secret_id=secret_id, reason=reason), ctx)
 
 
 @mcp.tool()
@@ -259,6 +292,8 @@ def push_github_secret(
     name: str,
     value: str = "{{value}}",
     environment: str | None = None,
+    reason: str | None = None,
+    ctx: Context | None = None,
 ) -> dict:
     """Store a credential as a GitHub Actions secret (repository secret, or environment secret if
     `environment` is given) without seeing it. The broker reads the value from the vault, encrypts it
@@ -266,11 +301,11 @@ def push_github_secret(
 
     `value` is a placeholder template for what to store, e.g. "{{value}}" for an API key or
     "{{connection_url}}" for a database. Creating or updating works the same way, so use it again
-    after the user rotates a key."""
+    after the user rotates a key. reason: one short sentence on what this is for; the user sees it if asked to approve."""
     return _call("push_github_secret", _drop_none(
         secret_id=secret_id, github_secret_id=github_secret_id, repo=repo, name=name,
-        value=value, environment=environment,
-    ))
+        value=value, environment=environment, reason=reason,
+    ), ctx)
 
 
 def main():

@@ -16,6 +16,9 @@ from . import crypto, paths
 
 UNLOCK_WAIT_SECONDS = 120
 APP_START_WAIT_SECONDS = 20
+# "Open with my Windows session": a token kept under the user's Windows login (DPAPI), written by the app.
+SESSION_FILE = paths.user_dir() / "session.bin"
+SESSION_ENTROPY = b"SecretBroker/session-unlock/v1"
 
 
 class BrokerUnavailable(Exception):
@@ -35,7 +38,8 @@ def _broker_info():
         raise BrokerUnavailable("El servicio SecretBroker no está en marcha") from None
 
 
-def request(op, params=None, timeout=600):
+def request(op, params=None, timeout=600, meta=None):
+    """`meta`: a dict that receives what the service answers besides the result (a new one-click token)."""
     info = _broker_info()
     nonce = os.urandom(16)
     message = {"token": info["token"], "op": op, "params": params or {}, "nonce": crypto.b64(nonce)}
@@ -59,6 +63,8 @@ def request(op, params=None, timeout=600):
     response = json.loads(envelope["body"])
     if not response.get("ok"):
         raise BrokerError(response.get("error", "Error desconocido"), response.get("code", "error"))
+    if meta is not None:
+        meta.update({k: v for k, v in response.items() if k not in ("ok", "result")})
     return response["result"]
 
 
@@ -116,9 +122,32 @@ def _wait(condition, seconds):
     return False
 
 
+def session_token():
+    """The token of "open with my Windows session", or None when it is off on this PC."""
+    try:
+        from . import winsec
+        return winsec.dpapi_unprotect(SESSION_FILE.read_bytes(), SESSION_ENTROPY).decode()
+    except (OSError, ValueError, UnicodeDecodeError):
+        return None
+
+
+def reopen_with_session():
+    """Open the vault again without a password when the user turned on the Windows session unlock (after the
+    inactivity lock). Anything running as the user can do this: that is what that option means."""
+    token = session_token()
+    if not token:
+        return False
+    try:
+        request("unlock", {"proof": {"kind": "session", "token": token}}, timeout=30)
+        return True
+    except (BrokerError, BrokerUnavailable):
+        return False
+
+
 def call(op, params=None, open_app=None):
     """Like request(), but if the vault is locked or an approval needs the app, open it, wait and retry once.
-    open_app shows the app; by default it is started (or, if it is already running, brought forward)."""
+    open_app shows the app; by default it is started (or, if it is already running, brought forward).
+    Locked with the Windows session unlock on, it opens again by itself: nobody has to type anything."""
     if not ensure_service():
         raise BrokerUnavailable("El servicio SecretBroker no está en marcha. Pide al usuario que lo revise.")
     for attempt in (1, 2):
@@ -127,6 +156,8 @@ def call(op, params=None, open_app=None):
         except BrokerError as exc:
             if attempt == 2 or exc.code not in ("locked", "gui_required"):
                 raise
+            if exc.code == "locked" and reopen_with_session():
+                continue
             (open_app or launch_app)()
             if exc.code == "locked":
                 if not _wait(lambda s: s["state"] == "unlocked", UNLOCK_WAIT_SECONDS):

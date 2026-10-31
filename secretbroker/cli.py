@@ -41,6 +41,11 @@ class ConfigError(Exception):
     pass
 
 
+def _who():
+    """Who asks, for the approval in the app: sb, in this folder."""
+    return {"name": "sb", "folder": str(Path.cwd())}
+
+
 def find_config(start):
     for directory in (start, *start.parents):
         candidate = directory / CONFIG_NAME
@@ -94,7 +99,7 @@ def run(argv, config_path=None):
     items = parse_config(path.read_text(encoding="utf-8"), path.name)
 
     command = subprocess.list2cmdline(argv)
-    released = client.call("release_env", {"vars": items, "command": command, "cwd": str(Path.cwd())})
+    released = client.call("release_env", {"vars": items, "command": command, "cwd": str(Path.cwd()), "_client": _who()})
     env = dict(os.environ)
     env.update(released["env"])
     executable = shutil.which(argv[0]) or argv[0]
@@ -133,7 +138,7 @@ def check(config_path=None):
     if path is None or not path.is_file():
         raise ConfigError(f"No hay ningún {CONFIG_NAME} en esta carpeta ni en las superiores")
     items = parse_config(path.read_text(encoding="utf-8"), path.name)
-    results = client.call("check_env", {"vars": items})
+    results = client.call("check_env", {"vars": items, "_client": _who()})
     label = lambda r: f"{r['name'] or '*'} = {r['secret_id']}"
     width = max(len(label(r)) for r in results)
     for r in results:
@@ -211,8 +216,8 @@ def import_env(env_path, project=None, everything=False, delete=False):
         paired = paired_var(item["var"], values)
         if paired:
             item.update(paired_var=paired, paired_id=values[paired])
-    print(f"Confirma la importación en la app SecretBroker ({len(items)} clave(s))...", flush=True)
-    result = client.call("import_env", {"source": str(env_path), "project": slug(project)[:30], "items": items})
+    print(f"Confirma la importación en la app SecretBroker ({len(items)} {'clave' if len(items) == 1 else 'claves'})...", flush=True)
+    result = client.call("import_env", {"source": str(env_path), "project": slug(project)[:30], "items": items, "_client": _who()})
     mapped = {i["var"]: i["id"] for i in result["created"] + result["skipped"]}
     paired = {i["var"]: i["paired_var"] for i in items if i.get("paired_var")}
     for item in result["created"]:

@@ -26,7 +26,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey 
 
 from nacl.public import PrivateKey, SealedBox  # noqa: E402
 
-from secretbroker import actions, cli, client, crypto, exposure, links, rotation, update  # noqa: E402
+from secretbroker import actions, cli, client, crypto, exposure, links, rotation, update, winsec  # noqa: E402
 from secretbroker.client import BrokerError, BrokerUnavailable  # noqa: E402
 from secretbroker.service import Service  # noqa: E402
 
@@ -229,7 +229,8 @@ def main():
                     answer = call("approve", {"id": request["id"], "scope": decision}, "hello")
                     if isinstance(answer, dict) and answer.get("presence"):
                         fresh_presence.append(answer["presence"])
-                decisions.append((request["action"], request["detail"]))
+                # The AI's reason is shown on its own, not repeated in the detail.
+                decisions.append((request["action"], request["detail"] + ("\n" + request["reason"] if request.get("reason") else ""), request))
                 return
             time.sleep(0.1)
 
@@ -264,8 +265,27 @@ def main():
     expect_error(lambda: call("approve", {"id": "x", "scope": "once"}, {"kind": "presence", "token": presence}),
                  "proof_invalid", "a token from before a lock is refused")
     presence = client.request("lock") and call("unlock", {}, "hello")["presence"]
-    expect_error(lambda: call("reveal", {"id": "echo-api", "field": "value"}, {"kind": "presence", "token": presence}),
-                 "proof_required", "the token only approves, it cannot reveal")
+    one_click = {"kind": "presence", "token": presence}
+    check(call("reveal", {"id": "echo-api", "field": "value"}, one_click) == API_KEY,
+          "unlocked with a proof (Hello, a password): revealing is one click, no password again")
+    check(call("set_settings", {"settings": {"max_uses_per_hour": 100}}, one_click)["max_uses_per_hour"] == 100,
+          "and so is changing a setting")
+    weak = service._new_presence(strong=False)  # what opening with the Windows session hands out
+    expect_error(lambda: call("reveal", {"id": "echo-api", "field": "value"}, {"kind": "presence", "token": weak}),
+                 "proof_required", "after a Windows-session unlock, revealing needs a proof once")
+    expect_error(lambda: call("save_entry", {"entry": updated, "replaces": "echo-api"}, {"kind": "presence", "token": weak}),
+                 "proof_required", "and so does saving")
+    meta = {}
+    proved = {"kind": "master_password", "value": "a brand new master pass", "presence": weak}
+    check(client.request("reveal", {"id": "echo-api", "field": "value", "proof": proved}, meta=meta) == API_KEY
+          and meta.get("presence") == weak, "a password proof with the token makes that same token strong")
+    check(call("reveal", {"id": "echo-api", "field": "value"}, {"kind": "presence", "token": weak}) == API_KEY,
+          "then it is one click for the rest of the session")
+    meta = {}
+    client.request("reveal", {"id": "echo-api", "field": "value", "proof": {"kind": "master_password", "value": "a brand new master pass"}}, meta=meta)
+    check("presence" not in meta and call("reveal", {"id": "echo-api", "field": "value"}, {"kind": "presence", "token": weak}) == API_KEY,
+          "a proof without the token (sb, a script) leaves the app's token alone")
+    presence = call("unlock", {}, "hello")["presence"]
 
     def click_approve():
         deadline = time.monotonic() + 10
@@ -321,6 +341,58 @@ def main():
     client.request("lock")
     expect_error(lambda: call("unlock", {}, {"kind": "session", "token": token}), "proof_invalid",
                  "once turned off the token is useless")
+    presence = call("unlock", {}, "hello")["presence"]
+    client.request("pending_approvals")
+
+    print("Approvals: who asks, why, and freshness")
+    service_module = sys.modules[Service.__module__]
+    client.request("revoke_sessions", {"secret_id": "echo-api"})
+    gui = threading.Thread(target=fake_gui, args=("once",))
+    gui.start()
+    before = client.request("status")["revision"]
+    client.request("http_request", {"secret_id": "echo-api", "url": base + "/who", "reason": "Comprobar la API",
+                                    "_client": {"name": "Claude Code", "folder": "C:\\proyectos\\tienda"}})
+    gui.join()
+    presence = fresh_presence[-1]  # approving with Hello handed out a new one-click token
+    asked = decisions[-1][2]
+    check(asked["client"] == {"name": "Claude Code", "folder": "C:\\proyectos\\tienda"} and asked["reason"] == "Comprobar la API"
+          and asked["host"] == "127.0.0.1", "the approval says who asks, from which folder, why and to which host")
+    check(asked["last_used"] and asked["uses_today"] >= 1 and asked["expires"], "and when the AI last used it, how often today, until when")
+    check(client.request("status")["revision"] > before, "an AI use moves the revision (the app redraws in place)")
+    recent = client.request("audit", {"secret_id": "echo-api", "limit": 5})
+    check(recent and all(e["secret"] == "echo-api" for e in recent) and recent[0].get("client") == "Claude Code",
+          "the activity of one credential, with the app that used it")
+    check(next(e for e in client.request("entries") if e["id"] == "echo-api")["last_used"], "the list knows when each was used")
+    service_module.APPROVAL_TIMEOUT_SECONDS, timeout = 1, service_module.APPROVAL_TIMEOUT_SECONDS
+    client.request("pending_approvals")  # the app is open, but nobody answers
+    expect_error(lambda: client.request("http_request", {"secret_id": "echo-api", "url": base + "/late"}), "denied",
+                 "nobody answers: the AI gets an error")
+    service_module.APPROVAL_TIMEOUT_SECONDS = timeout
+    check(any(e["secret_name"] == "Echo API" for e in client.request("expired_approvals")), "and the app can say it expired")
+
+    current = next(e for e in client.request("entries") if e["id"] == "echo-api")
+    client.request("update_credential", {"secret_id": "echo-api", "description": "Cambiada por la IA"})
+    stale = json.loads(json.dumps(updated))
+    stale["description"] = "Mi versión"
+    expect_error(lambda: call("save_entry", {"entry": stale, "replaces": "echo-api", "base_updated": current["updated"] + "x"},
+                              {"kind": "presence", "token": presence}), "conflict", "saving over a newer version is a conflict")
+    fresh = next(e for e in client.request("entries") if e["id"] == "echo-api")
+    call("save_entry", {"entry": stale, "replaces": "echo-api", "base_updated": fresh["updated"]}, {"kind": "presence", "token": presence})
+    check(next(e for e in client.request("entries") if e["id"] == "echo-api")["description"] == "Mi versión",
+          "with the version it started from, it saves")
+
+    token = call("enable_session_unlock", {}, {"kind": "presence", "token": presence})["token"]
+    check(bool(token), "turning on the session unlock is one click after a proof")
+    session_file = client.SESSION_FILE
+    session_file.parent.mkdir(parents=True, exist_ok=True)
+    session_file.write_bytes(winsec.dpapi_protect(token.encode(), client.SESSION_ENTROPY))
+    service._lock_vault(reason="idle")
+    check(client.request("status")["lock_reason"] == "idle", "the app knows the vault locked for inactivity")
+    check(any(v["id"] == "echo-api" for v in client.call("list_secrets")), "the AI's next request opens it again, no password")
+    check(client.request("status")["state"] == "unlocked", "and it stays open")
+    session_file.unlink()
+    client.request("disable_session_unlock")
+    client.request("lock")
     presence = call("unlock", {}, "hello")["presence"]
     client.request("pending_approvals")
 
