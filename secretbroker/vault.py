@@ -241,7 +241,11 @@ def _shared_summary(shared):
     return {"org": shared["org"], "org_name": shared.get("org_name", ""), "collection": shared["collection"],
             "collection_name": shared.get("collection_name", ""), "permission": shared["permission"],
             "author": shared.get("author"), "changed": shared.get("changed"),
-            "pending_change": {k: pending.get(k) for k in ("by", "at", "changes", "hosts", "only_hosts")} if pending else None,
+            "pending_change": {**{k: pending.get(k) for k in ("by", "at", "changes", "hosts", "only_hosts")},
+                               "texts": bool(pending.get("texts")),
+                               "description": pending.get("description")} if pending else None,
+            # Deleted for the team in a batch too large to apply unasked: it waits for the user (Equipo).
+            "pending_delete": shared.get("pending_delete"),
             "rotate_because": (shared.get("rotate") or {}).get("people") or []}
 
 

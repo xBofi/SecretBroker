@@ -63,7 +63,8 @@ SLUG_RE = re.compile(r"[^a-z0-9]+")
 # Team operations that change something: the app that unlocked does them with one click. None is for the AI.
 TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_invite", "team_accept_invite",
                    "team_confirm_member", "team_set_role", "team_remove_member", "team_create_collection", "team_grant",
-                   "team_revoke", "team_share_entry", "team_share_entries", "team_unshare_entry", "team_accept_change")
+                   "team_revoke", "team_share_entry", "team_share_entries", "team_unshare_entry", "team_accept_change",
+                   "team_verify_email", "team_send_code", "team_resolve_deletions")
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
                 "import_file", "export_vault") + TEAM_CHANGE_OPS  # what the app that unlocked may do with one click
 # Operations that can send credentials or keys out of the vault (to someone else's account, or a file in clear).
@@ -81,9 +82,15 @@ TEAM_EXPORT_OPS += ("rotation_secret",)
 TEAM_PUSH_OPS |= {"rotation_apply", "set_test_request"}
 # Everyday work in the app: one click once the user proved it at unlock (master password, Windows password or
 # Hello). They show, change or delete secrets, so like TEAM_EXPORT_OPS a session unlock alone is not enough.
-PROVEN_OPS = ("reveal", "save_entry", "delete_entry", "rotate", "set_settings", "exposure_begin", "enable_session_unlock")
+PROVEN_OPS = ("reveal", "save_entry", "delete_entry", "rotate", "set_settings", "exposure_begin", "enable_session_unlock",
+              "team_resolve_deletions")
 PRESENCE_OPS += PROVEN_OPS
+# An AI request the user approves with one click, except these: they delete, rotate or change where a key may go,
+# so after a Windows-session unlock (no proof) the first one needs Hello or a password, like PROVEN_OPS.
+STRONG_APPROVALS = ("delete", "rotate", "edit_config")
 PROVEN_PURPOSE = {"reveal": "ver o copiar claves", "save_entry": "cambiar credenciales", "delete_entry": "eliminar credenciales",
+                  "team_resolve_deletions": "decidir sobre credenciales borradas del equipo",
+                  "approve": "aprobar que la IA borre, rote o cambie adónde va una clave",
                   "rotate": "rotar claves", "set_settings": "cambiar los ajustes", "exposure_begin": "buscar copias de tus claves",
                   "enable_session_unlock": "abrir la bóveda con tu sesión de Windows", "export_vault": "exportar la bóveda",
                   "rotation_secret": "copiar la contraseña nueva", "totp_code": "ver el código 2FA"}
@@ -93,6 +100,9 @@ AI_USE_ACTIONS = AGENT_ACTIONS | {"release_env", "push_github_secret"}  # "last 
 PRESENCE_OPS += ("totp_code",)
 TEAM_EXPORT_OPS += ("totp_code",)
 TEAM_SYNC_SECONDS = 300
+# What a sync records in Actividad: done by the team (with the name of who signed it), whoever started the sync.
+TEAM_SYNC_EVENTS = {"team_add", "team_update", "team_delete", "team_review", "team_held", "team_unsigned",
+                    "team_recovery", "team_conflict"}
 # Everything the AI can ask for. "Pause the AI" refuses all of it without locking the vault.
 AI_OPS = AGENT_ACTIONS | {"list_secrets", "release_env", "push_github_secret", "create_draft", "update_credential",
                           "request_access", "check_env", "import_env", "ai_check", "ai_rotate", "ai_activity",
@@ -236,7 +246,7 @@ class Service:
                 response["presence"] = _ACTOR.presence  # proved it: one click from now on (see _verify_proof)
             return response
         except (ServiceError, teams.TeamError) as exc:
-            return {"ok": False, "code": exc.code, "error": str(exc)}
+            return {"ok": False, "code": exc.code, "error": str(exc), **({"weak": True} if getattr(exc, "weak", False) else {})}
         except VaultLocked:
             return {"ok": False, "code": "locked",
                     "error": "La bóveda de SecretBroker está bloqueada. El usuario debe desbloquearla en la app SecretBroker."}
@@ -259,7 +269,8 @@ class Service:
         if self._failures >= 3:
             time.sleep(min(60, 2 ** (self._failures - 3)))
 
-    def _verify_proof(self, op, params, allowed=ALL_PROOFS):
+    def _verify_proof(self, op, params, allowed=ALL_PROOFS, strong=False):
+        """`strong`: this call needs a proven presence even if `op` usually does not (see STRONG_APPROVALS)."""
         proof = params.get("proof") or {}
         kind = proof.get("kind")
         if kind == "presence" and op in PRESENCE_OPS:
@@ -267,9 +278,11 @@ class Service:
                 presence = self._presence
             if presence and presence[1] > time.monotonic() and hmac.compare_digest(
                     str(proof.get("token", "")).encode(), presence[0].encode()):
-                if (op in TEAM_EXPORT_OPS or op in PROVEN_OPS) and not presence[2]:
-                    raise ServiceError("Confirma que eres tú una vez (Windows Hello o contraseña) para "
-                                       + PROVEN_PURPOSE.get(op, "compartir con otras personas"), "proof_required")
+                if (strong or op in TEAM_EXPORT_OPS or op in PROVEN_OPS) and not presence[2]:
+                    error = ServiceError("Confirma que eres tú una vez (Windows Hello o contraseña) para "
+                                         + PROVEN_PURPOSE.get(op, "compartir con otras personas"), "proof_required")
+                    error.weak = True  # the app explains why: it was opened with the Windows session
+                    raise error
                 return kind
             raise ServiceError("La verificación ha caducado; inténtalo de nuevo", "proof_invalid")
         if kind not in allowed:
@@ -529,7 +542,7 @@ class Service:
                                "Pídele que lo haga en la app SecretBroker o que cambie el permiso en «Acceso de la IA».",
                                "forbidden")
         if level == "ask":
-            self._ask_user(entry, action, detail, allow_session=False)
+            self._ask_user(entry, action, detail, allow_session=False, strong=capability in STRONG_APPROVALS)
             return True
         if level == "notify":
             self._notify("La IA " + {"create": "ha preparado", "edit_notes": "ha editado", "edit_config": "ha cambiado",
@@ -1445,7 +1458,11 @@ class Service:
         record["days"] = {ts[:10]: record["days"].get(ts[:10], 0) + 1}  # only today's count is ever shown
 
     def op_approve(self, params):
-        kind = self._verify_proof("approve", params)
+        """Using a credential is one click. Deleting, rotating or widening where it goes (`strong` requests) is
+        one click too, unless the vault was opened with the Windows session: then the first one is proven."""
+        with self._lock:
+            pending = self._approvals.get(params.get("id"))
+        kind = self._verify_proof("approve", params, strong=bool(pending and pending.get("strong")))
         with self._lock:
             request = self._approvals.get(params.get("id"))
             if not request:
@@ -1767,7 +1784,7 @@ class Service:
         self._require_team_write(entry)
         detail = "Borrar esta credencial para siempre" + (f"\nMotivo: {params['reason']}" if params.get("reason") else "")
         try:
-            self._ask_user(entry, "delete", detail, allow_session=False)
+            self._ask_user(entry, "delete", detail, allow_session=False, strong=True)
         except ServiceError as exc:
             self._audit(entry["id"], "delete", detail, "denied" if exc.code == "denied" else "error", str(exc))
             raise
@@ -2145,8 +2162,9 @@ class Service:
             uses.append(now)
             return bool(limit) and len(uses) > limit
 
-    def _ask_user(self, entry, action, detail, allow_session, grant_ids=None, allow_once=True):
-        """Show the request in the app and wait for the user's answer."""
+    def _ask_user(self, entry, action, detail, allow_session, grant_ids=None, allow_once=True, strong=False):
+        """Show the request in the app and wait for the user's answer. `strong`: it deletes, rotates or widens
+        where a key goes, so after a Windows-session unlock approving it needs a proof once (op_approve)."""
         if time.monotonic() - self._gui_seen > GUI_SEEN_SECONDS:
             raise ServiceError("Esta acción necesita la aprobación del usuario y la app SecretBroker no está abierta.",
                                "gui_required")
@@ -2158,6 +2176,7 @@ class Service:
             "id": uuid.uuid4().hex, "secret_id": entry["id"], "secret_name": entry.get("name", entry["id"]),
             "template": entry["template"], "action": action, "detail": detail,
             "allow_session": allow_session, "allow_once": allow_once, "secret_ids": grant_ids or [entry["id"]],
+            "strong": bool(strong),
             "created": now.isoformat(timespec="seconds"),
             "expires": (now + timedelta(seconds=APPROVAL_TIMEOUT_SECONDS)).isoformat(timespec="seconds"),
             "client": getattr(_ACTOR, "client", None), "reason": reason, "host": getattr(_ACTOR, "host", None),
@@ -2200,9 +2219,16 @@ class Service:
             entry = copy.deepcopy(old)
             entry["policy"] = {**(old.get("policy") or {}), "approval": approval}
             return entry
-        if entry["shared"].get("pending_policy") and \
-                teams.widening_changes(old, entry) + teams.widening_changes(entry, old):
+        pending = entry["shared"].get("pending_policy")
+        if pending and teams.widening_changes(old, entry) + teams.widening_changes(entry, old):
             entry["shared"].pop("pending_policy")  # the user decided by hand where it may go
+        elif pending and "description" in pending and (old.get("description") or "") != (entry.get("description") or ""):
+            # The user wrote the description by hand: theirs is the one that goes to the team.
+            pending.pop("description")
+            pending["texts"] = False
+            pending["changes"] = [line for line in pending.get("changes") or [] if not line.startswith("Instrucciones")]
+            if not pending["changes"]:
+                entry["shared"].pop("pending_policy")
         return entry
 
     def _require_team_write(self, entry):
@@ -2255,9 +2281,26 @@ class Service:
                            "expired": bool(self._team_info.get("expired")) or state == "reconnect"}
 
     def _team_notices(self, notes):
+        # Actividad shows who changed what: the name of whoever signed the change (2.6), not just "Equipo".
+        for change in notes.get("changes", []):
+            self._audit(change["id"], change["action"], change.get("detail") or "", "ok", by=change.get("by"))
         for name in notes["quarantined"]:
-            self._notify(f"Cambio por revisar en {name}", "Un compañero ha cambiado adónde puede ir la clave. "
-                         "Hasta que lo aceptes se sigue usando como estaba.")
+            self._notify(f"Cambio por revisar en {name}", "Un compañero ha cambiado adónde puede ir la clave o lo que "
+                         "lee la IA. Hasta que lo aceptes se sigue usando como estaba.")
+        for held in notes.get("held_deletions", []):
+            who = _join(held["by"]) if held["by"] else None
+            self._notify(f"{held['count']} credenciales de {held['collection']} esperan tu decisión",
+                         ("La colección ya no aparece en el servidor. " if held.get("gone") else
+                          f"{who or 'Alguien'} las ha borrado a la vez. ")
+                         + "No se ha borrado nada en este PC: decide en Equipo.")
+            self._audit("vault", "team_held", f"{held['count']} borradas en {held['collection']}: esperan tu decisión",
+                        "denied", by=who)
+        if notes.get("unsigned"):
+            self._notify("Cambios del equipo descartados", "Llegaron cambios sin una firma válida de alguien que "
+                         "pueda editar (" + ", ".join(notes["unsigned"][:3]) + "). No se han aplicado.")
+            self._audit("vault", "team_unsigned", ", ".join(notes["unsigned"][:5]), "denied")
+        for item in notes.get("recovery", []):
+            self._audit("vault", "team_recovery", f"{item['person']} puede recuperar «{item['collection']}»", "ok")
         for item in notes["rotate"]:
             people = item["people"]
             self._notify(f"Cambia las claves de {item['collection']}",
@@ -2324,6 +2367,26 @@ class Service:
         self._team_info = {"state": "idle"}
         self._audit("vault", "team_connect", f"{result['user']['email']} en {result['server_url']}", "ok")
         self._team_wake.set()
+        return result
+
+    def op_team_verify_email(self, params):
+        """The code the team server e-mailed: until then invites to this address are not shown."""
+        result = self._team_call("team_verify_email", params, lambda: self.team.verify_email(params.get("code")))
+        self._audit("vault", "team_verify_email", result["user"]["email"], "ok")
+        self._team_wake.set()  # invites may be waiting
+        return result
+
+    def op_team_send_code(self, params):
+        return self._team_call("team_send_code", params, self.team.send_code)
+
+    def op_team_resolve_deletions(self, params):
+        """Held deletions (too many at once): `apply` deletes them here too; otherwise they are kept."""
+        apply = params.get("apply", True) is not False
+        result = self._team_call("team_resolve_deletions", params, lambda: self.team.resolve_deletions(
+            params.get("collection"), apply))
+        self._audit("vault", "team_resolve", f"{result['count']} de {result['collection_name']} "
+                    + ("borradas también aquí" if apply else "conservadas"), "ok")
+        self._team_wake.set()  # restored ones go back to the server
         return result
 
     def op_team_disconnect(self, params):
@@ -2446,12 +2509,16 @@ class Service:
 
     # ------------------------------------------------------------------ audit
 
-    def _audit(self, secret_id, action, detail, status, message=""):
+    def _audit(self, secret_id, action, detail, status, message="", by=None):
+        """`by`: for a team change, the name of the teammate who signed it."""
+        actor = "team" if action in TEAM_SYNC_EVENTS else getattr(_ACTOR, "value", None) or \
+            ("team" if action.startswith("team_") else "system")
         event = {"ts": datetime.now().isoformat(timespec="seconds"), "secret": secret_id, "action": action,
-                 "detail": detail.splitlines()[0][:300] if detail else "", "status": status,
-                 "actor": getattr(_ACTOR, "value", None) or ("team" if action.startswith("team_") else "system")}
+                 "detail": detail.splitlines()[0][:300] if detail else "", "status": status, "actor": actor}
         if message:
             event["message"] = message[:300]
+        if by:
+            event["by"] = str(by)[:100]
         client = getattr(_ACTOR, "client", None)
         if client:
             event["client"] = client["name"]

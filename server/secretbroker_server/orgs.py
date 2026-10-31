@@ -1,7 +1,9 @@
 """Organizations: members and roles, invites (invite -> accept -> admin confirms), collections, audit events."""
 
+from . import manifests
 from .db import event, now_iso
-from .validate import ApiError, body, dump, email, grant, one_of, path_id, query_int, sealed, text, uuid_id
+from .validate import (ApiError, body, dump, email, grant, members_record, one_of, path_id, query_int, sealed, text,
+                       uuid_id)
 from .web import new_id, route
 
 ADMIN_ROLES = ("owner", "admin")
@@ -61,8 +63,10 @@ def list_members(ctx):
                             "ON u.id = m.user_id WHERE m.org_id = ? ORDER BY u.email", (oid,)).fetchall()
     members = [{"user_id": r["id"], "email": r["email"], "name": r["name"], "role": r["role"], "status": r["status"]}
                for r in rows]
+    # An account that has not verified the invited e-mail is not shown as that person (it may not be them).
     invites = ctx.conn.execute("SELECT i.id, i.email, i.role, u.id AS user_id, u.name FROM invites i LEFT JOIN users u "
-                               "ON u.email = i.email WHERE i.org_id = ? ORDER BY i.email", (oid,)).fetchall()
+                               "ON u.email = i.email AND u.verified = 1 WHERE i.org_id = ? ORDER BY i.email",
+                               (oid,)).fetchall()
     # The invite id doubles as a signup token for that e-mail (SB_SIGNUPS=invite): only admins see it.
     admin = caller["role"] in ADMIN_ROLES
     members += [{"user_id": r["user_id"], "email": r["email"], "name": r["name"] or "", "role": r["role"],
@@ -87,8 +91,16 @@ def invite(ctx):
     return {"id": invite_id}
 
 
+def unverified():
+    return ApiError(403, "email_unverified", "Antes verifica tu e-mail: las invitaciones solo llegan a direcciones "
+                    "verificadas.")
+
+
 @route("GET", "/invites")
 def my_invites(ctx):
+    """Invites only bind to an address the account proved it owns: until then it sees none."""
+    if not ctx.user["verified"]:
+        return []
     rows = ctx.conn.execute(
         "SELECT i.id, i.org_id, o.name AS org_name, i.role, i.invited_by, u.email AS invited_by_email, "
         "u.name AS invited_by_name FROM invites i JOIN orgs o ON o.id = i.org_id LEFT JOIN users u "
@@ -109,6 +121,8 @@ def accept_invite(ctx):
     row = _invite_for_me(ctx)
     if row["email"] != ctx.user["email"]:
         raise not_found()
+    if not ctx.user["verified"]:
+        raise unverified()
     ctx.conn.execute("DELETE FROM invites WHERE id = ?", (row["id"],))
     ctx.conn.execute("INSERT INTO org_members (org_id, user_id, role, status, created) VALUES (?, ?, ?, 'accepted', ?) "
                      "ON CONFLICT (org_id, user_id) DO NOTHING", (row["org_id"], ctx.uid, row["role"], now_iso()))
@@ -200,7 +214,8 @@ def remove_member(ctx):
 @route("POST", "/orgs/{oid}/collections")
 def create_collection(ctx):
     oid = path_id(ctx.params["oid"])
-    data = body(ctx.body, {"id": uuid_id, "encrypted_name": sealed(NAME_MAX), "grant": grant})
+    data = body(ctx.body, {"id": uuid_id, "encrypted_name": sealed(NAME_MAX), "grant": grant},
+                {"members_record": members_record})
     require_admin(ctx.conn, oid, ctx.uid)
     if data["grant"]["granted_by"] != ctx.uid:
         raise ApiError(400, "invalid", "grant: granted_by debe ser tu usuario.")
@@ -210,6 +225,8 @@ def create_collection(ctx):
                      "VALUES (?, ?, ?, 1, 0, 0, ?)", (data["id"], oid, dump(data["encrypted_name"]), now_iso()))
     ctx.conn.execute("INSERT INTO collection_members (collection_id, user_id, permission, grant_json, key_version) "
                      "VALUES (?, ?, 'manage', ?, 1)", (data["id"], ctx.uid, dump(data["grant"])))
+    if data["members_record"]:  # the first signed member list (older clients don't send one)
+        manifests.append(ctx.conn, data["id"], ctx.body["members_record"], data["members_record"], ctx.uid, 1)
     event(ctx.conn, oid, ctx.uid, "collection.create", data["id"])
     return {}
 

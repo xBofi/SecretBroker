@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # `INTEGER PRIMARY KEY` on events is SQLite's rowid; a Postgres backend would use BIGSERIAL.
 SCHEMA = """
@@ -30,7 +30,20 @@ CREATE TABLE IF NOT EXISTS users (
     signing_public_key TEXT NOT NULL,
     private_blob TEXT NOT NULL,
     is_admin INTEGER NOT NULL DEFAULT 0,
+    verified INTEGER NOT NULL DEFAULT 0,
     created TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS email_codes (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    code_hash TEXT NOT NULL,
+    expires INTEGER NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    sent INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS account_data (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    blob TEXT NOT NULL,
+    revision INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
@@ -101,9 +114,17 @@ CREATE TABLE IF NOT EXISTS items (
     deleted INTEGER NOT NULL DEFAULT 0,
     updated_by TEXT NOT NULL,
     updated TEXT NOT NULL,
+    deletion TEXT,
     PRIMARY KEY (collection_id, id)
 );
 CREATE INDEX IF NOT EXISTS items_revision ON items(collection_id, revision);
+CREATE TABLE IF NOT EXISTS collection_manifests (
+    collection_id TEXT NOT NULL REFERENCES collections(id),
+    seq INTEGER NOT NULL,
+    record TEXT NOT NULL,
+    hash TEXT NOT NULL,
+    PRIMARY KEY (collection_id, seq)
+);
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY,
     org_id TEXT,
@@ -114,6 +135,22 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS events_org ON events(org_id, id);
 """
+
+
+def _columns(conn, table):
+    return {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+
+
+def _migrate(conn):
+    """Bring a database made by an earlier version up to date (new tables come from SCHEMA).
+
+    Schema 2 adds e-mail verification and signed deletions. Accounts that already existed count as verified: they
+    were in use before verification existed, and their organizations' admins confirmed them by hand."""
+    if "verified" not in _columns(conn, "users"):
+        conn.execute("ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0")
+        conn.execute("UPDATE users SET verified = 1")
+    if "deletion" not in _columns(conn, "items"):
+        conn.execute("ALTER TABLE items ADD COLUMN deletion TEXT")
 
 
 def now_iso():
@@ -135,8 +172,9 @@ class Database:
         self._lock = threading.Lock()
         conn = self.conn()
         conn.executescript(SCHEMA)
-        conn.execute("INSERT INTO meta (key, value) VALUES ('schema_version', ?) ON CONFLICT (key) DO NOTHING",
-                     (str(SCHEMA_VERSION),))
+        _migrate(conn)
+        conn.execute("INSERT INTO meta (key, value) VALUES ('schema_version', ?) ON CONFLICT (key) DO UPDATE "
+                     "SET value = excluded.value", (str(SCHEMA_VERSION),))
 
     def conn(self):
         conn = getattr(self._local, "conn", None)

@@ -84,3 +84,26 @@ class Throttle:
     def _prune(self, now):
         for key in [k for k, (_, last) in self._state.items() if now - last > self.forget_after]:
             del self._state[key]
+
+
+class Window:
+    """At most `limit` events per key in any `seconds`-long window. In memory, like Throttle."""
+
+    def __init__(self, limit, seconds):
+        self.limit, self.seconds = limit, seconds
+        self._times = {}
+        self._lock = threading.Lock()
+
+    def hit(self, key):
+        """Count one event; returns 0 if allowed, else the seconds to wait (the event is not counted)."""
+        now = time.monotonic()
+        with self._lock:
+            times = [t for t in self._times.get(key, []) if now - t < self.seconds]
+            if len(times) >= self.limit:
+                self._times[key] = times
+                return max(1, int(times[0] + self.seconds - now + 0.999))
+            times.append(now)
+            self._times[key] = times
+            if len(self._times) > 50_000:
+                self._times = {k: v for k, v in self._times.items() if v and now - v[-1] < self.seconds}
+            return 0
