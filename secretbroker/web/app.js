@@ -3208,8 +3208,8 @@ function sharedSection(entry) {
   });
   return el('div', { class: 'section' },
     el('h3', {}, t('common.team')),
-    el('p', {}, t('shared_section.shared_in'), el('b', {}, shared.collection_name || t('common.collection')), shared.org_name ? ` de ${shared.org_name}` : '',
-      t('shared_section.your_permission'), el('b', {}, PERMISSION_LABELS[shared.permission]), '.'),
+    el('p', {}, t('shared_section.shared_in'), el('b', {}, shared.collection_name || t('common.collection')), shared.org_name ? t('shared_section.of_org', { org: shared.org_name }) : '',
+      t('shared_section.your_permission'), el('b', {}, PERMISSION_LABELS[shared.permission]), t('shared_section.end')),
     el('p', { class: 'help' }, PERMISSION_HELP[shared.permission].split(': ')[1]),
     author ? el('p', { class: 'help' }, t('shared_section.last_change', { author, value: shared.changed ? ` · ${formatTime(shared.changed)}` : '' })) : null,
     unsent ? el('p', { class: 'help unsent-line' }, icon('clock', 'sm'), el('span', {}, el('b', {}, t('shared_section.not_sent')), unsent)) : null,
