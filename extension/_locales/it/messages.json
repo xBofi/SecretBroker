@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "Codice 2FA"
+  },
+  "2fa_code_copied": {
+    "message": "Codice 2FA copiato"
+  },
+  "browser": {
+    "message": "Browser"
+  },
+  "can_talk_secretbroker": {
+    "message": "Impossibile comunicare con SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Impossibile comunicare con SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Impossibile comunicare con SecretBroker. Aprilo e riprova."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Verifica che SecretBroker mostri lo stesso codice e fai clic su «Connetti»."
+  },
+  "cmd_fill": {
+    "message": "Compila l’accesso per questo sito"
+  },
+  "cmd_open": {
+    "message": "Apri SecretBroker"
+  },
+  "code": {
+    "message": "Codice"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Confermalo in SecretBroker"
+  },
+  "connect": {
+    "message": "Connetti $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Connetti questo browser"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Connetti questo browser: fai clic sull’icona di SecretBroker nella barra degli strumenti del browser, poi su «Connetti»."
+  },
+  "copy_2fa_code": {
+    "message": "Copia codice 2FA"
+  },
+  "copy_password": {
+    "message": "Copia password"
+  },
+  "copy_username": {
+    "message": "Copia nome utente"
+  },
+  "couldn_connect": {
+    "message": "Impossibile connettersi."
+  },
+  "couldn_copy": {
+    "message": "Impossibile copiare"
+  },
+  "couldn_fill_it_in": {
+    "message": "Impossibile compilare"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Impossibile trovare dove compilarla."
+  },
+  "couldn_look_it_up": {
+    "message": "Impossibile cercarla."
+  },
+  "couldn_save": {
+    "message": "Impossibile salvare"
+  },
+  "create_your_vault_first": {
+    "message": "Prima crea la tua cassaforte"
+  },
+  "ext_description": {
+    "message": "Compila le password che conservi in SecretBroker, solo sul loro sito e solo quando lo chiedi."
+  },
+  "fill_in": {
+    "message": "Compila"
+  },
+  "fill_in_on": {
+    "message": "Compila su $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Compila con SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Compila senza aprire questa finestra"
+  },
+  "form_from": {
+    "message": "Modulo di"
+  },
+  "form_is_in_frame_too": {
+    "message": "Il modulo è in un riquadro troppo piccolo per essere visto: non viene compilato."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Il modulo è in un riquadro nascosto o molto piccolo: non viene compilato."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Installa SecretBroker e apri Impostazioni › Browser. Se l’hai appena installato, riavvia il browser."
+  },
+  "it_no_longer_pending": {
+    "message": "Non è più in sospeso."
+  },
+  "it_only_fills_in_on": {
+    "message": "Compila solo sul sito di ogni password."
+  },
+  "loading": {
+    "message": "Caricamento"
+  },
+  "name": {
+    "message": "Nome"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Nessuna credenziale per $domain$ ha un codice 2FA.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· senza https"
+  },
+  "no_username": {
+    "message": "Senza nome utente"
+  },
+  "not_now": {
+    "message": "Non ora"
+  },
+  "nothing_matches": {
+    "message": "Nessun risultato."
+  },
+  "nothing_saved_for": {
+    "message": "Niente di salvato per $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Niente di salvato per $domain$. Accedi e ti proporrò di salvarlo.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Su altri siti"
+  },
+  "on_this_website": {
+    "message": "Su questo sito"
+  },
+  "open": {
+    "message": "Apri $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Aprilo e riprova."
+  },
+  "open_it_can_be_filled": {
+    "message": "Apri $host$ (lì si può compilare)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Apri SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Apri SecretBroker e crea la tua cassaforte per salvare password."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Apri un sito per vederne le password."
+  },
+  "open_website_you_want_sign": {
+    "message": "Apri il sito a cui vuoi accedere."
+  },
+  "page_has_changed_try_again": {
+    "message": "La pagina è cambiata. Riprova."
+  },
+  "password_copied": {
+    "message": "Password copiata"
+  },
+  "password_updated": {
+    "message": "Password aggiornata"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Password aggiornata in SecretBroker"
+  },
+  "save": {
+    "message": "Salva"
+  },
+  "save_this_login": {
+    "message": "Salvare questo accesso?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Salvare questa password in SecretBroker?"
+  },
+  "saved": {
+    "message": "Salvato"
+  },
+  "saved_for": {
+    "message": "Salvato per $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Salvato in SecretBroker"
+  },
+  "search": {
+    "message": "Cerca"
+  },
+  "search_secretbroker": {
+    "message": "Cerca in SecretBroker"
+  },
+  "searching": {
+    "message": "Ricerca…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker non ha risposto in tempo."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker è bloccato."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker è bloccato"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker è bloccato. Sbloccalo e riprova."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "SecretBroker manca su questo computer"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker non è installato su questo computer, oppure deve ancora essere connesso al browser."
+  },
+  "that_way_it_can_fill": {
+    "message": "Così potrà compilare le tue password. SecretBroker ti chiederà di confermarlo con un clic."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Non ci sono accessi salvati per $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "In questa pagina non c’è nessun campo visibile per il codice 2FA."
+  },
+  "there_no_visible_login_form": {
+    "message": "In questa pagina non c’è nessun modulo di accesso visibile."
+  },
+  "this_page_can_be_filled": {
+    "message": "Questa pagina non si può compilare."
+  },
+  "this_team_credential_is_use": {
+    "message": "Questa credenziale del team è di solo uso: non viene compilata nel browser."
+  },
+  "unlock": {
+    "message": "Sblocca"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Sbloccalo e fai di nuovo clic qui."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Sbloccalo per compilare le tue password."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Sblocca SecretBroker e fai di nuovo clic su «Connetti»."
+  },
+  "update": {
+    "message": "Aggiorna"
+  },
+  "update_password": {
+    "message": "Aggiornare la password di «$name$»?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Solo uso: non compilata"
+  },
+  "use_only_on_team_not": {
+    "message": "Solo uso nel team: non compilata"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Credenziale del team di solo uso: compilarla la mostrerebbe alla pagina"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Le credenziali del team di solo uso possono essere usate dall’IA, ma non vengono mostrate: compilarla la darebbe alla pagina."
+  },
+  "username_copied": {
+    "message": "Nome utente copiato"
+  },
+  "you_re_on": {
+    "message": "Sei su"
+  }
+}
