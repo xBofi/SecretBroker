@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "2FA kods"
+  },
+  "2fa_code_copied": {
+    "message": "2FA kods nokopēts"
+  },
+  "browser": {
+    "message": "Pārlūks"
+  },
+  "can_talk_secretbroker": {
+    "message": "Nevar sazināties ar SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Nevar sazināties ar SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Nevar sazināties ar SecretBroker. Atveriet to un mēģiniet vēlreiz."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Pārbaudiet, vai SecretBroker rāda šo pašu kodu, un noklikšķiniet uz „Savienot”."
+  },
+  "cmd_fill": {
+    "message": "Aizpildīt šīs vietnes pieteikšanās datus"
+  },
+  "cmd_open": {
+    "message": "Atvērt SecretBroker"
+  },
+  "code": {
+    "message": "Kods"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Apstipriniet to SecretBroker"
+  },
+  "connect": {
+    "message": "Savienot $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Savienot šo pārlūku"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Savienojiet šo pārlūku: pārlūka rīkjoslā noklikšķiniet uz SecretBroker ikonas, pēc tam uz „Savienot”."
+  },
+  "copy_2fa_code": {
+    "message": "Kopēt 2FA kodu"
+  },
+  "copy_password": {
+    "message": "Kopēt paroli"
+  },
+  "copy_username": {
+    "message": "Kopēt lietotājvārdu"
+  },
+  "couldn_connect": {
+    "message": "Neizdevās savienot."
+  },
+  "couldn_copy": {
+    "message": "Neizdevās nokopēt"
+  },
+  "couldn_fill_it_in": {
+    "message": "Neizdevās aizpildīt"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Neizdevās atrast, kur to aizpildīt."
+  },
+  "couldn_look_it_up": {
+    "message": "Neizdevās to sameklēt."
+  },
+  "couldn_save": {
+    "message": "Neizdevās saglabāt"
+  },
+  "create_your_vault_first": {
+    "message": "Vispirms izveidojiet savu glabātavu"
+  },
+  "ext_description": {
+    "message": "Aizpilda SecretBroker glabātās paroles – tikai to pašu vietnē un tikai tad, kad to lūdzat."
+  },
+  "fill_in": {
+    "message": "Aizpildīt"
+  },
+  "fill_in_on": {
+    "message": "Aizpildīt vietnē $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Aizpildīt ar SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Aizpildīt, neatverot šo logu"
+  },
+  "form_from": {
+    "message": "Veidlapa no"
+  },
+  "form_is_in_frame_too": {
+    "message": "Veidlapa atrodas rāmī, kas ir pārāk mazs, lai to redzētu: tā netiek aizpildīta."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Veidlapa atrodas paslēptā vai ļoti mazā rāmī: tā netiek aizpildīta."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Instalējiet SecretBroker un atveriet Iestatījumi › Pārlūks. Ja tikko to instalējāt, restartējiet pārlūku."
+  },
+  "it_no_longer_pending": {
+    "message": "Tas vairs negaida."
+  },
+  "it_only_fills_in_on": {
+    "message": "Tas aizpilda tikai katras paroles vietnē."
+  },
+  "loading": {
+    "message": "Ielādē"
+  },
+  "name": {
+    "message": "Nosaukums"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Nevienam $domain$ piekļuves datu ierakstam nav 2FA koda.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· nav https"
+  },
+  "no_username": {
+    "message": "Nav lietotājvārda"
+  },
+  "not_now": {
+    "message": "Ne tagad"
+  },
+  "nothing_matches": {
+    "message": "Nekas neatbilst."
+  },
+  "nothing_saved_for": {
+    "message": "Vietnei $domain$ nekas nav saglabāts.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Vietnei $domain$ nekas nav saglabāts. Piesakieties, un es piedāvāšu to saglabāt.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Citās vietnēs"
+  },
+  "on_this_website": {
+    "message": "Šajā vietnē"
+  },
+  "open": {
+    "message": "Atvērt $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Atveriet to un mēģiniet vēlreiz."
+  },
+  "open_it_can_be_filled": {
+    "message": "Atvērt $host$ (tur to var aizpildīt)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Atvērt SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Atveriet SecretBroker un izveidojiet savu glabātavu, lai saglabātu paroles."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Atveriet vietni, lai redzētu tās paroles."
+  },
+  "open_website_you_want_sign": {
+    "message": "Atveriet vietni, kurā vēlaties pieteikties."
+  },
+  "page_has_changed_try_again": {
+    "message": "Lapa ir mainījusies. Mēģiniet vēlreiz."
+  },
+  "password_copied": {
+    "message": "Parole nokopēta"
+  },
+  "password_updated": {
+    "message": "Parole atjaunināta"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Parole SecretBroker atjaunināta"
+  },
+  "save": {
+    "message": "Saglabāt"
+  },
+  "save_this_login": {
+    "message": "Saglabāt šos pieteikšanās datus?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Saglabāt šo paroli SecretBroker?"
+  },
+  "saved": {
+    "message": "Saglabāts"
+  },
+  "saved_for": {
+    "message": "Saglabāts vietnei $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Saglabāts SecretBroker"
+  },
+  "search": {
+    "message": "Meklēt"
+  },
+  "search_secretbroker": {
+    "message": "Meklēt SecretBroker"
+  },
+  "searching": {
+    "message": "Meklē…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker neatbildēja laikus."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker ir aizslēgts."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker ir aizslēgts"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker ir aizslēgts. Atslēdziet to un mēģiniet vēlreiz."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "Šajā datorā trūkst SecretBroker"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker šajā datorā nav instalēts, vai tas vēl jāsavieno ar pārlūku."
+  },
+  "that_way_it_can_fill": {
+    "message": "Tā tas varēs aizpildīt jūsu paroles. SecretBroker lūgs to apstiprināt ar vienu klikšķi."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Vietnei $domain$ nav saglabātu pieteikšanās datu.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Šajā lapā nav redzama 2FA koda lauka."
+  },
+  "there_no_visible_login_form": {
+    "message": "Šajā lapā nav redzamas pieteikšanās veidlapas."
+  },
+  "this_page_can_be_filled": {
+    "message": "Šo lapu nevar aizpildīt."
+  },
+  "this_team_credential_is_use": {
+    "message": "Šie komandas piekļuves dati ir tikai lietošanai: pārlūkā tie netiek aizpildīti."
+  },
+  "unlock": {
+    "message": "Atslēgt"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Atslēdziet to un noklikšķiniet šeit vēlreiz."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Atslēdziet to, lai aizpildītu savas paroles."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Atslēdziet SecretBroker un vēlreiz noklikšķiniet uz „Savienot”."
+  },
+  "update": {
+    "message": "Atjaunināt"
+  },
+  "update_password": {
+    "message": "Atjaunināt „$name$” paroli?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Tikai lietošanai: netiek aizpildīts"
+  },
+  "use_only_on_team_not": {
+    "message": "Komandā tikai lietošanai: netiek aizpildīts"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Komandas piekļuves dati tikai lietošanai: aizpildot tie tiktu parādīti lapai"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Komandas piekļuves datus tikai lietošanai var izmantot MI, bet tie netiek rādīti: aizpildot tie tiktu nodoti lapai."
+  },
+  "username_copied": {
+    "message": "Lietotājvārds nokopēts"
+  },
+  "you_re_on": {
+    "message": "Jūs atrodaties"
+  }
+}
