@@ -41,7 +41,7 @@ from .vault import (
     check_master_password, convert_legacy_entry, entry_summary, can_write_shared, shared_content,
 )
 from . import templates
-from . import __version__, exports, health, importers
+from . import __version__, exports, health, importers, totp
 
 PROTOCOL_VERSION = 2
 MAX_REQUEST_BYTES = 4 * 1024 * 1024
@@ -49,12 +49,15 @@ APPROVAL_TIMEOUT_SECONDS = 120
 GUI_SEEN_SECONDS = 6
 CHALLENGE_TTL_SECONDS = 180
 AGENT_ACTIONS = set(actions.ACTIONS)
-POLL_OPS = {"status", "pending_approvals", "audit", "update_status", "notices", "expired_approvals"}
+POLL_OPS = {"status", "pending_approvals", "audit", "update_status", "notices", "expired_approvals", "ai_clients"}
 ALL_PROOFS = ("hello", "windows_password", "master_password")
 APPROVAL_HOURS = (0, 8, 24)  # how long "don't ask again" lasts; 0: until the vault is locked
 AUDIT_AAD = b"secretbroker/audit/v1"
 SCAN_SESSION_SECONDS = 12 * 3600
 RETIRED_CHECK_SECONDS = 24 * 3600  # old keys of a rotation by hand still waiting to be deleted
+IMPORT_SESSION_SECONDS = 30 * 60   # between the preview of an import and its last batch
+TOTP_AUDIT_SECONDS = 10 * 60       # showing a 2FA code is audited once in this time per credential
+AI_CLIENT_NAME_RE = re.compile(r"^[\w .:@()/+-]{1,60}$")
 ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 SLUG_RE = re.compile(r"[^a-z0-9]+")
 # Team operations that change something: the app that unlocked does them with one click. None is for the AI.
@@ -83,9 +86,12 @@ PRESENCE_OPS += PROVEN_OPS
 PROVEN_PURPOSE = {"reveal": "ver o copiar claves", "save_entry": "cambiar credenciales", "delete_entry": "eliminar credenciales",
                   "rotate": "rotar claves", "set_settings": "cambiar los ajustes", "exposure_begin": "buscar copias de tus claves",
                   "enable_session_unlock": "abrir la bóveda con tu sesión de Windows", "export_vault": "exportar la bóveda",
-                  "rotation_secret": "copiar la contraseña nueva"}
+                  "rotation_secret": "copiar la contraseña nueva", "totp_code": "ver el código 2FA"}
 APPROVAL_EXPIRED_SECONDS = 600  # how long the app is told about a request nobody answered in time
 AI_USE_ACTIONS = AGENT_ACTIONS | {"release_env", "push_github_secret"}  # "last used" and "uses today" in approvals
+# The current code of a login's 2FA (TOTP): one click from the app, but it gives a secret out, like copying.
+PRESENCE_OPS += ("totp_code",)
+TEAM_EXPORT_OPS += ("totp_code",)
 TEAM_SYNC_SECONDS = 300
 # Everything the AI can ask for. "Pause the AI" refuses all of it without locking the vault.
 AI_OPS = AGENT_ACTIONS | {"list_secrets", "release_env", "push_github_secret", "create_draft", "update_credential",
@@ -151,6 +157,10 @@ class Service:
         self._failures = 0
         self._pending_audit = []
         self._scan_sessions = {}
+        self._imports = {}     # import id -> the plan of a file being imported (see op_import_file)
+        self._totp_seen = {}   # entry id -> monotonic time the 2FA code was last shown (audited once in a while)
+        self.ai_clients_file = self.data_dir / "ai_clients.json"
+        self._ai_clients = None  # client name -> {first, last, requests}: who used the MCP tools (no secrets)
         self._notices = collections.deque(maxlen=50)
         self._notice_id = 0
         self._noticed = {}
@@ -198,7 +208,7 @@ class Service:
 
     # ------------------------------------------------------------------ dispatch
 
-    def handle(self, op, params):
+    def handle(self, op, params, client=None):
         # The app reloading by itself (`_poll`) is not someone using the vault: it must not keep it from locking.
         if op not in POLL_OPS and not (isinstance(params, dict) and params.pop("_poll", None)):
             self._last_activity = time.monotonic()
@@ -208,6 +218,8 @@ class Service:
         _ACTOR.reason = str(params.get("reason") or "").strip()[:500] if op in AI_OPS and isinstance(params, dict) else ""
         _ACTOR.presence = _ACTOR.host = None
         try:
+            if op in AI_OPS and client:
+                self._ai_client_seen(client)
             if op in AI_OPS and self.pause_file.exists():
                 raise ServiceError("El usuario ha pausado el acceso de la IA en SecretBroker. "
                                    "No reintentes: espera a que lo reanude.", "paused")
@@ -601,6 +613,7 @@ class Service:
             self._presence = None
             self._scan_sessions.clear()
             self._audit_opened = {}
+            self._imports.clear()  # an import's plan holds the values of the file
         self.vault.lock()
 
     def _auto_lock_loop(self):
@@ -1816,34 +1829,54 @@ class Service:
 
     def op_import_file(self, params):
         """Credentials from another manager's export. The app reads the file and sends its text; without
-        `selected` the answer is what would happen to each one (names only), with it they are imported."""
+        `selected` the answer is what would happen to each one (names only) and an `import_id`; with it they
+        are imported. The app sends a big selection in batches with that `import_id` (the plan made for the
+        preview, kept here for a while, so ids stay put), to show progress; each batch saves the vault once."""
         self._verify_proof("import_file", params)
         source = str(params.get("source") or "")[:300]
-        try:
-            fmt, candidates, skipped = importers.parse(str(params.get("content") or ""), params.get("format") or "auto",
-                                                       params.get("password"), source)
-        except importers.ImportFileError as exc:
-            raise ServiceError(str(exc), exc.code) from None
-        planned = importers.plan(candidates, self.vault.entries())
+        with self._lock:
+            now = time.monotonic()
+            self._imports = {k: v for k, v in self._imports.items() if v["expires"] > now}
+            session = self._imports.get(str(params.get("import_id") or ""))
+        if session:
+            fmt, skipped, planned, source = session["format"], session["skipped"], session["planned"], session["source"]
+        else:
+            if params.get("import_id"):
+                raise ServiceError("La importación ha caducado: elige el archivo otra vez", "expired")
+            try:
+                fmt, candidates, skipped = importers.parse(str(params.get("content") or ""), params.get("format") or "auto",
+                                                           params.get("password"), source)
+            except importers.ImportFileError as exc:
+                raise ServiceError(str(exc), exc.code) from None
+            planned = importers.plan(candidates, self.vault.entries())
         result = {"format": fmt, "label": importers.FORMATS[fmt], "skipped": skipped}
         if params.get("selected") is None:
-            return {**result, "items": [importers.preview(item) for item in planned]}
+            import_id = secrets.token_urlsafe(12)
+            with self._lock:
+                self._imports[import_id] = {"format": fmt, "skipped": skipped, "planned": planned, "source": source,
+                                            "expires": time.monotonic() + IMPORT_SESSION_SECONDS}
+            return {**result, "import_id": import_id, "items": [importers.preview(item) for item in planned]}
         selected = {int(k) for k in params["selected"] if str(k).isdigit()}
-        created, failed = [], []
+        batch = []
         for item in planned:
-            if item["key"] not in selected:
-                continue
-            entry = item["entry"]
-            entry.setdefault("description", f"Importada de {importers.FORMATS[fmt]}.")
-            entry.setdefault("policy", templates.default_policy(entry["template"], entry["fields"]))
-            try:
-                self.vault.put(entry)
-            except ValidationError as exc:
-                failed.append({"name": entry["name"], "reason": str(exc)})
-                continue
-            created.append({"id": entry["id"], "name": entry["name"]})
+            if item["key"] in selected:
+                entry = copy.deepcopy(item["entry"])
+                entry.setdefault("description", f"Importada de {importers.FORMATS[fmt]}.")
+                entry.setdefault("policy", templates.default_policy(entry["template"], entry["fields"]))
+                batch.append(entry)
+        created, failed = [], []
+        for entry, (_, error) in zip(batch, self.vault.put_many(batch)):
+            if error:
+                failed.append({"key": next(i["key"] for i in planned if i["entry"]["id"] == entry["id"]),
+                               "name": entry["name"], "reason": error})
+            else:
+                created.append({"id": entry["id"], "name": entry["name"]})
         if created:
-            self._audit("vault", "import_file", f"{len(created)} credencial(es) de {importers.FORMATS[fmt]} ({source})", "ok")
+            self._audit("vault", "import_file", f"{len(created)} {'credencial' if len(created) == 1 else 'credenciales'} "
+                                                f"de {importers.FORMATS[fmt]} ({source})", "ok")
+        if params.get("done") and session:
+            with self._lock:
+                self._imports.pop(str(params.get("import_id")), None)
         return {**result, "created": created, "failed": failed}
 
     def op_export_vault(self, params):
@@ -1857,6 +1890,68 @@ class Service:
             raise ServiceError(str(exc), exc.code) from None
         self._audit("vault", "export", f"{len(entries)} credenciales ({'cifrada' if fmt == 'encrypted' else 'sin cifrar, ' + fmt})", "ok")
         return {"content": content, "entries": len(entries), "format": fmt}
+
+    def op_totp_code(self, params):
+        """The current 2FA code of a web login, computed here from its seed (which never leaves the
+        service). It gives a secret out: after a Windows-session unlock it needs Hello or a password once."""
+        kind = self._verify_proof("totp_code", params)
+        entry = self.vault.get(params.get("id"))
+        if (entry.get("shared") or {}).get("permission") == "use":
+            raise ServiceError("Esta credencial del equipo es solo para usar: no se puede ver su código 2FA", "forbidden")
+        seed = entry["fields"].get("totp")
+        if not seed:
+            raise ServiceError("Esta credencial no tiene código 2FA", "not_found")
+        try:
+            result = totp.code(seed)
+        except totp.TotpError as exc:
+            raise ServiceError(str(exc), "invalid") from None
+        now = time.monotonic()
+        with self._lock:
+            quiet = params.get("copy") is not True and now - self._totp_seen.get(entry["id"], -TOTP_AUDIT_SECONDS) < TOTP_AUDIT_SECONDS
+            if not quiet:
+                self._totp_seen[entry["id"]] = now
+        if not quiet:
+            self._audit(entry["id"], "reveal", "código 2FA (copiado)" if params.get("copy") else "código 2FA", "ok")
+        if kind != "presence":
+            result["presence"] = self._new_presence()  # proved it: one click again from now on
+        return result
+
+    # ------------------------------------------------------------------ AI clients (names and times only)
+
+    def _load_ai_clients(self):
+        if self._ai_clients is None:
+            try:
+                data = json.loads(self.ai_clients_file.read_text(encoding="utf-8"))
+                self._ai_clients = {k: v for k, v in data.items() if isinstance(v, dict)} if isinstance(data, dict) else {}
+            except (OSError, ValueError):
+                self._ai_clients = {}
+        return self._ai_clients
+
+    def _ai_client_seen(self, name):
+        """Remember which program (Claude Code, Cursor…, from the MCP handshake) made an AI request, and when."""
+        name = str(name).strip()
+        if not AI_CLIENT_NAME_RE.match(name):
+            return
+        now = datetime.now().isoformat(timespec="seconds")
+        with self._lock:
+            clients = self._load_ai_clients()
+            record = clients.get(name)
+            if record is None and len(clients) >= 30:
+                return  # a misbehaving local program inventing names
+            record = clients.setdefault(name, {"first": now, "requests": 0})
+            save = record.get("last", "")[:16] != now[:16]  # on disk at most once a minute per client
+            record["last"], record["requests"] = now, record.get("requests", 0) + 1
+            if save:
+                try:
+                    self.ai_clients_file.write_text(json.dumps(clients), encoding="utf-8")
+                except OSError:
+                    pass
+
+    def op_ai_clients(self, params):
+        """[{name, first, last, requests}] of the AI programs that used SecretBroker, newest first."""
+        with self._lock:
+            clients = copy.deepcopy(self._load_ai_clients())
+        return sorted(({"name": k, **v} for k, v in clients.items()), key=lambda c: c.get("last", ""), reverse=True)
 
     # ------------------------------------------------------------------ backups
 
@@ -2576,7 +2671,7 @@ class _Handler(socketserver.StreamRequestHandler):
             if not hmac.compare_digest(str(request.get("token", "")).encode(), service.token.encode()):
                 response = {"ok": False, "code": "auth", "error": "Token del servicio no válido"}
             else:
-                response = service.handle(request.get("op"), request.get("params") or {})
+                response = service.handle(request.get("op"), request.get("params") or {}, request.get("client"))
         except (ValueError, UnicodeDecodeError, AttributeError, TypeError):
             response = {"ok": False, "code": "bad_request", "error": "Petición mal formada"}
         body = json.dumps(response, ensure_ascii=False)

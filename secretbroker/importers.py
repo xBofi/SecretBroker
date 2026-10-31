@@ -13,9 +13,9 @@ import io
 import json
 import re
 import unicodedata
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
-from . import exports, exposure, presets, templates
+from . import exports, exposure, presets, templates, totp
 from .vault import ID_RE, TAG_RE
 
 MAX_ITEMS = 5000
@@ -37,7 +37,7 @@ COLUMNS = {
     "username": ("username", "login_username", "login name", "user name", "user", "login", "email", "usuario"),
     "password": ("password", "login_password", "contrasena", "contraseña"),
     "notes": ("notes", "note", "comments", "notas", "nota"),
-    "totp": ("totp", "login_totp", "otpauth", "otp"),
+    "totp": ("totp", "login_totp", "otpauth", "otp", "timeotp-secret-base32"),
     "folder": ("folder", "group", "grouping", "tags", "carpeta"),
     "type": ("type",),
 }
@@ -166,6 +166,8 @@ def _csv(text, fmt):
         extra = [f"{header[i]}: {cell.strip()}" for i, cell in enumerate(row)
                  if i not in known and i < len(header) and cell.strip() and header[i] in ("fields", "otpauth", "custom fields")]
         folder = get("folder").split("/")[-1].split(",")[0].strip()
+        if fmt == "keepass_csv" and folder.lower() == "root":
+            folder = ""  # KeePass puts every group under «Root»: it is not a folder of the user
         if kind in SKIPPED_TYPES:
             skipped.append({"name": get("name") or "(sin nombre)", "reason": SKIPPED_TYPES[kind]})
         elif kind == "note":
@@ -192,10 +194,10 @@ def _secretbroker(doc):
 # --------------------------------------------------------------------------- mapping
 
 
-def _notes(notes, totp, extra):
+def _notes(notes, otp, extra):
     parts = [str(notes).strip()] if notes and str(notes).strip() else []
-    if totp:
-        parts.append(f"Código de un solo uso (TOTP): {str(totp).strip()}")
+    if otp:
+        parts.append(f"Código de un solo uso (TOTP): {str(otp).strip()}")
     parts += [str(e) for e in extra or []]
     return "\n".join(parts).strip()
 
@@ -235,22 +237,65 @@ def _key_preset(value):
     return None
 
 
-def _add(candidates, skipped, name, url, username, password, notes, totp, extra, folder):
+# Addresses that are a server, not a web page: the credential becomes a database or an SSH server.
+DB_SCHEMES = {"postgres": "postgresql", "postgresql": "postgresql", "mysql": "mysql", "mariadb": "mysql",
+              "mssql": "sqlserver", "sqlserver": "sqlserver", "mongodb": "mongodb", "mongodb+srv": "mongodb",
+              "redis": "redis", "rediss": "redis"}
+
+
+def _server(url, username, password):
+    """(template, fields) of a postgres://, mysql://, ssh://… address, or None."""
+    match = re.match(r"^([a-z][a-z0-9+]*)://", (url or "").strip(), re.I)
+    scheme = match[1].lower() if match else ""
+    if scheme not in DB_SCHEMES and scheme not in ("ssh", "sftp"):
+        return None
+    try:
+        parts = urlsplit(url.strip())
+        host, port = parts.hostname or "", parts.port
+    except ValueError:
+        return None
+    user = username or unquote(parts.username or "")
+    if not host or not user:
+        return None
+    fields = {"host": host, "username": user, "password": password}
+    if scheme in ("ssh", "sftp"):
+        return "ssh", {**fields, "port": str(port or 22), "auth_method": "password"}
+    fields.update(engine=DB_SCHEMES[scheme], port=str(port) if port else "", database=parts.path.strip("/"))
+    return "database", fields
+
+
+def _totp(value):
+    """A 2FA seed the app can compute codes from (else it stays in the private notes)."""
+    try:
+        totp.validate(value)
+        return str(value).strip()
+    except totp.TotpError:
+        return None
+
+
+def _add(candidates, skipped, name, url, username, password, notes, otp, extra, folder):
     name, username, password = (name or "").strip(), (username or "").strip(), password or ""
     web = _web_url(url)
-    if url and not web:
+    server = _server(url, username, password)
+    if url and not web and not server:
         extra = list(extra) + [f"Dirección: {url}"]
-    name = name or _host(web) or username or "Importada"
+    name = name or _host(web) or (server[1]["host"] if server else "") or username or "Importada"
     if not password.strip():
         skipped.append({"name": name, "reason": "No tiene contraseña"})
         return
-    private = _notes(notes, totp, extra)
+    # A login's 2FA goes to its own field (the app shows the code); anything else keeps it in the notes.
+    seed = _totp(otp) if otp and username and not server else None
+    private = _notes(notes, None if seed else otp, extra)
     preset = None if username else _key_preset(password.strip())
-    if preset:
+    if server:
+        template, fields = server
+        candidates.append(_candidate(name, template, {**fields, "notes": private}, folder))
+    elif preset:
         fields, _ = presets.apply(preset, {"value": password.strip(), "notes": private}, "")
         candidates.append(_candidate(name, "api_key", fields, folder))
     elif username:
-        candidates.append(_candidate(name, "web_login", {"url": web, "username": username, "password": password, "notes": private}, folder))
+        candidates.append(_candidate(name, "web_login", {"url": web, "username": username, "password": password,
+                                                          "totp": seed, "notes": private}, folder))
     else:
         candidates.append(_candidate(name, "generic", {"value": password, "url": web, "notes": private}, folder))
 
@@ -309,6 +354,24 @@ def plan(candidates, existing):
     return planned
 
 
+DEV_TEMPLATES = {"api_key", "ssh", "database", "aws"}
+DEV_WORDS = re.compile(r"(^|[^a-z])(api|apikey|token|pat|secret|key|keys|ssh|sftp|pem|db|database|postgres|postgresql|"
+                       r"mysql|mariadb|mongo|mongodb|redis|sql|aws|gcp|azure|s3|npm|pypi|docker|webhook|deploy|ci|"
+                       r"smtp|oauth|client[_ -]?secret)([^a-z]|$)", re.I)
+
+
+def is_dev(entry):
+    """A development key (API key, SSH, database, cloud) rather than a personal login: the import filter."""
+    if entry.get("template") in DEV_TEMPLATES:
+        return True
+    if entry.get("template") != "generic":
+        return False
+    value = str((entry.get("fields") or {}).get("value") or "").strip()
+    if value.startswith(("-----BEGIN", "ssh-", "ecdsa-")):
+        return True
+    return bool(DEV_WORDS.search(_ascii(str(entry.get("name") or "")))) and "\n" not in value
+
+
 def subtitle(entry):
     fields = entry.get("fields") or {}
     site = _host(fields.get("url") or fields.get("base_url") or "") or fields.get("host") or ""
@@ -320,4 +383,5 @@ def preview(item):
     entry = item["entry"]
     return {"key": item["key"], "id": entry["id"], "name": entry["name"], "template": entry["template"],
             "subtitle": subtitle(entry), "tags": entry.get("tags") or [], "status": item["status"], "reason": item["reason"],
-            "notes": bool((entry.get("fields") or {}).get("notes")), "selected": item["status"] == "new"}
+            "notes": bool((entry.get("fields") or {}).get("notes")), "totp": bool((entry.get("fields") or {}).get("totp")),
+            "dev": is_dev(entry), "selected": item["status"] == "new"}

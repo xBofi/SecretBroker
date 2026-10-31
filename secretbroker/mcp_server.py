@@ -1,5 +1,6 @@
 ﻿"""MCP server for AI agents: a thin client of the SecretBroker service. It never holds secrets."""
 
+import contextvars
 import os
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,32 @@ open_app = client.launch_app
 # How the AI apps introduce themselves (clientInfo.name), as the user knows them.
 CLIENT_NAMES = {"claude-code": "Claude Code", "claude-ai": "Claude Desktop", "claude-desktop": "Claude Desktop",
                 "cursor-vscode": "Cursor", "codex-mcp-client": "Codex", "Visual Studio Code": "VS Code"}
+# The program calling the tools (Claude Code, Cursor…), from the MCP handshake: the app shows when each was last used.
+_client_name = contextvars.ContextVar("secretbroker_mcp_client", default=None)
+
+
+def _client_of(ctx):
+    try:
+        params = ctx.session.client_params
+        if params is not None and params.client_info and params.client_info.name:
+            return str(params.client_info.name)[:60]
+    except AttributeError:
+        pass
+    request = getattr(ctx, "request", None)
+    agent = getattr(request, "headers", {}).get("user-agent", "") if request is not None else ""
+    return agent.split("/")[0].strip()[:60] or None
+
+
+async def _remember_client(ctx, call_next):
+    token = _client_name.set(_client_of(ctx)) if ctx.method == "tools/call" else None
+    try:
+        return await call_next(ctx)
+    finally:
+        if token is not None:
+            _client_name.reset(token)
+
+
+mcp.middleware.append(_remember_client)
 
 
 def _client(ctx):
@@ -65,7 +92,8 @@ def _client(ctx):
 
 def _call(op, params=None, ctx=None):
     try:
-        return client.call(op, {**(params or {}), "_client": _client(ctx)}, open_app=open_app)
+        return client.call(op, {**(params or {}), "_client": _client(ctx)}, open_app=open_app,
+                           client=_client_name.get())
     except (BrokerError, BrokerUnavailable) as exc:
         raise ToolError(str(exc)) from None
 

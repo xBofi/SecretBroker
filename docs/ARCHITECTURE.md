@@ -51,7 +51,8 @@ Logic in their own modules, wired into `service.py` as GUI-only operations (none
 |---|---|---|
 | `generator.py` | — (the app calls it directly) | Random passwords and Spanish/English passphrases from `secrets`; `strength()` estimate. |
 | `health.py` | `health` | Weak (`generator.strength`), reused (compared by `vault.mac`, never a hash leaves the service), old, expired, exposed; a 0-100 score. Names and reasons only. |
-| `importers.py` | `import_file` | The service account cannot read the user's files, so the app reads the file and sends `{content, source, format, password?, selected?}`; without `selected` it returns a preview (names, users, sites, status), with it it imports. Presence proof. |
+| `importers.py` | `import_file` | The service account cannot read the user's files, so the app reads the file and sends `{content, source, format, password?, selected?}`; without `selected` it returns a preview (names, users, sites, status, `dev`, `totp`) and an `import_id`: the plan stays in the service for 30 min (forgotten on lock), and the app sends the selection in batches `{import_id, selected, done?}` → `{created, failed: [{key, name, reason}]}`, showing progress. Each batch is one `vault.put_many()` (validated one by one, saved once). `postgres://`, `mysql://`, `ssh://`… addresses become databases and SSH servers; `dev` (API keys, SSH, databases, cloud, key-like secrets) drives the «Solo claves de desarrollo» filter. Presence proof. |
+| `totp.py` | `totp_code` | RFC 6238 (SHA1/256/512, 6–8 digits, any period) from an otpauth:// URI or a base32 seed. `{id, copy?}` → `{code, period, remaining, digits}`. In `PRESENCE_OPS` and `TEAM_EXPORT_OPS` (a Windows-session unlock needs Hello or a password once; a real proof returns a full presence). Shown codes are audited once per 10 min per credential, copies always. |
 | `exports.py` | `export_vault` | `{format: encrypted \| json \| csv, password?}` → `{content}`; the app writes it. Presence proof. Format in `docs/EXPORT_FORMAT.md`. |
 
 `import_file` and `export_vault` are in `PRESENCE_OPS` (one click from the app that unlocked). `replace_key` also
@@ -59,8 +60,21 @@ accepts web logins and SSH passwords (the password-change helper behind "Rotar c
 
 Every template has an optional **private notes** field (`fields.notes`, `secret` + `note`): hidden and revealed like
 a secret, never given to the AI, programs, the scanner or the redactor, and not part of `secret_fields()` (editing it
-does not reset a key's age). Imported notes, TOTP seeds and custom fields go there. It travels with shared items like
+does not reset a key's age). Imported notes and custom fields go there. It travels with shared items like
 any other field.
+
+Web logins also have **Código 2FA (TOTP)** (`fields.totp`, kept like the notes: `secret` + `note`, not substitutable).
+Imports put a login's TOTP there when it parses (Bitwarden `login.totp`, 1Password `OTPAuth`, KeePassXC `TOTP`), else
+in the notes. The AI never gets the seed; it gets the current code only as `{{totp_code}}` when the user ticks it in
+the credential's AI permissions (`policy.ai_totp`, local to this PC like `policy.approval`: never synced to or from
+the team). The detail shows the code with a countdown ring, fetched with the presence token only while on screen.
+
+**AI clients.** The MCP server reads the client's name from the handshake (`clientInfo.name`) and sends it with every
+request (`client` next to `op`); the service records `{first, last, requests}` per name for AI ops only, in
+`data/ai_clients.json` (names and times, no secrets), and `ai_clients` (GUI only) returns them. `integrations.py`
+connects Claude Code (CLI), Claude Desktop (stdio), Cursor (`~/.cursor/mcp.json`), VS Code (`%APPDATA%/Code/User/mcp.json`,
+`servers`, JSON with comments), Windsurf (`~/.codeium/windsurf/mcp_config.json`, `serverUrl`) over the app's HTTP server
+with its bearer token, and Codex (`~/.codex/config.toml`, stdio), keeping the rest of each file.
 
 ### 1.2 Rotation, health and copies found
 

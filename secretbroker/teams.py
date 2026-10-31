@@ -217,6 +217,7 @@ def effective_content(entry):
 def _destination(content):
     policy = copy.deepcopy(content.get("policy") or {})
     policy.pop("approval", None)
+    policy.pop("ai_totp", None)
     return {"template": content.get("template"), "policy": policy,
             "fields": {name: (content.get("fields") or {}).get(name) for name in DESTINATION_FIELDS}}
 
@@ -1153,7 +1154,8 @@ class Team:
                 raise TeamError("está cifrado con una clave antigua de la colección", "old_key")
             plain = open_item(self._key(coll, item["key_version"]), cid, iid, item["key_version"], item["ciphertext"])
             content = {k: v for k, v in dict(plain["entry"]).items() if k not in ("shared", "updated", "secret_since")}
-            (content.get("policy") or {}).pop("approval", None)
+            for local_only in ("approval", "ai_totp"):  # the user's own choices on this PC, never a teammate's
+                (content.get("policy") or {}).pop(local_only, None)
             if not ID_RE.match(str(content.get("id", ""))):
                 raise TeamError("identificador no válido", "invalid_item")
             digest, seq = content_hash(content), _seq(plain)
@@ -1192,7 +1194,8 @@ class Team:
                     notes["quarantined"].append(entry.get("name") or entry["id"])
                 else:
                     entry["policy"] = {**(entry.get("policy") or {}),
-                                       "approval": (local.get("policy") or {}).get("approval", "session")}
+                                       "approval": (local.get("policy") or {}).get("approval", "session"),
+                                       **({"ai_totp": True} if (local.get("policy") or {}).get("ai_totp") else {})}
                 notes["updated"].append(entry.get("name") or entry["id"])
             entry["shared"] = shared
             self.vault.put(entry, replaces=local["id"] if local else None)

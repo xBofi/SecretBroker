@@ -274,9 +274,19 @@ def run(app, env, devtools, api_port, client, integrations):
     page.shot("01-setup-unlock")
     page.js("document.querySelector('.choice input[value=master]').click()")  # this test types the password on purpose
     page.click("Continuar")
+    check(wait_for(lambda: "Conecta tu IA" in page.text(), 15), "then the last step: connect your AI")
+    page.click("Ahora no")
     check(wait_for(lambda: "Credenciales" in page.text(), 15), "and the vault is open")
     page.js(f"api().call('unlock', {{}}, {{ kind: 'master_password', value: {json.dumps(MASTER)} }})")
     check(wait_for(lambda: "Credenciales" in page.text()), "main screen after unlocking")
+    check(wait_for(lambda: "Conectar tu IA" in page.text(), 10)
+          and all(t in page.text() for t in ("Añadir una credencial", "Importar de otro gestor", "Importar un .env de un proyecto")),
+          "an empty vault offers three ways to start, and connecting the AI while none is connected")
+    calm_shot(page, "01-empty-vault")
+    page.click("Importar un .env de un proyecto", ".start-card .title")
+    check(wait_for(lambda: "sb import .env --delete" in page.text() and "sb run -- npm run dev" in page.text(), 5), "the .env start explains sb import")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
     entry = {"id": "echo-api", "name": "Echo API", "template": "api_key", "description": "API local de prueba",
              "fields": {"value": "sk-gui-test-SECRET-123", "base_url": f"http://127.0.0.1:{api_port}", "auth_style": "bearer"},
              "policy": {"approval": "session", "http": {"allowed_hosts": ["127.0.0.1"],
@@ -555,13 +565,13 @@ def run(app, env, devtools, api_port, client, integrations):
     def ask():
         import asyncio
         import httpx
-        from mcp import ClientSession
+        from mcp import ClientSession, types
         from mcp.client.streamable_http import streamable_http_client
 
         async def go():
             async with httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"}, timeout=60) as http:
                 async with streamable_http_client(url, http_client=http) as (read, write, *_):
-                    async with ClientSession(read, write) as session:
+                    async with ClientSession(read, write, client_info=types.Implementation(name="claude-code", version="2.0")) as session:
                         await session.initialize()
                         result["tools"] = len((await session.list_tools()).tools)
                         call = await session.call_tool("http_request", {"secret_id": "echo-api", "url": f"http://127.0.0.1:{api_port}/hola",
@@ -636,6 +646,9 @@ def run(app, env, devtools, api_port, client, integrations):
     page.click("Reanudar")
     check(wait_for(lambda: not client.request("status")["ai_paused"], 5), "resuming is one click")
 
+    connect_ai_flow(page, client)
+    import_flow(page, client)
+
     print("Close, reopen, quit")
     # The X button. (A plain WM_CLOSE from another program, like the installer or Task Manager, quits.)
     user32.PostMessageW(hwnd, 0x0112, 0xF060, 0)  # WM_SYSCOMMAND SC_CLOSE
@@ -677,6 +690,146 @@ def run(app, env, devtools, api_port, client, integrations):
     except websocket.WebSocketException:
         pass  # the page goes away with the app
     check(wait_for(lambda: app.poll() is not None, 10), "«Salir» quits the app")
+
+
+def mcp_call(name, tool="list_secrets", arguments=None):
+    """One MCP request over HTTP from a client that calls itself `name` in the handshake (like Cursor does)."""
+    import asyncio
+    import httpx
+    from mcp import ClientSession, types
+    from mcp.client.streamable_http import streamable_http_client
+    from secretbroker import integrations
+
+    url, token = integrations.mcp_endpoint()
+
+    async def go():
+        async with httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"}, timeout=60) as http:
+            async with streamable_http_client(url, http_client=http) as (read, write, *_):
+                async with ClientSession(read, write, client_info=types.Implementation(name=name, version="1.0")) as session:
+                    await session.initialize()
+                    return await session.call_tool(tool, arguments or {})
+    return asyncio.run(go())
+
+
+def connect_ai_flow(page, client):
+    """The last step of the first run: connect an AI app with one click and see its first request arrive."""
+    print("Connect your AI")
+    (PROFILE / ".cursor").mkdir(parents=True, exist_ok=True)  # Cursor and VS Code are «installed» in the fake profile
+    vscode = PROFILE / "AppData" / "Roaming" / "Code" / "User" / "mcp.json"
+    vscode.parent.mkdir(parents=True, exist_ok=True)
+    vscode.write_text('{\n  // mine\n  "servers": {"other": {"type": "stdio", "command": "x"},},\n}\n', encoding="utf-8")
+    wait_for(lambda: page.js("state.paused === state.status.ai_paused"), 5)  # the pause test's last redraw is over
+    time.sleep(1.6)
+    page.js("""(() => { state.setupActive = true; state.screen = 'setup'; const box = el('div', { class: 'auth wide' });
+      $app().replaceChildren(el('div', { class: 'center-screen' }, box));
+      renderConnectAi(box, () => { state.setupActive = false; state.screen = null; state.view = 'access'; refreshStatus(); }); })()""")
+    check(wait_for(lambda: "Conecta tu IA" in page.text() and page.js("document.querySelectorAll('.ai-client').length") >= 2, 10),
+          "the last setup step lists the AI apps on this PC")
+    text = page.text()
+    check("Esperando la primera petición" in text and "list_secrets" in text and "No instalados:" in text and "Windsurf" in text,
+          "with a test prompt to copy, a live wait for the first request, and the apps not installed folded")
+    calm_shot(page, "12-connect-ai")
+    page.js("document.querySelector('.ai-client[data-client=cursor] .btn').click()")
+    cursor = PROFILE / ".cursor" / "mcp.json"
+    check(wait_for(lambda: json.loads(cursor.read_text(encoding="utf-8"))["mcpServers"]["secret-broker"]["url"].startswith("http://127.0.0.1:"), 10),
+          "«Conectar» writes Cursor's mcp.json (url and token header)")
+    check(wait_for(lambda: page.js("!!document.querySelector('.ai-client[data-client=cursor] .level.is-ok')"), 10), "and the row says Conectado")
+    page.js("document.querySelector('.ai-client[data-client=vscode] .btn').click()")
+    saved = wait_for(lambda: json.loads(vscode.read_text(encoding="utf-8")) if "secret-broker" in vscode.read_text(encoding="utf-8") else None, 10)
+    check(saved and saved["servers"]["secret-broker"]["type"] == "http" and saved["servers"]["other"]["command"] == "x",
+          "VS Code's mcp.json (with comments) gets a «servers» entry and keeps the user's own")
+    mcp_call("Cursor")
+    check(wait_for(lambda: "Recibida de Cursor" in page.text(), 10), "the first request arrives: «Recibida de Cursor»")
+    calm_shot(page, "12-connect-ai-received")
+    page.click("Empezar a usar SecretBroker")
+    check(wait_for(lambda: "Clientes conectados" in page.text() and "Cursor" in page.text() and "Última petición hoy" in page.text(), 10),
+          "Acceso de la IA starts with the connected clients and when each made its last request")
+    calm_shot(page, "03-access-clients")
+
+
+IMPORT_CSV = ('"Group","Title","Username","Password","URL","Notes","TOTP"\n'
+              '"Root","Correo","ana","fake-Mail-pass-31","https://mail.example.com","","otpauth://totp/Mail:ana?secret=JBSWY3DPEHPK3PXP&issuer=Mail"\n'
+              '"Root/Dev","BD pedidos","app","fake-Db-pass-32","postgres://db.example.com:6543/orders","",""\n'
+              '"Root/Dev","Bastión","deploy","fake-Ssh-pass-33","ssh://bastion.example.com:2222","",""\n'
+              '"Root/Dev","Token de despliegue","","fake-deploy-token-34","","",""\n'
+              + "".join(f'"Root","Web {n}","user{n}","fake-Web-pass-{n:03}","https://web{n}.example.com","",""\n' for n in range(140)))
+
+
+def import_flow(page, client):
+    """Import from another manager: the menu, how to export, the development-keys filter, progress, summary, 2FA."""
+    print("Import from another manager")
+    page.js("state.view = 'credentials'; renderMain()")
+    wait_for(lambda: page.js("!!document.querySelector('.content-header [aria-label=\"Más acciones\"]')"), 10)
+    check(not page.js("!!document.querySelector('.content-header .btn.icon-only[title=\"Importar de otro gestor\"]')"),
+          "no unlabelled import arrow next to «Nueva»")
+    page.js("document.querySelector('.content-header [aria-label=\"Más acciones\"]').click()")
+    check(wait_for(lambda: page.js("[...document.querySelectorAll('.menu-item')].map((b) => b.innerText.trim()).join('|')") == "Importar…|Exportar…", 5),
+          "«…» next to «Nueva» has «Importar…» and «Exportar…»")
+    calm_shot(page, "13-menu")
+    page.click("Importar…", ".menu-item")
+    check(wait_for(lambda: "Herramientas → Exportar caja fuerte" in page.text(), 5), "Bitwarden: the exact menu path")
+    for source, path in (("1Password", "Archivo → Exportar"), ("KeePassXC / KeePass", "Base de datos → Exportar → Exportar a CSV…"),
+                         ("Chrome / Edge", "Exportar contraseñas"), ("Firefox", "about:logins")):
+        page.click(source, ".source-tabs button")
+        check(wait_for(lambda: path in page.text(), 5), f"{source}: {path}")
+    page.click("KeePassXC / KeePass", ".source-tabs button")
+    calm_shot(page, "13-import-sources")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+
+    export = HOME / "keepassxc-export.csv"
+    export.write_text(IMPORT_CSV, encoding="utf-8")
+    before = len(client.request("entries"))
+    page.js(f"previewImport({json.dumps(str(export))}, null)")
+    check(wait_for(lambda: "144 credenciales en el archivo" in page.text(), 15), "the preview lists the 144 (names only)")
+    check("fake-" not in page.text() and "JBSWY3DP" not in json.dumps(page.js("state")), "without any value")
+    check("con código 2FA" in page.text(), "a login with 2FA says so")
+    page.js("document.querySelector('.dev-filter input').click()")
+    check(wait_for(lambda: page.js("document.querySelectorAll('.import-row').length") == 3 and "Importar 3" in page.text(), 5),
+          "«Solo claves de desarrollo»: the database, the SSH server and the token")
+    calm_shot(page, "13-import-preview-dev")
+    page.js("document.querySelector('.dev-filter input').click()")
+    check(wait_for(lambda: "Importar 144" in page.text(), 5), "turning it off selects them all again")
+    page.click("Importar 144")
+    check(wait_for(lambda: page.js("(document.querySelector('.import-count') || {}).textContent || ''").endswith("de 144"), 10),
+          "progress: «N de 144»")
+    check(wait_for(lambda: "144 credenciales importadas" in page.text(), 30), "then a summary")
+    stats = page.js("[...document.querySelectorAll('.import-stat')].map((s) => s.innerText.replace(/\\s+/g, ' ').trim())")
+    check(stats == ["144 creadas", "0 saltadas", "0 con errores"], f"created, skipped and failed, counted ({stats})")
+    calm_shot(page, "13-import-done")
+    check(len(client.request("entries")) == before + 144, "all in the vault")
+    entries = {e["name"]: e for e in client.request("entries")}
+    check(entries["BD pedidos"]["template"] == "database" and entries["Bastión"]["template"] == "ssh"
+          and "totp" in entries["Correo"]["secrets_set"], "a database, an SSH server and a login with its 2FA")
+    page.click("Lo borraré yo")
+
+    print("2FA codes")
+    page.js(f"state.view = 'credentials'; state.selected = {json.dumps(entries['Correo']['id'])}; renderMain()")
+    check(wait_for(lambda: page.js("(document.querySelector('.totp-code') || {}).textContent || ''").replace(" ", "").isdigit(), 10),
+          "the detail shows the current 6-digit code, one click away after unlocking (no prompt)")
+    shown = page.js("document.querySelector('.totp-code').textContent").replace(" ", "")
+    check(len(shown) == 6 and page.js("+document.querySelector('.totp-seconds').textContent") > 0, "with the seconds left in a ring")
+    calm_shot(page, "14-totp")
+    page.js("document.querySelectorAll('.totp-prop .actions .btn')[1].click()")
+    check(wait_for(lambda: "Código 2FA copiado" in page.text(), 5), "«Copiar» copies it")
+    listing = json.dumps(client.request("list_secrets"))
+    check("JBSWY3DP" not in listing and "totp_code" not in listing, "the AI sees neither the seed nor the code")
+    page.click("Editar")
+    check(wait_for(lambda: "Código 2FA (TOTP)" in page.text(), 10), "the editor has the 2FA field")
+    labels = page.js("[...document.querySelectorAll('.modal label')].map((l) => l.innerText)")
+    check(any(l.startswith("Código 2FA") for l in labels) and sum("Notas privadas" in l for l in labels) == 1,
+          f"its label is its own; only the notes are «Notas privadas» {labels}")
+    page.js("document.querySelector('.modal details.advanced').open = true")
+    check(wait_for(lambda: "Dejar que la IA escriba el código 2FA" in page.text(), 5)
+          and page.js("![...document.querySelectorAll('.modal .check-row input')].pop().checked"),
+          "letting the AI type the code is a choice in its permissions, off by default")
+    page.js("document.querySelector('.modal details.advanced').scrollIntoView({ block: 'end' })")
+    calm_shot(page, "14-totp-editor")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+    for entry in client.request("entries"):
+        if entry["description"].startswith("Importada de"):
+            client.request("delete_entry", {"id": entry["id"], "proof": {"kind": "master_password", "value": MASTER}})
 
 
 def fill(page, label, value, scope=""):
