@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "2FA-kode"
+  },
+  "2fa_code_copied": {
+    "message": "2FA-kode kopiert"
+  },
+  "browser": {
+    "message": "Nettleser"
+  },
+  "can_talk_secretbroker": {
+    "message": "Får ikke kontakt med SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Får ikke kontakt med SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Får ikke kontakt med SecretBroker. Åpne det og prøv igjen."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Kontroller at SecretBroker viser den samme koden, og klikk på «Koble til»."
+  },
+  "cmd_fill": {
+    "message": "Fyll ut påloggingen for dette nettstedet"
+  },
+  "cmd_open": {
+    "message": "Åpne SecretBroker"
+  },
+  "code": {
+    "message": "Kode"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Bekreft det i SecretBroker"
+  },
+  "connect": {
+    "message": "Koble til $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Koble til denne nettleseren"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Koble til denne nettleseren: klikk på SecretBroker-ikonet i verktøylinjen i nettleseren, og deretter på «Koble til»."
+  },
+  "copy_2fa_code": {
+    "message": "Kopier 2FA-kode"
+  },
+  "copy_password": {
+    "message": "Kopier passord"
+  },
+  "copy_username": {
+    "message": "Kopier brukernavn"
+  },
+  "couldn_connect": {
+    "message": "Kunne ikke koble til."
+  },
+  "couldn_copy": {
+    "message": "Kunne ikke kopiere"
+  },
+  "couldn_fill_it_in": {
+    "message": "Kunne ikke fylle ut"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Fant ikke hvor det skal fylles ut."
+  },
+  "couldn_look_it_up": {
+    "message": "Kunne ikke slå det opp."
+  },
+  "couldn_save": {
+    "message": "Kunne ikke lagre"
+  },
+  "create_your_vault_first": {
+    "message": "Opprett hvelvet ditt først"
+  },
+  "ext_description": {
+    "message": "Fyller ut passordene du har i SecretBroker, bare på deres eget nettsted og bare når du ber om det."
+  },
+  "fill_in": {
+    "message": "Fyll ut"
+  },
+  "fill_in_on": {
+    "message": "Fyll ut på $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Fyll ut med SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Fyll ut uten å åpne dette vinduet"
+  },
+  "form_from": {
+    "message": "Skjema fra"
+  },
+  "form_is_in_frame_too": {
+    "message": "Skjemaet ligger i en ramme som er for liten til å synes: det fylles ikke ut."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Skjemaet ligger i en skjult eller svært liten ramme: det fylles ikke ut."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Installer SecretBroker og åpne Innstillinger › Nettleser. Hvis du nettopp installerte det, start nettleseren på nytt."
+  },
+  "it_no_longer_pending": {
+    "message": "Den venter ikke lenger."
+  },
+  "it_only_fills_in_on": {
+    "message": "Den fyller bare ut på nettstedet til hvert passord."
+  },
+  "loading": {
+    "message": "Laster inn"
+  },
+  "name": {
+    "message": "Navn"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Ingen oppføring for $domain$ har en 2FA-kode.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· ingen https"
+  },
+  "no_username": {
+    "message": "Ikke noe brukernavn"
+  },
+  "not_now": {
+    "message": "Ikke nå"
+  },
+  "nothing_matches": {
+    "message": "Ingen treff."
+  },
+  "nothing_saved_for": {
+    "message": "Ingenting lagret for $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Ingenting lagret for $domain$. Logg på, så tilbyr jeg å lagre det.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "På andre nettsteder"
+  },
+  "on_this_website": {
+    "message": "På dette nettstedet"
+  },
+  "open": {
+    "message": "Åpne $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Åpne det og prøv igjen."
+  },
+  "open_it_can_be_filled": {
+    "message": "Åpne $host$ (der kan det fylles ut)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Åpne SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Åpne SecretBroker og opprett hvelvet ditt for å lagre passord."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Åpne et nettsted for å se passordene for det."
+  },
+  "open_website_you_want_sign": {
+    "message": "Åpne nettstedet du vil logge på."
+  },
+  "page_has_changed_try_again": {
+    "message": "Siden er endret. Prøv igjen."
+  },
+  "password_copied": {
+    "message": "Passord kopiert"
+  },
+  "password_updated": {
+    "message": "Passord oppdatert"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Passordet er oppdatert i SecretBroker"
+  },
+  "save": {
+    "message": "Lagre"
+  },
+  "save_this_login": {
+    "message": "Lagre denne påloggingen?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Lagre dette passordet i SecretBroker?"
+  },
+  "saved": {
+    "message": "Lagret"
+  },
+  "saved_for": {
+    "message": "Lagret for $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Lagret i SecretBroker"
+  },
+  "search": {
+    "message": "Søk"
+  },
+  "search_secretbroker": {
+    "message": "Søk i SecretBroker"
+  },
+  "searching": {
+    "message": "Søker …"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker svarte ikke i tide."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker er låst."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker er låst"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker er låst. Lås det opp og prøv igjen."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "SecretBroker mangler på denne datamaskinen"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker er ikke installert på denne datamaskinen, eller det må fortsatt kobles til nettleseren."
+  },
+  "that_way_it_can_fill": {
+    "message": "Da kan den fylle ut passordene dine. SecretBroker ber deg bekrefte med ett klikk."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Det finnes ingen lagrede pålogginger for $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Det finnes ikke noe synlig felt for 2FA-kode på denne siden."
+  },
+  "there_no_visible_login_form": {
+    "message": "Det finnes ikke noe synlig påloggingsskjema på denne siden."
+  },
+  "this_page_can_be_filled": {
+    "message": "Denne siden kan ikke fylles ut."
+  },
+  "this_team_credential_is_use": {
+    "message": "Denne teamoppføringen er kun til bruk: den fylles ikke ut i nettleseren."
+  },
+  "unlock": {
+    "message": "Lås opp"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Lås det opp og klikk her igjen."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Lås det opp for å fylle ut passordene dine."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Lås opp SecretBroker og klikk på «Koble til» igjen."
+  },
+  "update": {
+    "message": "Oppdater"
+  },
+  "update_password": {
+    "message": "Oppdatere passordet for «$name$»?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Kun bruk: fylles ikke ut"
+  },
+  "use_only_on_team_not": {
+    "message": "Kun bruk i teamet: fylles ikke ut"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Teamoppføring kun til bruk: å fylle den ut ville vist den til siden"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Teamoppføringer som er kun til bruk, kan brukes av KI-en, men vises ikke: å fylle den ut ville gitt den til siden."
+  },
+  "username_copied": {
+    "message": "Brukernavn kopiert"
+  },
+  "you_re_on": {
+    "message": "Du er på"
+  }
+}
