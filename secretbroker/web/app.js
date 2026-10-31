@@ -2415,8 +2415,8 @@ function showForm(templateId, entry) {
         el('div', { class: 'help' }, 'Una llamada de solo lectura al proveedor (o entrar y salir del servidor SSH). «Ajuste general» sigue el de Ajustes.')),
       el('div', { class: 'field' }, el('label', {}, 'Dónde se usa', el('span', { class: 'req' }, ' · opcional')), usedInput,
         el('div', { class: 'help' }, 'Un sitio por línea: develop, pre, pro, cada servidor, Vercel, CI, otros proyectos… Al rotarla, la app te pedirá cambiarla en cada uno.')),
-      autofillBox ? autofillBox.node : null,
       advanced,
+      autofillBox ? autofillBox.node : null,
       errorText,
     ],
     footer: [
@@ -4196,8 +4196,7 @@ async function pollBrowserPairing() {
     footer: [el('div', { class: 'spacer' }), deny, connect],
     onClose: () => { if (pairingModal && pairingModal.id === request.id) pairingModal = null; },
   });
-  pairingModal = { id: request.id, modal };
-  api().focus();
+  pairingModal = { id: request.id, modal };  // the extension's «Conectar» already brought the app forward (open_app)
   deny.addEventListener('click', async () => {
     await api().call('browser_pair_answer', { id: request.id, accept: false });
     modal.close();
