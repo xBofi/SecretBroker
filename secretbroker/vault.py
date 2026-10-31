@@ -17,7 +17,7 @@ import re
 import threading
 from datetime import datetime, timezone
 
-from . import crypto, templates, totp, winsec
+from . import crypto, platform, templates, totp
 from .crypto import WrongPassword  # noqa: F401  (re-exported for callers)
 from .templates import PLACEHOLDER_RE
 
@@ -354,7 +354,7 @@ class Vault:
     def unlock_with_device(self):
         doc = self._load_doc()
         try:
-            key = winsec.dpapi_unprotect(self.device_file.read_bytes(), DEVICE_ENTROPY)
+            key = platform.unprotect_for_service(self.device_file.read_bytes(), DEVICE_ENTROPY, self.data_dir)
         except OSError:
             raise ValidationError("No se pudo usar la clave de este PC. Desbloquea con la contraseña maestra.") from None
         self._open(doc, key)
@@ -621,13 +621,13 @@ class Vault:
 
     def _device_key_matches(self, key):
         try:
-            return winsec.dpapi_unprotect(self.device_file.read_bytes(), DEVICE_ENTROPY) == key
+            return platform.unprotect_for_service(self.device_file.read_bytes(), DEVICE_ENTROPY, self.data_dir) == key
         except OSError:
             return False
 
     def _store_device_key(self):
         try:
-            _atomic_write(self.device_file, winsec.dpapi_protect(self._key, DEVICE_ENTROPY))
+            _atomic_write(self.device_file, platform.protect_for_service(self._key, DEVICE_ENTROPY, self.data_dir))
         except OSError:
             pass  # unlock with Windows simply stays unavailable
 

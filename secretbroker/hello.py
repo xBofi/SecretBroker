@@ -1,6 +1,7 @@
 """Windows Hello for the desktop app: a TPM-backed key that only signs after PIN / fingerprint / face."""
 
 import asyncio
+import sys
 
 KEY_NAME = "SecretBroker"
 
@@ -14,6 +15,8 @@ class HelloCancelled(HelloError):
 
 
 def _winrt():
+    if sys.platform != "win32":
+        raise HelloError("Windows Hello solo existe en Windows")
     from winrt.windows.security.credentials import (
         KeyCredentialCreationOption, KeyCredentialManager, KeyCredentialStatus,
     )

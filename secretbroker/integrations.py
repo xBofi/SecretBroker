@@ -10,18 +10,17 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import paths
+from . import paths, platform
 
 SERVER_NAME = "secret-broker"
 PREFS_FILE = paths.user_dir() / "prefs.json"
-CREATE_NO_WINDOW = 0x08000000
+CREATE_NO_WINDOW = platform.NO_WINDOW
 # the desktop app serves the tools here for Claude Code (see resident.serve_mcp)
 MCP_PORT = int(os.environ.get("SECRETBROKER_MCP_PORT") or 47821)
 
 
 def mcp_command():
-    python = Path(sys.executable).with_name("python.exe")
-    return str(python if python.exists() else sys.executable), ["-I", "-m", "secretbroker.mcp_server"]
+    return platform.python_console(), ["-I", "-m", "secretbroker.mcp_server"]
 
 
 # ----------------------------------------------------------------- preferences
@@ -103,11 +102,7 @@ def upgrade_claude_code():
 
 
 def _desktop_config_dirs():
-    yield Path(os.environ.get("APPDATA", "")) / "Claude"
-    packages = Path(os.environ.get("LOCALAPPDATA", "")) / "Packages"
-    if packages.is_dir():
-        for package in packages.glob("Claude_*"):
-            yield package / "LocalCache" / "Roaming" / "Claude"
+    yield from platform.claude_desktop_config_dirs(Path.home())
 
 
 def _desktop_config_files():
@@ -148,6 +143,7 @@ def connect_claude_desktop():
 # Codex starts the stdio server like Claude Desktop.
 #   Cursor    ~/.cursor/mcp.json                        {"mcpServers": {name: {"url", "headers"}}}
 #   VS Code   %APPDATA%/Code/User/mcp.json (Copilot)    {"servers": {name: {"type": "http", "url", "headers"}}}
+#             (Linux: ~/.config/Code/User/mcp.json)
 #   Windsurf  ~/.codeium/windsurf/mcp_config.json       {"mcpServers": {name: {"serverUrl", "headers"}}}
 #   Codex     ~/.codex/config.toml (or CODEX_HOME)      [mcp_servers.<name>] command / args
 
@@ -202,9 +198,14 @@ def _home():
 
 
 def _appdata(name):
+    """APPDATA: where programs keep settings; LOCALAPPDATA: where they install per user (see platform)."""
     if paths.instance_suffix():
-        return _home() / "AppData" / ("Roaming" if name == "APPDATA" else "Local")
-    return Path(os.environ.get(name) or _home())
+        if platform.NAME == "windows":
+            return _home() / "AppData" / ("Roaming" if name == "APPDATA" else "Local")
+        return (platform.roaming_dir if name == "APPDATA" else platform.local_dir)(_home())
+    if platform.NAME == "windows":
+        return Path(os.environ.get(name) or _home())
+    return (platform.roaming_dir if name == "APPDATA" else platform.local_dir)(_home())
 
 
 JSON_CLIENTS = {
@@ -384,14 +385,8 @@ def remove_all():
     except OSError as exc:
         print(f"No se pudo modificar {_codex_file()}: {exc}", file=sys.stderr)
     shutil.rmtree(PREFS_FILE.parent, ignore_errors=True)
-    if sys.platform == "win32":
-        import winreg
-        try:
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
-                                winreg.KEY_SET_VALUE) as key:
-                winreg.DeleteValue(key, "SecretBroker")  # start with Windows (see resident.set_start_with_windows)
-        except OSError:
-            pass
+    platform.remove_autostart()  # start with the session (see resident.set_start_with_windows)
+
 
 
 def status():

@@ -3,20 +3,18 @@
 import json
 import os
 import socket
-import subprocess
-import sys
 import time
-from pathlib import Path
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-from . import crypto, paths
+from . import crypto, paths, platform
 
 
 UNLOCK_WAIT_SECONDS = 120
 APP_START_WAIT_SECONDS = 20
-# "Open with my Windows session": a token kept under the user's Windows login (DPAPI), written by the app.
+# "Open with my Windows session": a token kept under the user's login (Windows: DPAPI; Linux: the Secret
+# Service keyring, see platform.protect_for_user), written by the app.
 SESSION_FILE = paths.user_dir() / "session.bin"
 SESSION_ENTROPY = b"SecretBroker/session-unlock/v1"
 
@@ -79,28 +77,22 @@ def is_running():
         return False
 
 
-def _pythonw():
-    candidate = Path(sys.executable).with_name("pythonw.exe")
-    return str(candidate if candidate.exists() else sys.executable)
-
-
 def _spawn(module):
-    flags = 0
-    if sys.platform == "win32":
-        flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
     # -I: ignore PYTHON* variables and the user's site-packages, which other processes could tamper with.
-    subprocess.Popen([_pythonw(), "-I", "-m", module], creationflags=flags, close_fds=True,
-                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    platform.spawn_detached([platform.python_gui(), "-I", "-m", module])
 
 
 def ensure_service(wait_seconds=15):
     """In development mode the service runs as the current user and is started on demand.
-    In installed mode it is started by Windows and must never be replaced by a user process."""
+    In installed mode it is started by the system and must never be replaced by a user process
+    (on Linux the user may ask systemd to start their own unit; on Windows it is always running)."""
     if is_running():
         return True
     if paths.is_installed():
-        return False
-    _spawn("secretbroker.service")
+        if not platform.start_service():
+            return False
+    else:
+        _spawn("secretbroker.service")
     deadline = time.monotonic() + wait_seconds
     while time.monotonic() < deadline:
         time.sleep(0.3)
@@ -128,8 +120,8 @@ def _wait(condition, seconds):
 def session_token():
     """The token of "open with my Windows session", or None when it is off on this PC."""
     try:
-        from . import winsec
-        return winsec.dpapi_unprotect(SESSION_FILE.read_bytes(), SESSION_ENTROPY).decode()
+        return platform.unprotect_for_user(SESSION_FILE.read_bytes(), SESSION_ENTROPY).decode()
+
     except (OSError, ValueError, UnicodeDecodeError):
         return None
 

@@ -1,12 +1,13 @@
 """SecretBroker service: owns the vault and performs actions with secrets.
 
-In installed mode it runs as a dedicated Windows account, so processes of the desktop user
+In installed mode it runs as a dedicated account (Windows: a local account; Linux: the `secretbroker` system
+user, see platform/linux.py), so processes of the desktop user
 (including AI agents) can neither read its memory nor its files. Clients talk to it over
 127.0.0.1; every response is signed so clients can tell it is the real service.
 
 Sensitive operations need a *proof* the service verifies by itself:
   hello            RSA signature from the owner's Windows Hello key over a one-time challenge
-  windows_password the owner's Windows account password (checked with LogonUser)
+  windows_password the owner's operating system account password (Windows: LogonUser; Linux: PAM)
   master_password  the vault master password
 """
 
@@ -34,7 +35,7 @@ import httpx
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from . import actions, crypto, exposure, links, paths, presets, rotation, teams, update, winsec
+from . import actions, crypto, exposure, links, paths, platform, presets, rotation, teams, update, winsec
 from .inject import ActionError, Redactor, substitute
 from .vault import (
     CHECK_ONCE, DEFAULT_SETTINGS, ID_RE, valid_check_hours, TAG_RE, Vault, VaultLocked, ValidationError, WrongPassword, agent_view, secret_age_days, clean_used_in,
@@ -85,7 +86,7 @@ PROVEN_OPS = ("reveal", "save_entry", "delete_entry", "rotate", "set_settings", 
 PRESENCE_OPS += PROVEN_OPS
 PROVEN_PURPOSE = {"reveal": "ver o copiar claves", "save_entry": "cambiar credenciales", "delete_entry": "eliminar credenciales",
                   "rotate": "rotar claves", "set_settings": "cambiar los ajustes", "exposure_begin": "buscar copias de tus claves",
-                  "enable_session_unlock": "abrir la bóveda con tu sesión de Windows", "export_vault": "exportar la bóveda",
+                  "enable_session_unlock": f"abrir la bóveda con tu sesión de {platform.OS_LABEL}", "export_vault": "exportar la bóveda",
                   "rotation_secret": "copiar la contraseña nueva", "totp_code": "ver el código 2FA"}
 APPROVAL_EXPIRED_SECONDS = 600  # how long the app is told about a request nobody answered in time
 AI_USE_ACTIONS = AGENT_ACTIONS | {"release_env", "push_github_secret"}  # "last used" and "uses today" in approvals
@@ -181,6 +182,7 @@ class Service:
 
     def start(self, port=0):
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        platform.secure_data_dir(self.data_dir)
         self.public_dir.mkdir(parents=True, exist_ok=True)
         self._server = _Server(("127.0.0.1", port), _Handler)
         self._server.service = self
@@ -192,9 +194,7 @@ class Service:
             serialization.Encoding.Raw, serialization.PublicFormat.Raw)
         info = {"port": self._server.server_address[1], "token": self.token, "pid": os.getpid(),
                 "public_key": crypto.b64(public_key), "isolated": self.isolated, "protocol": PROTOCOL_VERSION}
-        tmp = paths.broker_file(self.root).with_suffix(".tmp")
-        tmp.write_text(json.dumps(info))
-        os.replace(tmp, paths.broker_file(self.root))
+        platform.write_public_file(paths.broker_file(self.root), json.dumps(info), self.isolated)
         return self._server.server_address[1]
 
     def stop(self):
@@ -310,8 +310,8 @@ class Service:
         self._throttle()
         value = proof.get("value") or ""
         if kind == "windows_password":
-            ok = winsec.verify_windows_password(self.owner, value)
-            message = "Contraseña de Windows incorrecta"
+            ok = platform.verify_os_password(self.owner, value)
+            message = f"Contraseña de {platform.OS_LABEL} incorrecta"
         else:
             ok = self.vault.exists() and self.vault.verify_master(value)
             message = "Contraseña maestra incorrecta"
@@ -347,7 +347,8 @@ class Service:
             "owner": self.owner,
             "hello_enrolled": self._hello_public_key() is not None,
             "device_unlock": self.vault.device_unlock_available(),
-            "windows_password": winsec.IS_WINDOWS,
+            "windows_password": platform.os_password_available(),
+            "os": platform.NAME,
             "legacy_vault": state == "no_vault" and any(p.exists() for p in self.legacy_files),
             "auto_lock_minutes": settings.get("auto_lock_minutes"),
             "approval_hours": settings.get("approval_hours"),
@@ -443,11 +444,11 @@ class Service:
         try:
             stored = json.loads(self.session_file.read_text())["hash"]
         except (OSError, ValueError, KeyError):
-            raise ServiceError("El desbloqueo con la sesión de Windows no está activado", "proof_invalid") from None
+            raise ServiceError(f"El desbloqueo con la sesión de {platform.OS_LABEL} no está activado", "proof_invalid") from None
         digest = hashlib.sha256(str(token or "").encode()).hexdigest()
         if not (self.vault.device_unlock_available() and hmac.compare_digest(digest, stored)):
             self._failures += 1
-            raise ServiceError("La sesión de Windows no puede desbloquear la bóveda; usa la contraseña", "proof_invalid")
+            raise ServiceError(f"La sesión de {platform.OS_LABEL} no puede desbloquear la bóveda; usa la contraseña", "proof_invalid")
         self._failures = 0
 
     def op_enable_session_unlock(self, params):
@@ -598,7 +599,7 @@ class Service:
         # Locking Windows keeps the timed approvals, like the inactivity lock: it happens many times a day.
         windows = params.get("reason") == "windows"
         self._lock_vault(forget_approvals=not windows, reason="windows" if windows else "manual")
-        self._audit("vault", "lock", "Windows bloqueado" if windows else "manual", "ok")
+        self._audit("vault", "lock", f"{platform.OS_LABEL} bloqueado" if windows else "manual", "ok")
         return self.op_status({})
 
     def _lock_vault(self, forget_approvals=False, reason=None):
@@ -2687,10 +2688,11 @@ class _Server(socketserver.ThreadingTCPServer):
 def main():
     parser = argparse.ArgumentParser(description="SecretBroker service")
     parser.add_argument("--root", help="Carpeta de datos (por defecto según el modo)")
-    parser.add_argument("--owner", help="Usuario de Windows propietario (DOMINIO\\usuario)")
+    parser.add_argument("--owner", help="Usuario propietario (Windows: DOMINIO\\usuario; Linux: nombre de usuario)")
     parser.add_argument("--isolated", action="store_true", help="Modo instalado con cuenta de servicio dedicada")
     args = parser.parse_args()
-    owner = args.owner or f"{os.environ.get('USERDOMAIN', '.')}\\{os.environ.get('USERNAME', '')}"
+    owner = args.owner or platform.default_owner()
+
     root = Path(args.root or paths.root())
     if sys.stderr is None:  # pythonw: keep crash reports somewhere
         (root / "data").mkdir(parents=True, exist_ok=True)

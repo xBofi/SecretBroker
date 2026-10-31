@@ -1,17 +1,22 @@
 """Where SecretBroker keeps its files.
 
-Installed (isolated) mode:  C:\\ProgramData\\SecretBroker\\{data,public}
+Installed (isolated) mode:  {data,public} in
+    Windows  C:\\ProgramData\\SecretBroker
+    Linux    /var/lib/secretbroker/<owner>          (see platform/linux.py)
     data   -> only the SecretBroker service account can read it (vault, keys, audit log)
-    public -> written by the service, readable by users (port + public key of the running service)
-Development mode:           %APPDATA%\\SecretBroker\\{data,public}, everything as the current user.
+    public -> written by the service, readable by the owner (port + public key of the running service)
+Development mode:           {data,public} in %APPDATA%\\SecretBroker (Linux: ~/.local/share/secretbroker),
+                            everything as the current user.
 SECRETBROKER_HOME overrides both (used by the tests).
 """
 
 import os
 from pathlib import Path
 
-INSTALLED_ROOT = Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "SecretBroker"
-DEV_ROOT = Path(os.environ.get("APPDATA", Path.home())) / "SecretBroker"
+from . import platform
+
+INSTALLED_ROOT = platform.installed_root()
+DEV_ROOT = platform.dev_root()
 
 
 def is_installed():
@@ -38,7 +43,7 @@ def user_dir():
     """Per-user files of the desktop app (preferences, logs, WebView2 data)."""
     if os.environ.get("SECRETBROKER_HOME"):
         return Path(os.environ["SECRETBROKER_HOME"]) / "user"
-    return Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SecretBroker"
+    return platform.user_dir()
 
 
 def broker_file(base=None):

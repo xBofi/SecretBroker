@@ -16,7 +16,7 @@ HOME = Path(tempfile.mkdtemp(prefix="secretbroker-personal-"))
 os.environ["SECRETBROKER_HOME"] = str(HOME)  # must be set before importing secretbroker
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from secretbroker import client, exports, generator, health, importers, totp, service as service_module  # noqa: E402
+from secretbroker import client, exports, generator, health, importers, platform, totp, service as service_module  # noqa: E402
 from secretbroker.client import BrokerError  # noqa: E402
 from secretbroker.service import Service  # noqa: E402
 
@@ -227,7 +227,7 @@ def check_exports():
 
 def check_service():
     print("Through the service")
-    service = Service(HOME, owner=f"{os.environ.get('USERDOMAIN')}\\{os.environ.get('USERNAME')}", isolated=False)
+    service = Service(HOME, owner=platform.default_owner(), isolated=False)
     service.start()
     try:
         client.request("create_vault", {"master_password": MASTER})
