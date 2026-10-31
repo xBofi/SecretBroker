@@ -1,3 +1,4 @@
-# Files that run on Linux keep LF line endings even in a Windows checkout (core.autocrlf).
+# Files that run on Linux or macOS keep LF line endings even in a Windows checkout (core.autocrlf).
 *.sh                text eol=lf
 packaging/linux/**  text eol=lf
+packaging/macos/**  text eol=lf

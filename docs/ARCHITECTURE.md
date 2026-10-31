@@ -4,7 +4,7 @@ SecretBroker has two products built from one repository:
 
 | Part | What it is | Where it runs |
 |---|---|---|
-| **SecretBroker Desktop** (`secretbroker/`) | Personal vault + broker that lets AI agents *use* credentials without reading them. Windows and Ubuntu; macOS in progress (§6). | The user's PC, as an isolated service (its own system account) + tray app |
+| **SecretBroker Desktop** (`secretbroker/`) | Personal vault + broker that lets AI agents *use* credentials without reading them. Windows, Ubuntu and macOS (§6). | The user's PC, as an isolated service (its own system account) + tray app |
 | **SecretBroker Server** (`server/`) | Zero-knowledge sync and sharing server for teams. Self-hostable (Docker), and the same code runs the hosted SaaS. | Any Linux host / container |
 
 The server **never sees a secret, a credential name or a collection name**. It stores ciphertext, public keys and the
@@ -157,7 +157,8 @@ launcher (native messaging, 4-byte length + JSON on stdin/stdout), and the host 
   and two host manifests in `%LOCALAPPDATA%\SecretBroker\native-host`, and the HKCU keys of Chrome, Chromium, Edge,
   Brave and Firefox. The installer runs it as the desktop user and the app again at every start (not for test
   instances); uninstalling removes the keys. On Linux and macOS, `register()` / `install_manifests(launcher)` write
-  the manifests into each browser's per-user folder. The installer copies `extension/` to `{app}\extension`;
+  a `secretbroker-host` shell launcher and the manifests into each browser's per-user folder; the `.deb`'s `postinst`
+  and the `.pkg`'s `postinstall` run it for every desktop account, and the app again at every start. The installer copies `extension/` to `{app}\extension`;
   Ajustes › Navegador opens the browser's extensions page and that folder until the extension is in the stores.
 
 ## 2. Team cryptography
@@ -550,24 +551,24 @@ Everything that depends on the operating system goes through `secretbroker.platf
 picks `windows.py`, `linux.py` or `macos.py`; `_common.INTERFACE` lists what each must provide, and
 `tests/test_platform.py` checks that all three do). The rest of the code never tests `sys.platform` for these.
 
-| Concern | Windows | Linux (Ubuntu 22.04 / 24.04) | macOS (not finished) |
+| Concern | Windows | Linux (Ubuntu 22.04 / 24.04) | macOS 12+ (not yet tried on real Macs, see RELEASING.md) |
 |---|---|---|---|
-| Service account | local account `SecretBroker`, hidden, no interactive/network logon | system user `secretbroker` (nologin) | TODO: `_secretbroker` role account |
-| Starting the service | scheduled task at boot (`installer/configure.ps1`) | systemd template unit `secretbroker@<owner>.service`, enabled per desktop account | TODO: LaunchDaemon per owner |
-| Data (`data/`) | `C:\ProgramData\SecretBroker\data`, ACL: service account only | `/var/lib/secretbroker/<owner>/data`, 0700 `secretbroker` | `/Library/Application Support/SecretBroker/<owner>` |
-| `broker.json` (`public/`) | ACL: users read | `public/` is `secretbroker:<owner's group>` 2750 (setgid), `broker.json` 0640: **only the owner** reads the token | same as Linux |
-| Device key ("unlock with this PC") | DPAPI under the service account | AES-GCM with a 32-byte key in `data/machine.key` (0600); the device key file alone (e.g. in a backup) opens nothing | same as Linux for now |
-| "Open with my session" token | DPAPI under the user | Secret Service (GNOME Keyring / KWallet) holds the key, else a 0600 file in `~/.local/state/secretbroker` | TODO: login Keychain |
-| Account password proof | `LogonUser` | PAM, service `/etc/pam.d/secretbroker` (pam_unix only); the unit adds the `shadow` group so pam_unix may check another account | TODO: PAM / OpenDirectory |
-| Biometric proof | Windows Hello (TPM key) | none yet: password proofs (fprintd is a TODO) | TODO: Touch ID |
-| Lock screen | `WTSQuerySessionInformation` | logind `LockedHint`, else the screensaver's D-Bus `GetActive` | TODO: `CGSessionCopyCurrentDictionary` |
-| Start with the session | `HKCU\…\Run` | `~/.config/autostart/secretbroker.desktop` | TODO: LaunchAgent |
-| Tray, notifications | WinForms `NotifyIcon` | Qt `QSystemTrayIcon` (StatusNotifierItem; GNOME needs Ubuntu's AppIndicator extension, otherwise closing minimizes), Qt / `notify-send` | TODO |
-| Web view | WebView2 (pywebview WinForms) | QtWebEngine (pywebview Qt) | pywebview Cocoa |
-| One window | named mutex + event | Unix socket in `$XDG_RUNTIME_DIR`, peer uid checked | TODO |
-| Clipboard | Win32, excluded from history / cloud clipboard | Qt clipboard with `x-kde-passwordManagerHint` (else wl-copy / xclip), cleared after 30 s | `pbcopy` (TODO: concealed type) |
-| Updates | signed `SecretBroker-Setup-<v>.exe`, UAC | signed `secretbroker_<v>_amd64.deb` (release.yml builds it on 22.04), `pkexec apt-get install`, then the app restarts | TODO: `.dmg` |
-| AI apps, shells | `%APPDATA%`, PSReadLine history, registry environment | `~/.config`, fish / pwsh history, `/etc/environment` + `environment.d` | `~/Library/Application Support` |
+| Service account | local account `SecretBroker`, hidden, no interactive/network logon | system user `secretbroker` (nologin) | hidden role account `_secretbroker` (uid < 500, shell `/usr/bin/false`, no password) |
+| Starting the service | scheduled task at boot (`installer/configure.ps1`) | systemd template unit `secretbroker@<owner>.service`, enabled per desktop account | LaunchDaemon `com.secretbroker.service.<owner>` per desktop account (`packaging/macos/secretbroker-setup`) |
+| Data (`data/`) | `C:\ProgramData\SecretBroker\data`, ACL: service account only | `/var/lib/secretbroker/<owner>/data`, 0700 `secretbroker` | `/Library/Application Support/SecretBroker/<owner>/data`, 0700 `_secretbroker` |
+| `broker.json` (`public/`) | ACL: users read | `public/` is `secretbroker:<owner's group>` 2750 (setgid), `broker.json` 0640: **only the owner** reads the token | `public/` 0750 `_secretbroker` plus an inherited ACL entry for the owner (every account shares the group `staff`): **only the owner** reads the token |
+| Device key ("unlock with this PC") | DPAPI under the service account | AES-GCM with a 32-byte key in `data/machine.key` (0600); the device key file alone (e.g. in a backup) opens nothing | same as Linux (a role account has no keychain) |
+| "Open with my session" token | DPAPI under the user | Secret Service (GNOME Keyring / KWallet) holds the key, else a 0600 file in `~/.local/state/secretbroker` | the login Keychain holds the key (a generic password; never shows a dialog), else a 0600 file |
+| Account password proof | `LogonUser` | PAM, service `/etc/pam.d/secretbroker` (pam_unix only); the unit adds the `shadow` group so pam_unix may check another account | Open Directory (`ODRecord.verifyPassword`), never on a command line |
+| Biometric proof | Windows Hello (TPM key, RSA) | none yet: password proofs (fprintd is a TODO) | Touch ID: a Secure Enclave P-256 key bound to the enrolled fingers (`secretbroker/touchid.py`); needs a signed build, otherwise password proofs |
+| Lock screen | `WTSQuerySessionInformation` | logind `LockedHint`, else the screensaver's D-Bus `GetActive` | `com.apple.screenIsLocked` / `screenIsUnlocked` distributed notifications (delivered immediately), first state from `CGSessionCopyCurrentDictionary` |
+| Start with the session | `HKCU\…\Run` | `~/.config/autostart/secretbroker.desktop` | LaunchAgent `~/Library/LaunchAgents/com.secretbroker.app.plist` (`open -g -a SecretBroker`) |
+| Tray, notifications | WinForms `NotifyIcon` | Qt `QSystemTrayIcon` (StatusNotifierItem; GNOME needs Ubuntu's AppIndicator extension, otherwise closing minimizes), Qt / `notify-send` | menu bar icon (pystray, template image `assets/menubar.png`), Notification Center through `osascript`; the Dock icon reopens the window |
+| Web view | WebView2 (pywebview WinForms) | QtWebEngine (pywebview Qt) | WKWebView (pywebview Cocoa) |
+| One window | named mutex + event | Unix socket in `$XDG_RUNTIME_DIR`, peer uid checked | Unix socket in the per-user `$TMPDIR`, peer uid checked (`LOCAL_PEERCRED`) |
+| Clipboard | Win32, excluded from history / cloud clipboard | Qt clipboard with `x-kde-passwordManagerHint` (else wl-copy / xclip), cleared after 30 s | `NSPasteboard` marked `org.nspasteboard.ConcealedType` / `TransientType` (else `pbcopy`), cleared after 30 s |
+| Updates | signed `SecretBroker-Setup-<v>.exe`, UAC | signed `secretbroker_<v>_amd64.deb` (release.yml builds it on 22.04), `pkexec apt-get install`, then the app restarts | signed `SecretBroker-<v>-macos-<arm64 or x86_64>.pkg` (the Mac's own processor), `installer -pkg` after the administrator dialog, then the app restarts |
+| AI apps, shells | `%APPDATA%`, PSReadLine history, registry environment | `~/.config`, fish / pwsh history, `/etc/environment` + `environment.d` | `~/Library/Application Support`, `~/.zsh_history` plus Terminal's `~/.zsh_sessions/*.history`, fish / pwsh, `launchctl` environment |
 
 ### 6.1 Linux isolation
 
@@ -603,11 +604,48 @@ for every desktop account; a menu entry (`/usr/share/applications/secretbroker.d
 not upgrade) disconnects each owner's AI apps and deletes their preferences, like the Windows uninstaller; `postrm
 purge` deletes `/var/lib/secretbroker` and the account; a plain remove keeps the vaults for a later reinstall.
 
+### 6.3 macOS isolation
+
+The same design as Linux, with launchd and an ACL:
+
+* `secretbroker-setup` (root; run by the package's `postinstall`, and by the LaunchDaemon `com.secretbroker.setup`
+  at boot and whenever `/Users` changes, so accounts created later get a service too) creates `_secretbroker`, and
+  for each desktop account (uid 501+, home in `/Users`, a real shell) the folders and
+  `/Library/LaunchDaemons/com.secretbroker.service.<owner>.plist`: `UserName _secretbroker`, `python -I -m
+  secretbroker.service --isolated --root … --owner <owner>`, `Umask 027`, core dumps off, and `KeepAlive` only while
+  the bundled Python exists (an app moved to the Trash leaves its services stopped). Daemons of deleted accounts
+  are removed; their vaults stay. It never follows a symbolic link planted in a service folder.
+* An account cannot start a system daemon: `start_service()` only tells the client there is one, and launchd
+  restarts it within seconds when it stops.
+* The owner reads `public/` through the ACL entry `user:<owner> allow list,search,…,file_inherit,directory_inherit`,
+  which files the service creates there (`broker.json`, downloaded updates) inherit; no other account can.
+* The Mac password is verified through Open Directory from the service (a role account may ask it); it is never
+  stored nor passed on a command line.
+* Touch ID runs in the app (as the owner), like Windows Hello: `create_key()` makes a Secure Enclave key with
+  `kSecAccessControlBiometryCurrentSet | PrivateKeyUsage` (adding a finger invalidates it; the user activates Touch
+  ID again), `sign()` shows the system's fingerprint sheet and returns an ECDSA-SHA256 signature, which the service
+  checks with the stored public key (`winsec.verify_hello_signature` accepts RSA ≥ 2048 and P-256). The key needs
+  the data protection keychain, i.e. a signed app (`packaging/macos/entitlements.plist`); unsigned, `is_supported()`
+  is False and the app uses password proofs. The page names it «Touch ID» (`info().biometric_label`).
+
+### 6.4 macOS package
+
+`tools/build_macos.sh` (run on a Mac of the target processor) builds `dist/SecretBroker-<v>-macos-<arch>.pkg`:
+`/Applications/SecretBroker.app` with a standalone CPython 3.12 (python-build-standalone, checksum pinned) in
+`Contents/Resources/python` and SecretBroker installed into it (no venv: nothing to relocate), the extension, the
+icon (`tools/make_icon.py --iconset` + `iconutil`, on Apple's 824/1024 grid), `secretbroker-setup` and `sb`.
+`Contents/MacOS/SecretBroker` is a shell launcher that `exec`s the bundled Python, so Launch Services keeps the
+process as SecretBroker.app (Dock, menu bar, `secretbroker://` links, which arrive as an Apple event and are
+handled by `app._listen_for_links`). The component is not relocatable, so updates always replace the copy the
+daemons use. `postinstall` runs `secretbroker-setup --restart`, links `/usr/local/bin/sb`, registers the browser
+host for every account and opens the app for the logged-in user on a first install. Signing and notarization are
+optional (`MACOS_SIGN_APP`, `MACOS_SIGN_INSTALLER`, `MACOS_NOTARY_PROFILE`; see docs/RELEASING.md).
+
 ## 7. Roadmap beyond this release
 
-* macOS: fill in the `TODO(macos)` in `platform/macos.py` (Keychain, Touch ID, LaunchDaemon, lock screen) and a
-  signed, notarized `.dmg`. Linux: fprintd as a biometric proof; a signed apt repository so updates also arrive
-  through the system updater; Fedora (`.rpm`).
+* macOS: try the port on real Macs (docs/RELEASING.md lists what CI cannot show), sign and notarize it with the
+  owner's Apple Developer account (which also turns Touch ID on), and an uninstaller. Linux: fprintd as a
+  biometric proof; a signed apt repository so updates also arrive through the system updater; Fedora (`.rpm`).
 * English/Spanish UI (i18n of `web/app.js`).
 * SSO (OIDC) and SCIM for the hosted SaaS; Postgres backend; org-wide policies (minimum rotation period, AI levels).
 * A CLI-only client for servers/CI that reads a collection with a machine identity (service accounts).

@@ -17,7 +17,9 @@ working, and walks you through rotating it everywhere it is used.
  AI ── MCP: "use 'github'" ─────▶    - runs it and redacts output  ◀──   response without secrets
 ```
 
-> **Status.** SecretBroker Desktop runs on **Windows 10/11** and **Ubuntu 22.04 / 24.04**; macOS is in progress. Its
+> **Status.** SecretBroker Desktop runs on **Windows 10/11** and **Ubuntu 22.04 / 24.04**; the **macOS 12+** port
+> (Apple silicon and Intel) is built and installed by CI but not yet tried on real Macs (see
+> [docs/RELEASING.md](docs/RELEASING.md)). Its
 > interface is in **Spanish** for now; English (and other languages) is on the [roadmap](docs/ROADMAP.md). The team
 > server runs anywhere Docker runs.
 
@@ -177,7 +179,7 @@ Read the full [threat model](docs/THREAT_MODEL.md). To report a vulnerability, s
 
 ## Roadmap
 
-Cross-platform desktop (macOS, Linux), English UI and i18n, browser extension for autofill, CLI client with machine
+macOS on real hardware (signed and notarized), English UI and i18n, browser extension for autofill, CLI client with machine
 identities for CI and servers, OIDC SSO and SCIM, Postgres, organization-wide policies and a read-only mobile app.
 Details in [docs/ROADMAP.md](docs/ROADMAP.md).
 

@@ -1,0 +1,35 @@
+#!/bin/sh
+# SecretBroker .pkg: after SecretBroker.app is in /Applications (installing or updating, as root).
+# Creates the service account and a service per desktop account (secretbroker-setup), keeps doing that for
+# accounts created later (com.secretbroker.setup), installs `sb`, registers the browser extension's host for
+# each account and opens the app for whoever is logged in.
+set -u
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+APP=/Applications/SecretBroker.app
+RES="$APP/Contents/Resources"
+PYTHON="$RES/python/bin/python3"
+SETUP_PLIST=/Library/LaunchDaemons/com.secretbroker.setup.plist
+
+"$RES/secretbroker-setup" --restart
+
+install -m 0644 -o root -g wheel "$RES/com.secretbroker.setup.plist" "$SETUP_PLIST"
+launchctl bootout system/com.secretbroker.setup 2>/dev/null || true
+launchctl bootstrap system "$SETUP_PLIST" 2>/dev/null || true
+
+mkdir -p /usr/local/bin
+ln -sfn "$RES/sb" /usr/local/bin/sb
+
+for user in $("$RES/secretbroker-setup" --users); do
+    home=$(dscl . -read "/Users/$user" NFSHomeDirectory 2>/dev/null | awk '{ print $2 }')
+    [ -n "$home" ] && [ -d "$home" ] || continue
+    # Let each account's browsers start the extension's native host (the app does it again on every start).
+    sudo -u "$user" -H "$PYTHON" -I -c "from secretbroker import native_host; native_host.register()" >/dev/null 2>&1 || true
+done
+
+# A first install opens the app for the person at the screen; an update started from the app restarts it itself.
+console=$(stat -f %Su /dev/console 2>/dev/null || true)
+case "$console" in ""|root|_*|loginwindow) exit 0 ;; esac
+if ! pgrep -u "$console" -f "secretbroker.app" >/dev/null 2>&1; then
+    launchctl asuser "$(id -u "$console")" sudo -u "$console" /usr/bin/open -a "$APP" || true
+fi
+exit 0

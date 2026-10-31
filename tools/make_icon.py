@@ -2,6 +2,8 @@
 
 Pure Python (zlib only) so it runs without extra dependencies:
     python tools/make_icon.py secretbroker/assets/icon.ico
+    python tools/make_icon.py --iconset build/SecretBroker.iconset    (macOS: iconutil -c icns turns it into .icns)
+    python tools/make_icon.py --menubar secretbroker/assets/menubar.png
 """
 
 import math
@@ -38,8 +40,16 @@ def inside_keyhole(x, y):
     return 0.45 <= y <= 0.64 and abs(x - 0.5) <= 0.03 + (y - 0.45) * 0.12
 
 
-def render(size):
+# macOS icons sit on Apple's grid: the tile is 824 of 1024 px, centred, so it matches the other apps in the Dock.
+MAC_INSET = (1024 - 824) / 2 / 1024
+
+
+def render(size, inset=0.0, template=False):
+    """The icon at `size` px. `inset`: empty border around the tile (macOS). `template`: only the shield, black on
+    transparent, for the macOS menu bar (which tints it for light and dark bars)."""
     samples = 4 if size >= 48 else 6
+    if size >= 512:
+        samples = 2
     rows = []
     for py in range(size):
         row = bytearray([0])  # PNG filter: none
@@ -47,9 +57,15 @@ def render(size):
             r = g = b = a = 0.0
             for sy in range(samples):
                 for sx in range(samples):
-                    x = (px + (sx + 0.5) / samples) / size
-                    y = (py + (sy + 0.5) / samples) / size
-                    if not inside_rounded_rect(x, y):
+                    x = ((px + (sx + 0.5) / samples) / size - inset) / (1 - 2 * inset)
+                    y = ((py + (sy + 0.5) / samples) / size - inset) / (1 - 2 * inset)
+                    if template:
+                        # The shield fills the bar's height; the keyhole is cut out.
+                        x, y = 0.5 + (x - 0.5) * 0.75, 0.5 + (y - 0.5) * 0.75
+                        if inside_polygon(x, y, SHIELD) and not inside_keyhole(x, y):
+                            r, g, b, a = r, g, b, a + 1
+                        continue
+                    if not (inside_rounded_rect(x, y, margin=0.0, radius=0.225) if inset else inside_rounded_rect(x, y)):
                         continue
                     if inside_polygon(x, y, SHIELD) and not inside_keyhole(x, y):
                         color = (255, 255, 255)
@@ -85,7 +101,27 @@ def ico(images):
     return header + entries + blobs
 
 
+def iconset(folder):
+    """The sizes iconutil expects in an .iconset folder."""
+    import os
+    os.makedirs(folder, exist_ok=True)
+    for points in (16, 32, 128, 256, 512):
+        for scale in (1, 2):
+            name = f"icon_{points}x{points}{'@2x' if scale == 2 else ''}.png"
+            with open(os.path.join(folder, name), "wb") as fh:
+                fh.write(render(points * scale, inset=MAC_INSET))
+    print("written", folder)
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 2 and sys.argv[1] == "--iconset":
+        iconset(sys.argv[2])
+        sys.exit(0)
+    if len(sys.argv) > 2 and sys.argv[1] == "--menubar":
+        with open(sys.argv[2], "wb") as fh:
+            fh.write(render(44, template=True))  # 22 pt at 2x
+        print("written", sys.argv[2])
+        sys.exit(0)
     target = sys.argv[1] if len(sys.argv) > 1 else "icon.ico"
     with open(target, "wb") as fh:
         fh.write(ico([(s, render(s)) for s in SIZES]))

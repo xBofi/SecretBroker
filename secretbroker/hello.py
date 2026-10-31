@@ -4,6 +4,7 @@ import asyncio
 import sys
 
 KEY_NAME = "SecretBroker"
+LABEL = "Windows Hello"  # what the app calls the biometric proof (macOS: touchid.LABEL)
 
 
 class HelloError(Exception):

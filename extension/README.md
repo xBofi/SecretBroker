@@ -40,8 +40,9 @@ In the app, **Ajustes › Navegador › Instalar la extensión** opens the brows
 
 Then open the extension and press **Conectar**: the app shows the same 6-digit code and connects it with one click.
 
-On Linux and macOS, packaging should install a launcher and call `native_host.install_manifests(launcher)` (or
-`native_host.register()` as the user), which writes the host manifest into each browser's per-user folder.
+On Linux and macOS, the packages (`.deb` `postinst`, `.pkg` `postinstall`) run `native_host.register()` as each
+desktop account, and the app runs it again at every start: it writes a launcher and the host manifest into each
+browser's per-user folder (`~/.config/...` on Linux, `~/Library/Application Support/...` on macOS).
 
 ## Publishing to the stores (needs the owner's developer accounts)
 

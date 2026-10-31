@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Entitlements for a signed build (docs/RELEASING.md). Not used while the build is unsigned.
+     keychain-access-groups lets Touch ID keep its Secure Enclave key (secretbroker/touchid.py); TEAMID is the
+     owner's Apple Developer team. The hardened runtime needs the other two for the bundled Python: it loads
+     extension modules (.so) that are not signed by the same team, and pyobjc creates code at run time. -->
+<plist version="1.0">
+<dict>
+    <key>keychain-access-groups</key>
+    <array>
+        <string>TEAMID.com.secretbroker.app</string>
+    </array>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+</dict>
+</plist>

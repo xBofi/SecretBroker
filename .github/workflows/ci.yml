@@ -22,8 +22,6 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    # The macOS port is not finished (TODO(macos) in secretbroker/platform/macos.py): informative until it is.
-    continue-on-error: ${{ matrix.os == 'macos-latest' }}
     timeout-minutes: 30
     defaults:
       run:
@@ -100,6 +98,37 @@ jobs:
         with:
           name: secretbroker-deb
           path: dist/secretbroker_*_amd64.deb
+          retention-days: 7
+
+  # Builds the macOS package (unsigned), installs it on the runner and checks that the service runs as `_secretbroker`
+  # and that the desktop account, and only it, can read broker.json.
+  macos-package:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build the .pkg
+        run: bash tools/build_macos.sh
+
+      - name: Install it and check the service
+        run: |
+          sudo installer -pkg dist/SecretBroker-*-macos-arm64.pkg -target /
+          sleep 10
+          dscl . -read /Users/_secretbroker UniqueID IsHidden
+          sudo launchctl print "system/com.secretbroker.service.$USER" | grep -E 'state|pid'
+          test "$(ps -o user= -p "$(pgrep -f "secretbroker.service --isolated --root .*/$USER --owner")" | tr -d ' ')" = _secretbroker
+          root="/Library/Application Support/SecretBroker/$USER"
+          ls -le "$root" "$root/public"
+          test "$(stat -f '%Su %Lp' "$root/data")" = "_secretbroker 700"
+          ! sudo -u nobody cat "$root/public/broker.json" 2>/dev/null
+          /Applications/SecretBroker.app/Contents/Resources/python/bin/python3 -I -c "from secretbroker import client, paths; assert paths.is_installed(); print(client.request('status')['state'])"
+          test -L /usr/local/bin/sb && test -f "$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.secretbroker.autofill.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secretbroker-pkg
+          path: dist/SecretBroker-*-macos-*.pkg
           retention-days: 7
 
   linux-server:
