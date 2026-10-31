@@ -73,7 +73,9 @@ A program running as the user, without administrator rights.
   clipboard snooping can capture revealed or copied secrets, and fake windows can trick the user. This applies to every
   password manager.
 - With "open with my Windows session" enabled, anyone who can use the unlocked session can use the vault through the
-  app.
+  app, and any program running as the user can open it (that is what the option means; the inactivity lock then only
+  limits how long the key stays in memory). Revealing, copying, editing, exporting and sharing still need Hello or a
+  password once after such an unlock.
 - Malware with administrator rights (or a user who runs the AI agent as administrator) defeats the account isolation.
 
 ### 3.3 Malicious teammate

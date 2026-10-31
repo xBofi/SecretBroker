@@ -18,6 +18,27 @@ See README.md: the service runs under a separate Windows account, the vault is A
 wrapped by scrypt(master password) and by DPAPI, every AI operation goes through the service, output is redacted, and
 approvals are one click after unlock.
 
+### 1.0 Friction, approvals and freshness
+
+- **Presence strength.** Unlocking hands the app a one-click token (`presence`). After a proof (master or Windows
+  password, Hello) it is *strong*: `reveal`, `save_entry`, `delete_entry`, `rotate`, `set_settings`, `exposure_begin`
+  and `enable_session_unlock` (`service.PROVEN_OPS`) take it, like everything in `PRESENCE_OPS`. After "open with my
+  Windows session" it is *weak* (anything running as the user could get one), so those and `TEAM_EXPORT_OPS` answer
+  `proof_required`. The app then sends a proof **with its token** (`proof.presence`): the service makes that token
+  strong and returns it in the response envelope (`presence`, read with `client.request(..., meta=)`). A proof without
+  a token (sb, scripts) leaves the app's token alone.
+- **Inactivity lock** applies with the session unlock too. `status.lock_reason` is `idle`, `manual` or `windows`. With
+  the session unlock on, `client.call` opens the vault again by itself on the AI's next request
+  (`client.reopen_with_session`), and the app does when the user comes back to the window; never after «Bloquear».
+  App reloads that are not the user (`_poll: true` in the params) don't count as activity.
+- **Approvals** carry `client` `{name, folder}` (MCP `clientInfo` mapped to "Claude Code"/"Claude Desktop", the stdio
+  server's working folder; `sb` sends its own), `reason` (optional argument of the MCP tools), `host`, `last_used`,
+  `uses_today` and `expires`. Requests nobody answered in time are listed by `expired_approvals` for a few minutes.
+- **Freshness.** `status.revision` goes up with every vault write (`Vault.revision`), every AI or team audit event
+  and every approval or withdrawal; the app reloads and redraws the list and the detail in place when it changes.
+  `save_entry` takes `base_updated` (the `updated` the editor started from) and answers `conflict` if it differs.
+  `audit {secret_id}` is the activity of one credential (the detail's «Actividad reciente»); `entries` carry `last_used`.
+
 Team data lives **inside the existing encrypted vault payload** (section `team`), so it inherits the same at-rest
 protection, backups and lock behaviour. Shared credentials are ordinary vault entries with an extra `shared` block,
 so the AI broker, `sb run`, exposure checks and rotation work on them unchanged.

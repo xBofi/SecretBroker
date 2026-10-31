@@ -259,8 +259,22 @@ def run(app, env, devtools, api_port, client, integrations):
     page.shot("01-welcome")
 
     print("Create the vault and a credential")
-    page.js(f"api().call('create_vault', {{ master_password: {json.dumps(MASTER)} }})")
-    page.js("state.setupActive = false; state.screen = null; refreshStatus()")
+    page.click("Empezar")
+    check(wait_for(lambda: "Elige una contraseña maestra" in page.text(), 5), "step 2: the master password")
+    page.js(f"""document.querySelectorAll('.auth input[type=password]').forEach((i) => {{ i.value = {json.dumps(MASTER)}; }})""")
+    page.click("Crear bóveda")
+    check(wait_for(lambda: "¿Cómo quieres abrirla cada día?" in page.text(), 15)
+          and "Escribirás la contraseña maestra solo para restaurar copias o en otro PC." in page.text(),
+          "step 3: how it opens day to day, so the master password is only for backups and other PCs")
+    hello = page.js("!!state.info.hello_supported")
+    first = page.js("document.querySelector('.choice input:checked').value")
+    check(first == ("hello" if hello else "session") and "Recomendado" in page.js("document.querySelector('.choice.active').innerText"),
+          f"preselected: {'Windows Hello' if hello else 'Abrir con mi sesión de Windows'} ({first})")
+    check("no de alguien que use tu sesión de Windows" in page.text(), "the session unlock is explained honestly")
+    page.shot("01-setup-unlock")
+    page.js("document.querySelector('.choice input[value=master]').click()")  # this test types the password on purpose
+    page.click("Continuar")
+    check(wait_for(lambda: "Credenciales" in page.text(), 15), "and the vault is open")
     page.js(f"api().call('unlock', {{}}, {{ kind: 'master_password', value: {json.dumps(MASTER)} }})")
     check(wait_for(lambda: "Credenciales" in page.text()), "main screen after unlocking")
     entry = {"id": "echo-api", "name": "Echo API", "template": "api_key", "description": "API local de prueba",
@@ -285,6 +299,7 @@ def run(app, env, devtools, api_port, client, integrations):
           "settings show backups")
     check("Importar de otro gestor" in page.text() and "Exportar" in page.text(), "settings offer import and export")
     shell_checks(page)
+    friction_flow(page, client)
 
     print("Generator and health")
     page.js("openGenerator()")
@@ -472,7 +487,11 @@ def run(app, env, devtools, api_port, client, integrations):
           "it fills in 32 random letters and digits (nothing to escape in a connection URL)")
     check("no cambia la contraseña en el servidor" in page.text(), "and says that saving it doesn't change it on the server")
     page.shot("10-editor-generate")
+    page.js("document.querySelector('.overlay').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))")
+    check(page.js("document.querySelectorAll('.modal').length") == 1, "a click outside the editor doesn't close it")
     page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    check(wait_for(lambda: "¿Descartar cambios?" in page.text(), 5), "Esc with changes asks «¿Descartar cambios?»")
+    page.click("Descartar")
     wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
 
     print("Rotation of a secret that goes with an id")
@@ -526,6 +545,7 @@ def run(app, env, devtools, api_port, client, integrations):
     page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
     wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
 
+    list_flow(page, client)
     teams_flow(page, env)
 
     print("Claude Code over HTTP, and approving with one click")
@@ -544,21 +564,67 @@ def run(app, env, devtools, api_port, client, integrations):
                     async with ClientSession(read, write) as session:
                         await session.initialize()
                         result["tools"] = len((await session.list_tools()).tools)
-                        call = await session.call_tool("http_request", {"secret_id": "echo-api", "url": f"http://127.0.0.1:{api_port}/hola"})
+                        call = await session.call_tool("http_request", {"secret_id": "echo-api", "url": f"http://127.0.0.1:{api_port}/hola",
+                                                                        "reason": "Comprobar que la API local responde"})
                         result["text"] = " ".join(getattr(c, "text", "") for c in call.content)
         asyncio.run(go())
 
+    page.js("state.view = 'credentials'; state.selected = 'echo-api'; renderMain()")
+    page.js("api().call('revoke_sessions', {})")
     caller = threading.Thread(target=ask)
     caller.start()
-    check(wait_for(lambda: "La IA quiere usar una credencial" in page.text(), 20), "the request pops up in the app")
+    check(wait_for(lambda: "quiere usar una credencial" in page.text(), 20), "the request pops up in the app")
+    text = page.js("document.querySelector('.modal.approval').innerText")
+    check("Comprobar que la API local responde" in text and "Echo API" in text, "it says why (the AI's reason) and which credential")
+    check(page.js("(document.querySelector('.modal.approval mark.host') || {}).textContent") == "127.0.0.1",
+          "the exact request, with the host it goes to marked")
+    check("Caduca en" in text and ("veces hoy" in text or "vez hoy" in text or "aún no la ha usado" in text or "Último uso" in text),
+          "a countdown, and when the AI last used it")
+    buttons = page.js("[...document.querySelectorAll('.modal.approval .modal-foot .btn')].map((b) => [b.innerText.trim(), b.className])")
+    labels = [b[0] for b in buttons]
+    check("Solo esta vez" in labels and "Permitir 24 horas" in labels and "Decidir luego" in text,
+          f"«Solo esta vez» and «Permitir 24 horas», and «Decidir luego» instead of an X ({labels})")
+    check(len({b[1] for b in buttons if b[0] in ("Solo esta vez", "Permitir 24 horas")}) == 1, "both ways to allow weigh the same")
+    check("sin volver a preguntarte durante 24 horas" in text, "one sentence says what the timed grant does")
     time.sleep(0.5)
     page.shot("07-approval")
-    check(page.click("Permitir hoy"), "one click: «Permitir hoy»")
+    page.click("Decidir luego")
+    check(wait_for(lambda: page.js("!!document.getElementById('approval-banner') && !document.querySelector('.modal.approval')"), 5),
+          "«Decidir luego» folds it into a banner")
+    time.sleep(2.5)
+    check(page.js("!document.querySelector('.modal.approval')"), "and it doesn't pop up again by itself")
+    calm_shot(page, "07-approval-banner")
+    page.click("Revisar", "#approval-banner button")
+    check(wait_for(lambda: page.js("!!document.querySelector('.modal.approval')"), 5), "«Revisar» opens it again")
+    check(page.click("Permitir 24 horas"), "one click: «Permitir 24 horas»")
     caller.join(30)
     check("Confirma que eres tú" not in page.text(), "no password asked")
     check(result.get("tools") == 14, f"Claude Code sees the tools ({result.get('tools')})")
     check("Bearer [REDACTED:echo-api]" in result.get("text", "") and "SECRET" not in result.get("text", ""),
           f"the request carried the key and the AI saw it redacted ({result.get('text', '')[:200]!r})")
+    check(wait_for(lambda: "Actividad reciente" in page.text() and "127.0.0.1" in page.js(
+        "(document.querySelector('.recent-list') || {}).innerText || ''"), 10),
+          "the credential's «Actividad reciente» shows the use, by method and host, without reloading by hand")
+    page.js("document.querySelector('.detail .recent').scrollIntoView({ block: 'end' })")
+    calm_shot(page, "07-detail-recent")
+
+    print("Several requests from the same AI")
+    page.js("api().call('revoke_sessions', {})")
+    callers = [threading.Thread(target=lambda: client.request("http_request", {
+        "secret_id": "echo-api", "url": f"http://127.0.0.1:{api_port}/{n}", "_client": {"name": "Claude Code", "folder": str(ROOT)}}))
+        for n in ("uno", "dos")]
+    for c in callers:
+        c.start()
+        time.sleep(0.4)
+    check(wait_for(lambda: "1 de 2" in page.text() and "Permitir las 2 para esta tarea" in page.text(), 15),
+          "a queue: «1 de 2», and «Permitir las 2 para esta tarea»")
+    check("Claude Code quiere usar una credencial" in page.text() and str(ROOT) in page.text(), "who asks, and from which folder")
+    page.shot("07-approval-queue")
+    page.click("Permitir las 2 para esta tarea")
+    for c in callers:
+        c.join(30)
+    check(wait_for(lambda: page.js("!document.querySelector('.modal.approval')") and client.request("status")["pending"] == 0, 10),
+          "one click answers both")
 
     print("Pause the AI")
     page.js("state.view = 'access'; renderMain()")
@@ -707,6 +773,184 @@ def shell_checks(page):
           != page.js("getComputedStyle(document.body).color"), "the current view is marked in the interactive colour, not the text colour")
     page.send("Emulation.setEmulatedMedia", features=[])
     wait_for(lambda: page.js("!document.querySelector('#modal-root > *')"), 3)
+
+
+def type_proof(page, value):
+    """Answer «Confirma que eres tú» with the master password."""
+    page.click("Contraseña maestra", ".modal .segmented button")
+    page.js(f"""(() => {{ const i = [...document.querySelectorAll('.modal input[type=password]')].pop(); i.value = {json.dumps(value)}; }})()""")
+    page.click("Confirmar")
+
+
+def friction_flow(page, client):
+    """The password is typed once a session: unlocking. Without Windows Hello, editing, revealing, copying
+    and changing a setting are one click. Opening with the Windows session asks for a proof once."""
+    print("One password a session (without Windows Hello)")
+    page.js("state.info.hello_supported_real = state.info.hello_supported; state.info.hello_supported = false")
+    page.js("""window.__prompts = 0; if (!window.__askProof) { window.__askProof = askProof;
+      askProof = (...args) => { window.__prompts++; return window.__askProof(...args); }; }""")
+    page.js("lockNow()")
+    check(wait_for(lambda: "SecretBroker está bloqueado" in page.text(), 10), "locked")
+    page.js("document.querySelector('details.other-unlock') && (document.querySelector('details.other-unlock').open = true)")
+    page.js(f"""(() => {{ const i = document.querySelector('.auth input[type=password]'); i.value = {json.dumps(MASTER)}; }})()""")
+    page.click("Desbloquear")
+    check(wait_for(lambda: "Credenciales" in page.text() and client.request("status")["state"] == "unlocked", 15),
+          "the master password, typed once on the lock screen")
+    page.js("state.view = 'credentials'; state.selected = 'echo-api'; renderMain()")
+    wait_for(lambda: "Echo API" in page.text(), 5)
+
+    page.click("Editar")
+    wait_for(lambda: page.js("!!document.querySelector('.modal textarea')"), 5)
+    labels = page.js("[...document.querySelectorAll('.modal label')].map((l) => l.innerText.trim())")
+    check(any(l.startswith("Instrucciones para la IA") and "la IA las lee" in l for l in labels)
+          and any(l.startswith("Notas privadas") and "solo tú, cifradas" in l for l in labels)
+          and any(l.startswith("Identificador de la app (p. ej. ID de cliente)") for l in labels),
+          f"the editor says who reads what: instructions for the AI, private notes, the app's id ({labels})")
+    calm_shot(page, "10-editor-labels")
+    page.js("""(() => { const t = [...document.querySelectorAll('.modal .field')].find((f) => f.innerText.startsWith('Instrucciones para la IA')).querySelector('textarea');
+      t.value = 'API local de prueba. Solo lectura.'; t.dispatchEvent(new Event('input', { bubbles: true })); })()""")
+    page.click("Guardar")
+    check(wait_for(lambda: page.js("(state.entries.find((e) => e.id === 'echo-api') || {}).description") == "API local de prueba. Solo lectura.", 10),
+          "editing a credential: saved")
+    page.js("document.querySelector('.detail .prop button[title=Mostrar]').click()")
+    check(wait_for(lambda: page.js("!!document.querySelector('.detail .v.revealed')"), 10), "revealing a key")
+    page.js("document.querySelector('.detail .prop button[title=Ocultar]').click()")
+    page.js("[...document.querySelectorAll('.detail .prop')].find((p) => p.querySelector('button[title=Mostrar]')).querySelector('button[title=Copiar]').click()")
+    check(wait_for(lambda: "se borra en" in page.text(), 10), "copying a key")
+    page.js("state.view = 'settings'; renderMain()")
+    approvals = "[...document.querySelectorAll('select')].find((s) => [...s.options].some((o) => o.textContent === 'Hasta que bloquee'))"
+    wait_for(lambda: page.js(f"!!{approvals}"), 5)
+    page.js(f"(() => {{ const s = {approvals}; s.value = '8'; s.dispatchEvent(new Event('change')); }})()")
+    check(wait_for(lambda: client.request("status")["approval_hours"] == 8, 10), "changing a setting")
+    page.js(f"(() => {{ const s = {approvals}; s.value = '24'; s.dispatchEvent(new Event('change')); }})()")
+    wait_for(lambda: client.request("status")["approval_hours"] == 24, 10)
+    check(page.js("window.__prompts") == 0 and "Confirma que eres tú" not in page.text(),
+          f"1 password over the session: unlock, edit, reveal, copy, settings ({page.js('window.__prompts')} more asked)")
+
+    print("Opened with the Windows session: a proof once")
+    enabled = page.js("api().enable_session_unlock(null)")
+    check(enabled and enabled["ok"] and page.js("window.__prompts") == 0, "turning on the session unlock is one click too")
+    page.js("lockNow()")
+    wait_for(lambda: "SecretBroker está bloqueado" in page.text(), 10)
+    page.js("document.querySelector('details.other-unlock') && (document.querySelector('details.other-unlock').open = true)")
+    page.click("Abrir con mi sesión de Windows")
+    check(wait_for(lambda: client.request("status")["state"] == "unlocked" and "Credenciales" in page.text(), 10), "opened without a password")
+    page.js("state.view = 'credentials'; state.selected = 'echo-api'; renderMain()")
+    wait_for(lambda: page.js("!!document.querySelector('.detail .prop button[title=Mostrar]')"), 5)
+    page.js("document.querySelector('.detail .prop button[title=Mostrar]').click()")
+    check(wait_for(lambda: "Confirma que eres tú" in page.text(), 10) and "Confirma una vez que eres tú" in page.text(),
+          "revealing asks who you are, once: anything running as you could have opened it")
+    calm_shot(page, "11-proof-once")
+    type_proof(page, MASTER)
+    check(wait_for(lambda: page.js("!!document.querySelector('.detail .v.revealed')"), 10), "then it shows")
+    page.js("document.querySelector('.detail .prop button[title=Ocultar]').click()")
+    page.js("[...document.querySelectorAll('.detail .prop')].find((p) => p.querySelector('button[title=Mostrar]')).querySelector('button[title=Copiar]').click()")
+    check(wait_for(lambda: "se borra en" in page.text(), 10) and page.js("window.__prompts") == 1,
+          "and from then on it is one click (one proof in all)")
+
+    print("Locked for inactivity, with the Windows session")
+    page.js("api().call('set_settings', { settings: { auto_lock_minutes: 1 } })")
+    check(wait_for(lambda: (lambda s: s["state"] == "locked" and s.get("lock_reason") == "idle")(client.request("status")), 100, 1),
+          "after a minute without use it locks")
+    check(wait_for(lambda: "Se bloqueó por inactividad" in page.text(), 10), "the lock screen says it will open by itself")
+    calm_shot(page, "11-idle-lock")
+    page.js("window.dispatchEvent(new Event('pointerdown'))")
+    check(wait_for(lambda: client.request("status")["state"] == "unlocked" and "Credenciales" in page.text(), 10),
+          "coming back to the window opens it, without a password")
+    client.request("lock")
+    check(any(v["id"] == "echo-api" for v in client.call("list_secrets")), "the AI's next request opens it too: it doesn't wait for anyone")
+    check(page.js("window.__prompts") == 1, "still one proof in all")
+    # Back to how the rest of the test expects it: the app with a token from a password, no session unlock.
+    wait_for(lambda: "Credenciales" in page.text() and page.js("api().has_presence()"), 10)
+    page.js(f"api().call('unlock', {{}}, {{ kind: 'master_password', value: {json.dumps(MASTER)} }})")
+    page.js("api().disable_session_unlock()")
+    page.js("api().call('set_settings', { settings: { auto_lock_minutes: 0 } })")
+    check(wait_for(lambda: client.request("status")["auto_lock_minutes"] == 0, 5), "(the inactivity lock off again for the rest of the test)")
+    page.js("askProof = window.__askProof; delete window.__askProof; state.info.hello_supported = state.info.hello_supported_real ?? state.info.hello_supported")
+
+
+def list_flow(page, client):
+    print("The list: search, keyboard, order")
+    page.js("state.view = 'credentials'; state.search = ''; state.tag = null; state.collection = null; state.selected = 'echo-api'; renderMain()")
+    wait_for(lambda: page.js("!!document.querySelector('.list .row')"), 5)
+    total = page.js("state.entries.length")
+    check(page.js("document.querySelector('.list-count').textContent") == f"{total} credenciales", "the list says how many there are")
+    page.js("(() => { const s = document.querySelector('.search .input'); s.value = 'otra'; s.dispatchEvent(new Event('input')); })()")
+    check(wait_for(lambda: page.js("state.selected") == "other-api", 5), "searching selects the first match")
+    check(page.js("document.querySelector('.list-count').textContent") == f"1 de {total}", f"«1 de {total}»")
+    page.js("(() => { const s = document.querySelector('.search .input'); s.value = ''; s.dispatchEvent(new Event('input')); })()")
+    order = page.js("[...document.querySelectorAll('.list .row')].map((r) => r.dataset.id)")
+    page.js("document.querySelector('.list').focus()")
+    page.js("document.querySelector('.list').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))")
+    following = order[order.index("other-api") + 1] if order.index("other-api") + 1 < len(order) else "other-api"
+    check(wait_for(lambda: page.js("state.selected") == following, 5)
+          and page.js("document.activeElement.dataset.id") == following, "the down arrow selects and focuses the next one")
+    page.js("document.querySelector('.list').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))")
+    check(wait_for(lambda: page.js("!!document.querySelector('.modal')"), 5), "Enter opens it")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+    options = page.js("[...document.querySelector('.list-tools select').options].map((o) => o.textContent)")
+    check(options == ["Nombre", "Usadas recientemente", "Cambiadas recientemente", "Necesitan atención"], f"orders ({options})")
+    page.js("(() => { const s = document.querySelector('.list-tools select'); s.value = 'changed'; s.dispatchEvent(new Event('change')); })()")
+    newest = max(page.js("state.entries.map((e) => e.updated || '')"))
+    check(page.js("(state.entries.find((e) => e.id === document.querySelector('.list .row').dataset.id) || {}).updated") == newest,
+          "«Cambiadas recientemente» puts the last one changed first")
+    calm_shot(page, "02-list-sorted")
+    page.js("(() => { const s = document.querySelector('.list-tools select'); s.value = 'name'; s.dispatchEvent(new Event('change')); })()")
+
+    print("Changes made elsewhere show in place")
+    page.js("state.selected = 'other-api'; renderMain()")
+    wait_for(lambda: "Otra API" in page.js("document.querySelector('.detail h2').textContent"), 5)
+    page.js("document.querySelector('.list').dataset.mark = 'same'; document.querySelector('.detail').scrollTop = 40")
+    client.request("update_credential", {"secret_id": "other-api", "description": "Escrito por la IA desde fuera"})
+    check(wait_for(lambda: "Escrito por la IA desde fuera" in page.js("document.querySelector('.detail').innerText"), 10),
+          "an edit by the AI shows by itself")
+    check(page.js("document.querySelector('.list').dataset.mark") == "same" and page.js("state.selected") == "other-api",
+          "redrawn in place: the same list, the same selection")
+
+    print("Editing while something else changes it")
+    page.click("Editar")
+    wait_for(lambda: page.js("!!document.querySelector('.modal input.input')"), 5)
+    page.js("""(() => { const i = document.querySelector('.modal .field input.input'); i.value = 'Otra API (mía)'; i.dispatchEvent(new Event('input', { bubbles: true })); })()""")
+    client.request("update_credential", {"secret_id": "other-api", "name": "Otra API (IA)", "tags": ["ia"]})
+    page.click("Guardar")
+    check(wait_for(lambda: "Cambió mientras editabas" in page.text(), 10), "saving says it changed meanwhile")
+    check("Nombre" in page.js("document.querySelector('.conflict').innerText") and "Etiquetas" in page.js("document.querySelector('.conflict').innerText"),
+          "and what: «Nombre», «Etiquetas»")
+    check(page.js("[...document.querySelectorAll('.conflict button')].map((b) => b.innerText.trim()).join('|')") == "Recargar|Sobrescribir",
+          "«Recargar» or «Sobrescribir»")
+    calm_shot(page, "10-editor-conflict")
+    page.click("Sobrescribir")
+    check(wait_for(lambda: page.js("(state.entries.find((e) => e.id === 'other-api') || {}).name") == "Otra API (mía)", 10),
+          "«Sobrescribir» keeps the user's version")
+    page.click("Editar")
+    wait_for(lambda: page.js("!!document.querySelector('.modal')"), 5)
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    check(wait_for(lambda: page.js("!document.querySelector('.modal')"), 5), "Esc without changes closes at once")
+    client.request("update_credential", {"secret_id": "other-api", "name": "Otra API", "tags": []})  # as the team test expects it
+    wait_for(lambda: page.js("(state.entries.find((e) => e.id === 'other-api') || {}).name") == "Otra API", 10)
+
+    print("Messages in the user's words")
+    page.js("openEditor(null)")
+    page.click("API key o token", ".template-option .title")
+    wait_for(lambda: page.js("!!document.querySelector('.modal .field input.input')"), 5)
+    page.js("""(() => { const f = [...document.querySelectorAll('.modal .field input.input')];
+      f[0].value = 'Otra API (mía)'; f[0].dispatchEvent(new Event('input', { bubbles: true }));
+      const key = document.querySelector('.modal input[type=password]'); key.value = 'sk-test-12345678901234'; key.dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('.modal details.advanced').open = true;
+      const auth = [...document.querySelectorAll('.modal select')].find((s) => [...s.options].some((o) => o.value === 'header'));
+      auth.value = 'header'; auth.dispatchEvent(new Event('input', { bubbles: true }));
+      const value = [...document.querySelectorAll('.modal input.mono')].find((i) => i.placeholder === 'Bearer {{value}}');
+      value.value = 'Bearer {{password}}'; value.dispatchEvent(new Event('input', { bubbles: true }));
+      const name = [...document.querySelectorAll('.modal input.mono')].find((i) => i.placeholder === 'Authorization');
+      name.value = 'Authorization'; name.dispatchEvent(new Event('input', { bubbles: true })); })()""")
+    page.click("Guardar")
+    error = wait_for(lambda: page.js("(document.querySelector('.modal .error-text') || {}).textContent"), 10) or ""
+    check(error and "{{" not in error and "other-api" not in error and "«password»" in error,
+          f"no {{{{placeholders}}}} or internal ids in the message ({error})")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    page.click("Descartar")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
 
 
 def tab(page, name):

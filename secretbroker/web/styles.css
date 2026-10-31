@@ -759,3 +759,90 @@ details.collection > summary .subtitle { color: var(--muted); font-size: var(--f
 .row:hover .pick-slot .pick, .list.picking .pick-slot .pick { opacity: 1; }
 .row:hover .pick-slot .glyph, .list.picking .pick-slot .glyph { opacity: 0; }
 .row.picked { background: var(--interactive-soft); }
+
+/* ---------- credential list: count, order and the keyboard ---------- */
+.list-tools { display: flex; align-items: center; gap: 8px; padding: 0 12px 8px 34px; }
+.list-tools .list-count { flex: 1; font-size: var(--fs-xs); color: var(--faint); font-variant-numeric: tabular-nums; }
+.list-tools select.input.compact { height: 28px; font-size: var(--fs-xs); color: var(--muted); background-color: transparent; border-color: transparent; }
+.list-tools select.input.compact:hover { background-color: var(--bg-subtle); }
+.list:focus { outline: none; }
+.row:focus { outline: none; }
+.row:focus-visible, .list:focus-visible .row.selected { box-shadow: inset 0 0 0 2px var(--interactive); }
+
+/* Headings and labels that carry an icon (who reads it: the AI, or only you). */
+.with-icon { display: inline-flex; align-items: center; gap: 6px; }
+.with-icon .icon { color: var(--muted); }
+label.with-icon { display: flex; }
+
+/* «Actividad reciente» in the detail */
+.recent-list { display: flex; flex-direction: column; }
+.recent-row { display: grid; grid-template-columns: 92px minmax(0, 110px) minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
+.recent-row:last-child { border-bottom: none; }
+.recent-row .when { color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.recent-row .who { display: flex; align-items: center; gap: 6px; color: var(--interactive); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recent-row .who .icon { width: 14px; height: 14px; }
+.recent-row .what { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recent-row .what b { font-weight: var(--fw-semibold); font-family: var(--font-mono); font-size: var(--fs-xs); }
+.recent-row .what .mono { color: var(--muted); font-size: var(--fs-xs); }
+.chip.is-ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+
+/* «Cambió mientras editabas» in the editor */
+.warning.conflict { align-items: flex-start; }
+.conflict-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.conflict-actions { display: flex; gap: 8px; }
+.conflict-actions .btn { height: 30px; background: var(--elevated); }
+
+/* Setup: how the vault opens day to day */
+.choice-list { display: flex; flex-direction: column; gap: 8px; }
+.choice { display: grid; grid-template-columns: auto auto 1fr; gap: 12px; align-items: start; padding: 12px 14px; border-radius: var(--radius);
+  border: 1px solid var(--line); cursor: pointer; transition: border-color .12s, background .12s; }
+.choice:hover { background: var(--bg-subtle); }
+.choice.active { border-color: var(--interactive); background: var(--interactive-soft); }
+.choice input { margin-top: 3px; }
+.choice-icon { color: var(--muted); }
+.choice.active .choice-icon { color: var(--interactive); }
+.choice b { font-weight: var(--fw-semibold); }
+.choice-text { display: block; margin-top: 2px; line-height: 1.45; }
+.badge-soft { display: inline-block; margin-left: 8px; padding: 0 7px; border-radius: 999px; font-size: var(--fs-xs); font-weight: var(--fw-semibold);
+  color: var(--interactive); background: var(--interactive-soft); vertical-align: 1px; }
+
+/* ---------- the approval ---------- */
+.modal.approval { max-width: 560px; }
+.modal.approval .modal-head h2 { white-space: normal; line-height: 1.3; }
+.client-mark { width: 36px; height: 36px; border-radius: var(--radius); display: grid; place-items: center; flex: none;
+  color: var(--interactive); background: var(--interactive-soft); }
+.btn.close-label { height: 30px; padding: 0 10px; font-weight: var(--fw-medium); font-size: var(--fs-sm); }
+.request-meta { display: flex; align-items: center; gap: 10px; font-size: var(--fs-xs); color: var(--muted); min-width: 0; margin-top: -6px; }
+.request-meta .spacer { flex: 1; }
+.queue-count { font-weight: var(--fw-semibold); color: var(--text); background: var(--fill); padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.request-folder { display: inline-flex; align-items: center; gap: 5px; min-width: 0; font-family: var(--font-mono); }
+.request-folder > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.request-folder .icon { width: 14px; height: 14px; }
+.countdown { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); }
+.countdown.urgent { color: var(--danger); font-weight: var(--fw-semibold); }
+.countdown-bar { height: 3px; border-radius: 999px; background: var(--fill); overflow: hidden; margin-top: -8px; }
+.countdown-bar > span { display: block; height: 100%; background: var(--interactive); transition: width 1s linear; }
+.request-reason { border-left: 3px solid var(--interactive); padding: 2px 0 2px 12px; display: flex; flex-direction: column; gap: 2px; }
+.request-reason p { font-size: var(--fs-md); overflow-wrap: anywhere; }
+.cred-card { --cat: var(--c-lock); display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; align-items: center;
+  padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--line); border-left: 3px solid var(--cat); }
+.cred-card > .muted.small { grid-column: 2; }
+.cred-card .cred-name { font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cred-card.cat-globe { --cat: var(--c-web); } .cred-card.cat-key { --cat: var(--c-key); } .cred-card.cat-server { --cat: var(--c-server); }
+.cred-card.cat-database { --cat: var(--c-database); } .cred-card.cat-cloud { --cat: var(--c-cloud); } .cred-card.cat-lock { --cat: var(--c-lock); }
+mark.host { background: color-mix(in srgb, var(--interactive) 18%, transparent); color: var(--text); font-weight: var(--fw-semibold);
+  border-radius: 3px; padding: 0 2px; }
+.btn.equal { background: var(--interactive-soft); color: var(--interactive); min-width: 132px; }
+.btn.equal:hover { background: color-mix(in srgb, var(--interactive) 20%, transparent); }
+.btn.batch { color: var(--interactive); }
+.approval-explain { font-size: var(--fs-xs); color: var(--muted); line-height: 1.5; }
+.approval-explain b { color: var(--text); font-weight: var(--fw-semibold); }
+
+/* Requests left for later: one line at the top, above the page, under any dialog. */
+#approval-banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 40; display: flex; align-items: center; gap: 10px;
+  max-width: calc(100vw - 32px); padding: 6px 6px 6px 14px; border-radius: var(--radius-lg); background: var(--elevated);
+  border: 1px solid var(--line-strong); box-shadow: var(--shadow-dialog); font-size: var(--fs-sm); animation: rise .14s ease-out; }
+#approval-banner > .icon { color: var(--interactive); }
+#approval-banner .text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#approval-banner .btn { height: 30px; }

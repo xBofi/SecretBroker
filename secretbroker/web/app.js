@@ -272,6 +272,14 @@ async function refreshStatus() {
   } else if (target === 'main') {
     updateSidebarState();
   }
+  if (state.screen === 'main') {
+    // Data changed outside this window (or by it): redraw what is shown, in place.
+    const known = state.revision;
+    state.revision = state.status.revision;
+    if (known !== undefined && known !== state.status.revision) await refreshInPlace();
+  } else {
+    state.revision = undefined;
+  }
 }
 
 function renderUnavailable(message) {
@@ -295,6 +303,7 @@ function brand(big = false) {
 
 function closeAllModals() {
   document.getElementById('modal-root').replaceChildren();
+  document.getElementById('approval-banner')?.remove();
   state.approvalOpen = null;
 }
 
@@ -303,9 +312,10 @@ function openOverlays() {
   return [...document.getElementById('modal-root').children].filter((n) => n.classList.contains('overlay'));
 }
 
-// `confirmClose()`: for dialogs with work in progress (a rotation), the question to ask before the
-// X, Esc or a click outside closes it; null closes at once.
-function openModal({ title, body, footer, wide = false, onClose, lead, confirmClose }) {
+// `confirmClose()`: for dialogs with work in progress (a rotation, an edit), the question to ask before the
+// X or Esc closes it (a string, or {title, text}); null closes at once. Those never close with a click outside.
+// `closeLabel`: a text button instead of the X; `onDismiss`: what the X and Esc do instead of closing.
+function openModal({ title, body, footer, wide = false, onClose, lead, confirmClose, closeLabel, onDismiss, className = '' }) {
   let closed = false;
   let asking = false;
   const close = () => {
@@ -323,14 +333,15 @@ function openModal({ title, body, footer, wide = false, onClose, lead, confirmCl
     if (onClose) onClose();
   };
   const dismiss = () => {
+    if (onDismiss && !closed) { onDismiss(); return; }
     const question = confirmClose && !closed && confirmClose();
     if (!question) { close(); return; }
     if (asking) return;
     asking = true;
     const keep = el('button', { class: 'btn' }, 'Seguir');
     const discard = el('button', { class: 'btn primary' }, 'Descartar');
-    const ask = openModal({ title: '¿Descartar?', body: el('p', { class: 'muted' }, question), footer: [el('div', { class: 'spacer' }), keep, discard],
-      onClose: () => { asking = false; } });
+    const ask = openModal({ title: question.title || '¿Descartar?', body: el('p', { class: 'muted' }, question.text || question),
+      footer: [el('div', { class: 'spacer' }), keep, discard], onClose: () => { asking = false; } });
     keep.addEventListener('click', () => ask.close());
     discard.addEventListener('click', () => { ask.close(); close(); });
   };
@@ -338,19 +349,21 @@ function openModal({ title, body, footer, wide = false, onClose, lead, confirmCl
   const fading = root.querySelector(':scope > .scrim-out');
   if (fading) fading.remove();
   const overlay = el('div', { class: `overlay ${fading ? 'continued' : ''}` },
-    el('div', { class: `modal ${wide ? 'wide' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+    el('div', { class: `modal ${wide ? 'wide' : ''} ${className}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
       el('div', { class: 'modal-head' }, lead || null, el('h2', { title }, title),
-        el('button', { class: 'btn icon-only', onclick: dismiss, title: 'Cerrar (Esc)' }, icon('x'))),
+        closeLabel ? el('button', { class: 'btn ghost close-label', onclick: dismiss, title: 'Esc' }, closeLabel)
+          : el('button', { class: 'btn icon-only', onclick: dismiss, title: 'Cerrar (Esc)' }, icon('x'))),
       el('div', { class: 'modal-body' }, body),
       footer ? el('div', { class: 'modal-foot' }, footer) : null));
-  overlay.addEventListener('mousedown', (event) => { if (event.target === overlay) dismiss(); });
+  // A click outside closes a simple dialog, never one with work in progress (it would be lost by a stray click).
+  overlay.addEventListener('mousedown', (event) => { if (event.target === overlay && !confirmClose && !onDismiss) dismiss(); });
   overlay.addEventListener('dismiss', dismiss);
   root.append(overlay);
-  return { close, overlay };
+  return { close, overlay, dismiss };
 }
 
 // Ask for a password proof. Resolves {kind, value}, 'hello' (retry with Hello) or null.
-function askProof(reason, error) {
+function askProof(reason, error, note) {
   return new Promise((resolve) => {
     const status = state.status || {};
     const kinds = [];
@@ -390,6 +403,7 @@ function askProof(reason, error) {
       title: 'Confirma que eres tú',
       body: [
         el('p', { class: 'muted' }, reason || 'Esta acción necesita verificar tu identidad.'),
+        note ? el('div', { class: 'warning' }, icon('info', 'sm'), el('span', {}, note)) : null,
         kinds.length > 1 ? tabs : null,
         el('div', { class: 'field' }, label, pw, help),
         errorText,
@@ -409,8 +423,12 @@ function askProof(reason, error) {
 // Run fn(proof). The first attempt uses Windows Hello when set up; otherwise ask for a password.
 async function withProof(fn, reason) {
   let result = await fn(null);
+  let weak = false;
   while (!result.ok && ['proof_required', 'hello_cancelled', 'hello_failed', 'proof_invalid'].includes(result.code)) {
-    const choice = await askProof(reason, result.code === 'proof_required' ? null : result.error);
+    weak = weak || !!result.weak;
+    const choice = await askProof(reason, result.code === 'proof_required' ? null : result.error, weak
+      ? 'Abriste SecretBroker con tu sesión de Windows, que cualquier programa tuyo puede usar. Confirma una vez que eres tú y no volverá a pedírtelo hasta que la bloquees.'
+      : null);
     if (!choice) return { ok: false, code: 'cancelled', error: 'Cancelado' };
     result = await fn(choice === 'hello' ? null : choice);
   }
@@ -485,7 +503,7 @@ function renderSetup() {
       busy(button, false);
       if (!result.ok) { errorText.textContent = result.error; return; }
       masterPassword = pw.input.value;
-      if (state.info.hello_supported) helloStep(); else finish();
+      unlockStep();
     };
     button.addEventListener('click', submit);
     confirm.input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
@@ -503,22 +521,46 @@ function renderSetup() {
     setTimeout(() => pw.input.focus(), 50);
   };
 
-  const helloStep = () => {
+  // How it opens day to day, so the master password is typed only to restore a backup or on another PC.
+  const unlockStep = () => {
     const errorText = el('div', { class: 'error-text' });
-    const button = el('button', { class: 'btn primary lg' }, icon('fingerprint', 'sm'), 'Activar Windows Hello');
+    const hello = !!state.info.hello_supported;
+    const options = [
+      hello && ['hello', 'fingerprint', 'Windows Hello (PIN, huella o cara)',
+        'Lo pide al abrir la bóveda y al ver o copiar una contraseña. Si olvidas la contraseña maestra, entras con Hello y eliges otra.'],
+      ['session', 'unlock', 'Abrir con mi sesión de Windows',
+        'Se abre sola al entrar en Windows y se cierra al bloquearlo. Te protege de los errores de la IA, no de alguien que use tu sesión de Windows: cualquier programa tuyo podría abrirla.'],
+      ['master', 'key', 'Escribir la contraseña maestra cada vez', 'Lo más estricto, y lo más pesado.'],
+    ].filter(Boolean);
+    let choice = options[0][0];
+    const list = el('div', { class: 'choice-list', role: 'radiogroup' });
+    const draw = () => list.replaceChildren(options.map(([value, iconName, title, text]) => el('label', { class: `choice ${choice === value ? 'active' : ''}` },
+      el('input', { type: 'radio', name: 'unlock-way', value, checked: choice === value, onchange: () => { choice = value; draw(); } }),
+      el('span', { class: 'choice-icon' }, icon(iconName)),
+      el('span', {}, el('b', {}, title), value === options[0][0] ? el('span', { class: 'badge-soft' }, 'Recomendado') : null,
+        el('span', { class: 'muted small choice-text' }, text)))));
+    draw();
+    const button = el('button', { class: 'btn primary lg' }, 'Continuar');
     button.addEventListener('click', async () => {
+      errorText.textContent = '';
+      const proof = { kind: 'master_password', value: masterPassword };
       busy(button, true);
-      const result = await api().enroll_hello({ kind: 'master_password', value: masterPassword });
+      const result = choice === 'hello' ? await api().enroll_hello(proof)
+        : choice === 'session' ? await api().enable_session_unlock(proof) : { ok: true };
       busy(button, false);
       if (!result.ok) { if (result.code !== 'hello_cancelled') errorText.textContent = result.error; return; }
+      if (choice === 'session') state.info.session_unlock_here = true;
+      rememberUnlockMethod(choice === 'hello' ? 'hello' : choice === 'session' ? 'session' : 'master');
       finish();
     });
     box.replaceChildren(
-      el('div', { class: 'auth-head' }, steps(3), el('h2', { style: 'margin-top:12px' }, 'Desbloquea con tu PIN o tu huella')),
-      el('p', { class: 'lead' }, 'Como cuando el navegador te pide el PIN para rellenar una tarjeta. Lo usarás para desbloquear y para ver o copiar contraseñas; las peticiones de la IA se aprueban con un clic.'),
-      el('p', { class: 'help' }, 'Si olvidas la contraseña maestra, podrás entrar con Windows Hello y elegir otra.'),
+      el('div', { class: 'auth-head' }, steps(3), el('h2', { style: 'margin-top:12px' }, '¿Cómo quieres abrirla cada día?')),
+      el('p', { class: 'lead' }, 'Escribirás la contraseña maestra solo para restaurar copias o en otro PC.'),
+      list,
+      el('p', { class: 'help' }, 'Las peticiones de la IA se aprueban siempre con un clic. Puedes cambiarlo en Ajustes.'),
       errorText,
-      el('div', { style: 'display:flex;gap:8px' }, button, el('button', { class: 'btn ghost lg', onclick: finish }, 'Ahora no')));
+      el('div', {}, button));
+    setTimeout(() => button.focus(), 50);
   };
 
   const finish = () => {
@@ -628,9 +670,25 @@ function renderLock() {
   };
   const others = methods.filter((m) => m !== primary);
 
+  // Locked for inactivity with the Windows session unlock on: it opens again by itself as soon as the user comes
+  // back to this window (the AI's requests open it too, see client.reopen_with_session). Never after «Bloquear».
+  const reopen = sessionAvailable && status.lock_reason === 'idle';
+  const thisScreen = state.lockScreen = {};  // a later lock screen (after «Bloquear») must not open by itself
+  if (reopen) {
+    // The user's own input, or the window coming to the front (not the focus moving inside the page).
+    const again = async () => {
+      ['pointerdown', 'keydown'].forEach((type) => window.removeEventListener(type, again, true));
+      window.removeEventListener('focus', again);
+      if (state.screen === 'lock' && state.lockScreen === thisScreen && await api().session_unlock()) done('session');
+    };
+    ['pointerdown', 'keydown'].forEach((type) => window.addEventListener(type, again, true));
+    window.addEventListener('focus', again);
+  }
+
   $app().replaceChildren(el('div', { class: 'center-screen' },
     el('div', { class: 'auth' },
       el('div', { class: 'auth-head center' }, brand(true), el('h2', { style: 'margin-top:10px' }, 'SecretBroker está bloqueado')),
+      reopen ? el('p', { class: 'help', style: 'text-align:center' }, 'Se bloqueó por inactividad. Se abrirá sola en cuanto vuelvas a usarla.') : null,
       view(primary),
       errorText,
       others.length ? el('details', { class: 'other-unlock' },
@@ -660,17 +718,26 @@ async function enterMain() {
   }
 }
 
-async function loadEntries() {
-  const [result, reminders, team] = await Promise.all([api().call('entries'), api().call('reminders'), api().call('team_status')]);
+// `background`: the app reloading by itself (it doesn't count as using the vault, and a failure keeps what is shown).
+let loadsStarted = 0;
+let newestLoaded = 0;
+async function loadEntries(background = false) {
+  const extra = background ? { _poll: true } : {};
+  const seq = ++loadsStarted;
+  const [result, reminders, team] = await Promise.all([api().call('entries', extra), api().call('reminders', extra), api().call('team_status', extra)]);
+  // A slower, older reload answering last would bring back what a newer one already replaced.
+  if (seq < newestLoaded || (background && !result.ok)) return false;
+  newestLoaded = seq;
   state.entries = result.ok ? result.result : [];
   state.team = team.ok ? team.result : null;
   state.reminders = Object.fromEntries((reminders.ok ? reminders.result : []).map((r) => [r.id, r]));
   if (state.selected && !state.entries.some((e) => e.id === state.selected)) state.selected = null;
-  await loadExposure();
+  await loadExposure(background);
+  return true;
 }
 
-async function loadExposure() {
-  const result = await api().exposure_report();
+async function loadExposure(background = false) {
+  const result = await api().exposure_report(background);
   state.exposure = result.ok ? result.result : null;
 }
 
@@ -722,7 +789,7 @@ function updateSidebarState() {
     status.ai_paused ? 'La IA está en pausa: no puede usar ninguna credencial. Reanúdala en Acceso de la IA.' : null,
     status.drafts ? `${status.drafts === 1 ? 'Una credencial preparada' : `${status.drafts} credenciales preparadas`} por la IA ${status.drafts === 1 ? 'espera' : 'esperan'} su clave.` : null,
     teamAttention().length ? 'Hay cambios del equipo por revisar en Equipo.' : null,
-    status.session_unlock ? 'La bóveda se cierra al bloquear Windows.'
+    status.session_unlock ? `La bóveda se cierra al bloquear Windows${minutes ? ' o tras un rato sin uso, y se vuelve a abrir sola' : ''}.`
       : minutes ? `La bóveda se bloquea tras ${until.split(' · ')[1]} sin uso.` : 'La bóveda no se bloquea sola.',
     status.isolated ? 'El servicio usa una cuenta de Windows propia.' : 'Modo sin aislamiento: el servicio usa tu cuenta de Windows.',
   ].filter(Boolean).join('\n');
@@ -767,10 +834,38 @@ function subtitleOf(entry) {
   }
 }
 
+// How the list is ordered (remembered on this PC): [value, label].
+const SORTS = [['name', 'Nombre'], ['used', 'Usadas recientemente'], ['changed', 'Cambiadas recientemente'], ['attention', 'Necesitan atención']];
+const SORT_KEY = 'credentialSort';
+
+function savedSort() {
+  try { const value = localStorage.getItem(SORT_KEY); return SORTS.some(([v]) => v === value) ? value : 'name'; } catch { return 'name'; }
+}
+
+// 0: something is broken or exposed, 1: something to do soon, 2: nothing (the order of «Necesitan atención»).
+function attentionOf(entry) {
+  const reminder = state.reminders && state.reminders[entry.id];
+  const level = (exposureOf(entry.id) || {}).level;
+  if (entry.draft || level === 'exposed' || (entry.failed_uploads || []).length || (reminder && reminderTone(reminder))) return 0;
+  if (reminder || level === 'warning' || entry.pending_rotation || entry.retired || unsentText(entry)
+    || (entry.shared && entry.shared.pending_change)) return 1;
+  return 2;
+}
+
+function sortEntries(items, sort) {
+  const byName = (a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+  const newest = (key) => (a, b) => String(b[key] || '').localeCompare(String(a[key] || '')) || byName(a, b);
+  const order = { used: newest('last_used'), changed: newest('updated'), attention: (a, b) => attentionOf(a) - attentionOf(b) || byName(a, b) }[sort] || byName;
+  return [...items].sort(order);
+}
+
 function renderCredentials(content) {
-  const search = el('input', { class: 'input', placeholder: 'Buscar', value: state.search });
-  search.addEventListener('input', () => { state.search = search.value; renderList(); });
-  search.addEventListener('keydown', (e) => { if (e.key === 'Escape') { search.value = ''; state.search = ''; renderList(); } });
+  const search = el('input', { class: 'input', placeholder: 'Buscar', value: state.search, 'aria-label': 'Buscar credenciales' });
+  search.addEventListener('input', () => { state.search = search.value; renderList(true); });
+  search.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { search.value = ''; state.search = ''; renderList(true); }
+    else if (e.key === 'ArrowDown' || e.key === 'Enter') { e.preventDefault(); focusRow(0); }
+  });
   const header = el('div', { class: 'content-header' },
     el('h1', {}, 'Credenciales'),
     state.entries.length ? el('div', { class: 'search' }, icon('search', 'sm'), search) : null,
@@ -784,11 +879,43 @@ function renderCredentials(content) {
         el('button', { class: 'btn primary', onclick: () => openEditor(null) }, 'Añadir la primera'),
         el('button', { class: 'btn', onclick: openImport }, 'Importar de otro gestor')),
       el('p', { class: 'help' }, 'Bitwarden, 1Password, KeePass, Chrome, Edge o Firefox.'))));
+    state.listView = null;
     return;
   }
 
-  const list = el('div', { class: 'list' });
+  // The list takes the arrows (and Enter opens the selected one); the search box hands over with ↓ or Enter.
+  const list = el('div', { class: 'list', role: 'listbox', tabindex: '0', 'aria-label': 'Credenciales' });
   const detail = el('div', { class: 'detail' });
+  let shown = [];
+  const sortSelect = el('select', { class: 'input compact', title: 'Ordenar', 'aria-label': 'Ordenar' },
+    SORTS.map(([value, label]) => el('option', { value }, label)));
+  sortSelect.value = savedSort();
+  sortSelect.addEventListener('change', () => {
+    try { localStorage.setItem(SORT_KEY, sortSelect.value); } catch { /* the order is only kept until closing */ }
+    renderList();
+  });
+  const countText = el('span', { class: 'list-count', 'aria-live': 'polite' });
+  const select = (id, focus) => {
+    state.selected = id;
+    renderList();
+    renderDetail(detail);
+    if (focus) focusRow(shown.findIndex((e) => e.id === id));
+  };
+  const focusRow = (index) => {
+    const rows = list.querySelectorAll('.row');
+    if (!rows.length) return;
+    const row = rows[Math.max(0, Math.min(index, rows.length - 1))];
+    if (row.dataset.id !== state.selected) { select(row.dataset.id, true); return; }
+    row.focus();
+    row.scrollIntoView({ block: 'nearest' });
+  };
+  list.addEventListener('keydown', (event) => {
+    const at = shown.findIndex((e) => e.id === state.selected);
+    const step = { ArrowDown: 1, ArrowUp: -1, PageDown: 10, PageUp: -10 }[event.key];
+    if (step) { event.preventDefault(); focusRow(at < 0 ? 0 : at + step); }
+    else if (event.key === 'Home' || event.key === 'End') { event.preventDefault(); focusRow(event.key === 'Home' ? 0 : shown.length - 1); }
+    else if (event.key === 'Enter' && at >= 0) { event.preventDefault(); openEditor(shown[at]); }
+  });
   const allTags = [...new Set(state.entries.flatMap((e) => e.tags || []))].sort();
   if (state.tag && !allTags.includes(state.tag)) state.tag = null;
   // Team collections the credentials are in: a filter like the tags, marked with the team icon.
@@ -797,7 +924,7 @@ function renderCredentials(content) {
     .sort((a, b) => a[1].localeCompare(b[1]));
   if (state.collection && !collections.some(([cid]) => cid === state.collection)) state.collection = null;
   const tagBar = allTags.length || collections.length ? el('div', { class: 'tag-bar' }) : null;
-  const filter = (tag, collection) => { state.tag = tag; state.collection = collection; renderTags(); renderList(); };
+  const filter = (tag, collection) => { state.tag = tag; state.collection = collection; renderTags(); renderList(true); };
   const renderTags = () => tagBar && tagBar.replaceChildren(
     el('button', { class: `tag ${state.tag || state.collection ? '' : 'active'}`, onclick: () => filter(null, null) }, 'Todas'),
     collections.map(([cid, name]) => el('button', {
@@ -847,18 +974,32 @@ function renderCredentials(content) {
     if (reminder) return el('span', { class: `draft-badge ${reminderTone(reminder)}`, title: reminderText(reminder) }, reminderShort(reminder));
     return levelDot(entry.id);
   };
-  const renderList = () => {
+  // `pickFirst`: the search or a filter changed, so the first match is selected when the current one is gone.
+  const renderList = (pickFirst = false) => {
     const query = state.search.trim().toLowerCase();
-    const items = state.entries.filter((e) => (!state.tag || (e.tags || []).includes(state.tag))
+    const items = sortEntries(state.entries.filter((e) => (!state.tag || (e.tags || []).includes(state.tag))
       && (!state.collection || (e.shared && e.shared.collection === state.collection)) && (!query
       || [e.name, e.id, e.description, subtitleOf(e), TEMPLATES[e.template].label, ...(e.tags || []),
-        e.shared ? e.shared.collection_name : ''].join(' ').toLowerCase().includes(query)));
+        e.shared ? e.shared.collection_name : ''].join(' ').toLowerCase().includes(query))), sortSelect.value);
+    shown = items;
+    if (pickFirst && items.length && !items.some((e) => e.id === state.selected)) {
+      state.selected = items[0].id;
+      renderDetail(detail);
+    }
+    const filtered = items.length !== state.entries.length;
+    countText.textContent = filtered ? `${items.length} de ${state.entries.length}`
+      : plural(state.entries.length, 'credencial', 'credenciales');
+    const scroll = list.scrollTop;
+    const focused = list.contains(document.activeElement) && document.activeElement.dataset.id;
     list.replaceChildren(items.map((entry) => el('div', {
       class: `row ${state.selected === entry.id ? 'selected' : ''} ${state.picked.has(entry.id) ? 'picked' : ''}`,
+      role: 'option', tabindex: '-1', 'aria-selected': String(state.selected === entry.id), 'data-id': entry.id,
       onclick: (event) => {
         if (picking && (event.shiftKey || event.ctrlKey)) { event.preventDefault(); toggle(entry, items, event.shiftKey); return; }
         state.selected = entry.id; lastPicked = entry.id; renderList(); renderDetail(detail);
+        list.querySelector('.row.selected')?.focus({ preventScroll: true });
       },
+      ondblclick: () => openEditor(entry),
     }, picking ? el('div', { class: 'pick-slot' }, glyph(entry.template),
       el('input', { type: 'checkbox', class: 'pick', checked: state.picked.has(entry.id), title: 'Seleccionar (Mayús+clic: varias seguidas)',
         'aria-label': `Seleccionar ${entry.name}`, onclick: (event) => { event.stopPropagation(); event.preventDefault(); toggle(entry, items, event.shiftKey); } }))
@@ -867,16 +1008,64 @@ function renderCredentials(content) {
       el('div', { class: 'subtitle' }, subtitleOf(entry))),
     listBadge(entry))));
     if (!items.length) list.append(el('p', { class: 'muted', style: 'padding:12px 10px' }, 'Ninguna coincide.'));
+    list.scrollTop = scroll;
+    if (focused) list.querySelector(`.row[data-id="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
     renderBulk();
   };
   list.addEventListener('keydown', (event) => { if (event.key === 'Escape' && state.picked.size) { state.picked.clear(); renderList(); } });
 
-  if (!state.selected) state.selected = state.entries[0].id;
+  if (!state.selected) state.selected = sortEntries(state.entries, sortSelect.value)[0].id;
   content.replaceChildren(header, tagBar, el('div', { class: 'split', style: 'flex:1;min-height:0' },
-    el('div', { class: 'list-pane' }, bulkBar, list), el('div', { class: 'rule' }), detail));
+    el('div', { class: 'list-pane' }, el('div', { class: 'list-tools' }, countText, sortSelect), bulkBar, list),
+    el('div', { class: 'rule' }), detail));
   renderTags();
   renderList();
   renderDetail(detail);
+  // Redrawn in place when something changes behind (the AI, sb, the team): same scroll, focus and selection.
+  state.listView = {
+    alive: () => list.isConnected,
+    refresh: () => { renderTags(); renderList(true); refreshDetail(detail); },
+  };
+}
+
+// Redraw the detail keeping where the user was: its scroll and the focused control (by position and label).
+function refreshDetail(panel) {
+  const scroll = panel.scrollTop;
+  const active = panel.contains(document.activeElement) ? document.activeElement : null;
+  const controls = () => [...panel.querySelectorAll('button, input, select, textarea, a[href]')];
+  const index = active ? controls().indexOf(active) : -1;
+  const label = active ? (active.innerText || active.title || '').trim() : '';
+  renderDetail(panel);
+  panel.scrollTop = scroll;
+  if (index >= 0) {
+    const all = controls();
+    const same = all.find((c) => (c.innerText || c.title || '').trim() === label && Math.abs(all.indexOf(c) - index) <= 3) || all[index];
+    same?.focus({ preventScroll: true });
+  }
+}
+
+// Something changed outside this window (the AI, sb import, the team sync, an approval): reload and redraw what
+// is on screen without rebuilding it, so nothing jumps under the user's cursor.
+async function refreshInPlace() {
+  if (!await loadEntries(true) || state.screen !== 'main') return;
+  updateSidebarState();
+  updateNavCounts();
+  if (state.view !== 'credentials') return;
+  const view = state.listView;
+  if (view && view.alive() && state.entries.length) view.refresh();
+  else if (!view !== !state.entries.length || (view && !view.alive())) renderView();  // first one in, or the last one gone
+}
+
+function updateNavCounts() {
+  const counts = { credentials: [state.entries.length, ''], exposure: [exposedCount(), 'danger'] };
+  for (const [view, [count, tone]] of Object.entries(counts)) {
+    const button = document.querySelector(`.nav button[data-view="${view}"]`);
+    if (!button) continue;
+    let badge = button.querySelector('.count');
+    if (!count) { badge?.remove(); continue; }
+    if (!badge) { badge = el('span', { class: `count ${tone}` }); button.append(badge); }
+    badge.textContent = count;
+  }
 }
 
 // The same tone in the list badge and in the banner of the detail: red when it no longer works or may have leaked.
@@ -921,6 +1110,33 @@ function activeSpecs(templateId, fields) {
 }
 
 function shortLabel(label) { return label.replace(/\s*\((opcional|si tiene)\)$/, ''); }
+
+// Where a template's label says too little: [in the detail, in the editor].
+const FIELD_LABELS = { 'api_key.username': ['Identificador de la app', 'Identificador de la app (p. ej. ID de cliente)'] };
+function fieldLabel(templateId, spec) { return (FIELD_LABELS[`${templateId}.${spec.name}`] || [shortLabel(spec.label)])[0]; }
+function editorLabel(templateId, spec) { return (FIELD_LABELS[`${templateId}.${spec.name}`] || [null, shortLabel(spec.label)])[1]; }
+
+// A message of the service in the editor's words: field labels instead of {{placeholders}} and internal ids.
+function friendlyError(message, templateId) {
+  const specs = (TEMPLATES[templateId] || { fields: [] }).fields;
+  const label = (name) => { const spec = specs.find((s) => s.name === name); return spec ? fieldLabel(templateId, spec) : name === 'connection_url' ? 'URL de conexión' : name; };
+  return String(message || '')
+    .replace(/el dato \{\{\s*([a-z_]+)\s*\}\} no existe en esta credencial/, (_, n) => `usa «${label(n)}», que esta credencial no tiene`)
+    .replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (_, n) => `«${label(n)}»`)
+    .replace(/^Ya existe una credencial con el identificador '[^']*'$/, 'Ya hay otra credencial con el mismo «Nombre para la IA» (en Permisos de la IA): cambia uno de los dos.')
+    .replace(/^El identificador solo admite.*$/, '«Nombre para la IA» (en Permisos de la IA) solo admite minúsculas, números, «-», «_» y «.».');
+}
+
+// A free id for a new credential, from its name: the user never has to think about it.
+function uniqueId(name, templateId) {
+  const base = slugify(name) || templateId.replace('_', '-');
+  const taken = new Set(state.entries.map((e) => e.id));
+  if (!taken.has(base)) return base;
+  for (let n = 2; ; n++) {
+    const candidate = `${base.slice(0, 60)}-${n}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}
 
 function displayValue(spec, value) {
   if (spec.kind === 'select') {
@@ -972,7 +1188,7 @@ function renderDetail(panel) {
     const raw = entry.fields[spec.name];
     if (!raw) return null;
     return el('div', { class: 'prop' },
-      el('div', { style: 'min-width:0' }, el('div', { class: 'k' }, shortLabel(spec.label)),
+      el('div', { style: 'min-width:0' }, el('div', { class: 'k' }, fieldLabel(entry.template, spec)),
         el('div', { class: 'v selectable', title: raw }, displayValue(spec, raw))),
       el('div', { class: 'actions' }, spec.kind === 'select' ? null : copyButton(raw)));
   });
@@ -1002,14 +1218,80 @@ function renderDetail(panel) {
       (entry.tags || []).map((t) => el('span', { class: 'tag static' }, t)),
       entry.expires ? el('span', { class: 'muted small' }, `Caduca el ${entry.expires}`) : null) : null,
     el('div', { class: 'section' }, props),
-    entry.description ? el('div', { class: 'section' }, el('h3', {}, 'Notas para la IA'), el('p', { class: 'notes selectable muted' }, entry.description)) : null,
+    entry.description ? el('div', { class: 'section' }, el('h3', { class: 'with-icon' }, icon('bot', 'sm'), 'Instrucciones para la IA'),
+      el('p', { class: 'notes selectable muted' }, entry.description)) : null,
     providerSection(entry),
     rotationSection(entry),
     sharedSection(entry),
     el('div', { class: 'section' },
       el('h3', {}, 'Qué puede hacer la IA'),
       perms.length ? perms : el('p', { class: 'muted' }, 'Nada todavía. Edita la credencial y abre «Permisos de la IA».'),
-      el('p', { class: 'help', style: 'margin-top:6px' }, 'La IA la conoce como ', el('code', { class: 'selectable' }, entry.id))));
+      el('p', { class: 'help', style: 'margin-top:6px' }, 'La IA la conoce como ', el('code', { class: 'selectable' }, entry.id))),
+    entry.draft ? null : recentActivity(entry));
+}
+
+// The AI's last uses of a credential: when, which app, what (method and host) and how it went.
+const RECENT_USES = 5;
+
+function recentActivity(entry) {
+  const box = el('div', { class: 'section recent' }, el('h3', {}, 'Actividad reciente'));
+  const cache = state.recentCache || (state.recentCache = {});
+  const draw = (events) => {
+    const uses = events.filter((e) => eventActor(e)[0] === 'ai' && MONO_EVENT_ACTIONS.has(e.action)).slice(0, RECENT_USES);
+    box.replaceChildren(el('h3', {}, 'Actividad reciente'), uses.length
+      ? el('div', { class: 'recent-list' }, uses.map(recentRow))
+      : el('p', { class: 'muted small' }, 'La IA aún no la ha usado.'),
+    uses.length ? el('button', { class: 'link small', style: 'align-self:flex-start;margin-top:4px', onclick: () => {
+      state.activityFilter = { kind: null, secret: entry.id }; state.view = 'activity'; renderMain();
+    } }, 'Ver toda la actividad') : null);
+  };
+  const known = cache[entry.id];
+  const revision = (state.status || {}).revision;
+  if (known) draw(known.events);
+  if (!known || known.revision !== revision) {
+    api().call('audit', { secret_id: entry.id, limit: 50 }).then((result) => {
+      if (!result.ok) return;
+      cache[entry.id] = { revision, events: result.result };
+      if (box.isConnected) draw(result.result);
+    });
+  }
+  return box;
+}
+
+function recentRow(e) {
+  const [what, where] = useSummary(e);
+  const failed = e.status === 'denied' || e.status === 'error';
+  return el('div', { class: 'recent-row', title: [e.detail, e.message].filter(Boolean).join(' — ') },
+    el('span', { class: 'when', title: e.ts ? new Date(e.ts).toLocaleString('es-ES') : '' }, e.ts ? sinceText(e.ts) : ''),
+    el('span', { class: 'who' }, icon('bot', 'sm'), e.client || 'IA'),
+    el('span', { class: 'what' }, what ? el('b', {}, what) : null, what && where ? ' ' : null, where ? el('span', { class: 'mono' }, where) : null),
+    el('span', { class: `chip ${failed ? 'is-exposed failed' : 'is-ok'}` }, e.status === 'denied' ? 'Denegada' : e.status === 'error' ? 'Error' : 'Correcta'));
+}
+
+// [verb, target] of a use in the activity: «GET» «api.example.com», «SSH» «deploy@server», «psql» «».
+function useSummary(e) {
+  const detail = (e.detail || '').split('\n')[0];
+  if (e.action === 'http_request') {
+    const [method, url] = detail.split(' ');
+    return [method, hostOf(url || '')];
+  }
+  if (e.action === 'ssh_exec') return ['SSH', detail.split('$')[0]];
+  if (e.action === 'ssh_upload' || e.action === 'ssh_download') return [e.action === 'ssh_upload' ? 'Subir' : 'Descargar', (detail.match(/[^\s]+@[^\s:]+/) || [''])[0]];
+  if (e.action === 'run_command') return [detail.split(' ')[0], ''];
+  if (e.action === 'release_env') return ['sb run', ''];
+  return [ACTION_LABELS[e.action] || e.action, ''];
+}
+
+// «ahora», «hace 5 min», «hace 3 h», «ayer 18:20», «12 oct 09:15».
+function sinceText(iso) {
+  const date = new Date(iso);
+  const minutes = Math.round((Date.now() - date) / 60000);
+  if (minutes < 1) return 'ahora';
+  if (minutes < 60) return `hace ${minutes} min`;
+  if (minutes < 6 * 60) return `hace ${Math.round(minutes / 60)} h`;
+  const day = dayLabel(date);
+  const time = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  return day === 'Hoy' ? time : day === 'Ayer' ? `ayer ${time}` : formatTime(iso);
 }
 
 function describePermissions(entry) {
@@ -1857,8 +2139,9 @@ function showForm(templateId, entry) {
   idInput.addEventListener('input', () => { touched.id = true; });
 
   const fieldsBox = el('div', { class: 'form-grid' });
-  const labelFor = (spec) => el('label', {}, shortLabel(spec.label),
-    !spec.required ? el('span', { class: 'req' }, ' · opcional') : null);
+  const labelFor = (spec) => spec.note
+    ? el('label', { class: 'with-icon' }, icon('lock', 'sm'), 'Notas privadas', el('span', { class: 'req' }, ' (solo tú, cifradas)'))
+    : el('label', {}, editorLabel(templateId, spec), !spec.required ? el('span', { class: 'req' }, ' · opcional') : null);
 
   const buildField = (spec) => {
     const existingSecret = spec.secret && secretsSet.includes(spec.name);
@@ -1904,7 +2187,7 @@ function showForm(templateId, entry) {
       control = el('input', { class: 'input', value: values[spec.name] || '', placeholder: dbPort || spec.hint || spec.default, spellcheck: 'false', inputmode: spec.kind === 'number' ? 'numeric' : null });
       if (spec.kind === 'number' && spec.default && !values[spec.name] && isNew) control.value = spec.default;
       control.addEventListener('input', onFieldChange);
-      const wide = ['url', 'base_url'].includes(spec.name);
+      const wide = ['url', 'base_url'].includes(spec.name) || !!FIELD_LABELS[`${templateId}.${spec.name}`];
       node = el('div', { class: `field ${wide ? 'full' : ''}` }, labelFor(spec), control, spec.help ? el('div', { class: 'help' }, spec.help) : null);
     }
     inputs[spec.name] = control;
@@ -2044,7 +2327,9 @@ function showForm(templateId, entry) {
     const allowed = commandsInput.value.split(',').map((c) => c.trim()).filter(Boolean);
     if (allowed.length || Object.keys(env).length) newPolicy.commands = { allowed, env };
     return {
-      id: idInput.value.trim() || slugify(nameInput.value), name: nameInput.value.trim(), template: templateId,
+      // Derived from the name without asking; the advanced field changes it on purpose.
+      id: (touched.id && idInput.value.trim()) || (isNew ? uniqueId(nameInput.value, templateId) : entry.id),
+      name: nameInput.value.trim(), template: templateId,
       description: notes.value.trim(), fields, policy: newPolicy,
       tags: [...new Set(tagsInput.value.split(',').map((t) => slugify(t.trim())).filter(Boolean))],
       ...(expiresInput.value ? { expires: expiresInput.value } : {}),
@@ -2054,15 +2339,38 @@ function showForm(templateId, entry) {
     };
   };
 
+  // The version this edit started from: if it changes meanwhile (the AI, a rotation, the team), saving says so.
+  let base = isNew ? null : entry.updated;
+  let baseVersion = isNew ? null : entry.version || null;  // any change, even within the same second
+  const conflictBox = el('div', { class: 'warning conflict hidden', role: 'alert' });
+  const showConflict = (fresh) => {
+    const changed = changedFields(entry, fresh);
+    conflictBox.replaceChildren(icon('alert', 'sm'), el('div', { class: 'conflict-body' },
+      el('div', {}, el('b', {}, 'Cambió mientras editabas'), changed.length ? `: ${listJoin(changed)}.` : '.'),
+      el('div', { class: 'muted small' }, '«Recargar» descarta tus cambios y abre la versión nueva; «Sobrescribir» guarda la tuya encima.'),
+      el('div', { class: 'conflict-actions' },
+        el('button', { class: 'btn', onclick: () => { modal.close(); showForm(fresh.template, fresh); } }, 'Recargar'),
+        el('button', { class: 'btn', onclick: () => { base = fresh.updated; baseVersion = fresh.version || null; conflictBox.classList.add('hidden'); save(); } }, 'Sobrescribir'))));
+    conflictBox.classList.remove('hidden');
+    conflictBox.scrollIntoView({ block: 'nearest' });
+  };
+
   const save = async () => {
     errorText.textContent = '';
     let newEntry;
     try { newEntry = collect(); } catch (error) { errorText.textContent = error.message; return; }
     if (!newEntry.name) { errorText.textContent = 'Ponle un nombre.'; nameInput.focus(); return; }
     busy(saveButton, true);
-    const result = await withProof((p) => api().call('save_entry', { entry: newEntry, replaces: isNew ? null : entry.id }, p), `Para guardar «${newEntry.name}».`);
+    const result = await withProof((p) => api().call('save_entry', { entry: newEntry, replaces: isNew ? null : entry.id, base_updated: base, base_version: baseVersion }, p), `Para guardar «${newEntry.name}».`);
     busy(saveButton, false);
-    if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
+    if (!result.ok && result.code === 'conflict') {
+      await loadEntries();
+      const fresh = state.entries.find((e) => e.id === entry.id);
+      if (fresh) showConflict(fresh);
+      else errorText.textContent = 'Se ha eliminado mientras editabas.';
+      return;
+    }
+    if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = friendlyError(result.error, templateId); return; }
     modal.close();
     state.selected = result.result.id;
     state.view = 'credentials';
@@ -2079,11 +2387,13 @@ function showForm(templateId, entry) {
     body: [
       readOnly ? el('div', { class: 'warning' }, icon('info', 'sm'), el('span', {},
         `Es del equipo y tu permiso es «${PERMISSION_LABELS[entry.shared.permission]}»: aquí solo puedes cambiar cuándo te pide aprobación la IA.`)) : null,
+      conflictBox,
       el('div', { class: 'field' }, el('label', {}, 'Nombre'), nameInput),
       isNew && ['api_key', 'generic'].includes(templateId) ? keySourcePicker() : null,
       fieldsBox,
-      el('div', { class: 'field' }, el('label', {}, 'Notas para la IA', el('span', { class: 'req' }, ' · opcional')), notes,
-        el('div', { class: 'help' }, 'La IA lee estas notas, nunca las contraseñas. Explica qué es y cómo debe usarla.')),
+      el('div', { class: 'field' }, el('label', { class: 'with-icon' }, icon('bot', 'sm'), 'Instrucciones para la IA',
+        el('span', { class: 'req' }, ' (la IA las lee) · opcional')), notes,
+        el('div', { class: 'help' }, 'Qué es y cómo debe usarla. No pongas aquí nada secreto: para eso están las notas privadas.')),
       el('div', { style: 'display:flex;gap:12px' },
         el('div', { class: 'field', style: 'flex:2' }, el('label', {}, 'Etiquetas', el('span', { class: 'req' }, ' · opcional')), tagsInput,
           el('div', { class: 'help' }, 'Para agruparlas, por ejemplo por proyecto.')),
@@ -2097,13 +2407,46 @@ function showForm(templateId, entry) {
       errorText,
     ],
     footer: [
-      isNew ? el('button', { class: 'btn ghost', onclick: () => { modal.close(); openEditor(null); } }, icon('arrowLeft', 'sm'), 'Cambiar tipo') : null,
+      isNew ? el('button', { class: 'btn ghost', onclick: () => { changingType = true; modal.dismiss(); } }, icon('arrowLeft', 'sm'), 'Cambiar tipo') : null,
       el('div', { class: 'spacer' }),
-      el('button', { class: 'btn', onclick: () => modal.close() }, 'Cancelar'),
+      el('button', { class: 'btn', onclick: () => { changingType = false; modal.dismiss(); } }, 'Cancelar'),
       saveButton,
     ],
+    // Esc, the X or «Cancelar» with changes: ask first. A click outside never closes it.
+    confirmClose: () => (dirty ? { title: '¿Descartar cambios?', text: 'Lo que has cambiado en esta credencial no se guardará.' } : null),
+    onClose: () => { if (changingType) openEditor(null); },
+  });
+  let dirty = false;
+  let changingType = false;
+  const modalBody = modal.overlay.querySelector('.modal-body');
+  ['input', 'change'].forEach((type) => modalBody.addEventListener(type, () => { dirty = true; }, true));  // capture: also what doesn't bubble (the generator)
+  modalBody.addEventListener('click', (event) => { if (event.target.closest('.segmented button')) dirty = true; });
+  modal.overlay.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && event.ctrlKey) { event.preventDefault(); save(); }  // Ctrl+Enter saves
   });
   setTimeout(() => nameInput.focus(), 50);
+}
+
+// Labels of what differs between two versions of a credential (for «Cambió mientras editabas»).
+function changedFields(before, after) {
+  const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  const labels = [];
+  if (!same(before.name, after.name)) labels.push('Nombre');
+  const specs = TEMPLATES[after.template] ? TEMPLATES[after.template].fields : [];
+  for (const spec of specs) {
+    const changed = spec.secret
+      ? before.secrets_set.includes(spec.name) !== after.secrets_set.includes(spec.name) || (!spec.note && before.secret_since !== after.secret_since)
+      : !same(before.fields[spec.name] || null, after.fields[spec.name] || null);
+    if (changed) labels.push(spec.note ? 'Notas privadas' : fieldLabel(after.template, spec));
+  }
+  if (!same(before.description, after.description)) labels.push('Instrucciones para la IA');
+  if (!same(before.tags, after.tags)) labels.push('Etiquetas');
+  if (!same(before.expires, after.expires)) labels.push('Caduca');
+  if (!same(before.rotate_every_days, after.rotate_every_days)) labels.push('Recordar rotarla');
+  if (!same(before.check_every_hours, after.check_every_hours)) labels.push('Comprobar que funciona');
+  if (!same(before.used_in, after.used_in)) labels.push('Dónde se usa');
+  if (!same(before.policy, after.policy)) labels.push('Permisos de la IA');
+  return [...new Set(labels)];
 }
 
 // ----------------------------------------------------------------------- exposure
@@ -2735,9 +3078,7 @@ async function pollTeam() {
   const last = state.team.last || {};
   const arrived = ['added', 'updated', 'removed', 'conflicts', 'quarantined', 'rotate', 'pushed', 'held'].some((k) => last[k]);
   if ((arrived || wasOffline !== teamOffline()) && state.screen === 'main') {
-    await loadEntries();
-    if (state.view === 'team') renderView();
-    else if (!document.getElementById('modal-root').lastElementChild) renderMain();
+    if (state.view === 'team') { await loadEntries(); renderView(); } else await refreshInPlace();
   }
   updateTeamSync();
   updateTeamNav();
@@ -3864,7 +4205,9 @@ function renderSettings(content) {
         setting('Contraseña maestra', 'Si la olvidas, puedes cambiarla aquí tras confirmar con Windows.',
           el('button', { class: 'btn', onclick: () => changeMasterPassword(false) }, 'Cambiar')),
         setting('Abrir con mi sesión de Windows', 'La bóveda se abre sola al entrar en Windows y se cierra al bloquearlo (Win+L), sin escribir contraseñas. Protege de errores de la IA, no de alguien que use tu sesión.', sessionToggle),
-        status.session_unlock ? null : setting('Bloqueo automático', 'Bloquea la bóveda tras un tiempo sin uso. Las aprobaciones de la IA siguen valiendo al desbloquear.', lockSelect),
+        setting('Bloqueo automático', status.session_unlock
+          ? 'Bloquea la bóveda tras un tiempo sin uso. Con la sesión de Windows se vuelve a abrir sola cuando tú o la IA la necesitáis, sin escribir nada.'
+          : 'Bloquea la bóveda tras un tiempo sin uso. Las aprobaciones de la IA siguen valiendo al desbloquear.', lockSelect),
         setting('Volver a preguntar si se usa mucho', 'Aunque hayas aprobado una credencial, si la IA la usa más de estas veces en una hora te vuelve a preguntar. Frena bucles y sustos.', usesSelect),
         setting('Recordar rotar las claves', 'Marca las claves con más antigüedad que esta y te avisa una vez al día. Las fechas de caducidad avisan 14 días antes.', reminderSelect),
         setting('Comprobar que las claves funcionan', 'Prueba cada clave con una llamada de solo lectura a su proveedor, entra y sale de los servidores SSH y busca las contraseñas en filtraciones conocidas. Cada credencial puede tener el suyo al editarla.', checkControl.node),
@@ -4078,8 +4421,7 @@ async function pollDrafts() {
   const known = state.knownDrafts;
   state.knownDrafts = count;
   if (known === undefined || count <= known) return;
-  await loadEntries();
-  if (state.screen === 'main') renderMain();
+  await refreshInPlace();
   const drafts = state.entries.filter((e) => e.draft);
   const newest = drafts.sort((a, b) => String(b.updated).localeCompare(String(a.updated)))[0];
   if (newest && !state.approvalOpen && !openOverlays().length) showDraft(newest);
@@ -4110,69 +4452,226 @@ function showDraft(entry) {
 }
 
 // ======================================================================= approvals
+//
+// The moment the product is about: an AI app wants to use a key. Who asks and from where, what for, which
+// credential, exactly what it will do (the host stands out), and two equally weighted ways to say yes. Several
+// requests queue ("1 de 3"); «Decidir luego» folds them into a banner instead of popping up again.
+
+// approval_hours (Ajustes) → [button, how long, in a sentence].
+const APPROVAL_SPANS = { 24: ['Permitir 24 horas', 'durante 24 horas'], 8: ['Permitir 8 horas', 'durante 8 horas'],
+  0: ['Hasta que bloquee', 'hasta que bloquees la bóveda'] };
+const APPROVAL_TITLES = { request_access: 'pide acceso para una tarea', delete: 'propone borrar una credencial', rotate: 'quiere rotar una clave',
+  import_env: 'quiere importar claves de un .env', edit: 'quiere cambiar una credencial', draft: 'quiere cambiar una credencial' };
+const EXPIRED_TEXT = 'La petición de la IA caducó; la IA recibió un error';
 
 async function pollApprovals() {
   const result = await api().call('pending_approvals');
   if (!result.ok) return;
-  const approvals = result.result;
-  if (state.approvalOpen && !approvals.some((a) => a.id === state.approvalOpen.id)) state.approvalOpen.modal.close();
-  if (!state.approvalOpen && approvals.length) showApproval(approvals[0]);
+  const approvals = [...result.result].sort((a, b) => String(a.created).localeCompare(String(b.created)));
+  const ids = new Set(approvals.map((a) => a.id));
+  const gone = [...(state.approvalSeen || [])].filter((id) => !ids.has(id));
+  state.approvalSeen = ids;
+  state.approvals = approvals;
+  state.approvalDeferred = new Set([...(state.approvalDeferred || [])].filter((id) => ids.has(id)));
+  if (gone.length) {
+    // Answered here or elsewhere, or nobody answered in time: only the last one is news to the user.
+    const expired = await api().call('expired_approvals');
+    const shown = state.expiredShown || (state.expiredShown = new Set());
+    const late = expired.ok ? expired.result.filter((e) => gone.includes(e.id) && !shown.has(e.id)) : [];
+    late.forEach((e) => shown.add(e.id));
+    if (late.length) toast(EXPIRED_TEXT, 'error');
+  }
+  if (state.approvalOpen && !ids.has(state.approvalOpen.id)) state.approvalOpen.modal.close();
+  if (state.approvalOpen) state.approvalOpen.update();
+  else {
+    const next = approvals.find((a) => !state.approvalDeferred.has(a.id));
+    if (next) showApproval(next);
+  }
+  renderApprovalBanner();
 }
 
-function approvalLabel() {
-  const hours = (state.status || {}).approval_hours;
-  if (hours === 0) return 'Permitir hasta que bloquee';
-  if (hours === 8) return 'Permitir 8 horas';
-  return 'Permitir hoy';
+function approvalSpan() {
+  return APPROVAL_SPANS[(state.status || {}).approval_hours ?? 24] || APPROVAL_SPANS[24];
+}
+
+function clientOf(request) {
+  return (request.client && request.client.name) || 'La IA';
+}
+
+function secondsLeft(request) {
+  return request.expires ? Math.max(0, Math.round((new Date(request.expires) - Date.now()) / 1000)) : null;
+}
+
+function clock(seconds) {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
 function looksDestructive(detail) {
   return /\b(rm\s+-[a-z]*[rf]|rmdir|del\s|drop\s+(table|database|schema)|truncate|delete\s+from|shutdown|reboot|mkfs|dd\s+if=|chmod\s+-R|chown\s+-R|kill(all)?\s|systemctl\s+(stop|disable)|git\s+push\s+.*--force|^DELETE\s)/im.test(detail);
 }
 
+// The exact action, in monospace, with the host it goes to marked.
+function actionBlock(request) {
+  const detail = request.detail || '';
+  const host = request.host;
+  const at = host ? detail.indexOf(host) : -1;
+  const lineEnd = detail.indexOf('\n');
+  const content = at >= 0 && (lineEnd < 0 || at < lineEnd)
+    ? [detail.slice(0, at), el('mark', { class: 'host', title: 'Adónde va' }, host), detail.slice(at + host.length)]
+    : [detail];
+  return el('div', { class: 'request-detail selectable' }, content);
+}
+
+function usageLine(request) {
+  if (['request_access', 'import_env', 'draft'].includes(request.action)) return null;
+  const today = request.uses_today || 0;
+  const last = request.last_used ? `Último uso por la IA: ${sinceText(request.last_used)}` : 'La IA aún no la ha usado';
+  return el('div', { class: 'muted small' }, today ? `${last} · ${plural(today, 'vez', 'veces')} hoy` : last);
+}
+
 function showApproval(request) {
+  const who = clientOf(request);
   const errorText = el('div', { class: 'error-text' });
-  const decide = async (scope, button) => {
+  const [spanLabel, spanText] = approvalSpan();
+  let closing = false;
+  const finish = () => { closing = true; modal.close(); };
+
+  const approve = async (ids, scopeOf, button) => {
     errorText.textContent = '';
-    if (scope === 'deny') {
-      await api().call('deny', { id: request.id });
-      modal.close();
-      return;
-    }
     busy(button, true);
-    const result = await withProof((p) => api().call('approve', { id: request.id, scope }, p), 'Para aprobar el uso de la credencial.');
+    for (const id of ids) {
+      const target = (state.approvals || []).find((a) => a.id === id) || request;
+      const result = await withProof((p) => api().call('approve', { id, scope: scopeOf(target) }, p), 'Para aprobar el uso de la credencial.');
+      if (!result.ok && result.code !== 'not_found') {
+        busy(button, false);
+        if (result.code !== 'cancelled') errorText.textContent = result.error;
+        return;
+      }
+    }
     busy(button, false);
-    if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
-    modal.close();
+    finish();
   };
+  const deny = async () => {
+    await api().call('deny', { id: request.id });
+    finish();
+  };
+
   const allowOnce = request.allow_once !== false;
   const onceLabel = { edit: 'Aplicar el cambio', draft: 'Permitir', rotate: 'Rotar ahora', delete: 'Borrar', import_env: 'Importar' }[request.action] || 'Solo esta vez';
-  const onceButton = allowOnce ? el('button', { class: request.allow_session ? 'btn' : 'btn primary' }, onceLabel) : null;
-  if (onceButton) onceButton.addEventListener('click', () => decide('once', onceButton));
-  const sessionButton = request.allow_session ? el('button', { class: 'btn primary', title: `La IA podrá usar ${request.secret_name} sin volver a preguntarte` }, approvalLabel()) : null;
-  if (sessionButton) sessionButton.addEventListener('click', () => decide('session', sessionButton));
+  // Two ways to say yes, side by side and alike: neither is pushed on the user.
+  const both = allowOnce && request.allow_session;
+  const onceButton = allowOnce ? el('button', { class: `btn ${both ? 'equal' : 'primary'}` }, onceLabel) : null;
+  if (onceButton) onceButton.addEventListener('click', () => approve([request.id], () => 'once', onceButton));
+  const sessionButton = request.allow_session ? el('button', { class: `btn ${both ? 'equal' : 'primary'}` }, spanLabel) : null;
+  if (sessionButton) sessionButton.addEventListener('click', () => approve([request.id], () => 'session', sessionButton));
+  const batchButton = el('button', { class: 'btn ghost batch hidden' });
+  batchButton.addEventListener('click', () => {
+    const ids = sameClient().map((a) => a.id);
+    approve(ids, (a) => (a.allow_session ? 'session' : 'once'), batchButton);
+  });
+  const sameClient = () => (state.approvals || []).filter((a) => clientOf(a) === who);
+
+  const explain = request.allow_session ? el('p', { class: 'approval-explain' },
+    el('b', {}, `«${spanLabel}»`), `: ${who} podrá usar «${request.secret_name}» sin volver a preguntarte ${spanText}`,
+    allowOnce ? ['; ', el('b', {}, `«${onceLabel}»`), ', solo para esta petición.'] : '. Bloquear a mano lo anula antes.') : null;
+
+  const counter = el('span', { class: 'queue-count' });
+  const countdown = el('span', { class: 'countdown' });
+  const bar = el('div', { class: 'countdown-bar' }, el('span'));
+  const folder = request.client && request.client.folder;
+  const entry = state.entries.find((e) => e.id === request.secret_id);
+  const category = (TEMPLATES[request.template] || {}).icon || 'lock';
   const destructive = looksDestructive(request.detail);
 
   const modal = openModal({
-    title: request.action === 'request_access' ? 'La IA pide acceso para una tarea'
-      : request.action === 'delete' ? 'La IA propone borrar una credencial'
-        : request.action === 'rotate' ? 'La IA quiere rotar una clave'
-          : request.action === 'import_env' ? 'Importar claves de un .env'
-            : request.action === 'edit' || request.action === 'draft' ? 'La IA quiere cambiar una credencial' : 'La IA quiere usar una credencial',
+    title: `${who} ${APPROVAL_TITLES[request.action] || 'quiere usar una credencial'}`,
+    lead: el('div', { class: 'client-mark', title: who }, icon('bot')),
+    className: 'approval',
+    closeLabel: 'Decidir luego',
+    onDismiss: () => {  // «Decidir luego» or Esc: it waits in a banner, it doesn't pop up again
+      state.approvalDeferred = new Set([...(state.approvalDeferred || []), ...(state.approvals || []).map((a) => a.id)]);
+      finish();
+      renderApprovalBanner();
+    },
     body: el('div', { class: 'request' },
-      el('div', { class: 'request-who' }, glyph(request.template),
-        el('div', {}, el('div', { style: 'font-weight:600' }, request.secret_name), el('div', { class: 'muted small' }, ACTION_LABELS[request.action] || request.action))),
-      el('div', { class: 'request-detail selectable' }, request.detail),
+      el('div', { class: 'request-meta' }, counter,
+        folder ? el('span', { class: 'request-folder', title: folder }, icon('folder', 'sm'), el('span', {}, folder)) : null,
+        el('span', { class: 'spacer' }), countdown),
+      bar,
+      request.reason ? el('div', { class: 'request-reason' }, el('span', { class: 'small muted' }, 'Para qué, según la IA'), el('p', {}, request.reason))
+        : el('p', { class: 'muted small' }, `${who} no ha dicho para qué.`),
+      el('div', { class: `cred-card cat-${category}` }, glyph(request.template),
+        el('div', { class: 'meta' }, el('div', { class: 'cred-name' }, request.secret_name),
+          el('div', { class: 'muted small' }, ACTION_LABELS[request.action] || request.action,
+            entry && subtitleOf(entry) ? ` · ${subtitleOf(entry)}` : '')),
+        usageLine(request)),
+      actionBlock(request),
       destructive ? el('div', { class: 'warning is-danger' }, icon('alert', 'sm'), 'Parece que borra, detiene o modifica datos. Revísalo antes de permitirlo.') : null,
+      explain,
       errorText),
     footer: [
-      el('button', { class: 'btn danger', onclick: () => decide('deny') }, 'Denegar'),
+      el('button', { class: 'btn danger', onclick: deny }, 'Denegar'),
       el('div', { class: 'spacer' }),
-      sessionButton, onceButton],
+      batchButton, onceButton, sessionButton],
     onClose: () => {
+      clearInterval(timer);
       if (state.approvalOpen && state.approvalOpen.id === request.id) state.approvalOpen = null;
+      if (!closing) return;
+      setTimeout(() => { if (state.screen === 'main') pollApprovals(); }, 0);  // the next one in the queue, at once
     },
   });
-  state.approvalOpen = { id: request.id, modal };
+
+  const update = () => {
+    const queue = state.approvals || [];
+    const position = queue.findIndex((a) => a.id === request.id);
+    counter.textContent = queue.length > 1 ? `${position + 1} de ${queue.length}` : '';
+    counter.classList.toggle('hidden', queue.length < 2);
+    const batch = sameClient();
+    batchButton.textContent = `Permitir las ${batch.length} para esta tarea`;
+    batchButton.classList.toggle('hidden', batch.length < 2);
+  };
+  const tickDown = () => {
+    if (!modal.overlay.isConnected) { clearInterval(timer); return; }  // closed with all the others
+    const left = secondsLeft(request);
+    if (left === null) return;
+    countdown.textContent = left ? `Caduca en ${clock(left)}` : 'Caducando…';
+    countdown.classList.toggle('urgent', left <= 20);
+    bar.firstChild.style.width = `${Math.min(100, (left / 120) * 100)}%`;
+  };
+  const timer = setInterval(tickDown, 1000);
+  update();
+  tickDown();
+  state.approvalOpen = { id: request.id, modal, update };
   api().focus();
+}
+
+// What is waiting while the user decides later: one line at the top, with the time left.
+function renderApprovalBanner() {
+  let banner = document.getElementById('approval-banner');
+  const waiting = (state.approvals || []).filter((a) => (state.approvalDeferred || new Set()).has(a.id));
+  if (!waiting.length || state.screen !== 'main' || state.approvalOpen) { if (banner) banner.remove(); clearInterval(state.bannerTimer); return; }
+  if (!banner) {
+    banner = el('div', { id: 'approval-banner', role: 'status' });
+    document.body.append(banner);
+  }
+  const first = waiting[0];
+  const time = el('span', { class: 'countdown' });
+  const draw = () => {
+    const left = secondsLeft(first);
+    time.textContent = left === null ? '' : `caduca en ${clock(left)}`;
+    time.classList.toggle('urgent', left !== null && left <= 20);
+  };
+  banner.replaceChildren(icon('bot', 'sm'),
+    el('span', { class: 'text' }, waiting.length === 1
+      ? [el('b', {}, clientOf(first)), ` espera tu respuesta: «${first.secret_name}»`]
+      : [el('b', {}, `${waiting.length} peticiones de la IA`), ' esperan tu respuesta']),
+    time,
+    el('button', { class: 'btn primary', onclick: () => {
+      state.approvalDeferred = new Set();
+      banner.remove();
+      showApproval(first);
+    } }, 'Revisar'));
+  draw();
+  clearInterval(state.bannerTimer);
+  state.bannerTimer = setInterval(draw, 1000);
 }

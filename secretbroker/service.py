@@ -156,6 +156,7 @@ class Service:
         self._noticed = {}
         self._uses = collections.defaultdict(collections.deque)  # secret id -> monotonic times of recent uses
         self._usage = None     # secret id -> {"last": iso, "days": {date: count}}: the AI's uses, for approvals
+        self._audit_opened = {}  # audit line -> its event, decrypted (see op_audit); forgotten when locking
         self._expired = collections.deque(maxlen=20)  # approvals nobody answered in time (the app says so)
         self._revision = 0     # what the app shows changed outside the vault (approvals, the AI's uses)
         self._lock_reason = None  # why the vault is locked: "idle", "manual", "windows" (None: never opened)
@@ -198,7 +199,8 @@ class Service:
     # ------------------------------------------------------------------ dispatch
 
     def handle(self, op, params):
-        if op not in POLL_OPS:
+        # The app reloading by itself (`_poll`) is not someone using the vault: it must not keep it from locking.
+        if op not in POLL_OPS and not (isinstance(params, dict) and params.pop("_poll", None)):
             self._last_activity = time.monotonic()
         _ACTOR.value = "ai" if op in AI_OPS else "user"
         # Who is asking (Claude Code, Claude Desktop, sb…) and in which folder: shown in approvals and the activity.
@@ -598,6 +600,7 @@ class Service:
             self._grants = {} if forget_approvals else {k: v for k, v in self._grants.items() if v is not None}
             self._presence = None
             self._scan_sessions.clear()
+            self._audit_opened = {}
         self.vault.lock()
 
     def _auto_lock_loop(self):
@@ -624,7 +627,13 @@ class Service:
                 "retired": {k: v for k, v in retired.items() if k != "fields"} if retired else None,
                 # A new secret prepared but not saved as the current one yet: when, never the value.
                 "pending_rotation": {k: v for k, v in pending.items() if k != "value"} if pending else None,
-                "failed_uploads": [{k: v for k, v in u.items() if k != "token"} for u in state.get("failed_uploads") or []]}
+                "failed_uploads": [{k: v for k, v in u.items() if k != "token"} for u in state.get("failed_uploads") or []],
+                "version": self._version(entry)}
+
+    def _version(self, entry):
+        """Changes with anything in the entry (to the second `updated` may not): the editor's base_version. Keyed, so
+        it says nothing about the secrets in it."""
+        return self.vault.mac(json.dumps(entry, sort_keys=True, ensure_ascii=False).encode("utf-8"))[:16]
 
     def op_entries(self, params):
         destinations, states = self.vault.destinations(), self.vault.rotation_state()
@@ -644,8 +653,8 @@ class Service:
         if replaces:
             # Secret fields sent as null mean "keep the stored value".
             old = self.vault.get(replaces)
-            base = params.get("base_updated")
-            if base is not None and base != old.get("updated"):
+            base, version = params.get("base_updated"), params.get("base_version")
+            if (base is not None and base != old.get("updated")) or (version is not None and version != self._version(old)):
                 # Changed meanwhile (the AI, a rotation, the team): the editor says what and lets the user choose.
                 raise ServiceError("Cambió mientras editabas", "conflict")
             for name in templates.secret_field_names(entry.get("template", "")):
@@ -1124,12 +1133,18 @@ class Service:
         except OSError:
             return []
         events = []
+        # The app asks often (each credential's «Actividad reciente»): lines already opened are kept, until locking.
+        known, opened = self._audit_opened, {}
         for line in list(reversed(lines))[offset:]:
             try:
-                events.append(self._open_audit_line(private_key, line))
+                event = known.get(line) or self._open_audit_line(private_key, line)
+                opened[line] = event
+                events.append(dict(event))
             except Exception:
                 events.append({"ts": "", "secret": "", "action": "audit", "detail": "",
                                "status": "error", "message": "Entrada del historial ilegible"})
+        if offset == 0:
+            self._audit_opened = opened
         return events
 
     # ------------------------------------------------------------------ exposure (GUI)

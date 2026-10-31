@@ -22,8 +22,8 @@ WEB_DIR = Path(__file__).with_name("web")
 ICON = Path(__file__).with_name("assets") / "icon.ico"
 CLIPBOARD_CLEAR_SECONDS = 30
 AUTO_SCAN_HOURS = 12
-SESSION_FILE = integrations.PREFS_FILE.parent / "session.bin"
-SESSION_ENTROPY = b"SecretBroker/session-unlock/v1"
+SESSION_FILE = client.SESSION_FILE  # the same file client.reopen_with_session reads
+SESSION_ENTROPY = client.SESSION_ENTROPY
 LOG_FILE = integrations.PREFS_FILE.parent / "app.log"
 # An invite link (secretbroker://join?server=…&email=…&code=…) the app was opened with, until the page takes it.
 JOIN_FILE = integrations.PREFS_FILE.parent / "join_link.json"
@@ -47,6 +47,11 @@ PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal", "rotat
 ROTATION_OPS = ("rotation_begin", "rotation_discard", "rotation_apply", "rotation_secret", "retry_uploads", "set_test_request")
 PRESENCE_OPS += ROTATION_OPS
 PROOF_OPS |= set(ROTATION_OPS)
+# Everyday work (see service.PROVEN_OPS): one click after unlocking with a password or Hello; after opening with
+# the Windows session, Hello or a password once.
+PRESENCE_OPS += ("reveal", "save_entry", "delete_entry", "rotate", "set_settings", "exposure_begin", "enable_session_unlock")
+# Proofs that bring the token along, so the service makes it one click for the rest of the session.
+OPENING_OPS = ("unlock", "create_vault", "restore")
 # Where a secret found in clear may be removed in place (see exposure.REDACTABLE_SOURCES): conversations
 # of Claude Code and Codex, and shell histories. A copy of the file is kept next to it, just in case.
 REDACT_BACKUP_SUFFIX = ".secretbroker.bak"
@@ -121,14 +126,30 @@ class Api:
                         raise
                     else:
                         self._presence = None
+                        # Locked and opened again meanwhile (inactivity, then the AI with the Windows session): take
+                        # a token the same way instead of asking for a password.
+                        if not getattr(self, "_reopening", False) and SESSION_FILE.exists() \
+                                and client.request("status", timeout=10)["state"] == "unlocked":
+                            self._reopening = True
+                            try:
+                                if self.session_unlock():
+                                    return self.call(op, params, proof)
+                            finally:
+                                self._reopening = False
             if (op in PROOF_OPS or weak) and proof is None:
                 status = client.request("status", timeout=10)
                 if not (status["hello_enrolled"] and hello.is_supported()):
-                    return {"ok": False, "code": "proof_required", "error": "Verifica tu identidad"}
+                    # `weak`: opened with the Windows session, so the page says this is asked once.
+                    return {"ok": False, "code": "proof_required", "error": "Verifica tu identidad", "weak": weak}
                 proof = self._hello_proof(op, params)
             if proof is not None:
                 params["proof"] = proof
-            result = client.request(op, params)
+                if op not in OPENING_OPS and proof.get("kind") in ("hello", "windows_password", "master_password"):
+                    params["proof"] = {**proof, "presence": self._presence}
+            meta = {}
+            result = client.request(op, params, meta=meta)
+            if meta.get("presence"):
+                self._presence = meta["presence"]  # proved it once: one click for the rest of the session
             if op in ("unlock", "exposure_begin", "restore", "create_vault") and isinstance(result, dict):
                 self._scan_session = result.pop("exposure_session", None) or result.get("session") or self._scan_session
             if (op in ("unlock", "approve", "restore", "create_vault") or op in TEAM_CHANGE_OPS) \
@@ -152,8 +173,8 @@ class Api:
 
     # ----- exposure
 
-    def exposure_report(self):
-        result = self.call("exposure_report", {"session": self._scan_session})
+    def exposure_report(self, background=False):
+        result = self.call("exposure_report", {"session": self._scan_session, **({"_poll": True} if background else {})})
         if result["ok"] and not result["result"]["details"]:
             self._scan_session = None
         return result
@@ -498,9 +519,8 @@ class Api:
 
     def session_unlock(self):
         """Unlock with the token kept under the user's Windows login. Returns True if it worked."""
-        try:
-            token = winsec.dpapi_unprotect(SESSION_FILE.read_bytes(), SESSION_ENTROPY).decode()
-        except OSError:
+        token = client.session_token()
+        if not token:
             return False
         result = self.call("unlock", {}, {"kind": "session", "token": token})
         if not result["ok"] and result.get("code") == "proof_invalid":

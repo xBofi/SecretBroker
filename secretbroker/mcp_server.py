@@ -100,11 +100,12 @@ def http_request(
     If the credential has automatic auth (header, query parameter or HTTP Basic) it is added unless
     inject_auth is false. You can also place placeholders like {{value}}, {{username}} or {{password}}
     anywhere in url, headers, body or json_body (e.g. a login form) and the broker substitutes them.
-    Redirects are not followed. The response comes back with any secret redacted."""
+    Redirects are not followed. The response comes back with any secret redacted.
+    reason: one short sentence on what this is for; the user sees it if asked to approve."""
     return _call("http_request", _drop_none(
         secret_id=secret_id, url=url, method=method, headers=headers, body=body,
-        json_body=json_body, inject_auth=inject_auth, timeout=timeout,
-    ))
+        json_body=json_body, inject_auth=inject_auth, timeout=timeout, reason=reason,
+    ), ctx)
 
 
 @mcp.tool()

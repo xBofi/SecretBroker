@@ -377,7 +377,11 @@ def main():
     expect_error(lambda: call("save_entry", {"entry": stale, "replaces": "echo-api", "base_updated": current["updated"] + "x"},
                               {"kind": "presence", "token": presence}), "conflict", "saving over a newer version is a conflict")
     fresh = next(e for e in client.request("entries") if e["id"] == "echo-api")
-    call("save_entry", {"entry": stale, "replaces": "echo-api", "base_updated": fresh["updated"]}, {"kind": "presence", "token": presence})
+    expect_error(lambda: call("save_entry", {"entry": stale, "replaces": "echo-api", "base_version": current["version"]},
+                              {"kind": "presence", "token": presence}), "conflict",
+                 "the version catches a change even within the same second")
+    call("save_entry", {"entry": stale, "replaces": "echo-api", "base_updated": fresh["updated"], "base_version": fresh["version"]},
+         {"kind": "presence", "token": presence})
     check(next(e for e in client.request("entries") if e["id"] == "echo-api")["description"] == "Mi versión",
           "with the version it started from, it saves")
 
