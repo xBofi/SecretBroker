@@ -163,7 +163,7 @@
   "health.reused_more": "Същата парола или ключ има в {names} и още {count}.",
   "health.stopped_working": "Спря да работи: доставчикът може да го е отменил като изтекъл.",
   "health.the_provider": "доставчика",
-  "health.thousands_separator": ".",
+  "health.thousands_separator": " ",
   "health.unchecked": "Още не е тестван.",
   "health.upload_failed": "Новият не можа да се качи в {place}: старият все още е там.",
   "health.upload_failed_more": {

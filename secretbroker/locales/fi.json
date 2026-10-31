@@ -163,7 +163,7 @@
   "health.reused_more": "Sama salasana tai avain on myös näissä: {names} ja {count} muuta.",
   "health.stopped_working": "Se on lakannut toimimasta: palveluntarjoaja on voinut mitätöidä sen vuotaneena.",
   "health.the_provider": "palveluntarjoaja",
-  "health.thousands_separator": "⁠ ⁠",
+  "health.thousands_separator": " ",
   "health.unchecked": "Sitä ei ole vielä testattu.",
   "health.upload_failed": "Uutta ei voitu lähettää ({place}): vanha on yhä siellä.",
   "health.upload_failed_more": {

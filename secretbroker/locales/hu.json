@@ -163,7 +163,7 @@
   "health.reused_more": "Ugyanez a jelszó vagy kulcs szerepel itt: {names} és még {count} helyen.",
   "health.stopped_working": "Leállt: lehet, hogy a szolgáltató kiszivárgottként visszavonta.",
   "health.the_provider": "a szolgáltató",
-  "health.thousands_separator": ".",
+  "health.thousands_separator": " ",
   "health.unchecked": "Még nincs tesztelve.",
   "health.upload_failed": "Az újat nem sikerült feltölteni ide: {place}; a régi még ott van.",
   "health.upload_failed_more": {

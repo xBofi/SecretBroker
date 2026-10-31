@@ -163,7 +163,7 @@
   "health.reused_more": "A mesma palavra-passe ou chave está em {names} e em mais {count}.",
   "health.stopped_working": "Deixou de funcionar: o fornecedor pode tê-la revogado por ter sido divulgada.",
   "health.the_provider": "o fornecedor",
-  "health.thousands_separator": ".",
+  "health.thousands_separator": " ",
   "health.unchecked": "Ainda não foi testada.",
   "health.upload_failed": "Não foi possível enviar a nova para {place}: a antiga continua lá.",
   "health.upload_failed_more": {

@@ -191,7 +191,7 @@
   "health.reused_more": "Тот же пароль или ключ есть в {names} и ещё {count}.",
   "health.stopped_working": "Перестал работать: возможно, провайдер отозвал его из-за утечки.",
   "health.the_provider": "провайдер",
-  "health.thousands_separator": ".",
+  "health.thousands_separator": " ",
   "health.unchecked": "Ещё не проверялось, работает ли.",
   "health.upload_failed": "Не удалось загрузить новый в {place}: там остался старый.",
   "health.upload_failed_more": {

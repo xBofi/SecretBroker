@@ -191,7 +191,7 @@
   "health.reused_more": "To samo hasło lub klucz jest w: {names} i {count} innych.",
   "health.stopped_working": "Przestał działać: dostawca mógł go unieważnić z powodu wycieku.",
   "health.the_provider": "dostawcy",
-  "health.thousands_separator": ".",
+  "health.thousands_separator": " ",
   "health.unchecked": "Jeszcze go nie przetestowano.",
   "health.upload_failed": "Nie udało się przesłać nowego do {place}: stary nadal tam jest.",
   "health.upload_failed_more": {

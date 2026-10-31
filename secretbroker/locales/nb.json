@@ -163,7 +163,7 @@
   "health.reused_more": "Det samme passordet eller den samme nøkkelen finnes i {names} og {count} til.",
   "health.stopped_working": "Den har sluttet å virke: leverandøren kan ha tilbakekalt den fordi den er lekket.",
   "health.the_provider": "leverandøren",
-  "health.thousands_separator": "⁠ ⁠",
+  "health.thousands_separator": " ",
   "health.unchecked": "Den er ikke testet ennå.",
   "health.upload_failed": "Kunne ikke laste opp den nye til {place}: den gamle ligger der fortsatt.",
   "health.upload_failed_more": {

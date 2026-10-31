@@ -40,6 +40,8 @@ PLURALS = {
 }
 # Forms only used for huge round numbers («1 millón de…»): «other» is fine there, no warning.
 RARE = {code: ("many",) for code in "es fr it pt ca".split()}
+# Messages that are a bare separator: a no-break space is a valid one («12 345» in French, Swedish, Russian…).
+SEPARATORS = {"health.thousands_separator"}
 PLACEHOLDER = re.compile(r"(?<!\{)\{(\w+)\}(?!\})")
 EXT_PLACEHOLDER = re.compile(r"\$(\w+)\$")
 CODE_KEY = re.compile(r"\btn?\('([a-z0-9_]+(?:\.[a-z0-9_]+)+)'")
@@ -48,6 +50,18 @@ CODE_KEY = re.compile(r"\btn?\('([a-z0-9_]+(?:\.[a-z0-9_]+)+)'")
 def placeholders(value):
     texts = value.values() if isinstance(value, dict) else [value]
     return set().union(*(set(PLACEHOLDER.findall(t)) for t in texts if isinstance(t, str)))
+
+
+# Chinese and Japanese put no space between words: a text there may end (or start) with a CJK character or full-width
+# punctuation where English has the joining space («你的权限：» before a bold name).
+CJK = re.compile(r"[　-ヿ㐀-鿿＀-￯]")
+
+
+def _joins(lang, ref_edge, value_edge):
+    """Whether one end of a text keeps English's joining space (or does without it the way the language writes)."""
+    if ref_edge.isspace() == value_edge.isspace():
+        return True
+    return lang.split("-")[0].lower() in ("zh", "ja") and ref_edge.isspace() and bool(CJK.match(value_edge))
 
 
 def check_message(lang, key, ref, value):
@@ -69,11 +83,15 @@ def check_message(lang, key, ref, value):
         missing = [f for f in allowed if f not in value and f != "other" and f not in rare]
         if missing and "other" in value:
             problems.append(f"warning: {key}: no «{'», «'.join(missing)}» form; «other» is used for those numbers")
+    elif key in SEPARATORS:
+        if not isinstance(value, str) or not value or len(value) > 3:
+            problems.append(f"{key}: must be the separator itself («.», «,», a no-break space…)")
+        return problems
     elif not isinstance(value, str) or not value.strip():
         if not (isinstance(ref, str) and not ref.strip()):
             problems.append(f"{key}: empty")
     if isinstance(ref, str) and isinstance(value, str) and value.strip() and (
-            ref[:1].isspace() != value[:1].isspace() or ref[-1:].isspace() != value[-1:].isspace()):
+            not _joins(lang, ref[:1], value[:1]) or not _joins(lang, ref[-1:], value[-1:])):
         problems.append(f"{key}: keep the space at the start or end like English (it joins this text to the next)")
     want, got = placeholders(ref), placeholders(value)
     if want != got:

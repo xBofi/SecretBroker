@@ -191,7 +191,7 @@
   "health.reused_more": "Rovnaké heslo alebo kľúč je v: {names} a {count} ďalších.",
   "health.stopped_working": "Prestal fungovať: poskytovateľ ho mohol zneplatniť ako uniknutý.",
   "health.the_provider": "poskytovateľa",
-  "health.thousands_separator": ".",
+  "health.thousands_separator": " ",
   "health.unchecked": "Ešte nebol otestovaný.",
   "health.upload_failed": "Nový sa nepodarilo nahrať do {place}: starý tam stále je.",
   "health.upload_failed_more": {

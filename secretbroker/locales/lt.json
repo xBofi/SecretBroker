@@ -191,7 +191,7 @@
   "health.reused_more": "Tas pats slaptažodis ar raktas yra ir čia: {names} ir dar {count}.",
   "health.stopped_working": "Jis nustojo veikti: tiekėjas galėjo jį atšaukti kaip nutekėjusį.",
   "health.the_provider": "tiekėjas",
-  "health.thousands_separator": ".",
+  "health.thousands_separator": " ",
   "health.unchecked": "Jis dar nepatikrintas.",
   "health.upload_failed": "Nepavyko įkelti naujojo į {place}: senasis vis dar ten.",
   "health.upload_failed_more": {

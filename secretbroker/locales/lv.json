@@ -177,7 +177,7 @@
   "health.reused_more": "Tā pati parole vai atslēga ir arī šeit: {names} un vēl {count}.",
   "health.stopped_working": "Tā ir pārstājusi darboties: nodrošinātājs to varēja atsaukt kā noplūdušu.",
   "health.the_provider": "nodrošinātājs",
-  "health.thousands_separator": ".",
+  "health.thousands_separator": " ",
   "health.unchecked": "Tā vēl nav pārbaudīta.",
   "health.upload_failed": "Neizdevās augšupielādēt jauno uz {place}: vecā joprojām ir tur.",
   "health.upload_failed_more": {

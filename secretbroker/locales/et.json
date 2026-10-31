@@ -163,7 +163,7 @@
   "health.reused_more": "Sama parool või võti on ka siin: {names} ja veel {count}.",
   "health.stopped_working": "See on lakanud töötamast: teenusepakkuja võis selle lekkinuna tühistada.",
   "health.the_provider": "teenusepakkuja",
-  "health.thousands_separator": ".",
+  "health.thousands_separator": " ",
   "health.unchecked": "Seda pole veel kontrollitud.",
   "health.upload_failed": "Uut ei õnnestunud kohta {place} üles laadida: vana on endiselt seal.",
   "health.upload_failed_more": {

@@ -191,7 +191,7 @@
   "health.reused_more": "Stejné heslo nebo klíč je v: {names} a {count} dalších.",
   "health.stopped_working": "Přestal fungovat: poskytovatel ho mohl zneplatnit jako uniklý.",
   "health.the_provider": "poskytovatele",
-  "health.thousands_separator": ".",
+  "health.thousands_separator": " ",
   "health.unchecked": "Zatím nebyl otestován.",
   "health.upload_failed": "Nový se nepodařilo nahrát do {place}: starý tam stále je.",
   "health.upload_failed_more": {
