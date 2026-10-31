@@ -1285,7 +1285,7 @@ function testRequestModal(entry) {
     const check = result.result.check;
     if (!value) toast('Prueba quitada');
     else if (check && check.status === 'ok') toast('Guardada: la clave funciona');
-    else toast(`Guardada, pero ${check ? check.message : 'no se pudo probar'}`, 'error');
+    else toast(`Guardada. ${check ? check.message : 'No se pudo probar'}`, 'error');
   };
   save.addEventListener('click', () => {
     if (!url.value.trim()) { errorText.textContent = 'Escribe la ruta o la dirección que hay que pedir.'; return; }
@@ -2912,7 +2912,9 @@ function offboardingCard(person, compact = false) {
     icon('rotate'),
     el('div', { class: 'meta' },
       el('div', { class: 'title' }, offboardingSummary(person)),
-      compact ? null : el('div', { class: 'subtitle' }, 'Pudo verlas o copiarlas. Cámbialas una tras otra; las que no gestionas las cambia quien las gestiona.'),
+      compact ? null : el('div', { class: 'subtitle' }, total === 1
+        ? 'Pudo verla o copiarla. Cámbiala; si no la gestionas tú, la cambia quien la gestiona.'
+        : 'Pudo verlas o copiarlas. Cámbialas una tras otra; las que no gestionas las cambia quien las gestiona.'),
       el('div', { class: 'progress', title: `${done} de ${total}` }, el('span', { style: `width:${total ? Math.round(100 * done / total) : 100}%` }))),
     el('button', { class: 'btn primary', onclick: () => openOffboarding(person.person) }, done ? 'Seguir' : 'Empezar'));
 }

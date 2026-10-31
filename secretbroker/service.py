@@ -402,7 +402,7 @@ class Service:
         if not self.vault.is_unlocked:
             raise VaultLocked()
         if not self.vault.device_unlock_available():
-            raise ServiceError("Desbloquea una vez con la contraseña maestra en este equipo y vuelve a intentarlo", "invalid")
+            raise ServiceError("Desbloquea una vez con la contraseña maestra en este PC y vuelve a intentarlo", "invalid")
         token = secrets.token_urlsafe(32)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.session_file.write_text(json.dumps({"hash": hashlib.sha256(token.encode()).hexdigest(),

@@ -168,6 +168,18 @@ def provider_for(entry):
     return next((p for p in PROVIDERS if p[1] and key.startswith(p[1])), None)
 
 
+def unreachable(exc, who):
+    """Why `who` (a provider, «el servidor») could not be asked, as a sentence for the user (never an exception
+    class name)."""
+    if isinstance(exc, ActionError):
+        return str(exc)
+    if isinstance(exc, (httpx.TimeoutException, TimeoutError)):
+        return f"{who[:1].upper()}{who[1:]} no respondió a tiempo; comprueba la conexión a internet"
+    if isinstance(exc, (httpx.ConnectError, ConnectionError, paramiko.ssh_exception.NoValidConnectionsError)):
+        return f"No se pudo conectar con {who}; comprueba la conexión a internet"
+    return f"No se pudo conectar con {who}"
+
+
 def check_alive(entry):
     """{"status": ok | invalid | unknown, "provider", "message"}, or None if it cannot be tested."""
     if entry["template"] == "ssh":
@@ -178,7 +190,7 @@ def check_alive(entry):
         except paramiko.AuthenticationException:
             return {"status": "invalid", "provider": "SSH", "message": "El servidor rechaza la credencial"}
         except (ActionError, paramiko.SSHException, OSError) as exc:
-            return {"status": "unknown", "provider": "SSH", "message": f"No se pudo conectar: {type(exc).__name__}"}
+            return {"status": "unknown", "provider": "SSH", "message": unreachable(exc, "el servidor")}
     provider = provider_for(entry)
     if not provider:
         return _check_test_request(entry) if entry.get("test_request") else None
@@ -187,7 +199,7 @@ def check_alive(entry):
         response = httpx.get(url, headers=headers(entry["fields"]["value"].strip()), timeout=CHECK_TIMEOUT,
                              follow_redirects=False)
     except httpx.HTTPError as exc:
-        return {"status": "unknown", "provider": name, "message": f"Sin respuesta: {type(exc).__name__}"}
+        return {"status": "unknown", "provider": name, "message": unreachable(exc, name)}
     if response.status_code in (401, 403):
         return {"status": "invalid", "provider": name, "message": f"{name} rechaza la clave (HTTP {response.status_code})"}
     if response.is_success or response.status_code == 429:  # rate limited means the key was recognised
@@ -215,7 +227,7 @@ def _check_test_request(entry):
     except ActionError as exc:
         return {"status": "unknown", "provider": name, "message": f"La petición de prueba no es válida: {exc}"}
     except httpx.HTTPError as exc:
-        return {"status": "unknown", "provider": name, "message": f"Sin respuesta: {type(exc).__name__}"}
+        return {"status": "unknown", "provider": name, "message": unreachable(exc, name)}
     status = response["status"]
     if status == test["status"]:
         return {"status": "ok", "provider": name}

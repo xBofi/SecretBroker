@@ -497,7 +497,8 @@ def run(app, env, devtools, api_port, client, integrations):
     check(wait_for(lambda: "ID de cliente nuevo guardado" in page.text(), 15), "a new client: the new id is saved with the secret")
     page.click("Siguiente")
     check(wait_for(lambda: "borra el anterior (619577974052-oldclient" in page.text(), 10), "step 4 says to delete the old client")
-    page.click("Ya la he anulado")
+    page.click("Ya la he anulado", ".modal button")  # the wizard's, not the same button in the detail behind it
+    check(wait_for(lambda: page.js("!document.querySelector('.modal')"), 10), "and the wizard closes: nothing left open behind")
     page.js("loadEntries()")
     check(wait_for(lambda: page.js("(state.entries.find((e) => e.id === 'g-oauth') || {fields: {}}).fields.username")
                    == "619577974052-newclient.apps.googleusercontent.com", 10), "the credential has the new client id")

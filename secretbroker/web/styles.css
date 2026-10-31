@@ -490,6 +490,8 @@ details.findings > summary { cursor: pointer; font-size: var(--fs-sm); color: va
 /* Bottom right, clear of centred dialogs; the empty area lets clicks through. */
 #toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 100;
   align-items: flex-end; width: 320px; pointer-events: none; }
+/* While a dialog is open its buttons are at the bottom: the toasts go up, where they cover the least. */
+body:has(#modal-root > .overlay) #toasts { bottom: auto; top: 16px; flex-direction: column-reverse; }
 .toast {
   pointer-events: auto; display: flex; align-items: flex-start; gap: 10px; max-width: 100%; padding: 10px 8px 10px 12px;
   border-radius: var(--radius); background: var(--elevated); color: var(--text); border: 1px solid var(--line-strong);

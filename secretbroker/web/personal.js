@@ -92,7 +92,7 @@ function openGenerator() {
   const panel = generatorPanel();
   const modal = openModal({
     title: 'Generador de contraseñas',
-    body: [panel.node, el('p', { class: 'help' }, 'Se genera en este equipo. Al copiarla, el portapapeles se borra a los 30 s y no pasa al historial.')],
+    body: [panel.node, el('p', { class: 'help' }, 'Se genera en este PC. Al copiarla, el portapapeles se borra a los 30 s y no pasa al historial.')],
     footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, 'Cerrar'),
       el('button', { class: 'btn primary', onclick: () => copyGenerated(panel.value()) }, icon('copy', 'sm'), 'Copiar')],
   });
@@ -143,6 +143,9 @@ const HEALTH_LABELS = { weak: 'débiles', reused: 'repetidas', old: 'antiguas', 
   exposed: 'expuestas', pwned: 'en filtraciones', old_alive: 'con la anterior viva', was_exposed: 'estuvieron expuestas',
   team_access: 'con acceso de alguien que se fue', upload_failed: 'sin subir', half_rotated: 'rotaciones a medias',
   retired_pending: 'falta anular la anterior', unchecked: 'sin probar' };
+// The same with one: «1 expuesta», «1 rotación a medias».
+const HEALTH_LABEL_ONE = { weak: 'débil', reused: 'repetida', old: 'antigua', expired: 'caducada', expiring: 'caduca pronto',
+  exposed: 'expuesta', was_exposed: 'estuvo expuesta', half_rotated: 'rotación a medias' };
 const HEALTH_DANGER = new Set(['exposed', 'pwned', 'reused', 'weak', 'expired', 'team_access', 'upload_failed']);
 
 function healthLabel(score) {
@@ -207,7 +210,7 @@ function healthSection() {
             : items.length ? `${report.healthy} de ${report.total} credenciales sin problemas (${when})`
               : `Sin problemas en lo revisado (${when})`),
           counts.length ? el('div', { class: 'health-counts' }, counts.map(([kind, n]) =>
-            el('span', { class: `chip ${HEALTH_DANGER.has(kind) ? 'is-exposed' : kind === 'unchecked' ? '' : 'is-warning'}` }, `${n} ${HEALTH_LABELS[kind] || kind}`))) : null)),
+            el('span', { class: `chip ${HEALTH_DANGER.has(kind) ? 'is-exposed' : kind === 'unchecked' ? '' : 'is-warning'}` }, `${n} ${(n === 1 && HEALTH_LABEL_ONE[kind]) || HEALTH_LABELS[kind] || kind}`))) : null)),
       items.length ? el('div', { class: 'health-list' }, shown.map((item) => {
         const entry = entries[item.id];
         return el('div', { class: 'health-row' }, glyph(entry.template),
@@ -447,7 +450,7 @@ function openExport() {
       el('button', { type: 'button', class: format === value ? 'active' : '', onclick: () => { format = value; errorText.textContent = ''; render(); } }, label)));
     details.replaceChildren(format === 'encrypted'
       ? [el('p', { class: 'muted' }, 'Todas las credenciales, con sus notas y permisos, en un archivo protegido con la contraseña que elijas (scrypt y AES-256-GCM). ',
-        'Sirve para llevarlas a otro equipo: se abre en «Ajustes → Importar».'),
+        'Sirve para llevarlas a otro PC: se abre en «Ajustes → Importar».'),
       el('div', { class: 'field' }, el('label', {}, 'Contraseña del archivo'), pw, strengthMeter(pw.input)),
       el('div', { class: 'field' }, el('label', {}, 'Repítela'), confirm),
       el('p', { class: 'help' }, 'Si la olvidas, el archivo no se puede abrir.')]
@@ -481,6 +484,6 @@ function importExportGroup() {
   return el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Importar y exportar'),
     setting('Importar de otro gestor', 'Bitwarden, 1Password, KeePass / KeePassXC, Chrome, Edge, Firefox o una exportación de SecretBroker. Antes de importar ves la lista (solo nombres) y se saltan las que ya tienes.',
       el('button', { class: 'btn', onclick: openImport }, icon('upload', 'sm'), 'Importar…')),
-    setting('Exportar', 'Un archivo cifrado para otro equipo, o JSON / CSV sin cifrar para otra herramienta. Tus datos son tuyos.',
+    setting('Exportar', 'Un archivo cifrado para otro PC, o JSON / CSV sin cifrar para otra herramienta. Tus datos son tuyos.',
       el('button', { class: 'btn', onclick: openExport }, icon('download', 'sm'), 'Exportar…')));
 }

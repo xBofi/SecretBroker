@@ -32,6 +32,14 @@ def _people(names):
     return f"{who} {'tenía' if len(names) == 1 else 'tenían'} acceso"
 
 
+def _left_team(reminder):
+    """Someone with access left the team: the same words as the credential's own reminder."""
+    many = len(reminder.get("people") or []) > 1
+    return (f"{_people(reminder.get('people') or [])} y ya no {'están' if many else 'está'} en el equipo: "
+            + (f"cámbiala por si la {'vieron' if many else 'vio'}." if reminder.get("can_rotate")
+               else "pide a quien la gestiona que la cambie."))
+
+
 def key_values(entry):
     """The secret values of an entry that should be unique (passwords, keys), by field."""
     return {name: str(entry["fields"][name]) for name in templates.key_field_names(entry["template"])
@@ -79,8 +87,7 @@ def _issues(entry, reused, names, reminder, exposure_item, state):
         text = {"expired": f"Caducó hace {_days(days or 0)}.", "expiring": f"Caduca en {_days(days or 0)}.",
                 "old": f"La clave tiene {_days(days or 0)}.",
                 "old_alive": "La rotaste, pero la anterior sigue funcionando: anúlala.",
-                "team_access": f"{_people(reminder.get('people') or [])} y ya no está en el equipo: "
-                               + ("rótala por si la vio." if reminder.get("can_rotate") else "pide a quien la gestiona que la rote.")}.get(kind)
+                "team_access": _left_team(reminder)}.get(kind)
         if text:
             issues.append((kind, text))
     retired = state.get("retired")

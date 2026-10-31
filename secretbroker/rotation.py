@@ -553,7 +553,7 @@ def rotate(entry):
     try:
         value = ROTATORS[details["provider"]](entry)
     except httpx.HTTPError as exc:
-        raise ActionError(f"Sin respuesta de {details['provider']}: {type(exc).__name__}") from None
+        raise ActionError(exposure.unreachable(exc, details['provider'])) from None
     if not isinstance(value, str) or not value.strip():
         raise ActionError(f"{details['provider']} no devolvió una clave nueva")
     return value.strip()
