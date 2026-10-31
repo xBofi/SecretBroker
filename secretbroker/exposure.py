@@ -201,8 +201,17 @@ def _check_test_request(entry):
     allowed hosts, with the key put where the credential puts it, expecting a given status."""
     test = entry["test_request"]
     name = test_host(entry) or "La prueba"
+    # Where the key may go and how it is sent: the credential's own, or what its fields imply.
+    http = dict((entry.get("policy") or {}).get("http") or {})
+    implied = templates.default_policy(entry["template"], entry["fields"]).get("http") or {}
+    http["allowed_hosts"] = http.get("allowed_hosts") or implied.get("allowed_hosts") or []
+    http["auth"] = http.get("auth") if (http.get("auth") or {}).get("kind", "none") != "none" else implied.get("auth") or {"kind": "none"}
+    if http["auth"].get("kind", "none") == "none":
+        return {"status": "unknown", "provider": name,
+                "message": "La credencial no dice cómo poner la clave en una petición (Editar › cómo se envía la clave)"}
+    probe = {**entry, "policy": {**(entry.get("policy") or {}), "http": http}}
     try:
-        response = actions.http_request(entry, {"method": test["method"], "url": test["url"], "timeout": CHECK_TIMEOUT})
+        response = actions.http_request(probe, {"method": test["method"], "url": test["url"], "timeout": CHECK_TIMEOUT})
     except ActionError as exc:
         return {"status": "unknown", "provider": name, "message": f"La petición de prueba no es válida: {exc}"}
     except httpx.HTTPError as exc:

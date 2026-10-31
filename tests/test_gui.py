@@ -160,6 +160,39 @@ class Echo(http.server.BaseHTTPRequestHandler):
         pass
 
 
+PROFILE = HOME / "profile"
+LEAKED = "sk-gui-test-SECRET-123"
+CONVERSATION = PROFILE / ".claude" / "projects" / "demo" / "s1.jsonl"
+FAKE_PSQL = '''import os, sys
+from pathlib import Path
+state = Path(__file__).with_name("db_password.txt")
+sql = sys.stdin.read()
+if os.environ.get("PGPASSWORD") != state.read_text(encoding="utf-8"):
+    print('psql: FATAL: password authentication failed for user "pg_app"', file=sys.stderr)
+    sys.exit(2)
+if "ALTER ROLE" in sql:
+    state.write_text(sql.split("PASSWORD '")[1].split("';")[0].replace("''", "'"), encoding="utf-8")
+'''
+
+
+def fake_profile():
+    """A Claude Code conversation where the AI saw a key."""
+    CONVERSATION.parent.mkdir(parents=True)
+    (HOME / "user").mkdir(parents=True, exist_ok=True)
+    (HOME / "user" / "prefs.json").write_text(json.dumps({"auto_scan": False}), encoding="utf-8")  # searched when the test says
+    CONVERSATION.write_text(json.dumps({"message": f"usa la clave {LEAKED} para probar"}) + "\n", encoding="utf-8")
+
+
+def fake_psql():
+    """A psql that keeps the database password in a file: what the service runs to apply a new one."""
+    folder = HOME / "bin"
+    folder.mkdir()
+    (folder / "fake_psql.py").write_text(FAKE_PSQL, encoding="utf-8")
+    (folder / "psql.cmd").write_text(f'@"{sys.executable}" "%~dp0fake_psql.py" %*\r\n', encoding="utf-8")
+    (folder / "db_password.txt").write_text("OLD-pg-pass-1", encoding="utf-8")
+    return folder
+
+
 def start_team_server():
     import uvicorn
     from secretbroker_server import config
@@ -181,7 +214,10 @@ def main():
     TEAM_URL, team_server = start_team_server()
 
     devtools, mcp_port = free_port(), free_port()
+    # A user profile of its own (the search for copies reads it) and a psql of its own (the service runs it).
+    fake_profile()
     env = {**os.environ, "SECRETBROKER_HOME": str(HOME), "SECRETBROKER_MCP_PORT": str(mcp_port),
+           "SECRETBROKER_PROFILE": str(PROFILE), "PATH": f"{fake_psql()}{os.pathsep}{os.environ.get('PATH', '')}",
            "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS": f"--remote-debugging-port={devtools} --disable-background-timer-throttling "
            "--disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion"}
     os.environ.update({k: env[k] for k in ("SECRETBROKER_HOME", "SECRETBROKER_MCP_PORT")})
@@ -189,6 +225,10 @@ def main():
     from secretbroker import client, integrations
 
     pythonw = Path(sys.executable).with_name("pythonw.exe")
+    # The app starts the service with -I, which would import the installed (editable) package: start the
+    # service of this checkout first, so the test drives the code next to it.
+    subprocess.Popen([str(pythonw), "-m", "secretbroker.service"], cwd=ROOT, env=env)
+    wait_for(lambda: client.request("status", timeout=2), 20)
     app = subprocess.Popen([str(pythonw), "-m", "secretbroker.app"], cwd=ROOT, env=env)
     try:
         run(app, env, devtools, api_port, client, integrations)
@@ -231,7 +271,7 @@ def run(app, env, devtools, api_port, client, integrations):
 
     print("Screens")
     for view, expected, name in (("access", "Qué puede hacer la IA", "03-access"), ("settings", "Abrir con mi sesión de Windows", "04-settings"),
-                                 ("activity", "Actividad", "05-activity"), ("exposure", "Exposición", "06-exposure")):
+                                 ("activity", "Actividad", "05-activity"), ("exposure", "Copias encontradas", "06-exposure")):
         page.js(f"state.view = '{view}'; renderMain()")
         check(wait_for(lambda: expected in page.text(), 10), f"{view} renders")
         time.sleep(0.5)
@@ -250,7 +290,31 @@ def run(app, env, devtools, api_port, client, integrations):
     page.click("Aleatoria")  # leave the saved options as they were
     page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
     page.js("state.view = 'exposure'; renderMain()")
-    check(wait_for(lambda: page.js("!!document.querySelector('.health-score')"), 10), "health shows a score")
+    check(wait_for(lambda: page.js("(document.querySelector('.health-score') || {}).textContent") == "—", 10)
+          and "Sin datos aún" in page.text(), "before searching for copies and testing the keys, Salud claims nothing")
+    review = "[...document.querySelectorAll('.content-header button')].find((b) => b.innerText.trim() === 'Revisar ahora')"
+    check(page.js(f"{review}.classList.contains('primary')") and "Buscar copias al desbloquear" not in page.text(),
+          "one primary action: «Revisar ahora»")
+    page.click("Revisar ahora")
+    check(wait_for(lambda: "Expuesta" in page.text() and "búsqueda: hoy" in page.text() and "proveedores: hoy" in page.text(), 60),
+          "it searches for copies and tests the keys: the key the AI saw is found, and Salud says when it looked")
+    check("Una IA la ha visto" in page.text() and page.click("Rotar con ayuda", ".exposure-card button") is not None,
+          "the exposed credential's card says an AI saw it")
+    page.js("document.querySelector('.modal') && document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    page.click("Descartar")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+    check(wait_for(lambda: page.js("[...document.querySelectorAll('.finding button')].some((b) => b.innerText.trim() === 'Borrar de este archivo')"), 10),
+          "an AI conversation offers «Borrar de este archivo» and «Ignorar»")
+    calm_shot(page, "06-health-exposed")
+    page.click("Borrar de este archivo", ".finding button")
+    check(wait_for(lambda: "Se guarda una copia del archivo" in page.text(), 5), "it asks first, and says a copy is kept")
+    page.click("Borrar de este archivo", ".modal-foot button")
+    check(wait_for(lambda: "[REDACTED:echo-api]" in CONVERSATION.read_text(encoding="utf-8")
+                   and LEAKED not in CONVERSATION.read_text(encoding="utf-8"), 15), "the key is removed from the conversation, in place")
+    check(wait_for(lambda: "borrada de aquí" in page.text(), 10), "and the place shows it")
+    check(CONVERSATION.with_name("s1.jsonl.secretbroker.bak").exists(), "a copy of the file is left next to it")
+    check(LEAKED not in page.text() and LEAKED not in json.dumps(page.js("state")), "the page never had the key")
+    calm_shot(page, "06-health-redacted")
 
     print("Rotation with a guide")
     other = {"id": "other-api", "name": "Otra API", "template": "api_key", "description": "",
@@ -258,8 +322,13 @@ def run(app, env, devtools, api_port, client, integrations):
              "policy": {"approval": "session"}}
     page.js(f"api().call('save_entry', {{ entry: {json.dumps(other)} }}, {{ kind: 'master_password', value: {json.dumps(MASTER)} }})")
     page.js("state.view = 'credentials'; state.selected = 'other-api'; loadEntries().then(renderMain)")
-    check(wait_for(lambda: "Rotar con ayuda" in page.text() and "Te recuerda rotarla" in page.text(), 10),
-          "a key without a rotation API offers the guided rotation and says when it will remind")
+    check(wait_for(lambda: "Rotar con ayuda" in page.text() and page.js("!!document.querySelector('.status-strip')"), 10),
+          "a key without a rotation API offers the guided rotation, under a status strip")
+    strip = page.js("[...document.querySelectorAll('.status-chip')].map((c) => c.innerText.trim())")
+    check(any(c.startswith("Rotar en") for c in strip) and "Sin sitios apuntados" in strip and "No se puede probar" in strip,
+          f"the strip says when to rotate it, where it is used and that it can't be tested ({strip})")
+    check("se prueba" not in page.js("document.querySelector('.detail').innerText"), "nothing promises a test it can't do")
+    calm_shot(page, "07-detail-strip")
     page.click("Rotar con ayuda")
     check(wait_for(lambda: "1 · Dónde se usa" in page.text() and "Todavía no hay ningún sitio apuntado" in page.text(), 10),
           "step 1: where it is used")
@@ -271,26 +340,44 @@ def run(app, env, devtools, api_port, client, integrations):
     page.click("Siguiente")
     check(wait_for(lambda: "2 · Crea la clave nueva" in page.text() and "other-api-" in page.text(), 10), "step 2: how to create the new key")
     page.shot("07-rotate-guide")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    check(wait_for(lambda: "¿Descartar?" in page.text(), 5) and page.js("document.querySelectorAll('.modal').length") == 2,
+          "Esc does not close the wizard without asking")
+    page.click("Seguir")
+    check(wait_for(lambda: "2 · Crea la clave nueva" in page.text() and "¿Descartar?" not in page.text(), 5), "«Seguir» goes back to it")
     page.click("Ya la tengo")
     check(wait_for(lambda: "3 · Pega la clave nueva" in page.text(), 10), "step 3: paste it")
     page.js("""(() => { const i = document.querySelector('.modal input[type=password]'); i.value = 'other-NEW-key-7654321'; })()""")
-    page.click("Probar y guardar")
+    page.click("Guardar")
     check(wait_for(lambda: "4 · Ponla en cada sitio" in page.text() and "Faltan 2" in page.text(), 15),
           "step 4: saved with one click, and a list of places to update")
+    check(wait_for(lambda: "Usada en 2 sitios" in page.text() and "Falta anular la anterior" in page.text(), 10),
+          "the credential behind the wizard already shows the new state")
     next_disabled = "[...document.querySelectorAll('.modal button')].find((b) => b.innerText.trim() === 'Siguiente').disabled"
-    check(page.js(next_disabled), "the old key can't be deleted before every place has the new one")
+    check(page.js(next_disabled), "the old key can't be revoked before every place has the new one")
     page.js("document.querySelectorAll('.modal input[type=checkbox]').forEach((c) => { c.click(); })")
     page.shot("08-rotate-done")
     check(wait_for(lambda: not page.js(next_disabled), 5), "once all are ticked, it goes on")
     page.click("Siguiente")
-    check(wait_for(lambda: "5 · Borra la clave anterior" in page.text(), 10), "step 5: delete the old one")
+    check(wait_for(lambda: "5 · Anula la clave anterior" in page.text(), 10), "step 5: revoke the old one")
     page.click("Más tarde")
-    check(wait_for(lambda: "Falta borrar la clave anterior" in page.text(), 10), "until then the credential says so")
-    page.shot("09-rotate-pending")
-    page.click("Ya la he borrado")
-    check(wait_for(lambda: "Falta borrar la clave anterior" not in page.text(), 10), "and it is done when the user says so")
-    check(wait_for(lambda: "Se usa en:" in page.text() and "pro: servidor api.other.example.com" in page.text(), 10),
-          "the places are kept with the credential")
+    check(wait_for(lambda: "Clave nueva activa · falta anular la anterior" in page.text(), 10),
+          "until then it is not «complete»: the credential says the old one is still to revoke")
+    calm_shot(page, "09-rotate-pending")
+    page.click("Ya la he anulado")
+    check(wait_for(lambda: "falta anular la anterior" not in page.text(), 10), "and it is done when the user says so")
+    check(wait_for(lambda: "Usada en 2 sitios" in page.text(), 10), "the places are kept with the credential")
+
+    print("Testing a key of an unknown provider")
+    page.click("Cómo probarla")
+    check(wait_for(lambda: "Cómo probar Otra API" in page.text(), 10), "a key the app can't test asks how")
+    page.js("""(() => { const i = document.querySelector('.modal input.mono'); i.value = '/v1/me'; })()""")
+    calm_shot(page, "09-test-request")
+    page.click("Guardar y probar")
+    check(wait_for(lambda: page.js("JSON.stringify((state.entries.find((e) => e.id === 'other-api') || {}).test_request)")
+                   == json.dumps({"method": "GET", "url": "https://api.other.example.com/v1/me", "status": 200}, separators=(",", ":")), 20),
+          "it is saved (a path of its API) and tried")
+    check(wait_for(lambda: "Cambiar la prueba" in page.text() and "No se puede probar" not in page.text(), 10), "from then on it can be tested")
 
     print("Rotation of a database password")
     db = {"id": "shop-db", "name": "BD tienda", "template": "database", "description": "",
@@ -298,19 +385,36 @@ def run(app, env, devtools, api_port, client, integrations):
           "used_in": ["develop: .env local", "pre: servidor pre", "pro: servidor pro"], "policy": {"approval": "session"}}
     page.js(f"api().call('save_entry', {{ entry: {json.dumps(db)} }}, {{ kind: 'master_password', value: {json.dumps(MASTER)} }})")
     page.js("state.view = 'credentials'; state.selected = 'shop-db'; loadEntries().then(renderMain)")
-    check(wait_for(lambda: "Rotar con ayuda" in page.text() and "pre: servidor pre" in page.text(), 10),
-          "a database offers the guided rotation and lists where it is used")
+    check(wait_for(lambda: "Rotar con ayuda" in page.text() and "Usada en 3 sitios" in page.text(), 10),
+          "a database offers the guided rotation and says where it is used")
     page.click("Rotar con ayuda")
     check(wait_for(lambda: "1 · Dónde se usa" in page.text() and "pro: servidor pro" in page.text(), 10), "step 1 has the places already")
     page.click("Siguiente")
-    check(wait_for(lambda: "2 · Cambia la contraseña" in page.text() and "deja de funcionar" in page.text(), 10),
-          "step 2 warns that everything using it stops working")
-    page.click("Generar una")
-    check(wait_for(lambda: 'ALTER ROLE "shop_app" WITH PASSWORD' in page.text() and "CONTRASEÑA_NUEVA" not in page.text(), 5),
-          "it generates one and gives the exact command, the password hidden")
+    check(wait_for(lambda: "2 · Cambia la contraseña" in page.text() and "deja de funcionar" in page.text()
+                   and 'ALTER ROLE "shop_app" WITH PASSWORD' in page.text(), 10),
+          "step 2 warns that everything using it stops working, and gives the exact command")
+    new = client.request("rotation_secret", {"id": "shop-db", "what": "value", "proof": {"kind": "master_password", "value": MASTER}})
+    check(len(new) == 32 and new not in page.text() and new not in json.dumps(page.js("state")),
+          "the service made the new one and keeps it as pending: the page never has it")
+    check("«psql»" in page.text(), "it says why the app can't apply it here (psql not allowed)")
+    page.js("document.querySelectorAll('.modal .prop .btn.icon-only')[1].click()")
+    clipboard = wait_for(lambda: (lambda c: c if new in c else None)(subprocess.run(
+        ["powershell", "-NoProfile", "-Command", "Get-Clipboard"], capture_output=True, text=True).stdout), 10)
+    check(clipboard and clipboard.strip() == f"""ALTER ROLE "shop_app" WITH PASSWORD '{new}';""", "«Copiar» puts the command with it in the clipboard")
     page.shot("09-rotate-database")
-    page.click("Ya la he cambiado: guardar")
-    check(wait_for(lambda: "3 · Ponla en cada sitio" in page.text() and "Faltan 3" in page.text(), 15), "step 3: put it in every place")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    check(wait_for(lambda: "queda guardada aquí como pendiente" in page.text(), 5), "closing asks first, and says the new one is kept")
+    page.click("Descartar")
+    page.js("lockNow()")
+    check(wait_for(lambda: client.request("status")["state"] == "locked", 10), "even locking the vault…")
+    page.js(f"api().call('unlock', {{}}, {{ kind: 'master_password', value: {json.dumps(MASTER)} }})")
+    page.js("state.view = 'credentials'; state.selected = 'shop-db'")
+    check(wait_for(lambda: "Rotación a medias" in page.text(), 15), "…keeps it: the credential shows a rotation left halfway")
+    page.click("Rotar con ayuda")
+    check(wait_for(lambda: "Rotación a medias: ¿ya la cambiaste?" in page.text(), 10), "reopening asks whether it was changed")
+    calm_shot(page, "09-rotate-resume")
+    page.click("Sí, ya la cambié: guardar")
+    check(wait_for(lambda: "3 · Ponla en cada sitio" in page.text() and "Faltan 3" in page.text(), 15), "and saves the one it kept")
     page.js("document.querySelectorAll('.modal input[type=checkbox]').forEach((c) => { c.click(); })")
     page.click("Terminar")
     check(wait_for(lambda: page.js("!document.querySelector('.modal')"), 5), "and it is done")
@@ -319,15 +423,40 @@ def run(app, env, devtools, api_port, client, integrations):
     page.click("Rotar con ayuda")
     wait_for(lambda: "1 · Dónde se usa" in page.text(), 10)
     page.click("Siguiente")
-    wait_for(lambda: "Generar una" in page.text(), 10)
-    page.click("Generar una")
+    wait_for(lambda: "Guardar y que la aplique la IA" in page.text(), 10)
     page.click("Guardar y que la aplique la IA")
     check(wait_for(lambda: "la base de datos aún tiene la anterior" in page.text()
                    and "Aplica en la base de datos la contraseña nueva de «BD tienda» (shop-db)" in page.text(), 15),
           "or it is saved first, with a request for the AI to apply it")
     page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    page.click("Descartar")
+
+    print("A database password applied by the service")
+    pg = {"id": "pg-api", "name": "Postgres API", "template": "database", "description": "",
+          "fields": {"engine": "postgresql", "host": "db.internal", "database": "api", "username": "pg_app", "password": "OLD-pg-pass-1"},
+          "used_in": ["pro: servidor api"], "policy": {"approval": "session", "commands": {"allowed": ["psql"], "env": {}}}}
+    page.js(f"api().call('save_entry', {{ entry: {json.dumps(pg)} }}, {{ kind: 'master_password', value: {json.dumps(MASTER)} }})")
+    page.js("state.view = 'credentials'; state.selected = 'pg-api'; loadEntries().then(renderMain)")
+    wait_for(lambda: "Postgres API" in page.text() and "Rotar con ayuda" in page.text(), 10)
+    page.click("Rotar con ayuda")
+    wait_for(lambda: "1 · Dónde se usa" in page.text(), 10)
+    page.click("Siguiente")
+    check(wait_for(lambda: "Aplicar ahora" in page.text() and "Lo hago yo" in page.text() and "con psql" in page.text(), 15),
+          "with psql installed and allowed: «Aplicar ahora», and «Lo hago yo» as the alternative")
+    calm_shot(page, "09-rotate-apply")
+    page.click("Aplicar ahora")
+    check(wait_for(lambda: "Cambiada en la base de datos con psql y comprobada" in page.text(), 30),
+          "one click: the service changes it with the current one and logs in with the new one")
+    applied = (HOME / "bin" / "db_password.txt").read_text(encoding="utf-8")
+    check(applied != "OLD-pg-pass-1" and applied == client.request("reveal", {"id": "pg-api", "field": "password",
+                                                                              "proof": {"kind": "master_password", "value": MASTER}}),
+          "the database and the vault have the same new password")
+    page.js("document.querySelectorAll('.modal input[type=checkbox]').forEach((c) => { c.click(); })")
+    page.click("Terminar")
+    check(wait_for(lambda: page.js("!document.querySelector('.modal')"), 5), "and it is done")
 
     print("Suggesting a database password in the editor")
+    page.js("state.view = 'credentials'; state.selected = 'shop-db'; renderMain()")
     wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
     page.click("Editar")
     check(wait_for(lambda: "Generar" in page.text(), 10), "the password field has «Generar»")
@@ -353,16 +482,16 @@ def run(app, env, devtools, api_port, client, integrations):
     page.click("Ya la tengo")
     check(wait_for(lambda: "¿Y el ID de cliente?" in page.text(), 10), "step 3 asks whether the client id changed")
     page.js("""(() => { const i = document.querySelector('.modal input[type=password]'); i.value = 'GOCSPX-new-654321'; })()""")
-    page.click("Probar y guardar")
+    page.click("Guardar")
     check(wait_for(lambda: "Indica si el ID de cliente es el mismo o ha cambiado" in page.text(), 10), "it can't be saved without answering")
     page.js("document.querySelector('.modal input[type=radio][value=new]').click()")
     page.js("""(() => { const i = document.querySelector('.modal input.mono'); i.value = '619577974052-newclient.apps.googleusercontent.com'; })()""")
     page.shot("10-rotate-new-client")
-    page.click("Probar y guardar")
+    page.click("Guardar")
     check(wait_for(lambda: "ID de cliente nuevo guardado" in page.text(), 15), "a new client: the new id is saved with the secret")
     page.click("Siguiente")
     check(wait_for(lambda: "borra el anterior (619577974052-oldclient" in page.text(), 10), "step 4 says to delete the old client")
-    page.click("Ya la he borrado")
+    page.click("Ya la he anulado")
     page.js("loadEntries()")
     check(wait_for(lambda: page.js("(state.entries.find((e) => e.id === 'g-oauth') || {fields: {}}).fields.username")
                    == "619577974052-newclient.apps.googleusercontent.com", 10), "the credential has the new client id")

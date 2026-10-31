@@ -41,6 +41,35 @@ a secret, never given to the AI, programs, the scanner or the redactor, and not 
 does not reset a key's age). Imported notes, TOTP seeds and custom fields go there. It travels with shared items like
 any other field.
 
+### 1.2 Rotation, health and copies found
+
+* **Rotations that can't be lost.** A new password is kept in the vault (section `rotation`, per entry
+  `pending = {field, value, since, generated}`) before the app tells the user to set it anywhere:
+  `rotation_begin {id, generate | value}` (the service generates it; the page never gets it),
+  `replace_key {id, pending: true}` saves it as the current one, `rotation_discard {id}` forgets it. Entries carry
+  `pending_rotation = {since, generated}` (never the value) and the wizard reopens with "Rotación a medias".
+  `rotation_secret {id, what: value | command}` returns it for the app to copy to the clipboard; like
+  `export_vault` it is in `TEAM_EXPORT_OPS`, so a Windows-session unlock is not enough.
+* **Database passwords applied by the service.** `rotation_apply {id, used_in?}` runs the engine's own client
+  (`psql`, `mysql`, `sqlcmd`, `redis-cli`; found on PATH and allowed by the credential's `policy.commands`), with
+  the SQL on stdin: it connects with the current password, changes it, logs in with the new one, and only then
+  saves it. On failure nothing is saved and the new one stays pending (`apply_failed`, `unverified`,
+  `no_client`). `guide.apply = {client, available, reason}` tells the app whether it can.
+* **Uploads that fail after a rotation** (GitHub secrets) stay in `rotation.entries[id].failed_uploads`; entries
+  show `failed_uploads` (without the token id) and `retry_uploads {id}` tries again.
+* **Test requests.** An API key of a provider the app does not know can have `test_request = {method: GET | HEAD,
+  url, status}` (an allowed host of the credential; a path is joined to its API address), set by the user
+  (`set_test_request`) or the AI (`update_credential`). `exposure.check_alive` uses it, so the key is tested by
+  the periodic checks, when rotating it and when checking that the old one is dead.
+* **Copies found.** `exposure_ignore {session, id, location, ignore}` keeps a finding but stops it counting.
+  `exposure_redact {session, id, location, data}` returns a piece of an AI conversation or a shell history with the
+  secret replaced by `[REDACTED:id]`: the app (which alone can read the user's files) sends the file in whole
+  lines, writes the result in place, keeps a `.secretbroker.bak` copy next to it (found by the next search until
+  deleted) and calls `exposure_redacted`. The secret never leaves the service.
+* **Health** (`health`) also counts team access, old keys not revoked yet, failed uploads, rotations left halfway
+  and keys never tested, and returns `scanned`, `checked` and `complete`: without a search for copies and a check
+  with the providers the app shows "Sin datos aún" instead of a score.
+
 ## 2. Team cryptography
 
 All primitives already exist in `secretbroker/crypto.py` (scrypt, HKDF-SHA256, AES-256-GCM, X25519 `seal_to`/`open_from`)

@@ -140,8 +140,10 @@ function generatorButtons(templateId, field, input) {
 // ======================================================================= health
 
 const HEALTH_LABELS = { weak: 'débiles', reused: 'repetidas', old: 'antiguas', expired: 'caducadas', expiring: 'caducan pronto',
-  exposed: 'expuestas', pwned: 'en filtraciones', old_alive: 'con la anterior viva', was_exposed: 'estuvieron expuestas' };
-const HEALTH_DANGER = new Set(['exposed', 'pwned', 'reused', 'weak', 'expired']);
+  exposed: 'expuestas', pwned: 'en filtraciones', old_alive: 'con la anterior viva', was_exposed: 'estuvieron expuestas',
+  team_access: 'con acceso de alguien que se fue', upload_failed: 'sin subir', half_rotated: 'rotaciones a medias',
+  retired_pending: 'falta anular la anterior', unchecked: 'sin probar' };
+const HEALTH_DANGER = new Set(['exposed', 'pwned', 'reused', 'weak', 'expired', 'team_access', 'upload_failed']);
 
 function healthLabel(score) {
   return score >= 90 ? 'Excelente' : score >= 75 ? 'Buena' : score >= 50 ? 'Mejorable' : 'Necesita atención';
@@ -156,7 +158,29 @@ function canChangePassword(entry) {
 function rotateWithHelp(entry) {
   if (canChangePassword(entry)) changePasswordGuided(entry);
   else if (entry.guide) rotateGuided(entry);
-  else { state.selected = entry.id; state.view = 'credentials'; renderMain(); }
+  else openEntry(entry);
+}
+
+function openEntry(entry) {
+  state.selected = entry.id;
+  state.view = 'credentials';
+  renderMain();
+}
+
+// What fixes a credential's worst problem, as one button.
+function healthAction(entry, issue, reminder) {
+  const button = (text, onclick, primary = false) => {
+    const node = el('button', { class: `btn ${primary ? 'primary' : ''}` }, text);
+    node.addEventListener('click', () => onclick(node));
+    return node;
+  };
+  if (!canWrite(entry)) return button('Abrir', () => openEntry(entry));
+  if (issue.kind === 'upload_failed') return button('Reintentar subida', (node) => retryUploads(entry, node));
+  if (issue.kind === 'half_rotated') return button('Terminar la rotación', () => rotateWithHelp(entry));
+  if (issue.kind === 'retired_pending' || issue.kind === 'old_alive') return button('Anular la anterior', () => openEntry(entry));
+  if (issue.kind === 'unchecked') return button('Probar', (node) => checkOne(entry, node));
+  if (issue.kind === 'team_access' && reminder && !reminder.can_rotate) return button('Abrir', () => openEntry(entry));
+  return button('Rotar con ayuda', () => rotateWithHelp(entry));
 }
 
 function healthSection() {
@@ -167,26 +191,32 @@ function healthSection() {
     const items = report.items.filter((item) => entries[item.id]);
     const counts = Object.entries(report.counts).filter(([, n]) => n);
     const shown = showAll ? items : items.slice(0, 6);
+    // Without a search for copies and a test with the providers, «all fine» would be a guess.
+    const known = report.complete;
+    const when = [report.scanned ? `búsqueda: ${whenText(report.scanned)}` : 'sin buscar copias',
+      report.checked ? `proveedores: ${whenText(report.checked)}` : 'sin probar con los proveedores'].join(' · ');
+    const missing = [report.scanned ? null : 'buscar copias de tus claves', report.checked ? null : 'probarlas con sus proveedores'].filter(Boolean);
+    const scoreClass = !known ? 'is-unknown' : report.score >= 75 ? 'is-ok' : report.score >= 50 ? 'is-warning' : 'is-exposed';
     box.replaceChildren(
       el('div', { class: 'health-head' },
-        el('div', { class: `health-score ${report.score >= 75 ? 'is-ok' : report.score >= 50 ? 'is-warning' : 'is-exposed'}` }, String(report.score)),
+        el('div', { class: `health-score ${scoreClass}`, title: known ? 'Puntuación de 0 a 100' : 'Sin datos aún' }, known ? String(report.score) : '—'),
         el('div', { class: 'meta' },
-          el('div', { class: 'title' }, healthLabel(report.score)),
-          el('div', { class: 'muted small' }, report.total
-            ? `${report.healthy} de ${report.total} credenciales sin problemas`
-            : 'Aún no hay credenciales'),
+          el('div', { class: 'title' }, !report.total ? 'Aún no hay credenciales' : known ? healthLabel(report.score) : 'Sin datos aún'),
+          el('div', { class: 'muted small' }, !report.total ? '' : !known
+            ? `Falta ${missing.join(' y ')}. «Revisar ahora» hace ${missing.length > 1 ? 'las dos cosas' : 'lo que falta'}.`
+            : items.length ? `${report.healthy} de ${report.total} credenciales sin problemas (${when})`
+              : `Sin problemas en lo revisado (${when})`),
           counts.length ? el('div', { class: 'health-counts' }, counts.map(([kind, n]) =>
-            el('span', { class: `chip ${HEALTH_DANGER.has(kind) ? 'is-exposed' : 'is-warning'}` }, `${n} ${HEALTH_LABELS[kind] || kind}`))) : null)),
+            el('span', { class: `chip ${HEALTH_DANGER.has(kind) ? 'is-exposed' : kind === 'unchecked' ? '' : 'is-warning'}` }, `${n} ${HEALTH_LABELS[kind] || kind}`))) : null)),
       items.length ? el('div', { class: 'health-list' }, shown.map((item) => {
         const entry = entries[item.id];
         return el('div', { class: 'health-row' }, glyph(entry.template),
           el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name,
-            item.issues.map((issue) => el('span', { class: `chip ${HEALTH_DANGER.has(issue.kind) ? 'is-exposed' : 'is-warning'}` }, issue.label))),
+            item.issues.map((issue) => el('span', { class: `chip ${HEALTH_DANGER.has(issue.kind) ? 'is-exposed' : issue.kind === 'unchecked' ? '' : 'is-warning'}` }, issue.label))),
           el('div', { class: 'subtitle' }, item.issues[0].text)),
-          el('button', { class: 'btn', onclick: () => rotateWithHelp(entry) }, icon('rotate', 'sm'), 'Rotar con ayuda'));
+          healthAction(entry, item.issues[0], state.reminders && state.reminders[entry.id]));
       }), items.length > shown.length || showAll ? el('button', { class: 'link small', onclick: () => { showAll = !showAll; render(report); } },
-        showAll ? 'Ver menos' : `Ver todas (${items.length})`) : null)
-        : report.total ? el('p', { class: 'muted small' }, 'Todo en orden: ninguna contraseña débil, repetida, antigua ni caducada.') : null);
+        showAll ? 'Ver menos' : `Ver todas (${items.length})`) : null) : null);
   };
   api().call('health').then((result) => {
     if (result.ok) render(result.result);
@@ -196,17 +226,57 @@ function healthSection() {
 }
 
 // Change the password of a web login or an SSH account: generate it, change it there, save it here.
+// The one shown is kept by the service as pending, so closing (or locking) before saving never loses
+// a password already set on the site; reopening offers to finish.
 function changePasswordGuided(entry) {
   const ssh = entry.template === 'ssh';
   const url = entry.fields.url || '';
   const site = ssh ? `${entry.fields.username}@${entry.fields.host}` : hostOf(url) || entry.name;
-  const panel = generatorPanel();
   const errorText = el('div', { class: 'error-text' });
   const save = el('button', { class: 'btn primary' }, 'Ya la he cambiado: guardar');
+  let pending = entry.pending_rotation;
+  let kept = '';  // the value the service keeps as pending (from this dialog)
+  let finished = false;
+  let timer = null;
+  const keep = (value) => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const result = await api().call('rotation_begin', { id: entry.id, value });
+      if (result.ok) { kept = value; pending = result.result.pending_rotation; }
+    }, 300);
+  };
+  const body = el('div', {});
+  const foot = el('div', { style: 'display:contents' });
   const modal = openModal({
     title: `Cambiar la contraseña de ${entry.name}`,
     wide: true,
-    body: [
+    body,
+    footer: [foot],
+    confirmClose: () => (finished ? null : pending
+      ? 'La contraseña nueva queda guardada aquí como pendiente: cuando vuelvas a «Rotar con ayuda», podrás terminar.'
+      : 'Aún no se ha cambiado nada.'),
+    onClose: () => { clearTimeout(timer); loadEntries().then(renderMain); },
+  });
+  const finish = async (params) => {
+    errorText.textContent = '';
+    busy(save, true);
+    const result = await withProof((p) => api().call('replace_key', { id: entry.id, ...params }, p), `Para guardar la contraseña nueva de ${entry.name}.`);
+    busy(save, false);
+    if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
+    finished = true;
+    modal.close();
+    toast('Contraseña nueva guardada');
+  };
+  const copyPending = async () => {
+    const result = await withProof((p) => api().copy_rotation_secret(entry.id, 'value', p), `Para copiar la contraseña nueva de ${entry.name}.`);
+    if (result.ok) toast(`Copiada · se borra del portapapeles en ${result.result} s`);
+    else if (result.code !== 'cancelled') toast(result.error, 'error');
+  };
+
+  const fresh = () => {
+    const panel = generatorPanel(null, keep);
+    save.onclick = () => finish(kept && kept === panel.value() ? { pending: true } : { value: panel.value() });
+    body.replaceChildren(
       el('ol', { class: 'guide-steps' },
         el('li', {}, ssh ? `Entra en ${site} y prepárate para cambiarla con passwd (o desde el panel del servidor).`
           : `Abre ${site} y ve a la página para cambiar la contraseña.`,
@@ -214,24 +284,34 @@ function changePasswordGuided(entry) {
         el('li', {}, 'Copia esta contraseña nueva y pégala allí:'),
         el('li', {}, 'Cuando la acepte, guárdala aquí.', ssh ? ' La app comprueba que entra con ella antes de guardarla.' : '')),
       panel.node,
-      el('div', { style: 'display:flex;gap:8px' }, el('button', { class: 'btn', onclick: () => copyGenerated(panel.value()) }, icon('copy', 'sm'), 'Copiar')),
-      el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, 'No cierres esta ventana hasta guardarla: la nueva solo está aquí y en el portapapeles.')),
+      el('div', { style: 'display:flex;gap:8px' }, el('button', { class: 'btn', onclick: () => { keep(panel.value()); copyGenerated(panel.value()); } }, icon('copy', 'sm'), 'Copiar')),
+      el('p', { class: 'help' }, 'Mientras la cambias, se guarda aquí como pendiente: si cierras antes de guardarla, no se pierde.'),
       (entry.used_in || []).length ? el('p', { class: 'help' }, `Después cámbiala también en: ${entry.used_in.join('; ')}.`) : null,
-      errorText,
-    ],
-    footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, 'Cancelar'), save],
-  });
-  save.addEventListener('click', async () => {
-    errorText.textContent = '';
-    busy(save, true);
-    const result = await withProof((p) => api().call('replace_key', { id: entry.id, value: panel.value() }, p), `Para guardar la contraseña nueva de ${entry.name}.`);
-    busy(save, false);
-    if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
-    modal.close();
-    await loadEntries();
-    renderMain();
-    toast('Contraseña nueva guardada');
-  });
+      errorText);
+    foot.replaceChildren(el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, 'Cancelar'), save);
+  };
+
+  // Halfway: a new password was prepared and not saved. Was it set on the site?
+  const resume = () => {
+    save.onclick = () => finish({ pending: true });
+    save.textContent = 'Sí, ya la cambié: guardar';
+    body.replaceChildren(
+      el('h3', {}, 'Rotación a medias: ¿ya la cambiaste?'),
+      el('p', { class: 'muted' }, `${capitalized(atText(pending.since))} se preparó una contraseña nueva para ${site} y no se llegó a guardar. `
+        + 'Si ya la pusiste allí, guárdala ahora: la que hay aquí ya no funcionaría.'),
+      el('div', { class: 'prop' }, el('div', { style: 'min-width:0' }, el('div', { class: 'k' }, 'Contraseña nueva'), el('div', { class: 'v secret' }, '••••••••••••')),
+        el('div', { class: 'actions' }, el('button', { class: 'btn icon-only', title: 'Copiar', onclick: copyPending }, icon('copy', 'sm')))),
+      errorText);
+    foot.replaceChildren(el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: async () => {
+      const result = await withProof((p) => api().call('rotation_discard', { id: entry.id }, p), `Para descartar la nueva de ${entry.name}.`);
+      if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
+      pending = null;
+      save.textContent = 'Ya la he cambiado: guardar';
+      fresh();
+    } }, 'No, descartarla'), save);
+  };
+  if (pending) resume();
+  else fresh();
 }
 
 // ======================================================================= import

@@ -285,8 +285,9 @@ class Api:
         path = Path(str(location))
         if not path.name.endswith(REDACT_BACKUP_SUFFIX) or not _redactable(path.with_name(path.name[:-len(REDACT_BACKUP_SUFFIX)])):
             return False
+        existed = path.exists()
         path.unlink(missing_ok=True)
-        return True
+        return existed
 
     def copy_rotation_secret(self, entry_id, what="value", proof=None):
         """Copy the new password of a rotation in progress (or the command that sets it) to the clipboard;

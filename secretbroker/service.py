@@ -1151,7 +1151,7 @@ class Service:
             data["last_scan"] = {"ts": timestamp, "files": len(session["scanned"] | unchanged)}
         self._update_exposure(merge)
         for entry_id, count in new_findings.items():
-            self._audit(entry_id, "exposure", f"Encontrada en claro en {count} sitio(s) nuevo(s)", "error")
+            self._audit(entry_id, "exposure", f"Encontrada en claro en {count} {'sitio nuevo' if count == 1 else 'sitios nuevos'}", "error")
         return self.op_exposure_report(params)
 
     def op_exposure_report(self, params):
@@ -1600,7 +1600,9 @@ class Service:
         return {"check": alive, "rotation": rotation.info(entry), "key_age_days": secret_age_days(entry),
                 "expires": entry.get("expires"), "rotate_every_days": entry.get("rotate_every_days"),
                 "rotation_guide": guide and guide["source"], "used_in": entry.get("used_in") or [],
-                **({} if entry.get("used_in") else {"used_in_question": USED_IN_QUESTION}), **_paired_question(entry)}
+                **({} if entry.get("used_in") else {"used_in_question": USED_IN_QUESTION}), **_paired_question(entry),
+                **({"test_question": TEST_QUESTION} if entry["template"] in ("api_key", "generic")
+                   and not exposure.check_alive_possible(entry) else {})}
 
     def op_ai_rotate(self, params):
         entry = self._get_secret(params.get("secret_id"))
@@ -2236,6 +2238,9 @@ USED_IN_QUESTION = ("¿Dónde se usa esta credencial (develop, pre, pro, el .env
                     "Apúntalo con update_credential(used_in=[...]): al rotarla, la app le pedirá al usuario que la cambie en cada sitio.")
 CONTEXT_KEYS = ("name", "description", "tags", "expires", "rotate_every_days", "rotation_guide", "check_every_hours", "used_in")  # changes that don't affect where a key can go
 CONTEXT_KEYS += ("test_request",)  # only to the credential's own allowed hosts, and read-only
+TEST_QUESTION = ("La app no sabe cómo probar esta clave. Busca en la documentación de su API un endpoint de solo lectura "
+                 "que necesite la clave y guárdalo con update_credential(test_request={\"method\": \"GET\", \"url\": \"/ruta\", "
+                 "\"status\": 200}): así se comprueba que funciona y, al rotarla, se prueba la nueva.")
 CHANGE_LABELS["test_request"] = "Petición de prueba"
 
 
@@ -2246,7 +2251,7 @@ def _describe_changes(old, new):
         if old.get(key) != new.get(key):
             value = ", ".join(new[key]) if key == "tags" and new.get(key) else str(new.get(key) or "—")
             if key == "rotation_guide" and new.get(key):
-                value = f"{len(new[key]['create'])} paso(s); fuentes: {', '.join(new[key]['sources'])}"
+                value = f"{len(new[key]['create'])} {'paso' if len(new[key]['create']) == 1 else 'pasos'}; fuentes: {', '.join(new[key]['sources'])}"
             elif key == "rotate_every_days" and new.get(key) is not None:
                 value = str(new[key] or "nunca")
             elif key == "used_in":

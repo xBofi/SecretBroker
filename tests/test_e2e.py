@@ -874,6 +874,8 @@ def main():
     try:
         echo = next(e for e in client.request("entries") if e["id"] == "echo-api")
         check(not echo["guide"]["testable"], "a key of an unknown provider can't be tested")
+        check("test_request" in client.request("ai_check", {"secret_id": "echo-api"}).get("test_question", ""),
+              "the AI is asked to find a test for it")
         expect_error(lambda: client.request("update_credential", {"secret_id": "echo-api", "test_request": {"method": "POST", "url": "/x"}}),
                      "invalid", "a test request can't change anything (GET or HEAD only)")
         expect_error(lambda: client.request("update_credential", {"secret_id": "echo-api", "test_request": {"url": "https://evil.example.com/me"}}),
@@ -884,6 +886,7 @@ def main():
         check(echo["guide"]["testable"] and echo["test_request"] == {"method": "GET", "url": base + "/v1/me", "status": 200},
               "then it is testable, in the wizard too")
         check(exposure.check_alive(service.vault.get("echo-api"))["status"] == "ok", "and its check passes")
+        check("test_question" not in client.request("ai_check", {"secret_id": "echo-api"}), "and the AI is no longer asked")
         result = call("set_test_request", {"id": "echo-api", "test": {"method": "GET", "url": "/v1/me", "status": 204}, "check": True},
                       {"kind": "presence", "token": presence})
         check(result["check"]["status"] == "unknown" and "204" in result["check"]["message"] and API_KEY not in json.dumps(result),

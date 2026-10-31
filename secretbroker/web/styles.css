@@ -363,7 +363,7 @@ details.advanced > .inner { padding: 6px 0 4px 24px; display: flex; flex-directi
 .exposure-head .subtitle { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .reasons { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 details.findings > summary { cursor: pointer; font-size: 12.5px; color: var(--muted); padding: 2px 0; }
-.finding { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto 30px; gap: 10px; align-items: center; padding: 2px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.finding { display: grid; grid-template-columns: 130px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 2px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
 .finding:last-child { border-bottom: none; }
 .finding.gone { opacity: .6; }
 .finding .source { color: var(--muted); }
@@ -521,6 +521,31 @@ details.collection > summary .subtitle { color: var(--muted); font-size: 12.5px;
 .health-row .title { font-weight: 550; }
 .health-row .subtitle { color: var(--muted); font-size: 12.5px; }
 .section-title { font-size: 15px; margin: 4px 0 8px; }
+.health-score.is-unknown { color: var(--muted); border-style: dashed; }
+.section-head { display: flex; align-items: center; gap: 12px; max-width: 920px; margin: 4px 0 8px; }
+.section-head .section-title { margin: 0; flex: 1; }
+.section > h3 .chip { vertical-align: 1px; }
+
+/* Credential status at a glance: one chip per signal, each opens its detail or action */
+.status-strip { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -12px; }
+.status-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px;
+  border: 1px solid var(--line); background: transparent; color: var(--text); font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.status-chip:hover { background: var(--fill); border-color: var(--line-strong); }
+.status-chip .spinner { width: 12px; height: 12px; }
+.status-chip.is-ok .level-dot { background: var(--ok); }
+.status-chip.is-warning { border-color: color-mix(in srgb, var(--c-key) 45%, var(--line)); }
+.status-chip.is-warning .level-dot { background: var(--c-key); }
+.status-chip.is-exposed { border-color: color-mix(in srgb, var(--danger) 50%, var(--line)); color: var(--danger); }
+.status-chip.is-exposed .level-dot { background: var(--danger); }
+.status-chip.is-unknown { color: var(--muted); }
+.status-chip.is-neutral .level-dot { background: var(--muted); }
+.warning.is-warning { color: var(--c-key); }
+.draft-box.is-danger { border-left-color: var(--danger); }
+.draft-badge.is-danger { color: var(--danger); }
+.manual-box:not(:empty) { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.finding-actions { display: flex; gap: 2px; align-items: center; justify-content: flex-end; }
+.btn.sm { height: 26px; padding: 0 8px; font-size: 12px; }
+.exposure-card.focus { box-shadow: 0 0 0 2px var(--accent-soft); border-color: var(--accent); }
 
 /* Import preview: one checkable row per credential in the file */
 .import-list { display: flex; flex-direction: column; max-height: 46vh; overflow: auto; border-top: 1px solid var(--line); }

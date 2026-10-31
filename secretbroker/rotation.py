@@ -387,6 +387,8 @@ def _run_client(argv, env, stdin):
     """Run a database client found on PATH (never a path given), the SQL on its standard input so no
     password is on a command line. Returns (exit code, output). Replaced in tests."""
     executable = actions._resolve_executable(argv[0])
+    if os.path.splitext(executable)[1].lower() in (".bat", ".cmd") and any(actions.CMD_METACHARS & set(a) for a in argv[1:]):
+        raise ActionError("Un dato de la credencial tiene caracteres especiales de cmd.exe: no se puede usar con un script .bat/.cmd")
     completed = subprocess.run([executable, *argv[1:]], input=stdin.encode("utf-8"), capture_output=True,
                                env={**os.environ, **env}, timeout=APPLY_TIMEOUT,
                                creationflags=CREATE_NO_WINDOW if sys.platform == "win32" else 0)
