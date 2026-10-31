@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "2FA kodea"
+  },
+  "2fa_code_copied": {
+    "message": "2FA kodea kopiatuta"
+  },
+  "browser": {
+    "message": "Nabigatzailea"
+  },
+  "can_talk_secretbroker": {
+    "message": "Ezin da SecretBroker-ekin hitz egin."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Ezin da SecretBroker-ekin hitz egin"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Ezin da SecretBroker-ekin hitz egin. Ireki eta saiatu berriro."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Egiaztatu SecretBroker-ek kode bera erakusten duela eta sakatu «Konektatu»."
+  },
+  "cmd_fill": {
+    "message": "Bete webgune honetako saio-hasiera"
+  },
+  "cmd_open": {
+    "message": "Ireki SecretBroker"
+  },
+  "code": {
+    "message": "Kodea"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Berretsi SecretBroker-en"
+  },
+  "connect": {
+    "message": "Konektatu $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Konektatu nabigatzaile hau"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Konektatu nabigatzaile hau: sakatu SecretBroker-en ikonoa nabigatzailearen tresna-barran, eta gero «Konektatu»."
+  },
+  "copy_2fa_code": {
+    "message": "Kopiatu 2FA kodea"
+  },
+  "copy_password": {
+    "message": "Kopiatu pasahitza"
+  },
+  "copy_username": {
+    "message": "Kopiatu erabiltzaile-izena"
+  },
+  "couldn_connect": {
+    "message": "Ezin izan da konektatu."
+  },
+  "couldn_copy": {
+    "message": "Ezin izan da kopiatu"
+  },
+  "couldn_fill_it_in": {
+    "message": "Ezin izan da bete"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Ez da aurkitu non bete."
+  },
+  "couldn_look_it_up": {
+    "message": "Ezin izan da bilatu."
+  },
+  "couldn_save": {
+    "message": "Ezin izan da gorde"
+  },
+  "create_your_vault_first": {
+    "message": "Sortu zure kutxa gotorra lehenik"
+  },
+  "ext_description": {
+    "message": "SecretBroker-en gordetzen dituzun pasahitzak betetzen ditu, haien webgunean soilik eta zuk eskatzen duzunean soilik."
+  },
+  "fill_in": {
+    "message": "Bete"
+  },
+  "fill_in_on": {
+    "message": "Bete hemen: $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Bete SecretBroker-ekin"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Bete leiho hau ireki gabe"
+  },
+  "form_from": {
+    "message": "Formularioa:"
+  },
+  "form_is_in_frame_too": {
+    "message": "Formularioa ikusteko txikiegia den marko batean dago: ez da betetzen."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Formularioa marko ezkutu edo oso txiki batean dago: ez da betetzen."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Instalatu SecretBroker eta ireki Ezarpenak › Nabigatzailea. Instalatu berri baduzu, berrabiarazi nabigatzailea."
+  },
+  "it_no_longer_pending": {
+    "message": "Jada ez dago zain."
+  },
+  "it_only_fills_in_on": {
+    "message": "Pasahitz bakoitzaren webgunean soilik betetzen du."
+  },
+  "loading": {
+    "message": "Kargatzen"
+  },
+  "name": {
+    "message": "Izena"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "$domain$ domeinuko kredentzialek ez dute 2FA koderik.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· https gabe"
+  },
+  "no_username": {
+    "message": "Erabiltzaile-izenik ez"
+  },
+  "not_now": {
+    "message": "Orain ez"
+  },
+  "nothing_matches": {
+    "message": "Ez dago bat datorrenik."
+  },
+  "nothing_saved_for": {
+    "message": "Ez dago ezer gordeta $domain$ domeinurako.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Ez dago ezer gordeta $domain$ domeinurako. Hasi saioa eta gordetzea eskainiko dizut.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Beste webgune batzuetan"
+  },
+  "on_this_website": {
+    "message": "Webgune honetan"
+  },
+  "open": {
+    "message": "Ireki $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Ireki eta saiatu berriro."
+  },
+  "open_it_can_be_filled": {
+    "message": "Ireki $host$ (han bete daiteke)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Ireki SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Ireki SecretBroker eta sortu zure kutxa gotorra pasahitzak gordetzeko."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Ireki webgune bat haren pasahitzak ikusteko."
+  },
+  "open_website_you_want_sign": {
+    "message": "Ireki saioa hasi nahi duzun webgunea."
+  },
+  "page_has_changed_try_again": {
+    "message": "Orria aldatu egin da. Saiatu berriro."
+  },
+  "password_copied": {
+    "message": "Pasahitza kopiatuta"
+  },
+  "password_updated": {
+    "message": "Pasahitza eguneratuta"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Pasahitza eguneratuta SecretBroker-en"
+  },
+  "save": {
+    "message": "Gorde"
+  },
+  "save_this_login": {
+    "message": "Saio-hasiera hau gorde nahi duzu?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Pasahitz hau SecretBroker-en gorde nahi duzu?"
+  },
+  "saved": {
+    "message": "Gordeta"
+  },
+  "saved_for": {
+    "message": "Gordeta: $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "SecretBroker-en gordeta"
+  },
+  "search": {
+    "message": "Bilatu"
+  },
+  "search_secretbroker": {
+    "message": "Bilatu SecretBroker-en"
+  },
+  "searching": {
+    "message": "Bilatzen…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker-ek ez du garaiz erantzun."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker blokeatuta dago."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker blokeatuta dago"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker blokeatuta dago. Desblokeatu eta saiatu berriro."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "SecretBroker falta da ordenagailu honetan"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker ez dago instalatuta ordenagailu honetan, edo oraindik nabigatzailearekin konektatu behar da."
+  },
+  "that_way_it_can_fill": {
+    "message": "Horrela zure pasahitzak bete ahal izango ditu. SecretBroker-ek klik batekin berresteko eskatuko dizu."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Ez dago saio-hasierarik gordeta $domain$ domeinurako.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Orri honetan ez dago 2FA kode-eremu ikusgairik."
+  },
+  "there_no_visible_login_form": {
+    "message": "Orri honetan ez dago saio-hasierako formulario ikusgairik."
+  },
+  "this_page_can_be_filled": {
+    "message": "Orri hau ezin da bete."
+  },
+  "this_team_credential_is_use": {
+    "message": "Taldeko kredentzial hau erabiltzeko soilik da: ez da nabigatzailean betetzen."
+  },
+  "unlock": {
+    "message": "Desblokeatu"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Desblokeatu eta sakatu hemen berriro."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Desblokeatu zure pasahitzak betetzeko."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Desblokeatu SecretBroker eta sakatu berriro «Konektatu»."
+  },
+  "update": {
+    "message": "Eguneratu"
+  },
+  "update_password": {
+    "message": "«$name$» kredentzialaren pasahitza eguneratu nahi duzu?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Erabiltzeko soilik: ez da betetzen"
+  },
+  "use_only_on_team_not": {
+    "message": "Erabiltzeko soilik taldean: ez da betetzen"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Erabiltzeko soilik den taldeko kredentziala: betetzeak orriari erakutsiko lioke"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Erabiltzeko soilik diren taldeko kredentzialak AAk erabil ditzake, baina ez dira erakusten: betetzeak orriari emango lioke."
+  },
+  "username_copied": {
+    "message": "Erabiltzaile-izena kopiatuta"
+  },
+  "you_re_on": {
+    "message": "Hemen zaude:"
+  }
+}

@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "Codi 2FA"
+  },
+  "2fa_code_copied": {
+    "message": "Codi 2FA copiat"
+  },
+  "browser": {
+    "message": "Navegador"
+  },
+  "can_talk_secretbroker": {
+    "message": "No es pot parlar amb SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "No es pot parlar amb SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "No es pot parlar amb SecretBroker. Obre'l i torna-ho a provar."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Comprova que SecretBroker mostra aquest mateix codi i fes clic a «Connecta»."
+  },
+  "cmd_fill": {
+    "message": "Emplena l'inici de sessió d'aquest lloc web"
+  },
+  "cmd_open": {
+    "message": "Obre SecretBroker"
+  },
+  "code": {
+    "message": "Codi"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Confirma-ho a SecretBroker"
+  },
+  "connect": {
+    "message": "Connecta $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Connecta aquest navegador"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Connecta aquest navegador: fes clic a la icona de SecretBroker de la barra d'eines del navegador i després a «Connecta»."
+  },
+  "copy_2fa_code": {
+    "message": "Copia el codi 2FA"
+  },
+  "copy_password": {
+    "message": "Copia la contrasenya"
+  },
+  "copy_username": {
+    "message": "Copia l'usuari"
+  },
+  "couldn_connect": {
+    "message": "No s'ha pogut connectar."
+  },
+  "couldn_copy": {
+    "message": "No s'ha pogut copiar"
+  },
+  "couldn_fill_it_in": {
+    "message": "No s'ha pogut emplenar"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "No s'ha trobat on emplenar-ho."
+  },
+  "couldn_look_it_up": {
+    "message": "No s'ha pogut cercar."
+  },
+  "couldn_save": {
+    "message": "No s'ha pogut desar"
+  },
+  "create_your_vault_first": {
+    "message": "Primer crea la teva caixa forta"
+  },
+  "ext_description": {
+    "message": "Emplena les contrasenyes que guardes a SecretBroker, només al seu propi lloc web i només quan ho demanes."
+  },
+  "fill_in": {
+    "message": "Emplena"
+  },
+  "fill_in_on": {
+    "message": "Emplena a $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Emplena amb SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Emplena sense obrir aquesta finestra"
+  },
+  "form_from": {
+    "message": "Formulari de"
+  },
+  "form_is_in_frame_too": {
+    "message": "El formulari és en un marc massa petit per veure'l: no s'emplena."
+  },
+  "form_is_in_hidden_or": {
+    "message": "El formulari és en un marc ocult o molt petit: no s'emplena."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Instal·la SecretBroker i obre Configuració › Navegador. Si l'acabes d'instal·lar, reinicia el navegador."
+  },
+  "it_no_longer_pending": {
+    "message": "Ja no està pendent."
+  },
+  "it_only_fills_in_on": {
+    "message": "Només emplena al lloc web de cada contrasenya."
+  },
+  "loading": {
+    "message": "Carregant"
+  },
+  "name": {
+    "message": "Nom"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Cap credencial de $domain$ no té codi 2FA.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· sense https"
+  },
+  "no_username": {
+    "message": "Sense usuari"
+  },
+  "not_now": {
+    "message": "Ara no"
+  },
+  "nothing_matches": {
+    "message": "No hi ha cap coincidència."
+  },
+  "nothing_saved_for": {
+    "message": "No hi ha res desat per a $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "No hi ha res desat per a $domain$. Inicia la sessió i et proposaré desar-lo.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "En altres llocs web"
+  },
+  "on_this_website": {
+    "message": "En aquest lloc web"
+  },
+  "open": {
+    "message": "Obre $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Obre'l i torna-ho a provar."
+  },
+  "open_it_can_be_filled": {
+    "message": "Obre $host$ (allà s'hi pot emplenar)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Obre SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Obre SecretBroker i crea la teva caixa forta per desar contrasenyes."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Obre un lloc web per veure'n les contrasenyes."
+  },
+  "open_website_you_want_sign": {
+    "message": "Obre el lloc web on vols iniciar la sessió."
+  },
+  "page_has_changed_try_again": {
+    "message": "La pàgina ha canviat. Torna-ho a provar."
+  },
+  "password_copied": {
+    "message": "Contrasenya copiada"
+  },
+  "password_updated": {
+    "message": "Contrasenya actualitzada"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Contrasenya actualitzada a SecretBroker"
+  },
+  "save": {
+    "message": "Desa"
+  },
+  "save_this_login": {
+    "message": "Vols desar aquest inici de sessió?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Vols desar aquesta contrasenya a SecretBroker?"
+  },
+  "saved": {
+    "message": "Desat"
+  },
+  "saved_for": {
+    "message": "Desat per a $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Desat a SecretBroker"
+  },
+  "search": {
+    "message": "Cerca"
+  },
+  "search_secretbroker": {
+    "message": "Cerca a SecretBroker"
+  },
+  "searching": {
+    "message": "Cercant…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker no ha respost a temps."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker està bloquejat."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker està bloquejat"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker està bloquejat. Desbloqueja'l i torna-ho a provar."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "Falta SecretBroker en aquest ordinador"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker no està instal·lat en aquest ordinador, o encara s'ha de connectar al navegador."
+  },
+  "that_way_it_can_fill": {
+    "message": "Així podrà emplenar les teves contrasenyes. SecretBroker et demanarà que ho confirmis amb un clic."
+  },
+  "there_are_no_saved_logins": {
+    "message": "No hi ha inicis de sessió desats per a $domain$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "No hi ha cap camp de codi 2FA visible en aquesta pàgina."
+  },
+  "there_no_visible_login_form": {
+    "message": "No hi ha cap formulari d'inici de sessió visible en aquesta pàgina."
+  },
+  "this_page_can_be_filled": {
+    "message": "Aquesta pàgina no es pot emplenar."
+  },
+  "this_team_credential_is_use": {
+    "message": "Aquesta credencial de l'equip és de només ús: no s'emplena al navegador."
+  },
+  "unlock": {
+    "message": "Desbloqueja"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Desbloqueja'l i torna a fer clic aquí."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Desbloqueja'l per emplenar les teves contrasenyes."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Desbloqueja SecretBroker i torna a fer clic a «Connecta»."
+  },
+  "update": {
+    "message": "Actualitza"
+  },
+  "update_password": {
+    "message": "Vols actualitzar la contrasenya de «$name$»?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Només ús: no s'emplena"
+  },
+  "use_only_on_team_not": {
+    "message": "Només ús a l'equip: no s'emplena"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Credencial de l'equip de només ús: emplenar-la la mostraria a la pàgina"
+  },
+  "use_only_team_credentials_can": {
+    "message": "La IA pot fer servir les credencials de l'equip de només ús, però no es mostren: emplenar-la la donaria a la pàgina."
+  },
+  "username_copied": {
+    "message": "Usuari copiat"
+  },
+  "you_re_on": {
+    "message": "Ets a"
+  }
+}
