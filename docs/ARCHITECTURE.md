@@ -149,8 +149,9 @@ launcher (native messaging, 4-byte length + JSON on stdin/stdout), and the host 
   (`client.reopen_with_session`), never after «Bloquear».
 * **In the extension.** Nothing is filled on page load: only after a trusted click in its menu (closed shadow
   root) or popup, or the `fill-login` command; values go only to the frame that will be filled (`tabs.sendMessage`
-  with `frameId`), which fills only visible, enabled fields in a frame of a usable size; for a sub-frame the top
-  page must show a visible iframe of that origin. After a form is sent (trusted submit, click or Enter) it asks
+  with `frameId` and the origin the service matched: a frame that shows another origin by then refuses them),
+  which fills only visible, enabled fields in a frame of a usable size; for a sub-frame the top page must show a
+  visible iframe of that origin. After a form is sent (trusted submit, click or Enter) it asks
   `ext_save_check`; the offer (with the typed values) waits in `storage.session` for 5 minutes and is saved only
   when the user clicks «Guardar» / «Actualizar» in the page's bar or the popup.
 * **Registration.** `native_host.register()` writes a launcher (`secretbroker-host.cmd`: the bundled `python.exe -I`)
@@ -270,6 +271,12 @@ arrives with its programs and environment variables (`policy.commands`, code tha
 the same way; its web hosts and server fields apply. A local id freed by a synced deletion is never given to another
 credential in that round, and the service forgets the approvals, destinations and exposure records of every
 credential a sync removes.
+
+The browser hands a filled password to the page, so the pages where it fills a shared web login are a destination
+too: a change that lets it fill somewhere new (`fields.url`, `autofill.sites`, or `autofill.match` from `host` to
+`domain`; `teams.new_fill_sites`) is quarantined the same way (`pending_policy.fill`), and until the user accepts it
+the browser fills only where it did. Without this, a teammate about to be removed could point the login at their
+own site and receive the password the team sets after rotating it.
 
 The **description** is what the AI reads as instructions about a credential, so a teammate's new description is a
 prompt-injection vector: it is quarantined like a new destination (`text_changes`; `pending_policy.texts` and
@@ -424,12 +431,14 @@ Implementation notes (`server/`, binding for clients):
   same e-mail. `closed`: nobody. E-mails in `SB_ADMIN_EMAILS` are server admins and register (in any mode, `closed`
   included) only with a signup token, normally from the server's command line (`secretbroker-server
   create-invite`), so nobody can take the address first.
-* **E-mail verification** (`SB_EMAIL_VERIFICATION=required`, the default). `register` answers `{user_id, verified}`
-  and `user` objects carry `verified`. An account is verified by the e-mailed code (`SB_SMTP_*`; 8 digits, stored as
-  an HMAC with the server secret), by registering with a pending org invite id for that e-mail, or by the admin
-  (`secretbroker-server verify-email <e-mail>`; `unverified` lists who is waiting). Until then `GET /invites` is
-  empty, `accept` is `403 email_unverified`, invite rows of `GET /orgs/{oid}/members` do not name the account and
-  the invite path of `/users/{uid}/keys` does not show its keys. `SB_EMAIL_VERIFICATION=off` (a self-hoster's
+* **E-mail verification** (`SB_EMAIL_VERIFICATION=required`, the default). `register` answers `{user_id, verified,
+  invited_to?}` and `user` objects carry `verified`. An account is verified by the e-mailed code (`SB_SMTP_*`; 8
+  digits, stored as an HMAC with the server secret) or by the admin (`secretbroker-server verify-email <e-mail>`;
+  `unverified` lists who is waiting). Until then `GET /invites` is empty, `accept` is `403 email_unverified`, invite
+  rows of `GET /orgs/{oid}/members` do not name the account and the invite path of `/users/{uid}/keys` does not
+  show its keys. Registering with a pending org invite id for that e-mail (`users.invited_to`) lifts this for that
+  one organization only: anyone can create an organization and invite any address, so its own invite code must
+  not hand the address the invites of others. `SB_EMAIL_VERIFICATION=off` (a self-hoster's
   explicit choice) verifies everyone at registration. Accounts that existed before schema 2 count as verified.
 * **Limits.** Login failures are throttled per e-mail (5 free) and per client address (20 free), then each failure
   doubles the wait (max 15 min) and attempts during the wait get `429`, even with the right password. Registrations
@@ -582,9 +591,10 @@ service's memory (another uid) nor its files.
   plus a bind mount of its own folder, so one owner's service cannot even see another's vault; also `ProtectSystem=strict`,
   `PrivateTmp`, `PrivateDevices`, kernel protections and `LimitCORE=0` (no core dumps with secrets).
 * The owner reads `broker.json` (port, token, the service's public key) through the group; no other user can, unlike
-  Windows where every local user may read it (the token alone does not unlock anything there either). This relies on
-  the owner's primary group being their own, as Ubuntu creates it (`USERGROUPS=yes`); members of a shared primary
-  group could read the token too.
+  Windows where every local user may read it (the token alone does not unlock anything there either). That is the
+  owner's own primary group as Ubuntu creates it (`USERGROUPS=yes`); when the primary group is shared with other
+  accounts (a site-wide `users`), `secretbroker-prepare` gives `public/` to the group `secretbroker` instead and lets
+  the owner in with an ACL (`u:<owner>:rX`, inherited; the package depends on `acl`).
 * The app finds the service through `paths.is_installed()` (`/var/lib/secretbroker/$USER/public` exists). If it is
   stopped, `client.ensure_service` asks systemd to start the user's own unit; `/usr/share/polkit-1/rules.d/50-secretbroker.rules`
   allows exactly `start`/`restart` of `secretbroker@<that user>.service` for a local, active session, and nothing else
@@ -608,6 +618,11 @@ purge` deletes `/var/lib/secretbroker` and the account; a plain remove keeps the
 
 The same design as Linux, with launchd and an ACL:
 
+* Nothing that runs as root or as `_secretbroker` is taken from `/Applications`, which an administrator's programs
+  can rename and replace without a password: `postinstall` (the installer, with the administrator's consent) copies
+  `secretbroker-setup` to `/Library/PrivilegedHelperTools/com.secretbroker.setup` and the bundled Python, with
+  SecretBroker in it, to `/Library/Application Support/SecretBroker/.runtime` (root:wheel, read-only for others,
+  `secretbroker-setup --install-runtime`); the daemons run that copy. At boot nothing is copied from the app.
 * `secretbroker-setup` (root; run by the package's `postinstall`, and by the LaunchDaemon `com.secretbroker.setup`
   at boot and whenever `/Users` changes, so accounts created later get a service too) creates `_secretbroker`, and
   for each desktop account (uid 501+, home in `/Users`, a real shell) the folders and
@@ -637,7 +652,8 @@ icon (`tools/make_icon.py --iconset` + `iconutil`, on Apple's 824/1024 grid), `s
 `Contents/MacOS/SecretBroker` is a shell launcher that `exec`s the bundled Python, so Launch Services keeps the
 process as SecretBroker.app (Dock, menu bar, `secretbroker://` links, which arrive as an Apple event and are
 handled by `app._listen_for_links`). The component is not relocatable, so updates always replace the copy the
-daemons use. `postinstall` runs `secretbroker-setup --restart`, links `/usr/local/bin/sb`, registers the browser
+daemons use. `postinstall` copies the setup script and the runtime out of the bundle (§6.3), runs
+`secretbroker-setup --restart`, links `/usr/local/bin/sb`, registers the browser
 host for every account and opens the app for the logged-in user on a first install. Signing and notarization are
 optional (`MACOS_SIGN_APP`, `MACOS_SIGN_INSTALLER`, `MACOS_NOTARY_PROFILE`; see docs/RELEASING.md).
 

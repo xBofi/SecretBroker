@@ -66,6 +66,10 @@ A program running as the user, without administrator rights.
 - The vault, the service memory and its code belong to another Windows account; reading or patching them needs
   administrator elevation.
 - The service ignores user environment variables and user site-packages (`python -I`).
+- On macOS, where an administrator's programs can replace anything in `/Applications` without a password, nothing
+  that runs as root or as the service account comes from there: the installer copies the setup script and the
+  service's Python to root-owned folders. On Linux, the folder with the service's token is readable only by the
+  owner even when their primary group is shared (an ACL instead of the group).
 - Service responses are signed (Ed25519) with a key only the real service has, so a fake service cannot impersonate it
   to the app.
 - Registering a new Windows Hello key requires the master or Windows password.
@@ -91,8 +95,11 @@ A member of an organization, with some permission on a collection.
 **Mitigations**
 - A member only receives keys for collections they were granted; the server cannot add itself or others because grants
   and member lists are signed and fingerprints are pinned.
-- Synced changes to anything that decides where a key can go (policy hosts, commands, env) and to the description
-  (which the AI reads as instructions) are quarantined locally until the user accepts them. The local approval mode is
+- Synced changes to anything that decides where a key can go (policy hosts, commands, env, and the pages where the
+  browser fills a web login: its address, autofill sites and how strictly they match) and to the description
+  (which the AI reads as instructions) are quarantined locally until the user accepts them. So a teammate (one
+  about to be removed included) cannot point a shared login at their own site and collect the password the team
+  sets after rotating it. The local approval mode is
   never taken from the server.
 - Item versions and deletions must be signed by someone with `edit` or `manage` in the signed member list: a `view` or
   `use` member who holds the collection key cannot write or delete items, even with the server's help.
@@ -144,8 +151,10 @@ A member of an organization, with some permission on a collection.
 - Item versions and deletions carry the author's signature and a write counter: the server cannot forge, attribute
   or delete content, nor serve an older version again; unsigned deletions are ignored and reported, and a collection
   that disappears with many credentials is held for the user.
-- Invites only bind to e-mail addresses the account verified (code by e-mail, the admin's invite code, or the admin),
-  so registering someone's address first does not get their invites.
+- Invites only bind to e-mail addresses the account verified (code by e-mail, or the server admin), so registering
+  someone's address first does not get their invites. Registering with an organization's invite code opens only
+  that organization's invites: anyone can create an organization and invite any address, so their own invite code
+  proves nothing to anybody else.
 - Pins of verified people are stored encrypted with the account's own keys and never rolled back.
 - Quarantine of policy-widening and description changes (3.3) also covers changes forged by the server.
 
@@ -208,7 +217,8 @@ A member of an organization, with some permission on a collection.
   (`github.io`, `blogspot.com`), `http` pages for `https` logins and other ports get nothing, not even the names.
 - Nothing is filled on page load. Values are requested one login at a time after a trusted click in the extension's
   own UI (a closed shadow root the page cannot script) or its keyboard shortcut, and are sent only to the frame
-  being filled; frames of another registrable domain, hidden or tiny frames and invisible fields are never filled.
+  being filled, which must still show the origin the service matched (a frame that navigated elsewhere meanwhile
+  gets nothing); frames of another registrable domain, hidden or tiny frames and invisible fields are never filled.
 - Team credentials with `use` permission are never filled (that would give the value to the page).
 - Saving a typed login needs the user's click; every fill, copy and save is in Actividad («Navegador»).
 
@@ -232,6 +242,12 @@ A member of an organization, with some permission on a collection.
   user (an AI agent with a shell included) that reads it can ask, through the service, for the logins of any site,
   one at a time, while the vault is unlocked; each one is logged in Actividad. Anything running as the user can
   also read what the browser itself shows or fills. Treat a connected browser like the unlocked vault.
+- A program running as the user can also ask to connect as a browser (it can start the native host with our
+  extension's id). The app shows each request with the code the browser's popup shows: accept only a request
+  whose code your own popup is showing.
+- A page on the right domain can rewrite a password field after the user typed in it, so «Actualizar» could
+  save what that page chose, replacing the saved one. Only that site's own pages can do it (a compromised site,
+  as above); backups keep the earlier value.
 - Until the extension is published, it is loaded unpacked (Chromium) or temporarily (Firefox); store builds get
   other ids, which must be added to the app before they can connect.
 
@@ -241,4 +257,10 @@ A member of an organization, with some permission on a collection.
 - Physical attacks on an unlocked, unattended PC.
 - An attacker with administrator or SYSTEM rights on the user's PC.
 - Supply-chain compromise of Python dependencies before they are bundled into a signed release (mitigated only by
-  review and pinned release signing).
+  review and pinned release signing). The release workflow pins every GitHub Action to a commit SHA and the
+  bundled CPython by checksum, but installs Python packages from PyPI by name, in the same jobs that hold the
+  release signing key: a malicious release of a dependency could sign a bad installer. Pinning them with hashes
+  (`pip install --require-hashes`) is a pending decision.
+- The update signature binds the version and the installer's hash, not which system it is for: a signed package
+  of the same version for another system could be offered in its place. It would fail to install (it is not
+  code for this system), never install something unsigned.
