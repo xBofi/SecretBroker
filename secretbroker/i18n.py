@@ -22,6 +22,8 @@ WEB_LOCALES = Path(__file__).with_name("web") / "locales"
 SOURCE = "es"
 FALLBACK = "en"
 CODE = re.compile(r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$")
+# Tags that mean a language we have under another code: Simplified Chinese in any of its spellings, Norwegian.
+ALIASES = {"zh": "zh-CN", "zh-hans": "zh-CN", "zh-sg": "zh-CN", "zh-my": "zh-CN", "no": "nb", "nn": "nb"}
 PLACEHOLDER = re.compile(r"\{(\w+)\}")
 
 _request = contextvars.ContextVar("secretbroker_lang", default=None)
@@ -110,6 +112,11 @@ def plural_category(lang, n):
         return {1: "one", 2: "two", 3: "few", 4: "few"}.get(mod100, "other")
     if base in ("fr", "pt"):
         return "one" if n in (0, 1) else "other"
+    if base == "ga":
+        return "one" if n == 1 else "two" if n == 2 else "few" if 3 <= n <= 6 else "many" if 7 <= n <= 10 else "other"
+    if base == "mt":
+        return ("one" if n == 1 else "two" if n == 2 else "few" if n == 0 or 3 <= mod100 <= 10
+                else "many" if 11 <= mod100 <= 19 else "other")
     return "one" if n == 1 else "other"
 
 
@@ -143,6 +150,15 @@ def tr(key, **params):
     return _fill(message, params)
 
 
+def alias(tag):
+    """The code we keep `tag`'s language under, if it is spelt differently («zh-Hans-CN», «zh-SG» → «zh-CN»)."""
+    lower = (tag or "").lower()
+    if lower.startswith(("zh-hant", "zh-tw", "zh-hk", "zh-mo")):
+        return None  # Traditional Chinese: not Simplified
+    parts = lower.split("-")
+    return ALIASES.get("-".join(parts[:2])) or ALIASES.get(parts[0])
+
+
 def system_language():
     """The best available language for the system's own (Windows UI language, $LANG…), else English."""
     wanted = []
@@ -163,7 +179,7 @@ def system_language():
     codes = available()
     for tag in wanted:
         tag = tag.split(".")[0].replace("_", "-")
-        for code in (tag, tag.split("-")[0].lower()):
+        for code in (tag, alias(tag), tag.split("-")[0].lower()):
             if code in codes:
                 return code
     return FALLBACK if FALLBACK in codes else SOURCE

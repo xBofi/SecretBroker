@@ -110,12 +110,25 @@ function localized(build) {
   });
 }
 
-// The language's own name, capitalised: «Deutsch», «Русский», «中文».
+// Names written out: WebView2 has no data for some languages and would name them in the system's («Gallego», «Maltés»).
+const LANGUAGE_NAMES = {
+  bg: 'Български', ca: 'Català', cs: 'Čeština', da: 'Dansk', de: 'Deutsch', el: 'Ελληνικά', en: 'English',
+  es: 'Español', et: 'Eesti', eu: 'Euskara', fi: 'Suomi', fr: 'Français', ga: 'Gaeilge', gl: 'Galego', hr: 'Hrvatski',
+  hu: 'Magyar', it: 'Italiano', lt: 'Lietuvių', lv: 'Latviešu', mt: 'Malti', nb: 'Norsk bokmål', nl: 'Nederlands',
+  pl: 'Polski', pt: 'Português', ro: 'Română', ru: 'Русский', sk: 'Slovenčina', sl: 'Slovenščina', sv: 'Svenska',
+  tr: 'Türkçe', uk: 'Українська', 'zh-CN': '简体中文',
+};
+
+// The language's own name, capitalised: «Deutsch», «Русский», «简体中文».
 function languageName(code) {
+  if (LANGUAGE_NAMES[code]) return LANGUAGE_NAMES[code];
   let name = code;
   try { name = new Intl.DisplayNames([code], { type: 'language' }).of(code) || code; } catch { /* old engine */ }
   return name.charAt(0).toLocaleUpperCase(code) + name.slice(1);
 }
+
+// Tags that mean a language we have under another code: Simplified Chinese in any of its spellings, Norwegian.
+const LANGUAGE_ALIASES = { zh: 'zh-CN', 'zh-hans': 'zh-CN', 'zh-sg': 'zh-CN', 'zh-my': 'zh-CN', no: 'nb', nn: 'nb' };
 
 // The best of the available locales for a list of wanted ones (navigator.languages): exact, then by language.
 function matchLanguage(wanted, available) {
@@ -123,6 +136,10 @@ function matchLanguage(wanted, available) {
     const lower = String(tag).toLowerCase();
     const exact = available.find((code) => code.toLowerCase() === lower);
     if (exact) return exact;
+    const parts = lower.split('-');
+    const traditional = /^zh-(hant|tw|hk|mo)/.test(lower);
+    const alias = traditional ? null : LANGUAGE_ALIASES[parts.slice(0, 2).join('-')] || LANGUAGE_ALIASES[parts[0]];
+    if (alias && available.includes(alias)) return alias;
     const base = available.find((code) => code.toLowerCase() === lower.split('-')[0]);
     if (base) return base;
   }
