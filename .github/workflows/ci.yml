@@ -15,9 +15,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  windows:
-    runs-on: windows-latest
+  # The desktop app's suites (no GUI) on each system. tests/test_gui.py needs a real desktop and runs before releases.
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    # The macOS port is not finished (TODO(macos) in secretbroker/platform/macos.py): informative until it is.
+    continue-on-error: ${{ matrix.os == 'macos-latest' }}
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v5
 
@@ -25,32 +37,67 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: System libraries (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libpam0g
+
       - name: Install SecretBroker
         run: |
           python -m venv .venv
-          .venv\Scripts\python.exe -m pip install --disable-pip-version-check --quiet .[dev]
+          if [ "$RUNNER_OS" = "Windows" ]; then PY=.venv/Scripts/python.exe; else PY=.venv/bin/python; fi
+          echo "PY=$PY" >> "$GITHUB_ENV"
+          $PY -m pip install --disable-pip-version-check --quiet ".[dev]"
+          if [ -f server/pyproject.toml ]; then $PY -m pip install --disable-pip-version-check --quiet -e server; fi
+
+      - name: Platform layer
+        run: $PY tests/test_platform.py
 
       - name: End-to-end tests
-        run: .venv\Scripts\python.exe tests\test_e2e.py
+        run: $PY tests/test_e2e.py
 
       - name: Personal tests
-        shell: pwsh
-        run: |
-          if (Test-Path tests\test_personal.py) {
-            .venv\Scripts\python.exe tests\test_personal.py
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          } else { "tests\test_personal.py not present, skipped" }
+        run: $PY tests/test_personal.py
+
+      - name: Exposure tests
+        run: $PY tests/test_exposure.py
 
       - name: Team tests
-        shell: pwsh
+        run: $PY tests/test_teams.py
+
+  # Builds the Ubuntu package, installs it on the runner and checks that the service starts as `secretbroker`.
+  linux-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build dependencies
         run: |
-          if (Test-Path tests\test_teams.py) {
-            if (Test-Path server\pyproject.toml) {
-              .venv\Scripts\python.exe -m pip install --disable-pip-version-check --quiet -e server
-            }
-            .venv\Scripts\python.exe tests\test_teams.py
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          } else { "tests\test_teams.py not present, skipped" }
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils dpkg-dev curl libnss3 libxkbcommon0 libxkbcommon-x11-0 libegl1 libgl1 \
+            libopengl0 libfontconfig1 libdbus-1-3 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 libxcomposite1 libxdamage1 \
+            libxrandr2 libxtst6 libxshmfence1 libxkbfile1 libwayland-client0 libwayland-cursor0 libwayland-egl1
+
+      - name: Build the .deb
+        run: bash tools/build_deb.sh
+
+      - name: Install it and check the service
+        run: |
+          sudo apt-get install -y -qq ./dist/secretbroker_*_amd64.deb
+          sleep 5
+          systemctl is-active "secretbroker@$USER.service"
+          test "$(ps -o user= -p "$(systemctl show -p MainPID --value "secretbroker@$USER.service")")" = secretbroker
+          stat -c '%U:%G %a' "/var/lib/secretbroker/$USER/data" "/var/lib/secretbroker/$USER/public/broker.json"
+          /opt/secretbroker/venv/bin/python -I -c "from secretbroker import client, paths; assert paths.is_installed(); print(client.request('status')['state'])"
+          sudo apt-get purge -y -qq secretbroker
+          test ! -e /var/lib/secretbroker
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secretbroker-deb
+          path: dist/secretbroker_*_amd64.deb
+          retention-days: 7
 
   linux-server:
     runs-on: ubuntu-latest

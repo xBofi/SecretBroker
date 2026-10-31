@@ -439,7 +439,9 @@ service's memory (another uid) nor its files.
   plus a bind mount of its own folder, so one owner's service cannot even see another's vault; also `ProtectSystem=strict`,
   `PrivateTmp`, `PrivateDevices`, kernel protections and `LimitCORE=0` (no core dumps with secrets).
 * The owner reads `broker.json` (port, token, the service's public key) through the group; no other user can, unlike
-  Windows where every local user may read it (the token alone does not unlock anything there either).
+  Windows where every local user may read it (the token alone does not unlock anything there either). This relies on
+  the owner's primary group being their own, as Ubuntu creates it (`USERGROUPS=yes`); members of a shared primary
+  group could read the token too.
 * The app finds the service through `paths.is_installed()` (`/var/lib/secretbroker/$USER/public` exists). If it is
   stopped, `client.ensure_service` asks systemd to start the user's own unit; `/usr/share/polkit-1/rules.d/50-secretbroker.rules`
   allows exactly `start`/`restart` of `secretbroker@<that user>.service` for a local, active session, and nothing else
