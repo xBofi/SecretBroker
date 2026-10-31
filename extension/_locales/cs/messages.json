@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "Kód 2FA"
+  },
+  "2fa_code_copied": {
+    "message": "Kód 2FA zkopírován"
+  },
+  "browser": {
+    "message": "Prohlížeč"
+  },
+  "can_talk_secretbroker": {
+    "message": "Nelze se spojit s aplikací SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Nelze se spojit s aplikací SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Nelze se spojit s aplikací SecretBroker. Otevřete ho a zkuste to znovu."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Zkontrolujte, že SecretBroker zobrazuje stejný kód, a klikněte na „Připojit“."
+  },
+  "cmd_fill": {
+    "message": "Vyplnit přihlášení pro tento web"
+  },
+  "cmd_open": {
+    "message": "Otevřít SecretBroker"
+  },
+  "code": {
+    "message": "Kód"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Potvrďte to v aplikaci SecretBroker"
+  },
+  "connect": {
+    "message": "Připojit $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Připojit tento prohlížeč"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Připojte tento prohlížeč: klikněte na ikonu SecretBroker na panelu nástrojů prohlížeče a pak na „Připojit“."
+  },
+  "copy_2fa_code": {
+    "message": "Kopírovat kód 2FA"
+  },
+  "copy_password": {
+    "message": "Kopírovat heslo"
+  },
+  "copy_username": {
+    "message": "Kopírovat uživatelské jméno"
+  },
+  "couldn_connect": {
+    "message": "Připojení se nezdařilo."
+  },
+  "couldn_copy": {
+    "message": "Kopírování se nezdařilo"
+  },
+  "couldn_fill_it_in": {
+    "message": "Vyplnění se nezdařilo"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Nepodařilo se najít, kam vyplnit."
+  },
+  "couldn_look_it_up": {
+    "message": "Vyhledání se nezdařilo."
+  },
+  "couldn_save": {
+    "message": "Uložení se nezdařilo"
+  },
+  "create_your_vault_first": {
+    "message": "Nejdřív si vytvořte trezor"
+  },
+  "ext_description": {
+    "message": "Vyplňuje hesla uložená v aplikaci SecretBroker, jen na jejich vlastním webu a jen když o to požádáte."
+  },
+  "fill_in": {
+    "message": "Vyplnit"
+  },
+  "fill_in_on": {
+    "message": "Vyplnit na $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Vyplnit pomocí aplikace SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Vyplnit bez otevření tohoto okna"
+  },
+  "form_from": {
+    "message": "Formulář z"
+  },
+  "form_is_in_frame_too": {
+    "message": "Formulář je v rámci, který je příliš malý, aby byl vidět: nevyplní se."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Formulář je ve skrytém nebo velmi malém rámci: nevyplní se."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Nainstalujte SecretBroker a otevřete Nastavení › Prohlížeč. Pokud jste ho právě nainstalovali, restartujte prohlížeč."
+  },
+  "it_no_longer_pending": {
+    "message": "Už to nečeká na vyřízení."
+  },
+  "it_only_fills_in_on": {
+    "message": "Vyplňuje jen na vlastním webu každého hesla."
+  },
+  "loading": {
+    "message": "Načítání"
+  },
+  "name": {
+    "message": "Název"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Žádné pověření pro $domain$ nemá kód 2FA.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· bez https"
+  },
+  "no_username": {
+    "message": "Bez uživatelského jména"
+  },
+  "not_now": {
+    "message": "Teď ne"
+  },
+  "nothing_matches": {
+    "message": "Nic neodpovídá."
+  },
+  "nothing_saved_for": {
+    "message": "Pro $domain$ není nic uloženo.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Pro $domain$ není nic uloženo. Přihlaste se a nabídnu vám uložení.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Na jiných webech"
+  },
+  "on_this_website": {
+    "message": "Na tomto webu"
+  },
+  "open": {
+    "message": "Otevřít $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Otevřete ho a zkuste to znovu."
+  },
+  "open_it_can_be_filled": {
+    "message": "Otevřít $host$ (tam ho lze vyplnit)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Otevřít SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Otevřete SecretBroker a vytvořte si trezor, abyste mohli ukládat hesla."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Otevřete web, abyste viděli jeho hesla."
+  },
+  "open_website_you_want_sign": {
+    "message": "Otevřete web, na který se chcete přihlásit."
+  },
+  "page_has_changed_try_again": {
+    "message": "Stránka se změnila. Zkuste to znovu."
+  },
+  "password_copied": {
+    "message": "Heslo zkopírováno"
+  },
+  "password_updated": {
+    "message": "Heslo aktualizováno"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Heslo v aplikaci SecretBroker aktualizováno"
+  },
+  "save": {
+    "message": "Uložit"
+  },
+  "save_this_login": {
+    "message": "Uložit toto přihlášení?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Uložit toto heslo do aplikace SecretBroker?"
+  },
+  "saved": {
+    "message": "Uloženo"
+  },
+  "saved_for": {
+    "message": "Uloženo pro $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Uloženo v aplikaci SecretBroker"
+  },
+  "search": {
+    "message": "Hledat"
+  },
+  "search_secretbroker": {
+    "message": "Hledat v aplikaci SecretBroker"
+  },
+  "searching": {
+    "message": "Hledání…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker neodpověděl včas."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker je zamčený."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker je zamčený"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker je zamčený. Odemkněte ho a zkuste to znovu."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "Na tomto počítači chybí SecretBroker"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker na tomto počítači není nainstalovaný, nebo ještě není propojený s prohlížečem."
+  },
+  "that_way_it_can_fill": {
+    "message": "Tak bude moci vyplňovat vaše hesla. SecretBroker vás požádá o potvrzení jedním kliknutím."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Pro $domain$ nejsou uložená žádná přihlášení.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Na této stránce není viditelné pole pro kód 2FA."
+  },
+  "there_no_visible_login_form": {
+    "message": "Na této stránce není viditelný přihlašovací formulář."
+  },
+  "this_page_can_be_filled": {
+    "message": "Tuto stránku nelze vyplnit."
+  },
+  "this_team_credential_is_use": {
+    "message": "Toto týmové pověření je jen k použití: v prohlížeči se nevyplňuje."
+  },
+  "unlock": {
+    "message": "Odemknout"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Odemkněte ho a klikněte sem znovu."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Odemkněte ho, abyste mohli vyplňovat hesla."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Odemkněte SecretBroker a znovu klikněte na „Připojit“."
+  },
+  "update": {
+    "message": "Aktualizovat"
+  },
+  "update_password": {
+    "message": "Aktualizovat heslo pro „$name$“?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Jen k použití: nevyplňuje se"
+  },
+  "use_only_on_team_not": {
+    "message": "Jen k použití v týmu: nevyplňuje se"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Týmové pověření jen k použití: vyplněním by se ukázalo stránce"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Týmová pověření jen k použití může používat AI, ale nezobrazují se: vyplněním by se předala stránce."
+  },
+  "username_copied": {
+    "message": "Uživatelské jméno zkopírováno"
+  },
+  "you_re_on": {
+    "message": "Jste na"
+  }
+}
