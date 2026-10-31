@@ -88,7 +88,8 @@ Until the extension is published in the browser stores, it is loaded from the ap
    (OpenAI, Anthropic, GitHub, Stripe, Cloudflare…) fill in the URL, auth header and environment variable for you.
 3. **Ask your AI to use it.** For example: _"List my open GitHub issues using the `github` credential."_ The first time,
    SecretBroker pops up and you approve with one click ("allow today" lasts 24 h by default).
-4. **Move a project's `.env` into the vault** (the AI can do this for you; it never prints values):
+4. **Move a project's `.env` into the vault**: in the app, *Import a project's .env* (pick the file, tick its keys,
+   one click, then take them out of the file). From a terminal, or by asking your AI (it never prints values):
    ```
    sb import .env --delete     # stores the keys, writes a .secretbroker file you can commit
    sb run -- npm run dev       # your app gets the variables straight from the vault

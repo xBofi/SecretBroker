@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Loo esmalt oma hoidla"
   },
+  "enter_fills_first": {
+    "message": "Täida „$name$“",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Täidab SecretBrokeris hoitavad paroolid – ainult nende enda veebisaidil ja ainult siis, kui palud."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Laadin"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ valimiseks, Enter täitmiseks"
+  },
+  "menu_shortcut_hint": {
+    "message": "täidab ilma selle menüüta"
   },
   "name": {
     "message": "Nimi"

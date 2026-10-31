@@ -34,7 +34,11 @@ shares credentials with your team, end-to-end encrypted.
   never into hidden fields or frames of another site. Team credentials marked «use only» are never filled.
 - It talks to the app through native messaging, never a network port. Connect it from **Settings › Browser** with
   one click (the app and the extension show the same 6-digit code). Until the extension is in the stores it is
-  loaded from the app's folder; Settings › Browser walks you through it.
+  loaded from the app's folder; Settings › Browser walks you through it, for the browsers on your PC (and Firefox,
+  with a note when it isn't installed yet).
+- The menu in login fields and the popup show each site's own icon (fetched from the site itself and cached by the
+  extension, never through an icon service that would learn which sites you have), and how to fill from the
+  keyboard: ↑ ↓ and Enter in the menu, Enter in the popup, Ctrl+Shift+L anywhere.
 
 ### Teams (preview)
 - Organizations, shared collections and per-person permissions (manage, edit, view, use-only), synced through a
@@ -45,19 +49,22 @@ shares credentials with your team, end-to-end encrypted.
   many deletions at once wait for your decision; organization owners can always recover a collection; the people
   you verify are trusted on all your PCs.
 - A teammate's change that widens where a key can go, rewrites the notes your AI reads, or adds a new web address
-  for a shared login waits until you accept it.
+  for a shared login waits until you accept it. The card lists each change in your language, with one-click
+  «Reject» (the recommended choice) or «Allow».
 
 ### The personal vault
 - Password generator (Ctrl+G), including passphrases.
 - **Health**: a 0–100 score and what to fix first (weak, reused, old, expired or exposed passwords).
 - Import from Bitwarden, 1Password, KeePass / KeePassXC, Chrome, Edge and Firefox, with a preview and a filter for
   developer keys. Export to an encrypted file, or to JSON / CSV after a clear warning.
+- **Import a project's .env** from the app, no terminal: pick the file, tick its keys (you only see names), import
+  with one click, then take them out of the file. The project gets a `.secretbroker` with the names for `sb run`.
 - Real 2FA codes (TOTP) and private notes the AI never sees.
 - «Connect your AI» connects Claude Code and Claude Desktop with one click.
 
 ### Approvals and everyday use
 - Your master password once per session, then one click. Approvals say which AI is asking, for which credential and
-  why.
+  why, and make «Allow for 24 hours» the recommended button with «Just this once» right next to it.
 - The list stays fresh when the AI or a teammate changes something, and two edits to the same credential no longer
   overwrite each other silently.
 - Rotations resume where they stopped, and database passwords can be applied by the service.

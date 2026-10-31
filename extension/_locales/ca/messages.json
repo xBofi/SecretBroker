@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Primer crea la teva caixa forta"
   },
+  "enter_fills_first": {
+    "message": "Emplena «$name$»",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Emplena les contrasenyes que guardes a SecretBroker, només al seu propi lloc web i només quan ho demanes."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Carregant"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ per triar, Retorn per emplenar"
+  },
+  "menu_shortcut_hint": {
+    "message": "emplena sense obrir aquest menú"
   },
   "name": {
     "message": "Nom"

@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "请先创建你的保险库"
   },
+  "enter_fills_first": {
+    "message": "填写“$name$”",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "填充你保存在 SecretBroker 中的密码，仅限其对应的网站，且仅在你要求时。"
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "正在加载"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ 选择，Enter 填写"
+  },
+  "menu_shortcut_hint": {
+    "message": "不打开此菜单直接填写"
   },
   "name": {
     "message": "名称"

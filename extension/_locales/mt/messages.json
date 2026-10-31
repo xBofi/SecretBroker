@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "L-ewwel oħloq il-kaxxa-forti tiegħek"
   },
+  "enter_fills_first": {
+    "message": "Imla «$name$»",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Timla l-passwords li żżomm f'SecretBroker, biss fis-sit tagħhom u biss meta titlob int."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Qed jitgħabba"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ biex tagħżel, Enter biex timla"
+  },
+  "menu_shortcut_hint": {
+    "message": "jimla mingħajr dan il-menu"
   },
   "name": {
     "message": "Isem"

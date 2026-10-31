@@ -60,7 +60,12 @@ Logic in their own modules, wired into `service.py` as GUI-only operations (none
 | `totp.py` | `totp_code` | RFC 6238 (SHA1/256/512, 6–8 digits, any period) from an otpauth:// URI or a base32 seed. `{id, copy?}` → `{code, period, remaining, digits}`. In `PRESENCE_OPS` and `TEAM_EXPORT_OPS` (a Windows-session unlock needs Hello or a password once; a real proof returns a full presence). Shown codes are audited once per 10 min per credential, copies always. |
 | `exports.py` | `export_vault` | `{format: encrypted \| json \| csv, password?}` → `{content}`; the app writes it. Presence proof. Format in `docs/EXPORT_FORMAT.md`. |
 
-`import_file` and `export_vault` are in `PRESENCE_OPS` (one click from the app that unlocked). `replace_key` also
+`import_file` and `export_vault` are in `PRESENCE_OPS` (one click from the app that unlocked). So is
+`import_env_file`, the app's «Importar un .env»: `app.py` reads the file (`cli.plan_env`), the page gets names only,
+and the values go to the service like `sb import`'s, without an approval (the user ticked them in the app); then
+`app.py` writes the project's `.secretbroker` and, if asked, takes the keys out of the file (`cli.remove_from_env`).
+A teammate's change waiting for review (`pending_change.changes`) is a list of `{kind, field?, template?, old?, new?,
+values?}` from `teams.widening_changes`, worded by the page in its language (vaults from before keep Spanish lines). `replace_key` also
 accepts web logins and SSH passwords (the password-change helper behind "Rotar con ayuda" in *Salud*).
 
 Every template has an optional **private notes** field (`fields.notes`, `secret` + `note`): hidden and revealed like

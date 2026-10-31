@@ -178,7 +178,9 @@ def check_team_review():
     check(teams.new_fill_sites(narrow, base) == ["example.com"], "and widening exact-host matching to the domain")
     check(teams.new_fill_sites(base, {**base, "autofill": {"match": "never"}}) == [], "never filling is not wider")
     lines = teams.widening_changes(base, {**base, "autofill": {"sites": ["evil.net"]}})
-    check(any("evil.net" in line for line in lines), "the change to review names it")
+    check(any(c["kind"] == "fill_sites" and "evil.net" in c["values"] for c in lines), "the change to review names it")
+    check(all(isinstance(c, dict) and "kind" in c for c in lines), "as structured changes the page words in its language")
+    check(any("evil.net" in teams.change_text(c) for c in lines), "and Actividad keeps a readable line")
 
     content = {**base, "name": "Banco nuevo", "autofill": {"sites": ["evil.net"]},
                "fields": {**base["fields"], "url": "https://evil.net/login"}}

@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Vispirms izveidojiet savu glabātavu"
   },
+  "enter_fills_first": {
+    "message": "Aizpildīt “$name$”",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Aizpilda SecretBroker glabātās paroles – tikai to pašu vietnē un tikai tad, kad to lūdzat."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Ielādē"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓, lai izvēlētos, Enter, lai aizpildītu"
+  },
+  "menu_shortcut_hint": {
+    "message": "aizpilda bez šīs izvēlnes"
   },
   "name": {
     "message": "Nosaukums"

@@ -282,12 +282,38 @@ def effective_content(entry):
 
 
 def text_changes(old, new):
-    """Lines for a change to the description: the AI reads it as instructions about the credential, so a
-    teammate's new text waits for review like a new destination (a prompt-injection vector otherwise)."""
+    """The change to the description: the AI reads it as instructions about the credential, so a teammate's new
+    text waits for review like a new destination (a prompt-injection vector otherwise)."""
     before, after = str(old.get("description") or "").strip(), str(new.get("description") or "").strip()
     if before == after or not after:
         return []  # removing the text can't instruct anything
-    return [f"Instrucciones para la IA (descripción): «{after[:300]}{'…' if len(after) > 300 else ''}»"]
+    return [{"kind": "description", "new": after[:300] + ("…" if len(after) > 300 else "")}]
+
+
+def is_text_change(change):
+    """A change to the instructions the AI reads (dicts since 0.16; Spanish lines kept in older vaults)."""
+    return change.get("kind") == "description" if isinstance(change, dict) else str(change).startswith("Instrucciones")
+
+
+def change_text(change):
+    """One change as the line Actividad has always kept (Spanish, like the rest of the service's audit details);
+    the review card renders the structured form in the page's language instead."""
+    if not isinstance(change, dict):
+        return str(change)
+    kind, values = change.get("kind"), ", ".join(change.get("values") or [])
+    if kind == "field":
+        template = change.get("template")
+        labels = {s["name"]: s["label"] for s in templates.field_specs(template)} if template in templates.TEMPLATES else {}
+        return f"{labels.get(change.get('field'), change.get('field'))}: {change.get('old') or '—'} → {change.get('new') or '—'}"
+    return {
+        "template": f"Tipo de credencial: {change.get('new')}",
+        "hosts": f"Webs nuevas: {values}",
+        "fill_sites": f"Autorrellenado del navegador en webs nuevas: {values}",
+        "auth": f"Cómo se envía la clave: {change.get('new')}",
+        "programs": f"Programas nuevos: {values}",
+        "env": f"Variables nuevas o cambiadas: {values}",
+        "description": f"Instrucciones para la IA (descripción): «{change.get('new')}»",
+    }.get(kind, str(change))
 
 
 def _destination(content):
@@ -299,34 +325,34 @@ def _destination(content):
 
 
 def widening_changes(old, new):
-    """Human-readable lines for every way `new` sends a secret somewhere `old` did not (empty: nothing wider)."""
+    """Every way `new` sends a secret somewhere `old` did not (empty: nothing wider), as structured changes
+    ({kind, field?, template?, old?, new?, values?}) that the page words in its own language."""
     sites = new_fill_sites(old, new)
     old, new = _destination(old), _destination(new)
-    lines = []
+    changes = []
     if old["template"] != new["template"]:
-        lines.append(f"Tipo de credencial: {new['template']}")
-    labels = {s["name"]: s["label"] for s in templates.field_specs(new["template"])} \
-        if new["template"] in templates.TEMPLATES else {}
+        changes.append({"kind": "template", "old": old["template"], "new": new["template"]})
     for name in DESTINATION_FIELDS:
         if old["fields"][name] != new["fields"][name]:
-            lines.append(f"{labels.get(name, name)}: {old['fields'][name] or '—'} → {new['fields'][name] or '—'}")
+            changes.append({"kind": "field", "field": name, "template": new["template"],
+                            "old": old["fields"][name] or "", "new": new["fields"][name] or ""})
     http = lambda d: d["policy"].get("http") or {}
     hosts = new_hosts(old, new)
     if hosts:
-        lines.append("Webs nuevas: " + ", ".join(hosts))
+        changes.append({"kind": "hosts", "values": hosts})
     if sites:
-        lines.append("Autorrellenado del navegador en webs nuevas: " + ", ".join(sites))
+        changes.append({"kind": "fill_sites", "values": sites})
     if (http(old).get("auth") or {"kind": "none"}) != (http(new).get("auth") or {"kind": "none"}):
-        lines.append("Cómo se envía la clave: " + str((http(new).get("auth") or {}).get("kind", "none")))
+        changes.append({"kind": "auth", "new": str((http(new).get("auth") or {}).get("kind", "none"))})
     commands = lambda d: d["policy"].get("commands") or {}
     programs = [c for c in commands(new).get("allowed") or [] if c not in (commands(old).get("allowed") or [])]
     if programs:
-        lines.append("Programas nuevos: " + ", ".join(programs))
+        changes.append({"kind": "programs", "values": programs})
     old_env = commands(old).get("env") or {}
     env = [k for k, v in (commands(new).get("env") or {}).items() if old_env.get(k) != v]
     if env:
-        lines.append("Variables nuevas o cambiadas: " + ", ".join(env))
-    return lines
+        changes.append({"kind": "env", "values": env})
+    return changes
 
 
 def new_hosts(old, new):
@@ -1851,7 +1877,7 @@ class Team:
         """Apply the incoming change except where the key may go and, with `texts`, the description the AI reads:
         those stay as they were until the user accepts (2.5)."""
         pending = {"by": author["name"], "at": now_iso(), "changes": lines, "hosts": new_hosts(local, content),
-                   "only_hosts": all(line.startswith("Webs nuevas: ") for line in lines), "texts": texts}
+                   "only_hosts": all(isinstance(c, dict) and c.get("kind") == "hosts" for c in lines), "texts": texts}
         if local["template"] != content.get("template"):
             entry = {**shared_content(local), "id": local["id"]}
             pending["entry"] = copy.deepcopy(content)

@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Crea tu bóveda primero"
   },
+  "enter_fills_first": {
+    "message": "Rellenar «$name$»",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Rellena tus contraseñas guardadas en SecretBroker, solo en su web y solo cuando tú lo pides."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Cargando"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ para elegir, Intro para rellenar"
+  },
+  "menu_shortcut_hint": {
+    "message": "rellena sin abrir este menú"
   },
   "name": {
     "message": "Nombre"

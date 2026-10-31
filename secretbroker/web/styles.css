@@ -231,6 +231,7 @@ select.input.compact { padding-right: 26px; background-position: calc(100% - 13p
 }
 .segmented button:hover { color: var(--text); }
 .segmented button.active { border-color: var(--interactive); color: var(--interactive); background: var(--interactive-soft); }
+.segmented button.not-installed:not(.active) { color: var(--faint); border-style: dashed; }
 
 .strength { display: flex; gap: 4px; }
 .strength span { flex: 1; height: 3px; border-radius: 2px; background: var(--fill); transition: background .2s; }
@@ -412,6 +413,8 @@ details.advanced > .inner { padding: 6px 0 4px 24px; display: flex; flex-directi
 .install-steps { margin: 12px 0; padding-left: 22px; display: flex; flex-direction: column; gap: 12px; }
 .install-steps li { padding-left: 4px; }
 .install-steps li > .btn { margin-top: 8px; }
+.install-body { display: flex; flex-direction: column; gap: 16px; }
+.install-steps.for-later { opacity: .6; }
 .install-folder { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
 .install-folder code { flex: 1 0 100%; font-family: var(--font-mono); font-size: var(--fs-sm); background: var(--bg-subtle);
   border-radius: var(--radius-sm); padding: 8px 10px; overflow-wrap: anywhere; }
@@ -697,6 +700,11 @@ details.collection > summary .subtitle { color: var(--muted); font-size: var(--f
 .import-row { display: flex; align-items: center; gap: 12px; padding: 8px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
 .import-row .meta { flex: 1; min-width: 0; }
 .import-row .title { font-weight: var(--fw-medium); }
+.import-row.is-there { cursor: default; opacity: .7; }
+.import-row .title.mono { font-family: var(--font-mono); font-size: var(--fs-sm); }
+.level.faint { color: var(--faint); font-weight: var(--fw-regular); }
+.env-file { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.env-file > .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .import-row .subtitle { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- teams: Equipo view ---------- */
@@ -853,8 +861,9 @@ label.with-icon { display: flex; }
 .cred-card.cat-database { --cat: var(--c-database); } .cred-card.cat-cloud { --cat: var(--c-cloud); } .cred-card.cat-lock { --cat: var(--c-lock); }
 mark.host { background: color-mix(in srgb, var(--interactive) 18%, transparent); color: var(--text); font-weight: var(--fw-semibold);
   border-radius: 3px; padding: 0 2px; }
-.btn.equal { background: var(--interactive-soft); color: var(--interactive); min-width: 132px; }
-.btn.equal:hover { background: color-mix(in srgb, var(--interactive) 20%, transparent); }
+.btn.secondary { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.btn.secondary:hover { background: var(--fill); }
+.approval .modal-foot .btn.secondary, .approval .modal-foot .btn.approve-span { min-width: 132px; }
 .btn.batch { color: var(--interactive); }
 .approval-explain { font-size: var(--fs-xs); color: var(--muted); line-height: 1.5; }
 .approval-explain b { color: var(--text); font-weight: var(--fw-semibold); }
@@ -964,9 +973,8 @@ p, .help, .lead, .muted, .subtitle, .banner, .warning { overflow-wrap: break-wor
 .setting { flex-wrap: wrap; }
 .setting > .control { min-width: min(200px, 100%); max-width: 100%; }
 .setting > .control select.input { width: 248px; max-width: 100%; }  /* one width that holds «100 Verwendungen pro Stunde» */
-/* «1 item to check» runs to «1 στοιχείο για έλεγχο»: two lines rather than an ellipsis. */
-.sidebar-footer .state { white-space: normal; line-height: 1.3; }
-.sidebar-footer .state > span:last-child { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* «1 item to check» runs to «1 пункт на проверку»: one line, with an ellipsis; the whole text is in its tooltip. */
+.sidebar-footer .state > span:last-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .finding .source, .event .actor > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-grid-head > span { overflow-wrap: anywhere; hyphens: auto; line-height: 1.25; padding: 0 2px; }
 .language-select { width: auto; max-width: 220px; }

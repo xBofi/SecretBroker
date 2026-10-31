@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Önce kasanızı oluşturun"
   },
+  "enter_fills_first": {
+    "message": "“$name$” doldur",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "SecretBroker'da sakladığınız parolaları yalnızca kendi sitelerinde ve yalnızca siz istediğinizde doldurur."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Yükleniyor"
+  },
+  "menu_keys_hint": {
+    "message": "Seçmek için ↑ ↓, doldurmak için Enter"
+  },
+  "menu_shortcut_hint": {
+    "message": "bu menü olmadan doldurur"
   },
   "name": {
     "message": "Ad"

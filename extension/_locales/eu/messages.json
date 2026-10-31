@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Sortu zure kutxa gotorra lehenik"
   },
+  "enter_fills_first": {
+    "message": "Bete «$name$»",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "SecretBroker-en gordetzen dituzun pasahitzak betetzen ditu, haien webgunean soilik eta zuk eskatzen duzunean soilik."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Kargatzen"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ aukeratzeko, Sartu betetzeko"
+  },
+  "menu_shortcut_hint": {
+    "message": "menu hau ireki gabe betetzen du"
   },
   "name": {
     "message": "Izena"

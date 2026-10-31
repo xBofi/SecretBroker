@@ -197,25 +197,60 @@ def looks_secret(name, value):
     return bool(value) and (bool(SECRET_NAME_RE.search(name)) or bool(URL_WITH_PASSWORD_RE.match(value)))
 
 
+def slug(text):
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:64]
+
+
+def plan_env(env_path, project=None, everything=False):
+    """What importing a .env would do: (items to import, names left in the file, project, line numbers chosen).
+    Items carry values: they go to the service only, never printed or shown."""
+    project = project or env_path.parent.name
+    entries = parse_env(env_path.read_text(encoding="utf-8-sig"))
+    chosen = [(n, name, value) for n, name, value in entries if value and (everything or looks_secret(name, value))]
+    left = [name for _, name, value in entries if not (value and (everything or looks_secret(name, value)))]
+    values = {name: value for _, name, value in entries}
+    items = [{"var": name, "value": value, "id": slug(f"{project}-{name}"), "line": n} for n, name, value in chosen]
+    for item in items:
+        paired = paired_var(item["var"], values)
+        if paired:
+            item.update(paired_var=paired, paired_id=values[paired])
+    return items, left, project
+
+
+def write_config(env_path, mapped):
+    """Add `VAR = credential` lines (no values) to the project's .secretbroker. Returns its path if it changed."""
+    config = env_path.parent / CONFIG_NAME
+    current = config.read_text(encoding="utf-8") if config.is_file() else ""
+    known = {i.get("name") for i in parse_config(current)} if current.split("#")[0].strip() else set()
+    lines = [f"{var} = {secret_id}" for var, secret_id in mapped.items() if var not in known]
+    if not lines:
+        return None
+    header = "" if current else "# Variables de SecretBroker: nombres de credenciales, sin valores. Se puede subir al repositorio.\n"
+    config.write_text(header + (current.rstrip("\n") + "\n" if current.strip() else "") + "\n".join(lines) + "\n",
+                      encoding="utf-8")
+    return config
+
+
+def remove_from_env(env_path, lines):
+    """Take those line numbers out of the .env, or delete it if nothing else is left. "deleted" or "cleaned"."""
+    kept = [line for number, line in enumerate(env_path.read_text(encoding="utf-8-sig").splitlines(), 1) if number not in lines]
+    if any(line.strip() and not line.lstrip().startswith("#") for line in kept):
+        env_path.write_text("\n".join(kept) + "\n", encoding="utf-8")
+        return "cleaned"
+    env_path.unlink()
+    return "deleted"
+
+
 def import_env(env_path, project=None, everything=False, delete=False):
     """Never prints a value: the AI may be the one running this."""
     env_path = Path(env_path).resolve()
     if not env_path.is_file():
         raise ConfigError(f"No existe {env_path}")
-    project = project or env_path.parent.name
-    slug = lambda text: re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:64]
-    entries = parse_env(env_path.read_text(encoding="utf-8"))
-    chosen = [(n, name, value) for n, name, value in entries if value and (everything or looks_secret(name, value))]
-    left = [name for _, name, value in entries if not (value and (everything or looks_secret(name, value)))]
-    if not chosen:
+    items, left, project = plan_env(env_path, project, everything)
+    if not items:
         print(f"No hay nada que parezca una clave en {env_path}" + (f". Variables: {', '.join(left)}" if left else ""))
         return 0
-    values = {name: value for _, name, value in entries}
-    items = [{"var": name, "value": value, "id": slug(f"{project}-{name}")} for _, name, value in chosen]
-    for item in items:
-        paired = paired_var(item["var"], values)
-        if paired:
-            item.update(paired_var=paired, paired_id=values[paired])
+    lines = {i["var"]: i.pop("line") for i in items}
     print(f"Confirma la importación en la app SecretBroker ({len(items)} {'clave' if len(items) == 1 else 'claves'})...", flush=True)
     result = client.call("import_env", {"source": str(env_path), "project": slug(project)[:30], "items": items, "_client": _who()})
     mapped = {i["var"]: i["id"] for i in result["created"] + result["skipped"]}
@@ -228,24 +263,14 @@ def import_env(env_path, project=None, everything=False, delete=False):
     if left:
         print(f"  no son claves, se quedan en el .env: {', '.join(left)}")
 
-    config = env_path.parent / CONFIG_NAME
-    current = config.read_text(encoding="utf-8") if config.is_file() else ""
-    known = {i.get("name") for i in parse_config(current)} if current.split("#")[0].strip() else set()
-    lines = [f"{var} = {secret_id}" for var, secret_id in mapped.items() if var not in known]
-    if lines:
-        header = "" if current else "# Variables de SecretBroker: nombres de credenciales, sin valores. Se puede subir al repositorio.\n"
-        config.write_text(header + (current.rstrip("\n") + "\n" if current.strip() else "") + "\n".join(lines) + "\n",
-                          encoding="utf-8")
+    config = write_config(env_path, mapped)
+    if config:
         print(f"{config} actualizado: ya puedes usar  sb run -- <programa>")
 
     if delete:
-        drop = {n for n, name, _ in chosen if name in mapped}
-        kept = [line for number, line in enumerate(env_path.read_text(encoding="utf-8").splitlines(), 1) if number not in drop]
-        if any(line.strip() and not line.lstrip().startswith("#") for line in kept):
-            env_path.write_text("\n".join(kept) + "\n", encoding="utf-8")
+        if remove_from_env(env_path, {lines[var] for var in mapped}) == "cleaned":
             print(f"Quitadas las claves de {env_path.name}; las demás variables se quedan.")
         else:
-            env_path.unlink()
             print(f"{env_path.name} borrado: ya no hace falta.")
     else:
         print(f"Aviso: {env_path.name} sigue teniendo las claves en claro. Bórralo o repite con --delete.")

@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Előbb hozd létre a széfedet"
   },
+  "enter_fills_first": {
+    "message": "„$name$” kitöltése",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Kitölti a SecretBrokerben tárolt jelszavaidat – csak a saját webhelyükön, és csak ha kéred."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Betöltés"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ a választáshoz, Enter a kitöltéshez"
+  },
+  "menu_shortcut_hint": {
+    "message": "kitölt a menü nélkül"
   },
   "name": {
     "message": "Név"

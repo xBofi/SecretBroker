@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Erstelle zuerst deinen Tresor"
   },
+  "enter_fills_first": {
+    "message": "„$name$“ ausfüllen",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Füllt die Passwörter aus, die du in SecretBroker aufbewahrst, nur auf ihrer eigenen Website und nur, wenn du es willst."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Wird geladen"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ zum Wählen, Eingabe zum Ausfüllen"
+  },
+  "menu_shortcut_hint": {
+    "message": "füllt ohne dieses Menü aus"
   },
   "name": {
     "message": "Name"

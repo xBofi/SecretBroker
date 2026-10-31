@@ -844,6 +844,7 @@ function updateSidebarState() {
         : ['', until];
   node.replaceChildren(el('span', { class: `dot ${tone}` }), el('span', {}, text));
   node.title = [
+    text,  // in full: it may end in an ellipsis in long languages
     blocked ? t('update_sidebar_state.your_team_session_has_expired') : null,
     status.ai_paused ? t('update_sidebar_state.ai_is_paused_can_use') : null,
     status.drafts ? tn('sidebar.drafts_waiting', status.drafts) : null,
@@ -2267,7 +2268,15 @@ function showForm(templateId, entry) {
     const snapshot = { ...values, ...currentFields() };
     Object.assign(values, snapshot);
     for (const key of Object.keys(inputs)) delete inputs[key];
-    fieldsBox.replaceChildren(activeSpecs(templateId, snapshot).map(buildField));
+    const nodes = activeSpecs(templateId, snapshot).map(buildField);
+    // Short fields go two to a row (server and port, engine and server…). One with no partner beside it takes the
+    // whole row, so a form never mixes a half-width username with a full-width password under it.
+    for (let i = 0; i < nodes.length; i++) {
+      if (nodes[i].classList.contains('full')) continue;
+      if (nodes[i + 1] && !nodes[i + 1].classList.contains('full')) { i++; continue; }
+      nodes[i].classList.add('full');
+    }
+    fieldsBox.replaceChildren(...nodes);
     for (const [name, control] of Object.entries(inputs)) if (snapshot[name]) control.value = snapshot[name];
   };
 
@@ -2279,7 +2288,7 @@ function showForm(templateId, entry) {
     el('option', { value: days === null ? '' : String(days), selected: days === currentEvery }, label)));
   const checkEvery = checkEveryControl(isNew ? null : (entry.check_every_hours ?? null), true);
   const autofillBox = templateId === 'web_login' ? autofillEditor(entry) : null;
-  const usedInput = el('textarea', { class: 'input', rows: 3, placeholder: 'develop: .env local (DATABASE_URL)\npro: servidor api.ejemplo.com, /srv/app/.env\nVercel: proyecto web' },
+  const usedInput = el('textarea', { class: 'input', rows: 3, placeholder: t('show_form.used_in_placeholder') },
     isNew ? '' : (entry.used_in || []).join('\n'));
 
   const approval = el('div', { class: 'segmented' });
@@ -3218,8 +3227,9 @@ function sharedSection(entry) {
     }, t('shared_section.stop_sharing_2'))) : null);
 }
 
-// The lines of a change waiting for review come from teams.widening_changes, in Spanish and kept in the vault:
-// each known start is shown in the page's language, the rest of the line (names, hosts) as it is.
+// A change waiting for review comes from teams.widening_changes as {kind, field?, template?, old?, new?, values?}
+// and is worded here, in the page's language. Vaults from before 0.16 keep Spanish lines: each known start is
+// translated, the rest of the line (names, hosts) shown as it is.
 const CHANGE_LINES = [
   ['Tipo de credencial: ', 'change_line.credential_type'],
   ['Webs nuevas: ', 'change_line.new_websites'],
@@ -3228,17 +3238,32 @@ const CHANGE_LINES = [
   ['Programas nuevos: ', 'change_line.new_programs'],
   ['Variables nuevas o cambiadas: ', 'change_line.new_variables'],
 ];
+const CHANGE_KINDS = { template: 'change_line.credential_type', hosts: 'change_line.new_websites', fill_sites: 'change_line.new_autofill_sites',
+  auth: 'change_line.how_key_is_sent', programs: 'change_line.new_programs', env: 'change_line.new_variables' };
 
-function changeLine(line) {
-  const known = CHANGE_LINES.find(([start]) => line.startsWith(start));
-  return known ? `${t(known[1])}: ${line.slice(known[0].length)}` : line;
+function isTextChange(change) {
+  return typeof change === 'string' ? change.startsWith('Instrucciones') : change.kind === 'description';
+}
+
+function changeLine(change) {
+  if (typeof change === 'string') {
+    const known = CHANGE_LINES.find(([start]) => change.startsWith(start));
+    return known ? `${t(known[1])}: ${change.slice(known[0].length)}` : change;
+  }
+  if (change.kind === 'field') {
+    const spec = ((TEMPLATES[change.template] || {}).fields || []).find((f) => f.name === change.field);
+    return `${spec ? spec.label : change.field}: ${change.old || '—'} → ${change.new || '—'}`;
+  }
+  const value = change.values ? listJoin(change.values)
+    : change.kind === 'template' ? (TEMPLATES[change.new] || {}).label || change.new : change.new;
+  return CHANGE_KINDS[change.kind] ? `${t(CHANGE_KINDS[change.kind])}: ${value}` : String(value ?? '');
 }
 
 // One line for a change waiting for review: new destinations, or new instructions for the AI.
 function changeSummary(change) {
   const who = change.by || t('common.teammate');
   const hosts = change.only_hosts ? change.hosts || [] : [];
-  const destinations = (change.changes || []).some((line) => !line.startsWith('Instrucciones'));
+  const destinations = (change.changes || []).some((c) => !isTextChange(c));
   if (hosts.length) return t('change_summary.wants_ai_be_able_send', { who, names: listJoin(hosts) });
   if (change.texts && !destinations) return t('change_summary.changed_instructions_ai_reads', { who });
   if (change.texts) return t('change_summary.changed_where_this_key_can', { who });
@@ -3252,7 +3277,7 @@ function pendingChangeBox(entry) {
   const write = canWrite(entry);
   const who = change.by || t('common.teammate');
   const hosts = change.only_hosts ? change.hosts || [] : [];
-  const destinations = (change.changes || []).filter((line) => !line.startsWith('Instrucciones'));
+  const destinations = (change.changes || []).filter((c) => !isTextChange(c));
   const decide = async (accept, button) => {
     const result = await teamAct('team_accept_change', { id: entry.id, accept },
       accept ? t('pending_change_box.allow_change_in', { name: entry.name }) : t('pending_change_box.keep_as_was', { name: entry.name }), button);
@@ -3261,7 +3286,7 @@ function pendingChangeBox(entry) {
     renderMain();
     toast(accept ? t('pending_change_box.change_allowed') : t('pending_change_box.rejected_stays_as_was_for'));
   };
-  const reject = write ? el('button', { class: 'btn primary' }, t('pending_change_box.reject_and_keep_as_was')) : null;
+  const reject = write ? el('button', { class: 'btn primary', title: t('pending_change_box.reject_and_keep_as_was') }, t('pending_change_box.reject')) : null;
   if (reject) reject.addEventListener('click', () => decide(false, reject));
   const allow = el('button', { class: write ? 'btn' : 'btn primary' }, hosts.length === 1 ? t('pending_change_box.allow', { value: hosts[0] })
     : change.texts && !destinations.length ? t('pending_change_box.accept_new_description') : t('pending_change_box.allow_changes'));
@@ -3270,7 +3295,7 @@ function pendingChangeBox(entry) {
     hosts.length
       ? el('h3', {}, t('pending_change_box.wants_ai_be_able_send', { who }), hosts.map((h, i) => [i ? ', ' : '', el('code', { class: 'selectable' }, h)]))
       : el('h3', {}, changeSummary(change)),
-    hosts.length || !destinations.length ? null : el('ul', { class: 'used-in' }, destinations.map((line) => el('li', { class: 'selectable' }, changeLine(line)))),
+    hosts.length || !destinations.length ? null : el('ul', { class: 'used-in' }, destinations.map((c) => el('li', { class: 'selectable' }, changeLine(c)))),
     change.texts ? el('div', { class: 'field' },
       el('div', { class: 'k small muted' }, t('pending_change_box.new_description_ai_reads_as')),
       el('blockquote', { class: 'quote selectable' }, change.description || '')) : null,
@@ -4296,37 +4321,56 @@ const EXTENSION_STEPS = {
   ],
 };
 
-function extensionInstallModal(info, initial) {
+// The browsers the install dialog offers: the ones on this PC (all of them if none is found), and Firefox always,
+// with a note when it isn't installed. Ajustes names the same ones, so the two never disagree.
+function extensionBrowsers(info) {
   const installed = info.browsers.filter((b) => b.installed);
-  const choices = installed.length ? installed : info.browsers;
+  const choices = installed.length ? [...installed] : [...info.browsers];
+  const firefox = info.browsers.find((b) => b.id === 'firefox');
+  if (firefox && !choices.includes(firefox)) choices.push(firefox);
+  return { choices, installed: installed.length ? installed : choices };
+}
+
+function extensionInstallModal(info, initial) {
+  const { choices } = extensionBrowsers(info);
+  const anyInstalled = info.browsers.some((b) => b.installed);
   let current = choices.find((b) => b.id === initial) || choices[0];
   const tabs = el('div', { class: 'segmented' });
   const steps = el('ol', { class: 'install-steps' });
   const folder = info.extension_dir;
   const draw = () => {
-    tabs.replaceChildren(choices.map((b) => el('button', { type: 'button', class: b.id === current.id ? 'active' : '',
+    tabs.replaceChildren(choices.map((b) => el('button', { type: 'button', class: `${b.id === current.id ? 'active' : ''} ${anyInstalled && !b.installed ? 'not-installed' : ''}`,
+      title: anyInstalled && !b.installed ? t('extension_install_modal.not_installed', { name: b.name }) : null,
       onclick: () => { current = b; draw(); } }, b.name)));
+    const missing = anyInstalled && !current.installed;
     const recipe = current.id === 'firefox' ? EXTENSION_STEPS.firefox() : EXTENSION_STEPS.chromium(current.name, folder);
     steps.replaceChildren(recipe.map(([text, extra]) => el('li', {}, el('div', {}, text),
-      extra === 'open' ? el('button', { class: 'btn', onclick: async () => {
+      extra === 'open' ? el('button', { class: 'btn', disabled: missing, onclick: async () => {
         if (!await api().open_browser_page(current.id)) toast(t('extension_install_modal.wasn_found_on_this_pc', { name: current.name }), 'error');
       } }, icon('external', 'sm'), current.id === 'firefox' ? t('extension_install_modal.open_firefox') : t('extension_install_modal.open_extensions', { name: current.name })) : null,
       extra === 'folder' ? el('div', { class: 'install-folder' },
         el('code', { class: 'selectable', title: folder }, folder || t('extension_install_modal.extension_folder_wasn_found')),
         el('button', { class: 'btn', disabled: !folder, onclick: async () => { await api().copy_text(folder); toast(t('extension_install_modal.path_copied')); } }, icon('copy', 'sm'), t('extension_install_modal.copy_path')),
         el('button', { class: 'btn', disabled: !folder, onclick: () => api().show_extension_folder() }, icon('folder', 'sm'), t('common.show'))) : null)));
-    note.replaceChildren(icon('info', 'sm'), el('span', {}, current.id === 'firefox'
-      ? t('extension_install_modal.firefox_removes_temporary_add_ons')
-      : t('extension_install_modal.may_warn_at_startup_that', { name: current.name })));
+    note.replaceChildren(icon('info', 'sm'), el('span', {}, missing
+      ? [el('b', {}, t('extension_install_modal.not_installed', { name: current.name })), ' ',
+        current.id === 'firefox' ? t('extension_install_modal.firefox_once_installed') : t('extension_install_modal.once_installed')]
+      : current.id === 'firefox'
+        ? t('extension_install_modal.firefox_removes_temporary_add_ons')
+        : t('extension_install_modal.may_warn_at_startup_that', { name: current.name })));
+    // Not installed: say so first, and show the steps for later, dimmed.
+    steps.classList.toggle('for-later', missing);
+    holder.replaceChildren(...(missing ? [note, steps] : [steps, note]));
   };
   const note = el('div', { class: 'warning subtle' });
+  const holder = el('div', { class: 'install-body' });
   draw();
   const modal = openModal({
     title: t('common.install_extension'),
     lead: glyph('web_login'),
     body: [
       el('p', { class: 'muted' }, t('extension_install_modal.fills_in_your_passwords_in')),
-      choices.length > 1 ? tabs : null, steps, note],
+      choices.length > 1 ? tabs : null, holder],
     footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn primary', onclick: () => modal.close() }, t('common.done'))],
   });
 }
@@ -4343,7 +4387,7 @@ function browserSettingsGroup() {
       paired.length ? t('browser_settings_group.add_another_browser') : t('common.install_extension'));
     const summary = paired.length
       ? t('browser_settings_group.connected_in_fills_in_username', { names: listJoin([...new Set(paired.map((b) => b.name))]) })
-      : t('browser_settings_group.fills_in_your_passwords_in');
+      : t('browser_settings_group.fills_in_passwords_in_names', { names: listJoin(extensionBrowsers(info).installed.map((b) => b.name)) });
     const rows = paired.map((b) => el('div', { class: 'setting browser-row' },
       el('div', { class: 'meta' }, el('h3', { class: 'with-icon' }, icon('globe', 'sm'), b.name),
         el('p', {}, b.last_seen ? t('browser_settings_group.connected_used', { when: whenText(b.last_seen) }) : t('browser_settings_group.connected_on', { value: fmtDate(b.created, { day: 'numeric', month: 'long' }) }))),
@@ -4352,7 +4396,7 @@ function browserSettingsGroup() {
         action: t('common.disconnect'), onConfirm: async () => {
           const result = await api().call('browser_forget', { id: b.id });
           if (!result.ok) { toast(result.error, 'error'); return false; }
-          toast(`${b.name} desconectado`);
+          toast(t('browser_settings_group.disconnected', { name: b.name }));
           draw();
           return true;
         } }) }, t('common.disconnect')))));
@@ -4396,7 +4440,7 @@ async function pollBrowserPairing() {
     busy(connect, true);
     const result = await withProof((p) => api().call('browser_pair_answer', { id: request.id, accept: true }, p), t('poll_browser_pairing.connect_2', { name: request.name }));
     busy(connect, false);
-    if (result.ok) { modal.close(); toast(`${request.name} conectado`); if (state.view === 'settings') renderView(); }
+    if (result.ok) { modal.close(); toast(t('poll_browser_pairing.connected', { name: request.name })); if (state.view === 'settings') renderView(); }
     else if (result.code !== 'cancelled') toast(result.error, 'error');
   });
 }
@@ -4811,7 +4855,7 @@ function showDraft(entry) {
 // ======================================================================= approvals
 //
 // The moment the product is about: an AI app wants to use a key. Who asks and from where, what for, which
-// credential, exactly what it will do (the host stands out), and two equally weighted ways to say yes. Several
+// credential, exactly what it will do (the host stands out), and two ways to say yes (the timed one recommended). Several
 // requests queue ("1 de 3"); «Decidir luego» folds them into a banner instead of popping up again.
 
 // approval_hours (Ajustes) → [button, how long, in a sentence].
@@ -4915,11 +4959,12 @@ function showApproval(request) {
 
   const allowOnce = request.allow_once !== false;
   const onceLabel = { edit: t('show_approval.apply_change'), draft: t('show_approval.allow'), rotate: t('show_approval.rotate_now'), delete: t('show_approval.delete'), import_env: t('common.import') }[request.action] || t('show_approval.just_this_once');
-  // Two ways to say yes, side by side and alike: neither is pushed on the user.
+  // Two ways to say yes, side by side. Allowing for the span is the recommended one (the AI won't ask again for this
+  // credential until then) and is the primary button; «Solo esta vez» stays one obvious click away, outlined.
   const both = allowOnce && request.allow_session;
-  const onceButton = allowOnce ? el('button', { class: `btn ${both ? 'equal' : 'primary'}` }, onceLabel) : null;
+  const onceButton = allowOnce ? el('button', { class: `btn ${both ? 'secondary' : 'primary'}` }, onceLabel) : null;
   if (onceButton) onceButton.addEventListener('click', () => approve([request.id], () => 'once', onceButton));
-  const sessionButton = request.allow_session ? el('button', { class: `btn ${both ? 'equal' : 'primary'}` }, spanLabel) : null;
+  const sessionButton = request.allow_session ? el('button', { class: 'btn primary approve-span' }, spanLabel) : null;
   if (sessionButton) sessionButton.addEventListener('click', () => approve([request.id], () => 'session', sessionButton));
   const batchButton = el('button', { class: 'btn ghost batch hidden' });
   batchButton.addEventListener('click', () => {

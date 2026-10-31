@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Спершу створіть сховище"
   },
+  "enter_fills_first": {
+    "message": "Заповнити «$name$»",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Заповнює паролі, які ви зберігаєте в SecretBroker, — лише на їхньому власному сайті й лише коли ви попросите."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Завантаження"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ — вибрати, Enter — заповнити"
+  },
+  "menu_shortcut_hint": {
+    "message": "заповнює без цього меню"
   },
   "name": {
     "message": "Назва"

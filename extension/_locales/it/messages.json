@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Prima crea la tua cassaforte"
   },
+  "enter_fills_first": {
+    "message": "Compila «$name$»",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Compila le password che conservi in SecretBroker, solo sul loro sito e solo quando lo chiedi."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Caricamento"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ per scegliere, Invio per compilare"
+  },
+  "menu_shortcut_hint": {
+    "message": "compila senza questo menu"
   },
   "name": {
     "message": "Nome"

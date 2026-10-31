@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Cria primeiro o teu cofre"
   },
+  "enter_fills_first": {
+    "message": "Preencher «$name$»",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Preenche as palavras-passe que guardas em SecretBroker, só no site de cada uma e só quando pedes."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "A carregar"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ para escolher, Enter para preencher"
+  },
+  "menu_shortcut_hint": {
+    "message": "preenche sem abrir este menu"
   },
   "name": {
     "message": "Nome"

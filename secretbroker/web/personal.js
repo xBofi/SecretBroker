@@ -370,7 +370,7 @@ function openImport() {
       el('p', { class: 'muted' }, t('open_import.export_your_data_from_other')),
       tabs, steps,
       el('p', { class: 'help' }, t('open_import.project_keys_in_env'),
-        el('button', { class: 'link', type: 'button', onclick: () => { modal.close(); openEnvImportHelp(); } }, t('open_import.use_sb_import')), '.'),
+        el('button', { class: 'link', type: 'button', onclick: () => { modal.close(); openEnvImport(); } }, t('open_import.import_it_here')), '.'),
     ],
     footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, t('common.cancel')), pick],
   });
@@ -567,6 +567,7 @@ function importDone(path, result) {
 function importExportMenu() {
   const menu = el('div', { class: 'menu hidden', role: 'menu' },
     el('button', { class: 'menu-item', role: 'menuitem', type: 'button', onclick: () => { close(); openImport(); } }, icon('upload', 'sm'), t('common.import_2')),
+    el('button', { class: 'menu-item', role: 'menuitem', type: 'button', onclick: () => { close(); openEnvImport(); } }, icon('file', 'sm'), t('common.import_project_env')),
     el('button', { class: 'menu-item', role: 'menuitem', type: 'button', onclick: () => { close(); openExport(); } }, icon('download', 'sm'), t('common.export')));
   const button = el('button', { class: 'btn icon-only', type: 'button', title: t('import_export_menu.more_import_and_export'), 'aria-label': t('import_export_menu.more_actions'), 'aria-haspopup': 'menu' }, icon('more', 'sm'));
   const wrap = el('span', { class: 'popover-wrap' }, button, menu);
@@ -701,7 +702,7 @@ function openExport() {
     busy(button, false);
     if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
     modal.close();
-    toast(`${result.result.entries} credenciales exportadas a ${result.result.path}`);
+    toast(tn('open_export.exported_to', result.result.entries, { path: result.result.path }));
   });
 }
 

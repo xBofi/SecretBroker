@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Opret din boks først"
   },
+  "enter_fills_first": {
+    "message": "Udfyld “$name$”",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Udfylder de adgangskoder, du gemmer i SecretBroker, kun på deres eget websted og kun når du beder om det."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Indlæser"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ for at vælge, Enter for at udfylde"
+  },
+  "menu_shortcut_hint": {
+    "message": "udfylder uden denne menu"
   },
   "name": {
     "message": "Navn"

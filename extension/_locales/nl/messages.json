@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Maak eerst je kluis"
   },
+  "enter_fills_first": {
+    "message": "“$name$” invullen",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Vult de wachtwoorden in die je in SecretBroker bewaart, alleen op hun eigen website en alleen als je erom vraagt."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Laden"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ om te kiezen, Enter om in te vullen"
+  },
+  "menu_shortcut_hint": {
+    "message": "vult in zonder dit menu"
   },
   "name": {
     "message": "Naam"

@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Najpierw utwórz sejf"
   },
+  "enter_fills_first": {
+    "message": "Wypełnij „$name$”",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Wypełnia hasła zapisane w SecretBroker, tylko na ich własnej stronie i tylko wtedy, gdy o to poprosisz."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Wczytywanie"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓, aby wybrać, Enter, aby wypełnić"
+  },
+  "menu_shortcut_hint": {
+    "message": "wypełnia bez tego menu"
   },
   "name": {
     "message": "Nazwa"

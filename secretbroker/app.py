@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from . import __version__, client, generator, i18n, integrations, links, native_host, paths, platform, resident, scanner, templates
+from . import __version__, cli, client, generator, i18n, integrations, links, native_host, paths, platform, resident, scanner, templates
 from .client import BrokerError, BrokerUnavailable
 from .i18n import tr
 
@@ -41,12 +41,12 @@ TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_i
                    "team_verify_email", "team_send_code", "team_resolve_deletions")
 # What the app that unlocked may do with one click (see service.PRESENCE_OPS).
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
-                "import_file", "export_vault") + TEAM_CHANGE_OPS
+                "import_file", "import_env_file", "export_vault") + TEAM_CHANGE_OPS
 # Operations the service only accepts with a proof of identity.
 PROOF_OPS = {"unlock", "approve", "save_entry", "delete_entry", "reveal", "rotate", "complete_draft",
              "enable_session_unlock", "resume_ai", "set_ai_permissions", "backup", "restore",
              "change_master_password", "set_settings", "remove_hello", "exposure_begin",
-             "import_file", "export_vault", *TEAM_CHANGE_OPS}
+             "import_file", "import_env_file", "export_vault", *TEAM_CHANGE_OPS}
 # Rotations (see service.ROTATION_OPS): one click too.
 ROTATION_OPS = ("rotation_begin", "rotation_discard", "rotation_apply", "rotation_secret", "retry_uploads", "set_test_request")
 PRESENCE_OPS += ROTATION_OPS
@@ -744,6 +744,75 @@ class Api:
             return {"ok": False, "error": tr("app.couldn_delete", value=exc.strerror or exc)}
         self._import_path = None
         return {"ok": True}
+
+    # ----- a project's .env («Importar un .env»): picked, previewed and imported here, no terminal
+
+    _env_plan = None   # the file being imported: its path, the keys (with values, never sent to the page)…
+    _env_done = None   # …and, once imported, the lines that may be taken out of it
+
+    def pick_env_file(self):
+        import webview
+        if not self._window:
+            return None
+        patterns = "*.env;*.local;*.development;*.production;*.staging;*.test;*.example"
+        try:
+            chosen = self._window.create_file_dialog(webview.OPEN_DIALOG, directory=str(Path.home()), file_types=(
+                f"{tr('app.env_files')} ({patterns})", f"{tr('app.all_files')} (*.*)"))
+        except ValueError:  # a translated description pywebview doesn't take as a filter name
+            chosen = self._window.create_file_dialog(webview.OPEN_DIALOG, directory=str(Path.home()),
+                                                     file_types=(f"Env ({patterns})", "All (*.*)"))
+        return chosen[0] if chosen else None
+
+    def env_preview(self, path):
+        """The variables of a .env, by name only: which look like keys (ticked to start with), the credential each
+        would become, and the id it goes with. The values stay in this process until the import."""
+        try:
+            env_path = Path(path).resolve()
+            if env_path.stat().st_size > 1024 * 1024:
+                return {"ok": False, "code": "invalid", "error": tr("app.file_is_too_big_1")}
+            items, left, project = cli.plan_env(env_path, everything=True)
+        except (OSError, UnicodeError) as exc:
+            return {"ok": False, "code": "invalid", "error": tr("app.couldn_read_file", value=getattr(exc, "strerror", None) or exc)}
+        self._env_plan = {"path": env_path, "project": project, "items": {i["var"]: i for i in items}}
+        self._env_done = None
+        return {"ok": True, "result": {
+            "name": env_path.name, "folder": str(env_path.parent), "project": project, "empty": left,
+            "vars": [{"var": i["var"], "id": i["id"], "key": cli.looks_secret(i["var"], i["value"]),
+                      "paired_var": i.get("paired_var")} for i in items]}}
+
+    def env_import(self, selected, proof=None):
+        """Import the ticked variables (one click with the app's token), then note them in the project's
+        .secretbroker (names, no values) so the AI and `sb run` can hand them to the project's programs."""
+        plan = self._env_plan
+        if not plan:
+            return {"ok": False, "code": "invalid", "error": tr("app.choose_env_file_again")}
+        items = [plan["items"][var] for var in selected or [] if var in plan["items"]]
+        params = {"source": str(plan["path"]), "project": cli.slug(plan["project"])[:30],
+                  "items": [{k: v for k, v in item.items() if k != "line"} for item in items]}
+        result = self.call("import_env_file", params, proof)
+        if not result["ok"]:
+            return result
+        done = result["result"]
+        mapped = {i["var"]: i["id"] for i in done["created"] + done["skipped"]}
+        try:
+            config = cli.write_config(plan["path"], mapped)
+        except OSError:
+            config = None  # a read-only folder: the credentials are in the vault all the same
+        self._env_plan = None
+        self._env_done = {"path": plan["path"], "lines": {plan["items"][var]["line"] for var in mapped}}
+        return {"ok": True, "result": {**done, "config": str(config) if config else None, "name": plan["path"].name}}
+
+    def env_remove_keys(self):
+        """Take the imported keys out of the .env (the other variables stay), or delete it if nothing is left."""
+        done = self._env_done
+        if not done:
+            return {"ok": False, "error": tr("app.there_no_file_delete")}
+        try:
+            how = cli.remove_from_env(done["path"], done["lines"])
+        except (OSError, UnicodeError) as exc:
+            return {"ok": False, "error": tr("app.couldn_delete", value=getattr(exc, "strerror", None) or exc)}
+        self._env_done = None
+        return {"ok": True, "result": how}
 
     def export_vault(self, fmt, password=None, proof=None):
         """Ask where to save, have the service build the file and write it there."""

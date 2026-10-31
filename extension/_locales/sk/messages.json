@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Najprv si vytvorte trezor"
   },
+  "enter_fills_first": {
+    "message": "Vyplniť „$name$“",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Vypĺňa heslá uložené v aplikácii SecretBroker, len na ich vlastnej stránke a len keď o to požiadate."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Načítava sa"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ na výber, Enter na vyplnenie"
+  },
+  "menu_shortcut_hint": {
+    "message": "vyplní bez tejto ponuky"
   },
   "name": {
     "message": "Názov"

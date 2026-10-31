@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Najprije stvori svoj trezor"
   },
+  "enter_fills_first": {
+    "message": "Ispuni „$name$”",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Ispunjava lozinke koje čuvaš u aplikaciji SecretBroker, samo na njihovoj web-stranici i samo kad to zatražiš."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Učitavanje"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ za odabir, Enter za ispunjavanje"
+  },
+  "menu_shortcut_hint": {
+    "message": "ispunjava bez ovog izbornika"
   },
   "name": {
     "message": "Naziv"

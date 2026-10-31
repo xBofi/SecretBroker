@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Create your vault first"
   },
+  "enter_fills_first": {
+    "message": "Fill in “$name$”",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Fills in the passwords you keep in SecretBroker, only on their own website and only when you ask."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Loading"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ to choose, Enter to fill in"
+  },
+  "menu_shortcut_hint": {
+    "message": "fills in without this menu"
   },
   "name": {
     "message": "Name"

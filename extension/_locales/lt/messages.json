@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Pirmiausia sukurkite savo saugyklą"
   },
+  "enter_fills_first": {
+    "message": "Užpildyti „$name$“",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Pildo SecretBroker laikomus slaptažodžius – tik jų pačių svetainėje ir tik kai paprašote."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Įkeliama"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ pasirinkti, Enter užpildyti"
+  },
+  "menu_shortcut_hint": {
+    "message": "užpildo neatidarius šio meniu"
   },
   "name": {
     "message": "Pavadinimas"

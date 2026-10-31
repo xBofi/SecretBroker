@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Luo ensin holvisi"
   },
+  "enter_fills_first": {
+    "message": "Täytä ”$name$”",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Täyttää SecretBrokeriin tallentamasi salasanat vain niiden omalla sivustolla ja vain kun pyydät."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Ladataan"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ valitsee, Enter täyttää"
+  },
+  "menu_shortcut_hint": {
+    "message": "täyttää ilman tätä valikkoa"
   },
   "name": {
     "message": "Nimi"

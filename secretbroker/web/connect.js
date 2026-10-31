@@ -37,7 +37,7 @@ async function connectAiClient(c, button) {
   const result = await api().connect_ai(c.id);
   busy(button, false);
   if (!result.ok) { toast(result.error, 'error'); return false; }
-  toast(`${c.label} conectado. ${AI_CLIENT_AFTER[c.id] || ''}`.trim());
+  toast(`${t('connect_ai_client.connected', { name: c.label })} ${AI_CLIENT_AFTER[c.id] || ''}`.trim());
   return true;
 }
 
@@ -182,7 +182,7 @@ function emptyCredentials() {
     el('div', { class: 'start-list' },
       start('plus', t('empty_credentials.add_credential'), t('empty_credentials.website_api_key_ssh_server'), () => openEditor(null)),
       start('upload', t('common.import_from_another_manager'), t('empty_credentials.bitwarden_1password_keepassxc_chrome_edg'), openImport),
-      start('terminal', t('common.import_project_env'), t('empty_credentials.move_project_keys_into_vault'), openEnvImportHelp),
+      start('file', t('common.import_project_env'), t('empty_credentials.pick_env_and_import'), openEnvImport),
       aiSlot));
   loadAiClients().then((data) => {
     if (!anyAiConnected(data)) {
@@ -192,22 +192,86 @@ function emptyCredentials() {
   return node;
 }
 
-function openEnvImportHelp() {
-  const command = (text) => el('div', { class: 'prompt-box' }, el('code', { class: 'prompt-text selectable' }, text),
-    el('button', { class: 'btn icon-only', title: t('common.copy'), onclick: async () => { await api().copy_text(text); toast(t('common.copied')); } }, icon('copy', 'sm')));
+// ----------------------------------------------------------------------- a project's .env, without a terminal
+//
+// Pick the file, tick its keys (names only: the values go from app.py to the service, never to this page),
+// import them with one click, and then offer to take them out of the file.
+
+async function openEnvImport() {
+  const path = await api().pick_env_file();
+  if (path) previewEnvImport(path);
+}
+
+async function previewEnvImport(path) {
+  const response = await api().env_preview(path);
+  if (!response.ok) { toast(response.error, 'error'); return; }
+  const preview = response.result;
+  const existing = new Set(state.entries.map((e) => e.id));
+  const chosen = new Set(preview.vars.filter((v) => v.key && !existing.has(v.id)).map((v) => v.var));
+  const button = el('button', { class: 'btn primary' });
+  const errorText = el('div', { class: 'error-text' });
+  const sync = () => {
+    button.textContent = chosen.size ? tn('env_import.import_keys', chosen.size) : t('common.import');
+    button.disabled = !chosen.size;
+  };
+  const rows = preview.vars.map((v) => {
+    const there = existing.has(v.id);
+    const box = el('input', { type: 'checkbox', checked: chosen.has(v.var), disabled: there });
+    box.addEventListener('change', () => { if (box.checked) chosen.add(v.var); else chosen.delete(v.var); sync(); });
+    return el('label', { class: `import-row ${there ? 'is-there' : ''}` }, box,
+      el('div', { class: 'meta' }, el('div', { class: 'title mono' }, v.var),
+        el('div', { class: 'subtitle' }, [`→ ${v.id}`, v.paired_var ? t('env_import.with_its_id', { var: v.paired_var }) : null].filter(Boolean).join(' · '))),
+      there ? el('span', { class: 'level' }, t('env_import.already_in_vault'))
+        : v.key ? null : el('span', { class: 'level faint' }, t('env_import.not_a_key')));
+  });
+  sync();
   const modal = openModal({
     title: t('common.import_project_env'),
+    wide: true,
     body: [
-      el('p', { class: 'muted' }, t('open_env_import_help.in_project_folder_open_terminal')),
-      command('sb import .env --delete'),
-      el('ol', { class: 'steps-list' },
-        el('li', {}, t('open_env_import_help.secretbroker_shows_you_list_variables')),
-        el('li', {}, t('open_env_import_help.saves_each_key_as_credential'), el('code', {}, '.secretbroker'), t('open_env_import_help.without_values_which_you_can')),
-        el('li', {}, t('open_env_import_help.with'), el('code', {}, '--delete'), t('open_env_import_help.deletes_env_keys_no_longer'))),
-      el('p', { class: 'muted' }, t('open_env_import_help.then_start_your_app_with')),
-      command('sb run -- npm run dev'),
-      el('p', { class: 'help' }, t('open_env_import_help.you_can_also_ask_your')),
+      el('div', { class: 'env-file' }, icon('file', 'sm'), el('b', {}, preview.name), el('span', { class: 'muted small', title: preview.folder }, preview.folder)),
+      preview.vars.length
+        ? el('p', { class: 'muted' }, t('env_import.tick_keys'))
+        : el('p', { class: 'muted' }, t('env_import.nothing_to_import')),
+      preview.vars.length ? el('div', { class: 'import-list' }, rows) : null,
+      el('p', { class: 'help' }, t('env_import.ai_permissions')),
+      errorText,
     ],
-    footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn primary', onclick: () => modal.close() }, t('open_env_import_help.understood'))],
+    footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, t('common.cancel')), preview.vars.length ? button : null],
+  });
+  button.addEventListener('click', async () => {
+    errorText.textContent = '';
+    busy(button, true);
+    const result = await withProof((p) => api().env_import([...chosen], p), t('common.import_credentials'));
+    busy(button, false);
+    if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
+    modal.close();
+    await loadEntries();
+    renderMain();
+    envImportDone(result.result);
+  });
+}
+
+// Imported: say so, and offer to take the keys out of the file (they are still there in plain text).
+function envImportDone(result) {
+  const count = result.created.length;
+  const remove = el('button', { class: 'btn primary' }, icon('trash', 'sm'), t('env_import.remove_from_file'));
+  const modal = openModal({
+    title: count ? tn('import.imported', count) : t('env_import.nothing_new'),
+    body: [
+      result.skipped.length ? el('p', { class: 'muted' }, tn('env_import.skipped_existing', result.skipped.length)) : null,
+      el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {},
+        el('b', {}, t('env_import.still_in_file', { name: result.name })), ' ', t('env_import.remove_explained'))),
+      result.config ? el('p', { class: 'help' }, t('env_import.config_written')) : null,
+    ],
+    footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, t('env_import.keep_file')), remove],
+  });
+  remove.addEventListener('click', async () => {
+    busy(remove, true);
+    const done = await api().env_remove_keys();
+    busy(remove, false);
+    if (!done.ok) { toast(done.error, 'error'); return; }
+    modal.close();
+    toast(done.result === 'deleted' ? t('env_import.file_deleted', { name: result.name }) : t('env_import.keys_removed', { name: result.name }));
   });
 }

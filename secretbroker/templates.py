@@ -65,7 +65,7 @@ TEMPLATES = {
         "fields": [
             _field("url", "Dirección web", hint="https://panel.ejemplo.com",
                    help="La IA solo podrá usar esta credencial con esta web."),
-            _field("username", "Usuario o email", required=True),
+            _field("username", "Usuario o e-mail", required=True),
             _field("password", "Contraseña", "secret", required=True, secret=True),
             # The 2FA seed: kept like the private notes (not a key, never given to the AI as such). The
             # service computes the current code; the AI gets it only as {{totp_code}} if the user allows it.

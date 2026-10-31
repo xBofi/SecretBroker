@@ -216,6 +216,96 @@ async function answerOffer(tabId, id, save, name) {
   return native('save', params);
 }
 
+// ----------------------------------------------------------------------------------------- site icons
+// The icon next to a login is the site's own: the one the browser already loaded for the open tab, else the site's
+// /favicon.ico, asked for by the extension without cookies or referrer. Never through a third-party icon service
+// (that would hand it the list of sites in the vault). Kept as a data: URL in the extension's storage for a week
+// (a day when there is none), so a site is asked at most that often; the page draws it from that copy.
+
+const ICON_DAYS = 7;
+const ICON_MISS_HOURS = 24;
+const ICON_MAX_BYTES = 64 * 1024;
+const ICON_CACHE_MAX = 300;
+const iconsInFlight = new Map();
+
+function iconType(bytes, declared) {
+  const starts = (...sig) => sig.every((b, i) => bytes[i] === b);
+  if (starts(0x00, 0x00, 0x01, 0x00)) return 'image/x-icon';
+  if (starts(0x89, 0x50, 0x4e, 0x47)) return 'image/png';
+  if (starts(0x47, 0x49, 0x46, 0x38)) return 'image/gif';
+  if (starts(0xff, 0xd8, 0xff)) return 'image/jpeg';
+  if (starts(0x52, 0x49, 0x46, 0x46) && bytes[8] === 0x57 && bytes[9] === 0x45) return 'image/webp';
+  const head = new TextDecoder().decode(bytes.slice(0, 256)).trimStart().toLowerCase();
+  if (declared === 'image/svg+xml' && (head.startsWith('<svg') || head.startsWith('<?xml'))) return 'image/svg+xml';
+  return null;  // an HTML "not found" page served as /favicon.ico, or anything else: no icon
+}
+
+async function fetchIcon(url) {
+  if (/^data:image\/(png|x-icon|vnd\.microsoft\.icon|gif|jpeg|webp|svg\+xml)[;,]/i.test(url)) return url.length <= ICON_MAX_BYTES * 1.4 ? url : null;
+  if (!/^https?:\/\//i.test(url)) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4000);
+  try {
+    const response = await fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'force-cache', signal: controller.signal });
+    if (!response.ok) return null;
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (!bytes.length || bytes.length > ICON_MAX_BYTES) return null;
+    const type = iconType(bytes, (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase());
+    if (!type) return null;
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return `data:${type};base64,${btoa(binary)}`;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function pruneIcons() {
+  const all = await ext.storage.local.get(null);
+  const icons = Object.entries(all).filter(([k]) => k.startsWith('icon:')).sort((a, b) => a[1].at - b[1].at);
+  if (icons.length > ICON_CACHE_MAX) await ext.storage.local.remove(icons.slice(0, icons.length - ICON_CACHE_MAX / 2).map(([k]) => k));
+}
+
+// pageUrl: the site (its origin is the cache key); known: the icon the browser shows for the open tab, if any.
+async function siteIcon(pageUrl, known) {
+  let origin;
+  try { origin = new URL(pageUrl).origin; } catch { return null; }
+  if (!/^https?:/i.test(origin)) return null;
+  const key = `icon:${origin}`;
+  const cached = (await ext.storage.local.get(key))[key];
+  const fresh = cached && cached.at > Date.now() - (cached.data ? ICON_DAYS * 864e5 : ICON_MISS_HOURS * 36e5);
+  if (fresh && (cached.data || !known)) return cached.data || null;
+  if (iconsInFlight.has(key)) return iconsInFlight.get(key);
+  const job = (async () => {
+    let data = null;
+    for (const url of [known, `${origin}/favicon.ico`].filter(Boolean)) {
+      data = await fetchIcon(url);
+      if (data) break;
+    }
+    await ext.storage.local.set({ [key]: { data: data || '', at: Date.now() } });
+    pruneIcons().catch(() => {});
+    return data;
+  })().finally(() => iconsInFlight.delete(key));
+  iconsInFlight.set(key, job);
+  return job;
+}
+
+// The icon the browser shows for this tab, if it belongs to the tab's own site (the page may point anywhere).
+function tabIcon(tab) {
+  return tab && tab.favIconUrl && /^(https?:|data:image\/)/i.test(tab.favIconUrl) ? tab.favIconUrl : null;
+}
+
+async function fillShortcut() {
+  try {
+    const command = (await ext.commands.getAll()).find((c) => c.name === 'fill-login');
+    return (command && command.shortcut) || '';
+  } catch {
+    return '';
+  }
+}
+
 // ----------------------------------------------------------------------------------------- messages
 
 async function onMessage(message, sender) {
@@ -234,9 +324,11 @@ async function onMessage(message, sender) {
         return { ok: true };
       }
       case 'logins': {
-        const [hello, list] = await Promise.all([native('hello'), logins(tab, frame)]);
-        return { hello, list };
+        const [hello, list, shortcut] = await Promise.all([native('hello'), logins(tab, frame), fillShortcut()]);
+        return { hello, list, shortcut };
       }
+      case 'icon':  // the logins in the menu are this site's: its icon
+        return { icon: await siteIcon(frame.frameId === 0 ? tab.url : frame.url, frame.frameId === 0 ? tabIcon(tab) : null) };
       case 'fill':
         if (!message.trusted) return { ok: false };
         return fill(tab, frame, message.id, message.what === 'totp' ? 'totp' : 'login');
@@ -284,6 +376,12 @@ async function onMessage(message, sender) {
     }
     case 'search':
       return native('search', { query: message.query, url: tab && isWebPage(tab.url) ? tab.url : '' });
+    case 'icon': {
+      // This tab's site, or one of the sites a search found (by its own address only).
+      const here = !message.url;
+      const url = here ? tab && isWebPage(tab.url) && tab.url : /^https?:\/\//i.test(message.url) ? message.url : null;
+      return { icon: url ? await siteIcon(url, here ? tabIcon(tab) : null) : null };
+    }
     case 'open_site':
       if (/^https?:\/\//i.test(message.url || '')) await ext.tabs.create({ url: message.url });
       return { ok: true };

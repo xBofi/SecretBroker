@@ -47,7 +47,7 @@ let fillShortcut = '';
 ext.commands.getAll().then((commands) => {
   const command = commands.find((c) => c.name === 'fill-login');
   fillShortcut = (command && command.shortcut) || '';
-  const kbd = document.querySelector('.hint kbd');
+  const kbd = document.querySelector('.hint kbd.shortcut');
   if (kbd) kbd.textContent = fillShortcut;
 }).catch(() => {});
 
@@ -158,13 +158,31 @@ async function copy(login, what) {
   message({ username: msg('username_copied'), password: msg('password_copied'), totp: msg('2fa_code_copied') }[what]);
 }
 
+// The site's own icon (fetched and kept by the background, never from an icon service); the initial until then,
+// and for good if the site has none. `url`: another site's address (search results); none: this tab's site.
+function avatar(name, url) {
+  const node = el('div', { class: 'avatar', 'aria-hidden': 'true' }, (name.trim().charAt(0) || '?').toUpperCase());
+  let hash = 0;  // each name its own colour, so initials tell logins apart
+  for (const ch of name) hash = (hash * 31 + ch.codePointAt(0)) % 360;
+  node.style.setProperty('--h', String(hash));
+  ask({ type: 'icon', url }).then((found) => {
+    if (!found || !found.icon || !/^data:image\//.test(found.icon)) return;
+    const img = el('img', { alt: '' });
+    img.addEventListener('load', () => { node.replaceChildren(img); node.classList.add('has-icon'); });
+    img.src = found.icon;
+  });
+  return node;
+}
+
+async function fillLogin(login, button) {
+  if (button) button.disabled = true;
+  const result = await ask({ type: 'fill', id: login.id });
+  if (result && result.ok) window.close();
+  else { if (button) button.disabled = false; message((result && result.error) || msg('couldn_fill_it_in'), true); }
+}
+
 function loginRow(login) {
-  const fill = el('button', { class: 'btn primary', disabled: !login.can_fill, onclick: async () => {
-    fill.disabled = true;
-    const result = await ask({ type: 'fill', id: login.id });
-    if (result && result.ok) window.close();
-    else { fill.disabled = false; message((result && result.error) || msg('couldn_fill_it_in'), true); }
-  } }, msg('fill_in'));
+  const fill = el('button', { class: 'btn primary', disabled: !login.can_fill, onclick: () => fillLogin(login, fill) }, msg('fill_in'));
   const actions = login.can_fill ? [
     el('button', { class: 'icon-btn', title: msg('copy_username'), 'aria-label': msg('copy_username'), onclick: () => copy(login, 'username') }, icon('user')),
     el('button', { class: 'icon-btn', title: msg('copy_password'), 'aria-label': msg('copy_password'), onclick: () => copy(login, 'password') }, icon('key')),
@@ -173,7 +191,7 @@ function loginRow(login) {
       : el('span', { class: 'icon-slot', 'aria-hidden': 'true' }),
     fill] : [];
   return el('div', { class: 'row', title: login.can_fill ? msg('saved_for', { site: login.site }) : '' },
-    el('div', { class: 'avatar' }, (login.name.trim().charAt(0) || '?').toUpperCase()),
+    avatar(login.name),
     el('div', { class: 'who' }, el('div', { class: 'name' }, login.name),
       login.can_fill
         ? el('div', { class: 'user' }, login.username || msg('no_username'), login.collection ? ` · ${login.collection}` : '')
@@ -188,6 +206,7 @@ function renderLogins(answer) {
   const search = el('input', { class: 'search', type: 'search', placeholder: msg('search_secretbroker'), 'aria-label': msg('search') });
   const results = el('div', {});
   const matches = el('div', {});
+  const first = page ? page.logins.find((l) => l.can_fill) : null;
   if (!page) {
     matches.append(el('div', { class: 'empty' }, list && list.code === 'frame' ? list.error
       : answer.page ? (list && list.error) || msg('this_page_can_be_filled') : msg('open_website_see_its_passwords')));
@@ -211,7 +230,7 @@ function renderLogins(answer) {
         local.length ? el('div', { class: 'list' }, local.map(loginRow)) : null,
         elsewhere.length ? el('div', { class: 'section' }, msg('on_other_websites')) : null,
         elsewhere.length ? el('div', { class: 'list' }, elsewhere.map((r) => el('div', { class: 'row' },
-          el('div', { class: 'avatar' }, (r.name.trim().charAt(0) || '?').toUpperCase()),
+          avatar(r.name, r.url),
           el('div', { class: 'who' }, el('div', { class: 'name' }, r.name), el('div', { class: 'user' }, `${r.username || msg('no_username')} · ${r.host}`)),
           el('div', { class: 'actions' }, el('button', { class: 'icon-btn', title: msg('open_it_can_be_filled', { host: r.host }), 'aria-label': msg('open', { host: r.host }),
             onclick: () => { ask({ type: 'open_site', url: r.url }); window.close(); } }, icon('external'))))))
@@ -224,7 +243,13 @@ function renderLogins(answer) {
     siteLine(list, answer.page && answer.page.host),
     el('div', { class: 'search-wrap' }, icon('search'), search),
     matches, results,
-    el('div', { class: 'hint' }, el('span', {}, msg('fill_in_without_opening_this')), el('kbd', {}, shortcut() || 'Ctrl+Shift+L'))].filter(Boolean));
+    el('div', { class: 'hints' },
+      first ? el('div', { class: 'hint' }, el('span', {}, msg('enter_fills_first', { name: first.name })), el('kbd', {}, '↵')) : null,
+      el('div', { class: 'hint' }, el('span', {}, msg('fill_in_without_opening_this')), el('kbd', { class: 'shortcut' }, shortcut() || 'Ctrl+Shift+L')))].filter(Boolean));
+  // Enter in the empty search box fills in the first login for this site, as the hint says.
+  search.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && first && !search.value.trim()) { event.preventDefault(); fillLogin(first, null); }
+  });
   search.focus();
 }
 

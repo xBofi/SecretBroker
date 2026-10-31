@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Najprej ustvarite trezor"
   },
+  "enter_fills_first": {
+    "message": "Izpolni »$name$«",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Izpolnjuje gesla, ki jih hranite v SecretBroker, samo na njihovem spletnem mestu in samo ko to zahtevate."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Nalaganje"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ za izbiro, Enter za izpolnitev"
+  },
+  "menu_shortcut_hint": {
+    "message": "izpolni brez tega menija"
   },
   "name": {
     "message": "Ime"

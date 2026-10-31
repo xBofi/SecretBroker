@@ -763,7 +763,7 @@ def main():
     check(entry["policy"]["http"]["allowed_hosts"] == ["127.0.0.1"] and entry["shared"].get("pending_policy")
           and result["quarantined"] == [NAME + " v2"], "a new host is quarantined: the old policy stays")
     pending = alice.summary("echo-api")["shared"]["pending_change"]
-    check(pending["by"] == "Bob" and any("evil.example.com" in line for line in pending["changes"]),
+    check(pending["by"] == "Bob" and any(c.get("kind") == "hosts" and "evil.example.com" in c["values"] for c in pending["changes"]),
           "the change to review says who and what")
     check(pending["hosts"] == ["evil.example.com"] and pending["only_hosts"], "and which new webs, to name them")
     check(any(n["title"].startswith("Cambio por revisar") for n in alice.ok("notices")), "Alice gets a notice")

@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Първо създайте трезора си"
   },
+  "enter_fills_first": {
+    "message": "Попълване на „$name$“",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Попълва паролите, които пазите в SecretBroker, само на техния уебсайт и само когато поискате."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Зареждане"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ за избор, Enter за попълване"
+  },
+  "menu_shortcut_hint": {
+    "message": "попълва без това меню"
   },
   "name": {
     "message": "Име"

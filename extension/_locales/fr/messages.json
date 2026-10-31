@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Crée d’abord ton coffre"
   },
+  "enter_fills_first": {
+    "message": "Remplir « $name$ »",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Remplit les mots de passe que tu gardes dans SecretBroker, uniquement sur leur propre site et quand tu le demandes."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Chargement"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ pour choisir, Entrée pour remplir"
+  },
+  "menu_shortcut_hint": {
+    "message": "remplit sans ce menu"
   },
   "name": {
     "message": "Nom"

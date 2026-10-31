@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Creează-ți mai întâi seiful"
   },
+  "enter_fills_first": {
+    "message": "Completează „$name$”",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Completează parolele pe care le păstrezi în SecretBroker, doar pe site-ul lor și doar când ceri tu."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Se încarcă"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ pentru a alege, Enter pentru a completa"
+  },
+  "menu_shortcut_hint": {
+    "message": "completează fără acest meniu"
   },
   "name": {
     "message": "Nume"

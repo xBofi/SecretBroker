@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Cruthaigh do thaisceadán ar dtús"
   },
+  "enter_fills_first": {
+    "message": "Líon «$name$»",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Líonann sí isteach na pasfhocail a choinníonn tú in SecretBroker, ar a suíomh féin amháin agus nuair a iarrann tú é amháin."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Á lódáil"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ le roghnú, Enter le líonadh"
+  },
+  "menu_shortcut_hint": {
+    "message": "líonann sé gan an roghchlár seo"
   },
   "name": {
     "message": "Ainm"

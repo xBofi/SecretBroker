@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Сначала создайте хранилище"
   },
+  "enter_fills_first": {
+    "message": "Заполнить «$name$»",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Заполняет пароли, которые вы храните в SecretBroker, — только на их собственном сайте и только когда вы попросите."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Загрузка"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ — выбрать, Enter — заполнить"
+  },
+  "menu_shortcut_hint": {
+    "message": "заполняет без этого меню"
   },
   "name": {
     "message": "Название"

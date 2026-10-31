@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Opprett hvelvet ditt først"
   },
+  "enter_fills_first": {
+    "message": "Fyll inn «$name$»",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Fyller ut passordene du har i SecretBroker, bare på deres eget nettsted og bare når du ber om det."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Laster inn"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ for å velge, Enter for å fylle inn"
+  },
+  "menu_shortcut_hint": {
+    "message": "fyller inn uten denne menyen"
   },
   "name": {
     "message": "Navn"

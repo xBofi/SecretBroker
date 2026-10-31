@@ -192,11 +192,13 @@
     .sb { --bg: #ffffff; --text: #171717; --muted: #5f5f5f; --faint: #8f8f8f; --line: #e4e4e4; --fill: #ebebeb;
       --hover: #f2f2f2; --accent: #171717; --accent-text: #fff; --interactive: #3a64b0; --danger: #c4321f;
       --shadow: 0 1px 2px rgba(0,0,0,.06), 0 12px 32px rgba(0,0,0,.16);
+      --tile: #fff; --logo-tile: #171717; --logo-glyph: #fff;
       font: 400 13px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif; color: var(--text); }
     @media (prefers-color-scheme: dark) {
       .sb { --bg: #202020; --text: #ececec; --muted: #a3a3a3; --faint: #727272; --line: #3b3b3b; --fill: #2e2e2e;
         --hover: #2a2a2a; --accent: #f2f2f2; --accent-text: #111; --interactive: #8eaee6; --danger: #f2705f;
-        --shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 40px rgba(0,0,0,.5); }
+        --shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 40px rgba(0,0,0,.5);
+        --tile: #2a2a2a; --logo-tile: #f2f2f2; --logo-glyph: #111; }
     }
     .button { position: fixed; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; cursor: pointer;
       background: transparent; display: grid; place-items: center; opacity: .9; }
@@ -212,8 +214,17 @@
       color: inherit; font: inherit; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
     .item:hover, .item.active { background: var(--hover); }
     .item[disabled] { cursor: default; opacity: .65; background: none; }
-    .avatar { flex: none; width: 28px; height: 28px; border-radius: 6px; background: var(--fill); display: grid;
-      place-items: center; font-weight: 600; color: var(--muted); }
+    .avatar { --h: 220; flex: none; width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center;
+      font-weight: 600; overflow: hidden; background: hsl(var(--h) 45% 90%); color: hsl(var(--h) 40% 32%); }
+    @media (prefers-color-scheme: dark) { .avatar { background: hsl(var(--h) 25% 24%); color: hsl(var(--h) 55% 80%); } }
+    .avatar.has-icon { background: var(--tile); box-shadow: inset 0 0 0 1px var(--line); }
+    .avatar img { width: 18px; height: 18px; object-fit: contain; }
+    .logo .tile { fill: var(--logo-tile); } .logo .glyph { fill: var(--logo-glyph); } .logo .hole { fill: var(--logo-tile); }
+    .hints { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 4px 8px 2px; color: var(--faint); font-size: 12px; }
+    kbd { font: 500 11px/1 "Cascadia Mono", Consolas, ui-monospace, monospace; background: var(--fill); color: var(--muted);
+      border-radius: 4px; padding: 3px 5px; }
+    .foot { display: flex; flex-direction: column; }
+    .foot .link { align-self: flex-start; }
     .text { min-width: 0; flex: 1; }
     .name, .user { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .name { font-weight: 500; }
@@ -238,9 +249,10 @@
   </style><div class="sb"></div>`;
   const layer = root.querySelector('.sb');
   // Drawn inline: the page cannot load the extension's files (and must not be able to tell it is installed).
-  const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#171717"/>'
-    + '<path d="M16 6.5 8.5 9.5v5.6c0 4.7 3.2 8.4 7.5 9.9 4.3-1.5 7.5-5.2 7.5-9.9V9.5z" fill="#fff"/>'
-    + '<circle cx="16" cy="14.2" r="2.3" fill="#171717"/><path d="M15 15.5h2l.6 4.5h-3.2z" fill="#171717"/></svg>';
+  // The tile follows the theme (dark on light pages, light in dark mode), like the app's own mark.
+  const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><rect class="tile" width="32" height="32" rx="7"/>'
+    + '<path class="glyph" d="M16 6.5 8.5 9.5v5.6c0 4.7 3.2 8.4 7.5 9.9 4.3-1.5 7.5-5.2 7.5-9.9V9.5z"/>'
+    + '<circle class="hole" cx="16" cy="14.2" r="2.3"/><path class="hole" d="M15 15.5h2l.6 4.5h-3.2z"/></svg>';
   const logo = () => { const span = document.createElement('span'); span.className = 'logo'; span.innerHTML = LOGO; return span; };
   let attached = false;
   function attach() {
@@ -330,6 +342,24 @@
     return (name || '?').trim().charAt(0).toUpperCase() || '?';
   }
 
+  // Each name gets its own colour, so initials tell logins apart until (or unless) the site's icon arrives.
+  function tinted(node, name) {
+    let hash = 0;
+    for (const ch of String(name || '')) hash = (hash * 31 + ch.codePointAt(0)) % 360;
+    node.style.setProperty('--h', String(hash));  // CSSOM, not an inline style: pages' CSP can't block it
+    return node;
+  }
+
+  // The site's icon (the extension fetched and keeps it, see background.js), else the coloured initial stays.
+  function showIcon(avatars, data) {
+    if (!data || !/^data:image\//.test(data)) return;
+    for (const avatar of avatars) {
+      const img = make('img', { alt: '' });
+      img.addEventListener('load', () => { avatar.replaceChildren(img); avatar.classList.add('has-icon'); });
+      img.src = data;
+    }
+  }
+
   async function toggleMenu() {
     if (menu) { hideMenu(); return; }
     const group = lastField && groupOf(lastField);
@@ -341,7 +371,8 @@
     if (!menu) return;
     const head = (domain) => make('div', { class: 'head' }, logo(),
       make('span', {}, 'SecretBroker', domain ? ' · ' : '', domain ? make('b', {}, domain) : null));
-    const openApp = make('div', { class: 'foot' }, make('button', { class: 'link', onclick: (e) => { if (e.isTrusted) { send({ type: 'open_app' }); hideMenu(); } } }, msg('open_secretbroker')));
+    const openLink = make('button', { class: 'link', onclick: (e) => { if (e.isTrusted) { send({ type: 'open_app' }); hideMenu(); } } }, msg('open_secretbroker'));
+    const openApp = make('div', { class: 'foot' }, openLink);
     const note = (...content) => menu.replaceChildren(head(), make('div', { class: 'note' }, ...content), openApp);
     const hello = answer && answer.hello;
     if (!hello || !hello.ok) { note((hello && hello.error) || msg('can_talk_secretbroker')); return; }
@@ -365,15 +396,20 @@
       const item = make('button', { class: 'item', role: 'option', disabled: !login.can_fill,
         title: login.can_fill ? msg('fill_in_on', { host: list.result.host }) : msg('use_only_team_credential_filling'),
         onclick: (event) => { if (event.isTrusted) choose(); } },
-      make('span', { class: 'avatar' }, initial(login.name)),
+      tinted(make('span', { class: 'avatar', 'aria-hidden': 'true' }, initial(login.name)), login.name),
       make('span', { class: 'text' }, make('div', { class: 'name' }, login.name),
         make('div', { class: 'user' }, login.can_fill ? (wantsTotp ? msg('2fa_code') : login.username || msg('no_username')) : msg('use_only_not_filled_in'))));
       item.choose = choose;
       return item;
     });
     activeIndex = -1;
-    menu.replaceChildren(head(domain), ...menuItems, openApp);
+    // How to fill it from the keyboard: here (↑ ↓ and Enter), and the shortcut that does it without the menu.
+    const fillable = menuItems.some((i) => !i.disabled);
+    const hints = fillable ? make('div', { class: 'hints' }, make('span', {}, msg('menu_keys_hint')),
+      !wantsTotp && answer.shortcut ? make('span', {}, make('kbd', {}, answer.shortcut), ' ', msg('menu_shortcut_hint')) : null) : null;
+    menu.replaceChildren(head(domain), ...menuItems, make('div', { class: 'foot' }, hints, openLink));
     placeMenu();
+    send({ type: 'icon' }).then((found) => menu && showIcon(menuItems.map((i) => i.querySelector('.avatar')), found && found.icon));
   }
 
   document.addEventListener('keydown', (event) => {

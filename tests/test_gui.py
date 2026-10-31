@@ -148,9 +148,31 @@ class Page:
             if (!el) return false; el.click(); return true; }})()""")
 
     def shot(self, name):
+        """Save a screenshot. Under load the first capture may wait for a frame that comes late: try again (with the
+        page brought to the front) rather than time out the whole run; still a FAIL if it never comes."""
         SHOTS.mkdir(exist_ok=True)
-        data = self.send("Page.captureScreenshot", format="png")["data"]
-        (SHOTS / f"{name}.png").write_bytes(base64.b64decode(data))
+        for attempt in range(3):
+            self.ws.settimeout(25)
+            try:
+                data = self.send("Page.captureScreenshot", format="png")["data"]
+                (SHOTS / f"{name}.png").write_bytes(base64.b64decode(data))
+                return True
+            except websocket.WebSocketTimeoutException:
+                print(f"  ...  screenshot {name}: no frame yet (attempt {attempt + 1})", flush=True)
+                try:
+                    self.send("Page.bringToFront")
+                except websocket.WebSocketTimeoutException:
+                    pass
+            finally:
+                self.ws.settimeout(60)
+        check(False, f"screenshot {name}")
+        return False
+
+    def settled(self, seconds=5):
+        """Wait until the page has nothing animating (dialogs rising, toasts, progress) and has painted twice."""
+        return wait_for(lambda: self.js("""new Promise((done) => { setTimeout(() => done(false), 1000); requestAnimationFrame(() => requestAnimationFrame(() =>
+            done(document.getAnimations().filter((a) => a.playState === 'running' && a.effect
+              && a.effect.getComputedTiming().iterations !== Infinity).length === 0))); })"""), seconds, 0.1)
 
 
 # ----------------------------------------------------------------- a local API to call
@@ -296,10 +318,8 @@ def run(app, env, devtools, api_port, client, integrations):
           and all(t in page.text() for t in ("Añadir una credencial", "Importar de otro gestor", "Importar un .env de un proyecto")),
           "an empty vault offers three ways to start, and connecting the AI while none is connected")
     calm_shot(page, "01-empty-vault")
-    page.click("Importar un .env de un proyecto", ".start-card .title")
-    check(wait_for(lambda: "sb import .env --delete" in page.text() and "sb run -- npm run dev" in page.text(), 5), "the .env start explains sb import")
-    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
-    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+    check("sb import" not in page.text(), "the .env start needs no terminal command")
+    env_import_flow(page, client)
     entry = {"id": "echo-api", "name": "Echo API", "template": "api_key", "description": "API local de prueba",
              "fields": {"value": "sk-gui-test-SECRET-123", "base_url": f"http://127.0.0.1:{api_port}", "auth_style": "bearer"},
              "policy": {"approval": "session", "http": {"allowed_hosts": ["127.0.0.1"],
@@ -610,9 +630,11 @@ def run(app, env, devtools, api_port, client, integrations):
     labels = [b[0] for b in buttons]
     check("Solo esta vez" in labels and "Permitir 24 horas" in labels and "Decidir luego" in text,
           f"«Solo esta vez» and «Permitir 24 horas», and «Decidir luego» instead of an X ({labels})")
-    check(len({b[1] for b in buttons if b[0] in ("Solo esta vez", "Permitir 24 horas")}) == 1, "both ways to allow weigh the same")
+    kinds = {b[0]: b[1].split() for b in buttons}
+    check("primary" in kinds.get("Permitir 24 horas", []) and "secondary" in kinds.get("Solo esta vez", []),
+          f"«Permitir 24 horas» is the recommended (primary) choice, «Solo esta vez» an outlined one next to it ({kinds})")
     check("sin volver a preguntarte durante 24 horas" in text, "one sentence says what the timed grant does")
-    time.sleep(0.5)
+    page.settled()
     page.shot("07-approval")
     page.click("Decidir luego")
     check(wait_for(lambda: page.js("!!document.getElementById('approval-banner') && !document.querySelector('.modal.approval')"), 5),
@@ -787,6 +809,7 @@ def english_flow(page, client):
         leaks = spanish_leaks(page)
         check(not leaks, f"no Spanish left in {view} ({leaks[:6]})")
         calm_shot(page, name)
+    dialog_shots(page, "en")
     page.js("lockNow()")
     check(wait_for(lambda: "SecretBroker is locked" in page.text(), 10), "the lock screen in English")
     leaks = spanish_leaks(page)
@@ -828,6 +851,7 @@ def other_languages(page, client):
             time.sleep(1.0)
             clipped |= set(page.js(CLIPPED) or [])
             calm_shot(page, f"{lang}-{number}-{view}")
+        clipped |= dialog_shots(page, lang)
         page.js("lockNow()")
         check(wait_for(lambda: page.js("t('lock.secretbroker_is_locked')") in page.text(), 10), f"the lock screen in {lang}")
         time.sleep(0.8)
@@ -838,6 +862,35 @@ def other_languages(page, client):
         check(not clipped, f"no text overflows its box in {lang} ({sorted(clipped)[:6]})")
     page.js("api().set_pref('language', 'es').then(() => applyLanguage('es')).then(renderMain)")
     check(wait_for(lambda: "Credenciales" in page.text(), 10), "and back to Spanish")
+
+
+def dialog_shots(page, lang):
+    """The dialogs this release added or changed, in `lang`: a .env to import, the browser install steps, and a
+    teammate's change worded in the page's language. Returns the texts that overflow their box."""
+    clipped = set()
+    env_file = HOME / "demo" / ".env"
+    env_file.parent.mkdir(exist_ok=True)
+    env_file.write_text("PORT=3000\nOPENAI_API_KEY=sk-demo-1\nGOOGLE_CLIENT_ID=demo-id\nGOOGLE_CLIENT_SECRET=demo-2\n", encoding="utf-8")
+    page.js(f"previewEnvImport({json.dumps(str(env_file))})")
+    check(wait_for(lambda: page.js("document.querySelectorAll('.modal .import-row').length") == 4, 10), f"the .env import in {lang}")
+    clipped |= set(page.js(CLIPPED) or [])
+    if lang == "en":  # other languages share words with Spanish («Salvia» is Finnish too)
+        leaks = spanish_leaks(page)
+        check(not leaks, f"no Spanish in the .env import ({leaks[:5]})")
+    calm_shot(page, f"{lang}-14-env-import")
+    page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+    page.js("api().browser_info().then((r) => extensionInstallModal(r.result))")
+    check(wait_for(lambda: page.js("document.querySelectorAll('.modal .install-steps li').length") >= 3, 10), f"the browser install steps in {lang}")
+    clipped |= set(page.js(CLIPPED) or [])
+    calm_shot(page, f"{lang}-15-browser-install")
+    page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+    line = page.js("changeLine({ kind: 'field', field: 'host', template: 'ssh', old: 'a.example', new: 'b.example' })")
+    label = page.js("TEMPLATES.ssh.fields.find((f) => f.name === 'host').label")
+    check(line == f"{label}: a.example → b.example" and (lang == "es" or "Servidor" not in line),
+          f"a teammate's change is worded in {lang} ({line})")
+    return clipped
 
 
 def mcp_call(name, tool="list_secrets", arguments=None):
@@ -866,13 +919,22 @@ def connect_ai_flow(page, client):
     vscode = PROFILE / "AppData" / "Roaming" / "Code" / "User" / "mcp.json"
     vscode.parent.mkdir(parents=True, exist_ok=True)
     vscode.write_text('{\n  // mine\n  "servers": {"other": {"type": "stdio", "command": "x"},},\n}\n', encoding="utf-8")
-    wait_for(lambda: page.js("state.paused === state.status.ai_paused"), 5)  # the pause test's last redraw is over
-    time.sleep(1.6)
-    page.js("""(() => { state.setupActive = true; state.screen = 'setup'; const box = el('div', { class: 'auth wide' });
-      $app().replaceChildren(el('div', { class: 'center-screen' }, box));
-      renderConnectAi(box, () => { state.setupActive = false; state.screen = null; state.view = 'access'; refreshStatus(); }); })()""")
-    check(wait_for(lambda: "Conecta tu IA" in page.text() and page.js("document.querySelectorAll('.ai-client').length") >= 2, 10),
-          "the last setup step lists the AI apps on this PC")
+    # The pause test's last redraws are over: the status is in, nothing is open, and the page has settled.
+    check(wait_for(lambda: page.js("!!state.status && state.paused === state.status.ai_paused && !state.status.ai_paused"
+                                   " && !document.querySelector('.modal')"), 20), "the page is quiet before the last setup step")
+    page.settled()
+    shown = None
+    for attempt in range(3):
+        page.js("""(() => { state.setupActive = true; state.screen = 'setup'; const box = el('div', { class: 'auth wide connect-step' });
+          $app().replaceChildren(el('div', { class: 'center-screen' }, box));
+          renderConnectAi(box, () => { state.setupActive = false; state.screen = null; state.view = 'access'; refreshStatus(); }); })()""")
+        # Listing the AI apps reads the disk and asks the service: slow under load, so wait for the rows, not a time.
+        shown = wait_for(lambda: page.js("!!document.querySelector('.connect-step')") and "Conecta tu IA" in page.text()
+                         and page.js("document.querySelectorAll('.ai-client').length") >= 2, 30)
+        if shown or page.js("!!document.querySelector('.connect-step')"):
+            break  # still on screen but without its rows: a real failure, reported below
+        print(f"  ...  a late redraw replaced the step (attempt {attempt + 1}); drawing it again", flush=True)
+    check(shown, "the last setup step lists the AI apps on this PC")
     text = page.text()
     check("Esperando la primera petición" in text and "list_secrets" in text and "No instalados:" in text and "Windsurf" in text,
           "with a test prompt to copy, a live wait for the first request, and the apps not installed folded")
@@ -911,8 +973,8 @@ def import_flow(page, client):
     check(not page.js("!!document.querySelector('.content-header .btn.icon-only[title=\"Importar de otro gestor\"]')"),
           "no unlabelled import arrow next to «Nueva»")
     page.js("document.querySelector('.content-header [aria-label=\"Más acciones\"]').click()")
-    check(wait_for(lambda: page.js("[...document.querySelectorAll('.menu-item')].map((b) => b.innerText.trim()).join('|')") == "Importar…|Exportar…", 5),
-          "«…» next to «Nueva» has «Importar…» and «Exportar…»")
+    check(wait_for(lambda: page.js("[...document.querySelectorAll('.menu-item')].map((b) => b.innerText.trim()).join('|')") == "Importar…|Importar un .env de un proyecto|Exportar…", 5),
+          "«…» next to «Nueva» has «Importar…», «Importar un .env de un proyecto» and «Exportar…»")
     calm_shot(page, "13-menu")
     page.click("Importar…", ".menu-item")
     check(wait_for(lambda: "Herramientas → Exportar caja fuerte" in page.text(), 5), "Bitwarden: the exact menu path")
@@ -980,6 +1042,40 @@ def import_flow(page, client):
             client.request("delete_entry", {"id": entry["id"], "proof": {"kind": "master_password", "value": MASTER}})
 
 
+def env_import_flow(page, client):
+    """«Importar un .env de un proyecto» in the app: the file (picked in a dialog; here, given), its keys ticked by
+    name only, one click to import, then the offer to take them out of the file. No terminal."""
+    print("Import a project's .env")
+    project = HOME / "tienda"
+    project.mkdir(exist_ok=True)
+    env_file = project / ".env"
+    env_file.write_text("# tienda\nPORT=3000\nOPENAI_API_KEY=sk-env-gui-SECRET-77\nSTRIPE_SECRET_KEY=sk_test_env_gui_78\n", encoding="utf-8")
+    page.js(f"previewEnvImport({json.dumps(str(env_file))})")
+    check(wait_for(lambda: "OPENAI_API_KEY" in page.text() and "STRIPE_SECRET_KEY" in page.text() and "PORT" in page.text(), 10),
+          "the preview lists the file's variables by name")
+    check("sk-env-gui" not in page.text() and "sk-env-gui" not in json.dumps(page.js("state")), "and never their values")
+    ticked = page.js("[...document.querySelectorAll('.import-row')].filter((r) => r.querySelector('input').checked).map((r) => r.querySelector('.title').innerText)")
+    check(sorted(ticked) == ["OPENAI_API_KEY", "STRIPE_SECRET_KEY"], f"the keys are ticked, PORT is not ({ticked})")
+    check("Importar 2 claves" in page.text(), "one button: «Importar 2 claves»")
+    calm_shot(page, "01-env-preview")
+    page.click("Importar 2 claves")
+    check(wait_for(lambda: "2 credenciales importadas" in page.text(), 15), "imported with one click, no approval to answer")
+    check("sigue teniendo estas claves en claro" in page.text() and "Quitar del archivo" in page.text(),
+          "then it offers to take them out of the file")
+    calm_shot(page, "01-env-done")
+    check((project / ".secretbroker").is_file() and "tienda-openai-api-key" in (project / ".secretbroker").read_text(encoding="utf-8"),
+          "the project gets its .secretbroker (names, no values)")
+    page.click("Quitar del archivo")
+    check(wait_for(lambda: env_file.is_file() and "sk-env-gui" not in env_file.read_text(encoding="utf-8")
+                   and "PORT=3000" in env_file.read_text(encoding="utf-8"), 10), "the keys leave the .env; PORT stays")
+    ids = {e["id"] for e in client.request("entries")}
+    check({"tienda-openai-api-key", "tienda-stripe-secret-key"} <= ids, "both are in the vault")
+    for entry_id in ("tienda-openai-api-key", "tienda-stripe-secret-key"):
+        client.request("delete_entry", {"id": entry_id, "proof": {"kind": "master_password", "value": MASTER}})
+    page.js("loadEntries().then(renderMain)")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+
+
 def fill(page, label, value, scope=""):
     """Type into the input of the field labelled `label` (or, without a label, the input with that placeholder)."""
     page.js(f"""(() => {{
@@ -994,7 +1090,7 @@ def fill(page, label, value, scope=""):
 def calm_shot(page, name):
     """A screenshot without the toasts of earlier steps, once animations are over."""
     page.js("document.getElementById('toasts').replaceChildren()")
-    time.sleep(0.4)
+    page.settled()
     page.shot(name)
 
 
@@ -1097,6 +1193,10 @@ def browser_flow(page, client):
           f"the extension folder, to copy or show, no terminal ({folder})")
     check("tienda" in page.text() or "addons.mozilla.org" in page.text(), "says the stores will make it one click")
     calm_shot(page, "17-browser-install")
+    page.click("Firefox", ".modal .segmented button")
+    check(wait_for(lambda: "about:debugging" in page.text() or "complementos" in page.text(), 5)
+          and ("addons.mozilla.org" in page.text()), "Firefox is always offered, with what it needs (and a note if it isn't installed)")
+    calm_shot(page, "17-browser-install-firefox")
     page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
     wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
 
@@ -1487,12 +1587,12 @@ def teams_flow(page, env):
     page.js("state.selected = 'echo-api'; api().call('team_sync').then(() => loadEntries()).then(renderMain)")
     check(wait_for(lambda: "Bob quiere que la IA pueda enviar esta clave a:" in page.text() and "api.evil.example" in page.text(), 15),
           "the change waits for review: who wants the key to go where")
-    check("Rechazar y mantener como estaba" in page.text() and "Permitir api.evil.example" in page.text()
+    check("Rechazar" in page.text() and "Permitir api.evil.example" in page.text()
           and "deshace el cambio para todo el equipo" in page.text() and "la IA no puede usar los destinos nuevos" in page.text(),
           "rejecting is the main choice, and both are explained")
     check("Revisar cambio" in page.text(), "the list says so")
     calm_shot(page, "16-team-change")
-    page.click("Rechazar y mantener como estaba")
+    page.click("Rechazar", ".review-box button")
     check(wait_for(lambda: "quiere que la IA pueda enviar" not in page.text(), 15), "one click keeps it as it was")
     hosts = page.js("state.entries.find((e) => e.id === 'echo-api').policy.http.allowed_hosts")
     check(hosts == ["127.0.0.1"], f"and the key still only goes where it went ({hosts})")
@@ -1511,7 +1611,7 @@ def teams_flow(page, env):
           "a new description waits for review, quoted, with who wrote it")
     check("la IA sigue leyendo la descripción anterior" in page.text(), "and the AI keeps reading the old one meanwhile")
     calm_shot(page, "16-team-description")
-    page.click("Rechazar y mantener como estaba")
+    page.click("Rechazar", ".review-box button")
     check(wait_for(lambda: "ha cambiado las instrucciones" not in page.text(), 15), "one click keeps the old text")
 
     print("Many credentials deleted for the team at once")
@@ -1578,7 +1678,8 @@ def teams_flow(page, env):
     check(wait_for(lambda: page.js("(document.querySelector('.nav button[data-view=\"team\"] .count') || {}).textContent") == "!", 15),
           "the sidebar warns when the team server can't be reached")
     page.js("state.view = 'team'; state.teamTab = 'people'; renderMain()")
-    check(wait_for(lambda: "Sin conexión" in page.text() and "Alicia" in page.text(), 10), "Equipo still shows what it knew, and says it is offline")
+    # The view asks the (stopped) server first: «Actualizando…» until that request gives up (connect + read timeouts).
+    check(wait_for(lambda: "Sin conexión" in page.text() and "Alicia" in page.text(), 30), "Equipo still shows what it knew, and says it is offline")
     check(wait_for(lambda: page.js("[...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Invitar').disabled"), 10),
           "changes are disabled while offline")
     check("Exception" not in page.text() and "Error:" not in page.text(), "no technical error names")

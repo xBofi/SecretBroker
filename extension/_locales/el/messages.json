@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Δημιουργήστε πρώτα την κρύπτη σας"
   },
+  "enter_fills_first": {
+    "message": "Συμπλήρωση «$name$»",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Συμπληρώνει τους κωδικούς που φυλάτε στο SecretBroker, μόνο στον δικό τους ιστότοπο και μόνο όταν το ζητήσετε."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Φόρτωση"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ για επιλογή, Enter για συμπλήρωση"
+  },
+  "menu_shortcut_hint": {
+    "message": "συμπληρώνει χωρίς αυτό το μενού"
   },
   "name": {
     "message": "Όνομα"

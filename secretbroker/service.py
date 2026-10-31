@@ -69,7 +69,7 @@ TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_i
                    "team_revoke", "team_share_entry", "team_share_entries", "team_unshare_entry", "team_accept_change",
                    "team_verify_email", "team_send_code", "team_resolve_deletions")
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
-                "import_file", "export_vault") + TEAM_CHANGE_OPS  # what the app that unlocked may do with one click
+                "import_file", "import_env_file", "export_vault") + TEAM_CHANGE_OPS  # what the app that unlocked may do with one click
 # Operations that can send credentials or keys out of the vault (to someone else's account, or a file in clear).
 # "Open with my Windows session" needs no proof, and anything running as the user (the AI's shell too) could use
 # it to get a one-click token, so after such an unlock these need Hello or a password once; from then on they are
@@ -1700,6 +1700,27 @@ class Service:
         """`sb import`: the keys of a project's .env become credentials. The values travel from the
         user's file to the vault through that local program, never through the AI, and the user
         confirms the list (names only) in the app."""
+        source, new, skipped = self._env_items(params)
+        if not new:
+            return {"created": [], "skipped": skipped}
+        detail = f"Desde {source}\n" + "\n".join(f"{n['var']}  →  {n['id']}" + (f"  (con {n['paired_var'] or 'su ID'})" if n["paired_id"] else "")
+                                                   for n in new)
+        request = {"id": "vault", "name": f"Importar {len(new)} {'clave' if len(new) == 1 else 'claves'}", "template": "generic"}
+        try:
+            self._ask_user(request, "import_env", detail, allow_session=False)
+        except ServiceError as exc:
+            self._audit("vault", "import_env", detail, "denied" if exc.code == "denied" else "error", str(exc))
+            raise
+        return self._create_env_items(new, skipped, source, params.get("project"))
+
+    def op_import_env_file(self, params):
+        """The same from the app («Importar un .env»): the user picked the file and ticked the keys in the app
+        itself, so there is nothing more to approve; one click with the app's token."""
+        self._verify_proof("import_env_file", params)
+        source, new, skipped = self._env_items(params)
+        return self._create_env_items(new, skipped, source, params.get("project"))
+
+    def _env_items(self, params):
         source = str(params.get("source") or "")[:300]
         existing = {e["id"] for e in self.vault.entries()}
         new, skipped = [], []
@@ -1715,17 +1736,10 @@ class Service:
             else:
                 new.append({"var": var, "value": value, "id": entry_id, "paired_id": paired,
                             "paired_var": str(item.get("paired_var") or "")[:100]})
-        if not new:
-            return {"created": [], "skipped": skipped}
-        detail = f"Desde {source}\n" + "\n".join(f"{n['var']}  →  {n['id']}" + (f"  (con {n['paired_var'] or 'su ID'})" if n["paired_id"] else "")
-                                                   for n in new)
-        request = {"id": "vault", "name": f"Importar {len(new)} {'clave' if len(new) == 1 else 'claves'}", "template": "generic"}
-        try:
-            self._ask_user(request, "import_env", detail, allow_session=False)
-        except ServiceError as exc:
-            self._audit("vault", "import_env", detail, "denied" if exc.code == "denied" else "error", str(exc))
-            raise
-        project = str(params.get("project") or "")
+        return source, new, skipped
+
+    def _create_env_items(self, new, skipped, source, project):
+        project = str(project or "")
         for item in new:
             entry = self._imported_entry(item, source)
             if TAG_RE.match(project):
@@ -2517,7 +2531,7 @@ class Service:
             # The user wrote the description by hand: theirs is the one that goes to the team.
             pending.pop("description")
             pending["texts"] = False
-            pending["changes"] = [line for line in pending.get("changes") or [] if not line.startswith("Instrucciones")]
+            pending["changes"] = [c for c in pending.get("changes") or [] if not teams.is_text_change(c)]
             if not pending["changes"]:
                 entry["shared"].pop("pending_policy")
         return entry
@@ -2784,7 +2798,7 @@ class Service:
         else:
             self._team_wake.set()  # push the local version back
         self._audit(entry["id"], "team_change", ("aceptado: " if accept else "rechazado: ")
-                    + "; ".join(result["changes"]), "ok")
+                    + "; ".join(teams.change_text(c) for c in result["changes"]), "ok")
         return {**result, "entry": self._summary(self.vault.get(entry["id"]))}
 
     def op_team_events(self, params):

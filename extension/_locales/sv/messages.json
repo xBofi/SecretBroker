@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Skapa ditt valv först"
   },
+  "enter_fills_first": {
+    "message": "Fyll i ”$name$”",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Fyller i lösenorden du har i SecretBroker, bara på deras egen webbplats och bara när du ber om det."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Läser in"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ för att välja, Enter för att fylla i"
+  },
+  "menu_shortcut_hint": {
+    "message": "fyller i utan den här menyn"
   },
   "name": {
     "message": "Namn"

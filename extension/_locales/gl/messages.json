@@ -76,6 +76,14 @@
   "create_your_vault_first": {
     "message": "Primeiro crea a túa caixa forte"
   },
+  "enter_fills_first": {
+    "message": "Encher «$name$»",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
   "ext_description": {
     "message": "Enche os contrasinais que gardas en SecretBroker, só no seu propio sitio web e só cando o pides."
   },
@@ -116,6 +124,12 @@
   },
   "loading": {
     "message": "Cargando"
+  },
+  "menu_keys_hint": {
+    "message": "↑ ↓ para escoller, Intro para encher"
+  },
+  "menu_shortcut_hint": {
+    "message": "enche sen abrir este menú"
   },
   "name": {
     "message": "Nome"
