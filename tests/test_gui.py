@@ -187,7 +187,9 @@ def fake_profile():
     """A Claude Code conversation where the AI saw a key."""
     CONVERSATION.parent.mkdir(parents=True)
     (HOME / "user").mkdir(parents=True, exist_ok=True)
-    (HOME / "user" / "prefs.json").write_text(json.dumps({"auto_scan": False}), encoding="utf-8")  # searched when the test says
+    # Searched when the test says; in Spanish, the source language, whatever the language of this PC (the English
+    # pass switches it like the picker in Ajustes).
+    (HOME / "user" / "prefs.json").write_text(json.dumps({"auto_scan": False, "language": "es"}), encoding="utf-8")
     CONVERSATION.write_text(json.dumps({"message": f"usa la clave {LEAKED} para probar"}) + "\n", encoding="utf-8")
 
 
@@ -267,6 +269,7 @@ def run(app, env, devtools, api_port, client, integrations):
           and "Restaurar una copia" in welcome and "Importar de otro gestor" in welcome,
           "the welcome says approvals are one click, and offers restoring or importing")
     page.shot("01-welcome")
+    english_welcome(page)
 
     print("Create the vault and a credential")
     page.click("Empezar")
@@ -691,6 +694,8 @@ def run(app, env, devtools, api_port, client, integrations):
     copies = list(folder.glob("*.sbbackup"))
     check(made and made["ok"] and len(copies) == 1 and "SECRET" not in copies[0].read_text(), "a backup is written, encrypted")
 
+    english_flow(page, client)
+
     print("Errors in the page")
     check(not page.errors, f"no JavaScript errors {page.errors[:3]}")
     log = (HOME / "user" / "app.log").read_text(encoding="utf-8") if (HOME / "user" / "app.log").exists() else ""
@@ -701,6 +706,91 @@ def run(app, env, devtools, api_port, client, integrations):
     except websocket.WebSocketException:
         pass  # the page goes away with the app
     check(wait_for(lambda: app.poll() is not None, 10), "«Salir» quits the app")
+
+
+# ----------------------------------------------------------------- other languages
+
+
+def _catalog(path):
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _forms(value):
+    return list(value.values()) if isinstance(value, dict) else [value]
+
+
+def spanish_leaks(page):
+    """Spanish texts of the app's catalogs on a page that should be in English: buttons, labels, headings and
+    options that are exactly a Spanish message, and long pieces of Spanish messages anywhere."""
+    import re
+    leaks = set()
+    for folder in (ROOT / "secretbroker" / "web" / "locales", ROOT / "secretbroker" / "locales"):
+        es, en = _catalog(folder / "es.json"), _catalog(folder / "en.json")
+        english = " ".join(f for v in en.values() for f in _forms(v))
+        short = {f.strip() for k, v in es.items() for f in _forms(v)
+                 if "{" not in f and len(f.strip()) >= 3 and f.strip() not in english}
+        controls = page.js("""[...document.querySelectorAll('button, label, h1, h2, h3, option, th, summary, .chip, .nav .label, .title')]
+          .filter((n) => n.offsetParent !== null || n.tagName === 'OPTION').map((n) => n.innerText.trim())""")
+        leaks |= {c for c in controls if c in short}
+        # Activity details are history: they stay in the language they were written in.
+        text = page.js("""(() => { const copy = document.body.cloneNode(true);
+          copy.querySelectorAll('.event-detail').forEach((n) => n.remove()); return copy.innerText || copy.textContent; })()""")
+        for key, value in es.items():
+            for form in _forms(value):
+                for piece in re.split(r"\{\w+\}", form):
+                    piece = piece.strip(" .,:;·()«»\n")
+                    if len(piece) >= 16 and piece in text and piece not in english:
+                        leaks.add(piece)
+    return sorted(leaks)
+
+
+def english_welcome(page):
+    print("The welcome in English")
+    page.js("applyLanguage('en').then(() => renderSetup())")
+    check(wait_for(lambda: "Your keys, used without being seen" in page.text(), 10)
+          and page.js("document.documentElement.lang") == "en", "the welcome switches to English at once, without a restart")
+    leaks = spanish_leaks(page)
+    check(not leaks, f"no Spanish left on the welcome ({leaks[:5]})")
+    check(page.js("[...document.querySelectorAll('.auth-language option')].map((o) => o.textContent).join('|')") == "English|Español",
+          "the welcome offers the languages there are files for, each in its own name")
+    page.shot("en-01-welcome")
+    page.js("applyLanguage('es').then(() => renderSetup())")
+    check(wait_for(lambda: "Tus claves, usadas sin ser vistas" in page.text(), 10), "and back to Spanish")
+
+
+def english_flow(page, client):
+    """Every main view, the lock screen and a service error in English, switched from Ajustes like a user would."""
+    print("The app in English")
+    page.js("state.view = 'settings'; renderMain()")
+    wait_for(lambda: page.js("!!document.querySelector('.setting .language-select')"), 10)
+    page.js("""(() => { const s = document.querySelector('.setting .language-select'); s.value = 'en';
+      s.dispatchEvent(new Event('change')); })()""")
+    check(wait_for(lambda: "Automatic lock" in page.text() and "Ajustes" not in page.text(), 10),
+          "choosing English in Ajustes applies it at once, without a restart")
+    check(json.loads((HOME / "user" / "prefs.json").read_text(encoding="utf-8")).get("language") == "en", "and remembers it")
+    check(page.js("TEMPLATES.web_login.label") == "Website or service", "the templates come in English too")
+    result = page.js("api().call('no_such_op', {})")
+    check(result and not result["ok"] and result["error"] == "Unknown operation: no_such_op",
+          f"and the service answers in English ({result and result.get('error')})")
+    first = page.js("state.entries.length ? state.entries[0].id : null")
+    for view, expected, name in (("credentials", "Credentials", "en-02-credentials"), ("exposure", "Health", "en-06-health"),
+                                 ("access", "What the AI can do", "en-03-access"), ("team", "Team", "en-10-team"),
+                                 ("activity", "Activity", "en-05-activity"), ("settings", "Appearance", "en-04-settings")):
+        page.js(f"state.view = '{view}'; state.selected = {json.dumps(first)}; renderMain()")
+        check(wait_for(lambda: expected in page.text(), 10), f"{view} in English")
+        time.sleep(0.8)
+        leaks = spanish_leaks(page)
+        check(not leaks, f"no Spanish left in {view} ({leaks[:6]})")
+        calm_shot(page, name)
+    page.js("lockNow()")
+    check(wait_for(lambda: "SecretBroker is locked" in page.text(), 10), "the lock screen in English")
+    leaks = spanish_leaks(page)
+    check(not leaks, f"no Spanish left on the lock screen ({leaks[:5]})")
+    calm_shot(page, "en-09-lock")
+    page.click("Open with my Windows session")
+    check(wait_for(lambda: client.request("status")["state"] == "unlocked", 10), "unlocked again (in English)")
+    page.js("api().set_pref('language', 'es').then(() => applyLanguage('es')).then(renderMain)")
+    check(wait_for(lambda: "Credenciales" in page.text(), 10), "and back to Spanish")
 
 
 def mcp_call(name, tool="list_secrets", arguments=None):
