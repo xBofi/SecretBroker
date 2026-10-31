@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "2FA-kood"
+  },
+  "2fa_code_copied": {
+    "message": "2FA-kood kopeeritud"
+  },
+  "browser": {
+    "message": "Brauser"
+  },
+  "can_talk_secretbroker": {
+    "message": "SecretBrokeriga ei saa ühendust."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "SecretBrokeriga ei saa ühendust"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "SecretBrokeriga ei saa ühendust. Ava see ja proovi uuesti."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Kontrolli, et SecretBroker näitab sama koodi, ja klõpsa „Ühenda“."
+  },
+  "cmd_fill": {
+    "message": "Täida selle veebisaidi sisselogimine"
+  },
+  "cmd_open": {
+    "message": "Ava SecretBroker"
+  },
+  "code": {
+    "message": "Kood"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Kinnita see SecretBrokeris"
+  },
+  "connect": {
+    "message": "Ühenda $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Ühenda see brauser"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Ühenda see brauser: klõpsa brauseri tööriistaribal SecretBrokeri ikooni ja seejärel „Ühenda“."
+  },
+  "copy_2fa_code": {
+    "message": "Kopeeri 2FA-kood"
+  },
+  "copy_password": {
+    "message": "Kopeeri parool"
+  },
+  "copy_username": {
+    "message": "Kopeeri kasutajanimi"
+  },
+  "couldn_connect": {
+    "message": "Ühendamine ebaõnnestus."
+  },
+  "couldn_copy": {
+    "message": "Kopeerimine ebaõnnestus"
+  },
+  "couldn_fill_it_in": {
+    "message": "Täitmine ebaõnnestus"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Ei leidnud, kuhu seda täita."
+  },
+  "couldn_look_it_up": {
+    "message": "Otsing ebaõnnestus."
+  },
+  "couldn_save": {
+    "message": "Salvestamine ebaõnnestus"
+  },
+  "create_your_vault_first": {
+    "message": "Loo esmalt oma hoidla"
+  },
+  "ext_description": {
+    "message": "Täidab SecretBrokeris hoitavad paroolid – ainult nende enda veebisaidil ja ainult siis, kui palud."
+  },
+  "fill_in": {
+    "message": "Täida"
+  },
+  "fill_in_on": {
+    "message": "Täida: $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Täida SecretBrokeriga"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Täida seda akent avamata"
+  },
+  "form_from": {
+    "message": "Vorm saidilt"
+  },
+  "form_is_in_frame_too": {
+    "message": "Vorm on raamis, mis on nägemiseks liiga väike: seda ei täideta."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Vorm on peidetud või väga väikeses raamis: seda ei täideta."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Paigalda SecretBroker ja ava Seaded › Brauser. Kui sa selle just paigaldasid, taaskäivita brauser."
+  },
+  "it_no_longer_pending": {
+    "message": "See pole enam ootel."
+  },
+  "it_only_fills_in_on": {
+    "message": "See täidab ainult iga parooli enda veebisaidil."
+  },
+  "loading": {
+    "message": "Laadin"
+  },
+  "name": {
+    "message": "Nimi"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Ühelgi saidi $domain$ mandaadil pole 2FA-koodi.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· https puudub"
+  },
+  "no_username": {
+    "message": "Kasutajanimi puudub"
+  },
+  "not_now": {
+    "message": "Mitte praegu"
+  },
+  "nothing_matches": {
+    "message": "Midagi ei leitud."
+  },
+  "nothing_saved_for": {
+    "message": "Saidi $domain$ jaoks pole midagi salvestatud.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Saidi $domain$ jaoks pole midagi salvestatud. Logi sisse ja ma pakun selle salvestamist.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Teistel veebisaitidel"
+  },
+  "on_this_website": {
+    "message": "Sellel veebisaidil"
+  },
+  "open": {
+    "message": "Ava $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Ava see ja proovi uuesti."
+  },
+  "open_it_can_be_filled": {
+    "message": "Ava $host$ (seal saab selle täita)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Ava SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Paroolide salvestamiseks ava SecretBroker ja loo oma hoidla."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Ava veebisait, et näha selle paroole."
+  },
+  "open_website_you_want_sign": {
+    "message": "Ava veebisait, kuhu tahad sisse logida."
+  },
+  "page_has_changed_try_again": {
+    "message": "Leht on muutunud. Proovi uuesti."
+  },
+  "password_copied": {
+    "message": "Parool kopeeritud"
+  },
+  "password_updated": {
+    "message": "Parool uuendatud"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Parool SecretBrokeris uuendatud"
+  },
+  "save": {
+    "message": "Salvesta"
+  },
+  "save_this_login": {
+    "message": "Kas salvestada see sisselogimine?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Kas salvestada see parool SecretBrokerisse?"
+  },
+  "saved": {
+    "message": "Salvestatud"
+  },
+  "saved_for": {
+    "message": "Salvestatud: $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Salvestatud SecretBrokerisse"
+  },
+  "search": {
+    "message": "Otsi"
+  },
+  "search_secretbroker": {
+    "message": "Otsi SecretBrokerist"
+  },
+  "searching": {
+    "message": "Otsin…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker ei vastanud õigel ajal."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker on lukus."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker on lukus"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker on lukus. Ava see lukust ja proovi uuesti."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "Selles arvutis puudub SecretBroker"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker pole selles arvutis paigaldatud või tuleb see veel brauseriga ühendada."
+  },
+  "that_way_it_can_fill": {
+    "message": "Nii saab see sinu paroole täita. SecretBroker palub sul seda ühe klõpsuga kinnitada."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Saidi $domain$ jaoks pole salvestatud sisselogimisi.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Sellel lehel pole nähtavat 2FA-koodi välja."
+  },
+  "there_no_visible_login_form": {
+    "message": "Sellel lehel pole nähtavat sisselogimisvormi."
+  },
+  "this_page_can_be_filled": {
+    "message": "Seda lehte ei saa täita."
+  },
+  "this_team_credential_is_use": {
+    "message": "See meeskonna mandaat on ainult kasutamiseks: seda brauseris ei täideta."
+  },
+  "unlock": {
+    "message": "Ava lukust"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Ava see lukust ja klõpsa siin uuesti."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Ava see lukust, et oma paroole täita."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Ava SecretBroker lukust ja klõpsa uuesti „Ühenda“."
+  },
+  "update": {
+    "message": "Uuenda"
+  },
+  "update_password": {
+    "message": "Kas uuendada mandaadi „$name$“ parooli?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Ainult kasutamiseks: ei täideta"
+  },
+  "use_only_on_team_not": {
+    "message": "Meeskonnas ainult kasutamiseks: ei täideta"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Ainult kasutamiseks mõeldud meeskonna mandaat: täitmine näitaks seda lehele"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Ainult kasutamiseks mõeldud meeskonna mandaate saab TI kasutada, kuid neid ei näidata: täitmine annaks selle lehele."
+  },
+  "username_copied": {
+    "message": "Kasutajanimi kopeeritud"
+  },
+  "you_re_on": {
+    "message": "Oled saidil"
+  }
+}

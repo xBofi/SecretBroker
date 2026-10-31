@@ -1,0 +1,322 @@
+{
+  "2fa_code": {
+    "message": "2FA kodas"
+  },
+  "2fa_code_copied": {
+    "message": "2FA kodas nukopijuotas"
+  },
+  "browser": {
+    "message": "Naršyklė"
+  },
+  "can_talk_secretbroker": {
+    "message": "Nepavyksta susisiekti su SecretBroker."
+  },
+  "can_talk_secretbroker_2": {
+    "message": "Nepavyksta susisiekti su SecretBroker"
+  },
+  "can_talk_secretbroker_open_it": {
+    "message": "Nepavyksta susisiekti su SecretBroker. Atidarykite jį ir bandykite dar kartą."
+  },
+  "check_that_secretbroker_shows_this": {
+    "message": "Patikrinkite, ar SecretBroker rodo tą patį kodą, ir spustelėkite „Prijungti“."
+  },
+  "cmd_fill": {
+    "message": "Užpildyti šios svetainės prisijungimą"
+  },
+  "cmd_open": {
+    "message": "Atidaryti SecretBroker"
+  },
+  "code": {
+    "message": "Kodas"
+  },
+  "confirm_it_in_secretbroker": {
+    "message": "Patvirtinkite tai SecretBroker"
+  },
+  "connect": {
+    "message": "Prijungti $browser$",
+    "placeholders": {
+      "browser": {
+        "content": "$1"
+      }
+    }
+  },
+  "connect_this_browser": {
+    "message": "Prijungti šią naršyklę"
+  },
+  "connect_this_browser_click_secretbroker": {
+    "message": "Prijunkite šią naršyklę: naršyklės įrankių juostoje spustelėkite SecretBroker piktogramą, tada „Prijungti“."
+  },
+  "copy_2fa_code": {
+    "message": "Kopijuoti 2FA kodą"
+  },
+  "copy_password": {
+    "message": "Kopijuoti slaptažodį"
+  },
+  "copy_username": {
+    "message": "Kopijuoti naudotojo vardą"
+  },
+  "couldn_connect": {
+    "message": "Nepavyko prisijungti."
+  },
+  "couldn_copy": {
+    "message": "Nepavyko nukopijuoti"
+  },
+  "couldn_fill_it_in": {
+    "message": "Nepavyko užpildyti"
+  },
+  "couldn_find_where_fill_it": {
+    "message": "Nepavyko rasti, kur užpildyti."
+  },
+  "couldn_look_it_up": {
+    "message": "Nepavyko surasti."
+  },
+  "couldn_save": {
+    "message": "Nepavyko išsaugoti"
+  },
+  "create_your_vault_first": {
+    "message": "Pirmiausia sukurkite savo saugyklą"
+  },
+  "ext_description": {
+    "message": "Pildo SecretBroker laikomus slaptažodžius – tik jų pačių svetainėje ir tik kai paprašote."
+  },
+  "fill_in": {
+    "message": "Užpildyti"
+  },
+  "fill_in_on": {
+    "message": "Užpildyti svetainėje $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "fill_in_with_secretbroker": {
+    "message": "Užpildyti su SecretBroker"
+  },
+  "fill_in_without_opening_this": {
+    "message": "Užpildyti neatidarant šio lango"
+  },
+  "form_from": {
+    "message": "Forma iš"
+  },
+  "form_is_in_frame_too": {
+    "message": "Forma yra per mažame, kad būtų matomas, rėmelyje: ji nepildoma."
+  },
+  "form_is_in_hidden_or": {
+    "message": "Forma yra paslėptame arba labai mažame rėmelyje: ji nepildoma."
+  },
+  "install_secretbroker_and_open_settings": {
+    "message": "Įdiekite SecretBroker ir atidarykite Nustatymai › Naršyklė. Jei ką tik jį įdiegėte, paleiskite naršyklę iš naujo."
+  },
+  "it_no_longer_pending": {
+    "message": "Tai nebelaukia."
+  },
+  "it_only_fills_in_on": {
+    "message": "Pildoma tik kiekvieno slaptažodžio svetainėje."
+  },
+  "loading": {
+    "message": "Įkeliama"
+  },
+  "name": {
+    "message": "Pavadinimas"
+  },
+  "no_credential_for_has_2fa": {
+    "message": "Nė vienas $domain$ kredencialas neturi 2FA kodo.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_https": {
+    "message": "· be https"
+  },
+  "no_username": {
+    "message": "Nėra naudotojo vardo"
+  },
+  "not_now": {
+    "message": "Ne dabar"
+  },
+  "nothing_matches": {
+    "message": "Nieko nerasta."
+  },
+  "nothing_saved_for": {
+    "message": "Svetainei $domain$ nieko neišsaugota.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "nothing_saved_for_sign_in": {
+    "message": "Svetainei $domain$ nieko neišsaugota. Prisijunkite, ir pasiūlysiu tai išsaugoti.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "on_other_websites": {
+    "message": "Kitose svetainėse"
+  },
+  "on_this_website": {
+    "message": "Šioje svetainėje"
+  },
+  "open": {
+    "message": "Atidaryti $host$",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_it_and_try_again": {
+    "message": "Atidarykite jį ir bandykite dar kartą."
+  },
+  "open_it_can_be_filled": {
+    "message": "Atidaryti $host$ (ten galima užpildyti)",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_secretbroker": {
+    "message": "Atidaryti SecretBroker"
+  },
+  "open_secretbroker_and_create_your": {
+    "message": "Atidarykite SecretBroker ir sukurkite saugyklą, kad galėtumėte išsaugoti slaptažodžius."
+  },
+  "open_website_see_its_passwords": {
+    "message": "Atidarykite svetainę, kad pamatytumėte jos slaptažodžius."
+  },
+  "open_website_you_want_sign": {
+    "message": "Atidarykite svetainę, prie kurios norite prisijungti."
+  },
+  "page_has_changed_try_again": {
+    "message": "Puslapis pasikeitė. Bandykite dar kartą."
+  },
+  "password_copied": {
+    "message": "Slaptažodis nukopijuotas"
+  },
+  "password_updated": {
+    "message": "Slaptažodis atnaujintas"
+  },
+  "password_updated_in_secretbroker": {
+    "message": "Slaptažodis SecretBroker atnaujintas"
+  },
+  "save": {
+    "message": "Išsaugoti"
+  },
+  "save_this_login": {
+    "message": "Išsaugoti šį prisijungimą?"
+  },
+  "save_this_password_in_secretbroker": {
+    "message": "Išsaugoti šį slaptažodį SecretBroker?"
+  },
+  "saved": {
+    "message": "Išsaugota"
+  },
+  "saved_for": {
+    "message": "Išsaugota svetainei $site$",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "saved_in_secretbroker": {
+    "message": "Išsaugota SecretBroker"
+  },
+  "search": {
+    "message": "Ieškoti"
+  },
+  "search_secretbroker": {
+    "message": "Ieškoti SecretBroker"
+  },
+  "searching": {
+    "message": "Ieškoma…"
+  },
+  "secretbroker_didn_answer_in_time": {
+    "message": "SecretBroker laiku neatsakė."
+  },
+  "secretbroker_is_locked": {
+    "message": "SecretBroker užrakintas."
+  },
+  "secretbroker_is_locked_2": {
+    "message": "SecretBroker užrakintas"
+  },
+  "secretbroker_is_locked_unlock_it": {
+    "message": "SecretBroker užrakintas. Atrakinkite jį ir bandykite dar kartą."
+  },
+  "secretbroker_is_missing_on_this": {
+    "message": "Šiame kompiuteryje trūksta SecretBroker"
+  },
+  "secretbroker_isn_installed_on_this": {
+    "message": "SecretBroker šiame kompiuteryje neįdiegtas arba jį dar reikia prijungti prie naršyklės."
+  },
+  "that_way_it_can_fill": {
+    "message": "Taip jis galės pildyti jūsų slaptažodžius. SecretBroker paprašys tai patvirtinti vienu spustelėjimu."
+  },
+  "there_are_no_saved_logins": {
+    "message": "Svetainei $domain$ nėra išsaugotų prisijungimų.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "there_no_visible_2fa_code": {
+    "message": "Šiame puslapyje nėra matomo 2FA kodo lauko."
+  },
+  "there_no_visible_login_form": {
+    "message": "Šiame puslapyje nėra matomos prisijungimo formos."
+  },
+  "this_page_can_be_filled": {
+    "message": "Šio puslapio užpildyti negalima."
+  },
+  "this_team_credential_is_use": {
+    "message": "Šis komandos kredencialas skirtas tik naudojimui: naršyklėje jis nepildomas."
+  },
+  "unlock": {
+    "message": "Atrakinti"
+  },
+  "unlock_it_and_click_here": {
+    "message": " Atrakinkite jį ir vėl spustelėkite čia."
+  },
+  "unlock_it_fill_in_your": {
+    "message": "Atrakinkite jį, kad galėtumėte pildyti slaptažodžius."
+  },
+  "unlock_secretbroker_and_click_connect": {
+    "message": "Atrakinkite SecretBroker ir vėl spustelėkite „Prijungti“."
+  },
+  "update": {
+    "message": "Atnaujinti"
+  },
+  "update_password": {
+    "message": "Atnaujinti „$name$“ slaptažodį?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "use_only_not_filled_in": {
+    "message": "Tik naudojimui: nepildoma"
+  },
+  "use_only_on_team_not": {
+    "message": "Komandoje tik naudojimui: nepildoma"
+  },
+  "use_only_team_credential_filling": {
+    "message": "Komandos kredencialas tik naudojimui: užpildžius jis būtų parodytas puslapiui"
+  },
+  "use_only_team_credentials_can": {
+    "message": "Komandos kredencialus tik naudojimui gali naudoti DI, bet jie nerodomi: užpildžius jis būtų atiduotas puslapiui."
+  },
+  "username_copied": {
+    "message": "Naudotojo vardas nukopijuotas"
+  },
+  "you_re_on": {
+    "message": "Esate svetainėje"
+  }
+}
