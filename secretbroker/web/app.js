@@ -2688,7 +2688,7 @@ function exposureCard(item, entry) {
     buttons.push(el('button', { class: 'btn ghost sm', title: 'Un archivo de pruebas, una copia que quieres tener… Deja de contar como problema',
       onclick: (e) => act(e.currentTarget, () => api().ignore_finding(entry.id, f.location, true), 'Ignorada') }, 'Ignorar'));
     if (!f.location.startsWith('env:')) {
-      buttons.push(el('button', { class: 'btn icon-only', title: 'Mostrar en el Explorador', onclick: () => api().show_location(f.location) }, icon('external', 'sm')));
+      buttons.push(el('button', { class: 'btn icon-only', title: 'Mostrar en su carpeta', onclick: () => api().show_location(f.location) }, icon('external', 'sm')));
     }
     return buttons;
   };

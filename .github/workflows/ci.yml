@@ -64,6 +64,9 @@ jobs:
       - name: Team tests
         run: $PY tests/test_teams.py
 
+      - name: Browser autofill tests
+        run: $PY tests/test_autofill.py
+
   # Builds the Ubuntu package, installs it on the runner and checks that the service starts as `secretbroker`.
   linux-package:
     runs-on: ubuntu-latest
