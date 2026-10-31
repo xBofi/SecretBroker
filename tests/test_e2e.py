@@ -9,6 +9,7 @@ import base64
 import json
 import socket
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,8 @@ from pathlib import Path
 
 HOME = Path(tempfile.mkdtemp(prefix="secretbroker-test-"))
 os.environ["SECRETBROKER_HOME"] = str(HOME)  # must be set before importing secretbroker
+if not shutil.which("python"):  # Ubuntu only has python3: the commands below run `python`, from this venv
+    os.environ["PATH"] = os.path.dirname(sys.executable) + os.pathsep + os.environ.get("PATH", "")
 
 from cryptography.hazmat.primitives import hashes, serialization  # noqa: E402
 from cryptography.hazmat.primitives.asymmetric import padding, rsa  # noqa: E402
