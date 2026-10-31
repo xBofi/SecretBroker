@@ -154,6 +154,10 @@ const state = {
   team: null,        // team_status: account, sync state, counts
   collection: null,  // filter of the credential list by team collection
   teamOrg: null,     // organization open in the Equipo view
+  teamTab: 'collections',  // Colecciones · Personas · Actividad · Tu cuenta
+  teamData: null,    // team_overview: what the Equipo view draws (from this PC, then refreshed)
+  joinLink: null,    // an invite link the app was opened with, until the team form takes it
+  picked: new Set(), // credentials ticked in the list (to share several at once)
 };
 let TEMPLATES = {};
 let DB_ENGINES = {};
@@ -208,6 +212,7 @@ async function boot() {
   DB_ENGINES = state.info.templates.db_engines;
   document.addEventListener('keydown', onShortcut);
   await refreshStatus();
+  window.onJoinLink();
   setInterval(tick, 1500);
   checkUpdate(false);
   setInterval(() => checkUpdate(false), 3 * 3600 * 1000);
@@ -641,6 +646,7 @@ function renderLock() {
 async function enterMain() {
   await loadEntries();
   renderMain();
+  applyJoinLink();
   if (await api().auto_scan()) { state.scan = { running: true }; renderMain(); }
   if (state.afterUnlock === 'import') {
     state.afterUnlock = null;
@@ -675,7 +681,7 @@ function renderMain() {
       navButton('credentials', 'key', 'Credenciales', state.entries.length),
       navButton('exposure', 'shield', 'Salud', exposedCount(), 'danger'),
       navButton('access', 'bot', 'Acceso de la IA', state.status.ai_paused ? el('span', { title: 'IA en pausa' }, icon('pause', 'sm')) : null, 'is-warning'),
-      navButton('team', 'users', 'Equipo', teamAttention().length),
+      navButton('team', 'users', 'Equipo', teamAttentionCount()),
       navButton('activity', 'activity', 'Actividad'),
       navButton('settings', 'settings', 'Ajustes')),
     el('div', { id: 'update-slot' }),
@@ -691,7 +697,7 @@ function renderMain() {
 
 function navButton(view, iconName, label, count, countClass = '') {
   return el('button', {
-    class: state.view === view ? 'active' : '',
+    class: state.view === view ? 'active' : '', 'data-view': view,
     onclick: () => { if (state.view !== view) clearToasts(); state.view = view; renderMain(); },
   }, icon(iconName), label, count ? el('span', { class: `count ${countClass}` }, count) : null);
 }
@@ -725,6 +731,7 @@ function updateSidebarState() {
     state.paused = state.status.ai_paused;
     if (!first) renderMain();
   }
+  updateTeamNav();
 }
 
 async function lockNow() {
@@ -798,6 +805,48 @@ function renderCredentials(content) {
       onclick: () => filter(null, state.collection === cid ? null : cid),
     }, icon('users', 'sm'), name)),
     allTags.map((t) => el('button', { class: `tag ${state.tag === t ? 'active' : ''}`, onclick: () => filter(state.tag === t ? null : t, null) }, t)));
+  // With a team account: tick several (checkbox on hover, shift-click for a range) to share them at once.
+  const picking = !!(state.team && state.team.connected);
+  const known = new Set(state.entries.map((e) => e.id));
+  state.picked = new Set([...state.picked].filter((id) => picking && known.has(id)));
+  let lastPicked = null;
+  const bulkBar = el('div', { class: 'bulk-bar hidden' });
+  const renderBulk = () => {
+    const picked = state.entries.filter((e) => state.picked.has(e.id));
+    const shareable = picked.filter((e) => !e.shared && !e.draft);
+    list.classList.toggle('picking', picked.length > 0);
+    bulkBar.classList.toggle('hidden', !picked.length);
+    bulkBar.replaceChildren(
+      el('span', { class: 'small' }, picked.length === 1 ? '1 seleccionada' : `${picked.length} seleccionadas`),
+      el('div', { class: 'spacer' }),
+      el('button', {
+        class: 'btn primary', disabled: !shareable.length || teamOffline(),
+        title: shareable.length < picked.length ? 'Las que ya están compartidas o les falta la clave no se incluyen' : null,
+        onclick: () => shareEntries(shareable, () => { state.picked.clear(); }),
+      }, icon('share', 'sm'), `Compartir ${shareable.length} en…`),
+      el('button', { class: 'btn icon-only', title: 'Quitar la selección (Esc)', onclick: () => { state.picked.clear(); renderList(); } }, icon('x', 'sm')));
+  };
+  const toggle = (entry, items, range) => {
+    const ids = items.map((e) => e.id);
+    const targets = range && lastPicked && ids.includes(lastPicked)
+      ? ids.slice(Math.min(ids.indexOf(lastPicked), ids.indexOf(entry.id)), Math.max(ids.indexOf(lastPicked), ids.indexOf(entry.id)) + 1)
+      : [entry.id];
+    const on = range ? true : !state.picked.has(entry.id);
+    targets.forEach((id) => (on ? state.picked.add(id) : state.picked.delete(id)));
+    lastPicked = entry.id;
+    renderList();
+  };
+  const listBadge = (entry) => {
+    const unsent = unsentText(entry);
+    const reminder = state.reminders && state.reminders[entry.id];
+    if (entry.draft) return el('span', { class: 'draft-badge' }, 'Falta la clave');
+    if (entry.shared && entry.shared.pending_change) return el('span', { class: 'draft-badge', title: 'Un compañero ha cambiado adónde puede ir esta clave' }, 'Revisar cambio');
+    if (unsent) return el('span', { class: 'draft-badge', title: unsent }, 'Sin enviar');
+    const rotating = rotationBadge(entry);
+    if (rotating) return rotating;
+    if (reminder) return el('span', { class: `draft-badge ${reminderTone(reminder)}`, title: reminderText(reminder) }, reminderShort(reminder));
+    return levelDot(entry.id);
+  };
   const renderList = () => {
     const query = state.search.trim().toLowerCase();
     const items = state.entries.filter((e) => (!state.tag || (e.tags || []).includes(state.tag))
@@ -805,21 +854,26 @@ function renderCredentials(content) {
       || [e.name, e.id, e.description, subtitleOf(e), TEMPLATES[e.template].label, ...(e.tags || []),
         e.shared ? e.shared.collection_name : ''].join(' ').toLowerCase().includes(query)));
     list.replaceChildren(items.map((entry) => el('div', {
-      class: `row ${state.selected === entry.id ? 'selected' : ''}`,
-      onclick: () => { state.selected = entry.id; renderList(); renderDetail(detail); },
-    }, glyph(entry.template), el('div', { class: 'meta' },
-      el('div', { class: 'title' }, el('span', { class: 'name' }, entry.name), entry.shared ? el('span', { class: 'shared-mark', title: `Equipo · ${entry.shared.collection_name}` }, icon('users', 'sm')) : null),
+      class: `row ${state.selected === entry.id ? 'selected' : ''} ${state.picked.has(entry.id) ? 'picked' : ''}`,
+      onclick: (event) => {
+        if (picking && (event.shiftKey || event.ctrlKey)) { event.preventDefault(); toggle(entry, items, event.shiftKey); return; }
+        state.selected = entry.id; lastPicked = entry.id; renderList(); renderDetail(detail);
+      },
+    }, picking ? el('div', { class: 'pick-slot' }, glyph(entry.template),
+      el('input', { type: 'checkbox', class: 'pick', checked: state.picked.has(entry.id), title: 'Seleccionar (Mayús+clic: varias seguidas)',
+        'aria-label': `Seleccionar ${entry.name}`, onclick: (event) => { event.stopPropagation(); event.preventDefault(); toggle(entry, items, event.shiftKey); } }))
+      : glyph(entry.template), el('div', { class: 'meta' },
+      el('div', { class: 'title' }, el('span', { class: 'name' }, entry.name), entry.shared ? el('span', { class: 'shared-mark', title: `Compartida · ${entry.shared.collection_name}` }, icon('users', 'sm')) : null),
       el('div', { class: 'subtitle' }, subtitleOf(entry))),
-    entry.draft ? el('span', { class: 'draft-badge' }, 'Falta la clave')
-      : entry.shared && entry.shared.pending_change ? el('span', { class: 'draft-badge', title: 'Un compañero ha cambiado adónde puede ir esta clave' }, 'Revisar cambio')
-      : rotationBadge(entry) || (state.reminders && state.reminders[entry.id]
-        ? el('span', { class: `draft-badge ${reminderTone(state.reminders[entry.id])}`, title: reminderText(state.reminders[entry.id]) }, reminderShort(state.reminders[entry.id]))
-        : levelDot(entry.id)))));
+    listBadge(entry))));
     if (!items.length) list.append(el('p', { class: 'muted', style: 'padding:12px 10px' }, 'Ninguna coincide.'));
+    renderBulk();
   };
+  list.addEventListener('keydown', (event) => { if (event.key === 'Escape' && state.picked.size) { state.picked.clear(); renderList(); } });
 
   if (!state.selected) state.selected = state.entries[0].id;
-  content.replaceChildren(header, tagBar, el('div', { class: 'split', style: 'flex:1;min-height:0' }, list, el('div', { class: 'rule' }), detail));
+  content.replaceChildren(header, tagBar, el('div', { class: 'split', style: 'flex:1;min-height:0' },
+    el('div', { class: 'list-pane' }, bulkBar, list), el('div', { class: 'rule' }), detail));
   renderTags();
   renderList();
   renderDetail(detail);
@@ -831,21 +885,23 @@ function reminderTone(r) {
 }
 
 function reminderShort(r) {
-  return { expired: 'Caducada', expiring: `Caduca en ${r.days} d`, old: 'Clave antigua', old_alive: 'Anula la anterior', team_access: 'Rótala' }[r.kind];
-}
-
-function daysText(n) { return `${n} ${n === 1 ? 'día' : 'días'}`; }
-
-function joinNames(names) {
-  return names.length > 1 ? `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}` : names[0] || 'Una persona';
+  if (r.kind === 'team_access') {
+    const people = r.people || [];
+    return people.length > 2 ? `Cambiar: salieron ${people.length}` : `Cambiar: ${people.length > 1 ? 'salieron' : 'salió'} ${listJoin(people)}`;
+  }
+  return { expired: 'Caducada', expiring: `Caduca en ${r.days} d`, old: 'Clave antigua', old_alive: 'Anula la anterior' }[r.kind];
 }
 
 function reminderText(r) {
-  if (r.kind === 'team_access') return `${joinNames(r.people)} ${r.people.length > 1 ? 'tenían' : 'tenía'} acceso a esta credencial del equipo y ya no está. ${r.can_rotate ? 'Rótala' : 'Pide a quien la gestiona que la rote'} por si la vio.`;
+  if (r.kind === 'team_access') {
+    const many = (r.people || []).length > 1;
+    return `${listJoin(r.people)} ${many ? 'tenían' : 'tenía'} acceso a esta credencial del equipo y ya no ${many ? 'están' : 'está'}. `
+      + `${r.can_rotate ? 'Cámbiala' : 'Pide a quien la gestiona que la cambie'} por si la ${many ? 'vieron' : 'vio'}.`;
+  }
   if (r.kind === 'old_alive') return `Rotaste la clave, pero la anterior sigue funcionando. Anúlala en ${r.provider || 'la web del proveedor'}.`;
-  if (r.kind === 'expired') return `Caducó hace ${daysText(r.days)}. Crea una clave nueva o rótala.`;
-  if (r.kind === 'expiring') return `Caduca en ${daysText(r.days)}. Rótala antes de que deje de funcionar.`;
-  return `La clave tiene ${daysText(r.days)}. Conviene rotarla de vez en cuando.`;
+  if (r.kind === 'expired') return `Caducó hace ${plural(r.days, 'día', 'días')}. Crea una clave nueva o rótala.`;
+  if (r.kind === 'expiring') return `Caduca en ${plural(r.days, 'día', 'días')}. Rótala antes de que deje de funcionar.`;
+  return `La clave tiene ${plural(r.days, 'día', 'días')}. Conviene rotarla de vez en cuando.`;
 }
 
 // A rotation left halfway, or what it could not finish: shown before any other reminder in the list.
@@ -889,7 +945,7 @@ function renderDetail(panel) {
       if (useOnly(entry)) {
         return el('div', { class: 'prop' },
           el('div', { style: 'min-width:0' }, el('div', { class: 'k' }, shortLabel(spec.label)), el('div', { class: 'v secret' }, '••••••••••')),
-          el('span', { class: 'faint small', title: 'La IA y sb run pueden usarla; la app no la muestra ni la copia.' }, 'Solo usar'));
+          el('span', { class: 'faint small', title: PERMISSION_HELP.use }, 'Solo uso'));
       }
       const key = `${entry.id}:${spec.name}`;
       const revealed = state.revealed[key];
@@ -929,7 +985,8 @@ function renderDetail(panel) {
       glyph(entry.template, 'lg'),
       el('div', { class: 'meta' }, el('h2', {}, entry.name),
         el('div', { class: 'muted small head-sub' }, template.label, entry.shared ? sharedBadge(entry.shared) : null)),
-      canShare ? el('button', { class: 'btn ghost', onclick: () => shareEntry(entry) }, icon('share', 'sm'), 'Compartir') : null,
+      canShare ? el('button', { class: 'btn ghost', onclick: () => shareEntry(entry), disabled: teamOffline(),
+        title: teamOffline() ? 'Sin conexión con el servidor del equipo' : null }, icon('share', 'sm'), 'Compartir') : null,
       el('button', { class: 'btn', onclick: () => openEditor(entry) }, 'Editar'),
       canWrite(entry) ? el('button', { class: 'btn icon-only', title: 'Eliminar', onclick: () => deleteEntry(entry) }, icon('trash', 'sm')) : null),
     entry.draft ? null : statusStrip(entry),
@@ -1343,7 +1400,8 @@ function guideSteps(steps) {
 
 // The guided rotation. A new password is kept by the service from the moment it is shown (pending), so
 // closing, locking or Esc never lose one that is already set somewhere; reopening offers to finish it.
-function rotateGuided(entry) {
+// `after(saved)` runs when the dialog closes (the offboarding queue goes on to the next credential).
+function rotateGuided(entry, after) {
   const guide = entry.guide || { create: [], links: [], sources: [] };
   const known = guide.provider || (entry.rotation && entry.rotation.provider);
   const provider = known || 'el proveedor';
@@ -1373,6 +1431,7 @@ function rotateGuided(entry) {
       : pending ? `La ${database ? 'contraseña' : 'clave'} nueva queda guardada aquí como pendiente: cuando vuelvas a «Rotar con ayuda», podrás terminar.`
         : saved ? 'La nueva ya está guardada y funcionando. Si cierras ahora, la credencial te recordará lo que falta.'
           : database ? 'Aún no se ha cambiado nada.' : 'Si ya creaste la clave nueva en el proveedor, tendrás que pegarla otra vez.'),
+    onClose: () => { if (after) after(saved); },
   });
   // The credential behind the dialog shows each step as it happens.
   const refresh = async () => { await loadEntries(); renderMain(); };
@@ -2178,6 +2237,7 @@ function renderExposure(content) {
   const scanButton = el('button', { class: 'btn ghost', disabled: scanning }, 'Buscar copias');
   scanButton.addEventListener('click', () => startScan(scanButton));
   const body = el('div', { class: 'content-body' },
+    offboardingPeople().map((person) => offboardingCard(person, true)),  // someone left the team: keys to change
     healthSection(),  // personal.js: score, weak / reused / old secrets, unfinished rotations
     el('div', { class: 'section-head' }, el('h2', { class: 'section-title' }, 'Copias encontradas'), scanButton),
     scanning ? scanProgress() : null,
@@ -2482,25 +2542,43 @@ function permissionsGroup(data, rerender) {
 
 // ----------------------------------------------------------------------- teams
 //
-// Team logic and crypto live in the service (teams.py). Here: the Equipo view, sharing a credential,
+// Team logic and crypto live in the service (teams.py). Here: the Equipo view, sharing credentials,
 // and the team side of a credential. The account password is typed once, when linking the account;
 // every other change is one click (presence), like the rest of the app.
+//
+// The Equipo view draws at once from what this PC knows (team_overview: no network), then asks the server
+// with short timeouts and redraws only if something changed. Changes need the server: offline, their
+// buttons are disabled.
 
 const ROLE_LABELS = { owner: 'Propietario', admin: 'Administrador', member: 'Miembro' };
-const PERMISSION_LABELS = { manage: 'Gestionar', edit: 'Editar', view: 'Ver', use: 'Solo usar' };
+const PERMISSION_LABELS = { manage: 'Gestor', edit: 'Editor', view: 'Lector', use: 'Solo uso' };
 const PERMISSION_HELP = {
-  manage: 'Gestionar: añade y quita personas, edita y rota.',
-  edit: 'Editar: cambia y rota las credenciales.',
-  view: 'Ver: las usa, las muestra y las copia.',
-  use: 'Solo usar: la IA y sb run pueden usarla; la app no la muestra ni la copia.',
+  manage: 'Gestor: añade y quita personas, edita y cambia las claves.',
+  edit: 'Editor: cambia las credenciales y rota sus claves.',
+  view: 'Lector: la IA y tus programas pueden usarlas, y tú puedes verlas y copiarlas.',
+  use: 'Solo uso: la IA y tus programas pueden usarla; tú no puedes verla ni copiarla.',
 };
+const USE_ONLY_NOTE = '«Solo uso» lo hace cumplir la app: alguien con una app modificada podría sacarla, como en otros gestores.';
 const EVENT_LABELS = {
   'org.create': 'Creó la organización', invite: 'Invitó a', 'invite.delete': 'Retiró la invitación de',
   join: 'Aceptó la invitación', 'member.confirm': 'Confirmó a', 'member.remove': 'Quitó a', 'member.leave': 'Salió',
   'member.role': 'Cambió el rol de', 'collection.create': 'Creó la colección', 'collection.delete': 'Borró la colección',
-  grant: 'Dio acceso a', revoke: 'Quitó el acceso a', rotate: 'Cambió la clave de', 'item.put': 'Guardó una credencial en',
+  grant: 'Dio acceso a', revoke: 'Quitó el acceso a', rotate: 'Volvió a cifrar', 'item.put': 'Guardó una credencial en',
   'item.delete': 'Borró una credencial de',
 };
+const RELEASES_URL = 'https://github.com/xBofi/SecretBroker/releases/latest';
+
+// «Bob», «Bob y Carol», «Bob, Carol e Inés».
+function listJoin(names) {
+  const list = (names || []).filter(Boolean).map(String);
+  if (list.length < 2) return list[0] || '';
+  const last = list[list.length - 1];
+  return `${list.slice(0, -1).join(', ')} ${/^h?i(?![aeiouáéíóú])/i.test(last) ? 'e' : 'y'} ${last}`;
+}
+
+function plural(n, one, many) {
+  return `${n} ${n === 1 ? one : many}`;
+}
 
 function canWrite(entry) {
   return !entry.shared || ['manage', 'edit'].includes(entry.shared.permission);
@@ -2510,15 +2588,60 @@ function useOnly(entry) {
   return !!entry.shared && entry.shared.permission === 'use';
 }
 
-function sharedBadge(shared) {
-  return el('span', { class: 'shared-badge', title: PERMISSION_HELP[shared.permission] },
-    icon('users', 'sm'), `${shared.collection_name || 'Equipo'} · ${PERMISSION_LABELS[shared.permission]}`);
+// Changes need the server; reads and everything local keep working.
+function teamOffline() {
+  return !!state.team && ['offline', 'reconnect'].includes(state.team.state);
 }
 
-// What needs the user in the team: changes to review and keys to rotate because someone left.
+function sharedBadge(shared) {
+  return el('span', { class: 'shared-badge', title: `Tu permiso: ${PERMISSION_LABELS[shared.permission]}. ${PERMISSION_HELP[shared.permission].split(': ')[1]}` },
+    icon('users', 'sm'), `Compartida · ${shared.collection_name || 'Equipo'}`);
+}
+
+// Why a shared credential's edit has not reached the team yet (null: nothing waiting, or it goes out now).
+function unsentText(entry) {
+  const shared = entry.shared;
+  if (!shared || !shared.unsent) return null;
+  if (shared.unsent === 'rekey') {
+    return `Tu cambio espera: «${shared.collection_name}» se tiene que volver a cifrar porque alguien salió. Se enviará cuando quien la gestiona sincronice.`;
+  }
+  const st = (state.team || {}).state;
+  if (st === 'offline') return 'Tu cambio se enviará al equipo cuando vuelva la conexión.';
+  if (st === 'reconnect') return 'Tu cambio se enviará cuando vuelvas a entrar en Equipo.';
+  if (st === 'error') return 'Tu cambio aún no ha llegado al equipo; se reintentará solo.';
+  return null;
+}
+
+// What needs the user in the team: changes to review and keys to change because someone left.
 function teamAttention() {
   const reminders = state.reminders || {};
   return state.entries.filter((e) => (e.shared && e.shared.pending_change) || (reminders[e.id] || {}).kind === 'team_access');
+}
+
+function teamAttentionCount() {
+  return teamAttention().length + ((state.team && state.team.waiting) || []).length;
+}
+
+// The Equipo button in the sidebar: a warning when the team can't sync, else what needs attention.
+function updateTeamNav() {
+  const button = document.querySelector('.nav button[data-view="team"]');
+  if (!button || !state.status) return;
+  const held = state.status.team_held || 0;
+  const problem = {
+    reconnect: 'La sesión del equipo ha caducado: vuelve a entrar en Equipo.',
+    offline: 'Sin conexión con el servidor del equipo. Todo funciona con lo que ya tienes.',
+    error: 'Hay un problema al sincronizar con el equipo. Ábrelo para ver qué hacer.',
+  }[state.status.team] || (held ? `${plural(held, 'cambio espera', 'cambios esperan')} a que su colección se vuelva a cifrar.` : null);
+  const count = teamAttentionCount();
+  const [cls, text] = problem ? ['count warn', '!'] : count ? ['count', String(count)] : [null, null];
+  let badge = button.querySelector('.count');
+  if (!cls) { if (badge) badge.remove(); }
+  else {
+    if (!badge) { badge = el('span', {}); button.append(badge); }
+    badge.className = cls;
+    badge.textContent = text;
+  }
+  button.title = problem || '';
 }
 
 async function teamAct(op, params, reason, button) {
@@ -2540,15 +2663,50 @@ function confirmModal({ title, text, warning, action, danger = false, onConfirm 
   button.addEventListener('click', async () => { if (await onConfirm(button)) modal.close(); });
 }
 
+// A «?» that opens a short explanation next to a control.
+function helpPopover(label, title, content) {
+  const pop = el('div', { class: 'popover hidden', role: 'dialog', 'aria-label': title },
+    el('div', { class: 'popover-title' }, title), content);
+  const button = el('button', { class: 'btn icon-only help-btn', type: 'button', title: label, 'aria-label': label }, '?');
+  const wrap = el('span', { class: 'popover-wrap' }, button, pop);
+  const outside = (event) => { if (!wrap.contains(event.target)) close(); };
+  const close = () => { pop.classList.add('hidden'); document.removeEventListener('mousedown', outside); };
+  button.addEventListener('click', () => {
+    if (!pop.classList.contains('hidden')) { close(); return; }
+    pop.classList.remove('hidden');
+    document.addEventListener('mousedown', outside);
+  });
+  pop.addEventListener('keydown', (event) => { if (event.key === 'Escape') { event.stopPropagation(); close(); } });
+  return wrap;
+}
+
+function permissionHelp() {
+  return helpPopover('Qué permite cada permiso', 'Permisos en una colección', [
+    el('div', { class: 'perm-legend' }, Object.keys(PERMISSION_LABELS).map((p) => {
+      const [label, text] = PERMISSION_HELP[p].split(': ');
+      return el('div', {}, el('b', {}, label), el('span', {}, text));
+    })),
+    el('p', { class: 'faint small', style: 'margin-top:8px' }, USE_ONLY_NOTE)]);
+}
+
+function permissionSelect(value) {
+  const select = el('select', { class: 'input compact', title: PERMISSION_HELP[value] || 'Permiso', 'aria-label': 'Permiso' },
+    Object.entries(PERMISSION_LABELS).map(([p, text]) => el('option', { value: p, title: PERMISSION_HELP[p] }, text)));
+  select.value = value;
+  select.addEventListener('change', () => { select.title = PERMISSION_HELP[select.value]; });
+  return select;
+}
+
 // The sync state: a short line for the header, and the whole story for its tooltip.
 function syncLine(team) {
   if (!team || !team.connected) return ['', '', ''];
-  const every = 'Se sincroniza solo al desbloquear, cada 5 minutos y al guardar cambios.';
+  const every = 'Se sincroniza sola al desbloquear, cada 5 minutos y al guardar cambios.';
+  if (state.teamRefreshing && team.state !== 'syncing') return ['', 'Actualizando…', 'Pidiendo al servidor lo último. Mientras, ves lo que ya había en este PC.'];
   switch (team.state) {
     case 'syncing': return ['', 'Sincronizando…', every];
-    case 'offline': return ['warn', 'Sin conexión', 'No se llega al servidor. Lo reintenta solo; mientras, todo funciona con lo que ya tienes.'];
+    case 'offline': return ['warn', 'Sin conexión', team.error || 'No se llega al servidor. Se reintenta solo; mientras, todo funciona con lo que ya tienes.'];
     case 'reconnect': return ['warn', 'Sesión caducada', 'Vuelve a entrar para seguir sincronizando.'];
-    case 'error': return ['warn', 'Error al sincronizar', team.error || 'No se pudo sincronizar.'];
+    case 'error': return ['warn', 'No se pudo sincronizar', team.error || 'Se reintentará solo.'];
     default: return ['', team.last_sync ? `Sincronizado ${formatTime(team.last_sync)}` : 'Sin sincronizar', every];
   }
 }
@@ -2564,22 +2722,25 @@ function updateTeamSync() {
 
 // After each sync round: reload when something arrived, otherwise just refresh the sync line.
 async function pollTeam() {
-  const seen = `${state.status.team}|${state.status.team_sync}`;
+  const seen = `${state.status.team}|${state.status.team_sync}|${state.status.team_held || 0}`;
   const before = state.teamSeen;
   state.teamSeen = seen;
   if (before === undefined || before === seen) return;
+  const wasOffline = teamOffline();
   if (state.team) state.team.state = state.status.team;
   if (state.status.team === 'syncing') { updateTeamSync(); return; }
   const result = await api().call('team_status');
   if (!result.ok) return;
   state.team = result.result;
   const last = state.team.last || {};
-  const arrived = ['added', 'updated', 'removed', 'conflicts', 'quarantined', 'rotate'].some((k) => last[k]);
-  if (arrived && state.screen === 'main') {
+  const arrived = ['added', 'updated', 'removed', 'conflicts', 'quarantined', 'rotate', 'pushed', 'held'].some((k) => last[k]);
+  if ((arrived || wasOffline !== teamOffline()) && state.screen === 'main') {
     await loadEntries();
-    if (state.view !== 'team') renderMain();
+    if (state.view === 'team') renderView();
+    else if (!document.getElementById('modal-root').lastElementChild) renderMain();
   }
   updateTeamSync();
+  updateTeamNav();
 }
 
 // ----- the team side of a credential
@@ -2588,10 +2749,11 @@ function sharedSection(entry) {
   const shared = entry.shared;
   if (!shared) return null;
   const author = shared.author && typeof shared.author === 'object' ? shared.author.name : shared.author;
+  const unsent = unsentText(entry);
   const unshare = () => confirmModal({
     title: `¿Dejar de compartir ${entry.name}?`,
     text: `Se quita de «${shared.collection_name}» para todo el equipo. En este PC se queda como credencial tuya.`,
-    warning: 'Quien la tuvo puede haberla visto o copiado. Si te preocupa, rótala.',
+    warning: 'Quien la tuvo puede haberla visto o copiado. Si te preocupa, cámbiala.',
     action: 'Dejar de compartir',
     onConfirm: async (button) => {
       const result = await teamAct('team_unshare_entry', { id: entry.id }, `Para dejar de compartir ${entry.name}.`, button);
@@ -2604,76 +2766,202 @@ function sharedSection(entry) {
   });
   return el('div', { class: 'section' },
     el('h3', {}, 'Equipo'),
-    el('p', {}, 'En ', el('b', {}, shared.collection_name || 'una colección'), shared.org_name ? ` de ${shared.org_name}` : '',
+    el('p', {}, 'Compartida en ', el('b', {}, shared.collection_name || 'una colección'), shared.org_name ? ` de ${shared.org_name}` : '',
       '. Tu permiso: ', el('b', {}, PERMISSION_LABELS[shared.permission]), '.'),
-    el('p', { class: 'help' }, PERMISSION_HELP[shared.permission]),
+    el('p', { class: 'help' }, PERMISSION_HELP[shared.permission].split(': ')[1]),
     author ? el('p', { class: 'help' }, `Último cambio: ${author}${shared.changed ? ` · ${formatTime(shared.changed)}` : ''}.`) : null,
-    canWrite(entry) ? el('div', { style: 'margin-top:6px' }, el('button', { class: 'btn ghost', onclick: unshare }, 'Dejar de compartir')) : null);
+    unsent ? el('p', { class: 'help unsent-line' }, icon('clock', 'sm'), el('span', {}, el('b', {}, 'Sin enviar. '), unsent)) : null,
+    canWrite(entry) ? el('div', { style: 'margin-top:6px' }, el('button', {
+      class: 'btn ghost', onclick: unshare, disabled: teamOffline(), title: teamOffline() ? 'Sin conexión con el servidor del equipo' : null,
+    }, 'Dejar de compartir')) : null);
 }
 
-// A teammate widened where the key can go: it keeps working as before until this user accepts.
+// A teammate widened where the key can go: it keeps working as before until this user decides.
 function pendingChangeBox(entry) {
   const change = entry.shared.pending_change;
   const write = canWrite(entry);
+  const who = change.by || 'Un compañero';
+  const hosts = change.only_hosts ? change.hosts || [] : [];
   const decide = async (accept, button) => {
     const result = await teamAct('team_accept_change', { id: entry.id, accept },
-      accept ? `Para aceptar el cambio en ${entry.name}.` : `Para mantener ${entry.name} como estaba.`, button);
+      accept ? `Para permitir el cambio en ${entry.name}.` : `Para mantener ${entry.name} como estaba.`, button);
     if (!result.ok) return;
     await loadEntries();
     renderMain();
-    toast(accept ? 'Cambio aceptado' : 'Se mantiene la actual');
+    toast(accept ? 'Cambio permitido' : 'Rechazado: se mantiene como estaba para todo el equipo');
   };
-  const accept = el('button', { class: 'btn primary' }, 'Aceptar');
-  accept.addEventListener('click', () => decide(true, accept));
-  const keep = write ? el('button', { class: 'btn' }, 'Mantener la actual') : null;
-  if (keep) keep.addEventListener('click', () => decide(false, keep));
-  return el('div', { class: 'section draft-box' },
-    el('h3', {}, 'Cambio por revisar'),
-    el('p', {}, `Un compañero${change.by ? ` (${change.by})` : ''} ha cambiado adónde puede ir esta clave:`),
-    el('ul', { class: 'used-in' }, (change.changes || []).map((line) => el('li', { class: 'selectable' }, line))),
-    el('p', { class: 'help' }, write
-      ? 'Hasta que decidas, la IA la sigue usando como estaba. «Mantener la actual» devuelve tu versión al equipo.'
-      : 'Hasta que lo aceptes, la IA la sigue usando como estaba. Si no te parece bien, habla con quien la gestiona.'),
-    el('div', { style: 'margin-top:8px;display:flex;gap:8px' }, accept, keep));
+  const reject = write ? el('button', { class: 'btn primary' }, 'Rechazar y mantener como estaba') : null;
+  if (reject) reject.addEventListener('click', () => decide(false, reject));
+  const allow = el('button', { class: write ? 'btn' : 'btn primary' }, hosts.length === 1 ? `Permitir ${hosts[0]}` : 'Permitir los cambios');
+  allow.addEventListener('click', () => decide(true, allow));
+  return el('div', { class: 'section draft-box review-box' },
+    hosts.length
+      ? el('h3', {}, `${who} quiere que la IA pueda enviar esta clave a: `, hosts.map((h, i) => [i ? ', ' : '', el('code', { class: 'selectable' }, h)]))
+      : el('h3', {}, `${who} ha cambiado adónde puede ir esta clave`),
+    hosts.length ? null : el('ul', { class: 'used-in' }, (change.changes || []).map((line) => el('li', { class: 'selectable' }, line))),
+    el('p', { class: 'help' }, 'Mientras decides, la IA no puede usar los destinos nuevos: sigue usándola como estaba. ', write
+      ? 'Rechazar deshace el cambio para todo el equipo.'
+      : 'Solo quien puede editarla puede rechazarlo: si no te parece bien, habla con quien la gestiona.'),
+    el('div', { style: 'margin-top:8px;display:flex;gap:8px;flex-wrap:wrap' }, reject, allow));
 }
 
+// ----- sharing one credential or several
+
 async function shareEntry(entry) {
+  return shareEntries([entry]);
+}
+
+async function shareEntries(entries, onDone) {
   const result = await api().call('team_collections');
   if (!result.ok) { toast(result.error, 'error'); return; }
   const writable = result.result.filter((c) => ['manage', 'edit'].includes(c.permission));
-  if (!writable.length) {
+  if (!state.teamData) {  // Equipo not opened yet: what this PC knows of the organizations is enough here
+    const known = await api().call('team_overview');
+    if (known.ok) state.teamData = known.result;
+  }
+  const overview = state.teamData || {};
+  const adminOrgs = (overview.orgs || []).filter((o) => ['owner', 'admin'].includes(o.role) && (!o.status || o.status === 'confirmed'));
+  const what = entries.length === 1 ? entries[0].name : plural(entries.length, 'credencial', 'credenciales');
+  if (!writable.length && !adminOrgs.length) {
     const modal = openModal({
-      title: `Compartir ${entry.name}`,
-      body: el('p', { class: 'muted' }, 'Aún no tienes ninguna colección donde puedas añadir credenciales. Crea una en Equipo, o pide a quien gestiona una que te dé permiso para editar.'),
+      title: `Compartir ${what}`,
+      body: el('p', { class: 'muted' }, 'Aún no tienes ninguna colección donde puedas añadir credenciales. Crea una en Equipo, o pide a quien gestiona una que te dé permiso de editor.'),
       footer: [el('button', { class: 'btn', onclick: () => modal.close() }, 'Cancelar'),
         el('button', { class: 'btn primary', onclick: () => { modal.close(); state.view = 'team'; renderMain(); } }, 'Ir a Equipo')],
     });
     return;
   }
-  let chosen = writable.length === 1 ? writable[0].id : null;
+  let chosen = writable.length === 1 ? writable[0].id : writable.length ? null : 'new';
   const errorText = el('div', { class: 'error-text' });
-  const button = el('button', { class: 'btn primary' }, 'Compartir');
+  const button = el('button', { class: 'btn primary' }, entries.length === 1 ? 'Compartir' : `Compartir ${entries.length}`);
+  const newName = el('input', { class: 'input', placeholder: 'Nombre, p. ej. Producción' });
+  const newOrg = el('select', { class: 'input compact' }, adminOrgs.map((o) => el('option', { value: o.id }, o.name)));
+  if (adminOrgs.some((o) => o.id === state.teamOrg)) newOrg.value = state.teamOrg;
+  const newForm = el('div', { class: `inline-form ${chosen === 'new' ? '' : 'hidden'}`, style: 'margin:4px 0 0 34px' },
+    newName, adminOrgs.length > 1 ? newOrg : null);
+  const pick = (id) => { chosen = id; errorText.textContent = ''; newForm.classList.toggle('hidden', id !== 'new'); if (id === 'new') newName.focus(); };
   const modal = openModal({
-    title: `Compartir ${entry.name}`,
+    title: `Compartir ${what}`,
     body: [
       el('p', { class: 'muted' }, 'Elige la colección. Les llegará cifrada a quienes estén en ella; el servidor no puede leerla.'),
       el('div', { class: 'choice-list' }, writable.map((c) => el('label', { class: 'choice' },
-        el('input', { type: 'radio', name: 'share-collection', value: c.id, checked: chosen === c.id, onchange: () => { chosen = c.id; errorText.textContent = ''; } }),
+        el('input', { type: 'radio', name: 'share-collection', value: c.id, checked: chosen === c.id, onchange: () => pick(c.id) }),
         el('div', { class: 'meta' }, el('div', { class: 'title' }, c.name),
-          el('div', { class: 'subtitle' }, `${c.org_name} · ${c.entries} ${c.entries === 1 ? 'credencial' : 'credenciales'}`))))),
+          el('div', { class: 'subtitle' }, `${c.org_name} · ${plural(c.entries, 'credencial', 'credenciales')}${c.needs_rekey ? ' · se volverá a cifrar' : ''}`)))),
+      adminOrgs.length ? el('label', { class: 'choice' },
+        el('input', { type: 'radio', name: 'share-collection', value: 'new', checked: chosen === 'new', onchange: () => pick('new') }),
+        el('div', { class: 'meta' }, el('div', { class: 'title' }, 'Nueva colección…'),
+          el('div', { class: 'subtitle' }, 'Una carpeta compartida nueva; luego eliges quién entra.'))) : null),
+      newForm,
       el('p', { class: 'help' }, 'Se comparte entera: la clave, las notas y adónde puede ir. Cuándo te pide aprobación la IA lo decide cada uno en su PC.'),
       errorText],
     footer: [el('button', { class: 'btn', onclick: () => modal.close() }, 'Cancelar'), button],
   });
+  newName.addEventListener('keydown', (e) => { if (e.key === 'Enter') button.click(); });
   button.addEventListener('click', async () => {
     if (!chosen) { errorText.textContent = 'Elige una colección.'; return; }
-    const shared = await teamAct('team_share_entry', { id: entry.id, collection: chosen }, `Para compartir ${entry.name}.`, button);
-    if (!shared.ok) return;
-    modal.close();
+    let cid = chosen;
+    if (chosen === 'new') {
+      if (!newName.value.trim()) { errorText.textContent = 'Ponle un nombre a la colección.'; newName.focus(); return; }
+      const created = await teamAct('team_create_collection', { org: newOrg.value || adminOrgs[0].id, name: newName.value.trim() }, 'Para crear la colección.', button);
+      if (!created.ok) return;
+      cid = created.result.id;
+      state.openCollection = cid;
+    }
+    if (entries.length === 1) {
+      const shared = await teamAct('team_share_entry', { id: entries[0].id, collection: cid }, `Para compartir ${entries[0].name}.`, button);
+      if (!shared.ok) return;
+      modal.close();
+      toast(`Compartida en ${shared.result.collection_name}`);
+    } else {
+      const shared = await teamAct('team_share_entries', { ids: entries.map((e) => e.id), collection: cid }, `Para compartir ${what}.`, button);
+      if (!shared.ok) return;
+      modal.close();
+      const { shared: done, failed, collection_name: name } = shared.result;
+      if (failed.length) toast(`${plural(done.length, 'compartida', 'compartidas')} en ${name}; ${plural(failed.length, 'no se pudo', 'no se pudieron')}: ${failed[0].error}`, 'error');
+      else toast(`${plural(done.length, 'credencial compartida', 'credenciales compartidas')} en ${name}`);
+    }
+    if (onDone) onDone();
     await loadEntries();
     renderMain();
-    toast(`Compartida en ${shared.result.collection_name}`);
   });
+}
+
+// ----- after someone leaves: change, one after the other, what they could see
+
+function offboardingPeople() {
+  // From the reminders: who left and how many of their credentials are still to change (Salud, Equipo).
+  const people = {};
+  for (const r of Object.values(state.reminders || {})) {
+    if (r.kind !== 'team_access') continue;
+    for (const name of r.people || []) (people[name] = people[name] || []).push(r.id);
+  }
+  return Object.entries(people).map(([person, ids]) => ({ person, pending: ids }));
+}
+
+function offboardingSummary(person) {
+  const total = person.total === undefined ? null : person.total;
+  if (total === null) return `${person.person} ya no está: ${plural(person.pending.length, 'credencial', 'credenciales')} por cambiar`;
+  return `${person.person} pudo ver ${plural(total, 'credencial', 'credenciales')} · ${plural(total - person.pending.length, 'cambiada', 'cambiadas')}`;
+}
+
+function offboardingCard(person, compact = false) {
+  const total = person.total === undefined ? person.pending.length : person.total;
+  const done = total - person.pending.length;
+  return el('div', { class: 'offboard-card' },
+    icon('rotate'),
+    el('div', { class: 'meta' },
+      el('div', { class: 'title' }, offboardingSummary(person)),
+      compact ? null : el('div', { class: 'subtitle' }, 'Pudo verlas o copiarlas. Cámbialas una tras otra; las que no gestionas las cambia quien las gestiona.'),
+      el('div', { class: 'progress', title: `${done} de ${total}` }, el('span', { style: `width:${total ? Math.round(100 * done / total) : 100}%` }))),
+    el('button', { class: 'btn primary', onclick: () => openOffboarding(person.person) }, done ? 'Seguir' : 'Empezar'));
+}
+
+async function openOffboarding(name) {
+  const skipped = new Set();
+  const body = el('div', { class: 'offboard' });
+  const foot = el('div', { style: 'display:contents' });
+  const modal = openModal({ title: `Cambiar lo que pudo ver ${name}`, wide: true, body, footer: [foot] });
+  let pending = [];
+  const next = () => pending.find((e) => canWrite(e) && !skipped.has(e.id));
+  const runNext = () => {
+    const entry = next();
+    if (!entry) { draw(); return; }
+    rotateGuided(entry, async (changed) => {
+      if (!changed) skipped.add(entry.id);  // closed without changing it: the user decides what's next
+      await draw();
+      if (changed && next()) runNext();
+    });
+  };
+  const draw = async () => {
+    const [result] = await Promise.all([api().call('team_offboarding'), loadEntries()]);
+    const person = (result.ok ? result.result : []).find((p) => p.person === name) || { person: name, total: 0, pending: [] };
+    const byId = Object.fromEntries(state.entries.map((e) => [e.id, e]));
+    pending = person.pending.map((id) => byId[id]).filter(Boolean);
+    const done = person.total - pending.length;
+    const row = (entry) => {
+      const mine = canWrite(entry);
+      const change = el('button', { class: 'btn' }, 'Cambiar');
+      change.addEventListener('click', () => { skipped.delete(entry.id); rotateGuided(entry, async () => { await draw(); }); });
+      return el('div', { class: `access-row ${skipped.has(entry.id) ? 'skipped' : ''}` }, glyph(entry.template),
+        el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name),
+          el('div', { class: 'subtitle' }, [entry.shared ? entry.shared.collection_name : null,
+            !mine ? 'La cambia quien la gestiona; te llegará sola' : skipped.has(entry.id) ? 'Saltada' : null].filter(Boolean).join(' · '))),
+        mine ? [skipped.has(entry.id) ? null : el('button', { class: 'btn ghost', onclick: () => { skipped.add(entry.id); draw(); } }, 'Saltar'), change] : null);
+    };
+    body.replaceChildren(
+      el('p', { class: 'muted' }, `${name} ya no está en el equipo, pero pudo ver o copiar estas claves. Cambiarlas es la única forma de que deje de poder usarlas.`),
+      el('div', { class: 'offboard-progress' },
+        el('div', { class: 'progress' }, el('span', { style: `width:${person.total ? Math.round(100 * done / person.total) : 100}%` })),
+        el('span', { class: 'muted small' }, `${done} de ${person.total} ${person.total === 1 ? 'cambiada' : 'cambiadas'}`)),
+      pending.length ? el('div', {}, pending.map(row))
+        : el('p', { class: 'ok-text' }, icon('check', 'sm'), `Listo: ${name} ya no tiene ninguna clave que funcione.`));
+    const following = next();
+    foot.replaceChildren(el('div', { class: 'spacer' }),
+      el('button', { class: 'btn', onclick: () => modal.close() }, pending.length ? 'Más tarde' : 'Cerrar'),
+      following ? el('button', { class: 'btn primary', onclick: runNext }, done || skipped.size ? `Seguir con ${following.name}` : 'Empezar') : null);
+  };
+  await draw();
 }
 
 // ----- the Equipo view
@@ -2683,17 +2971,87 @@ async function renderTeam(content) {
     content.replaceChildren(el('div', { class: 'content-header' }, el('h1', {}, 'Equipo')),
       el('div', { class: 'content-body team-view' }, el('div', { class: 'spinner' })));
   }
-  const status = await api().call('team_status');
+  const result = await api().call('team_overview');
   if (state.view !== 'team') return;
-  state.team = status.ok ? status.result : null;
-  if (!state.team || !state.team.connected) { renderTeamConnect(content); return; }
-  const [orgs, invites, collections] = await Promise.all(
-    [api().call('team_orgs'), api().call('team_invites'), api().call('team_collections')]);
-  if (state.view !== 'team') return;
+  if (!result.ok) {
+    content.replaceChildren(el('div', { class: 'content-header' }, el('h1', {}, 'Equipo')),
+      el('div', { class: 'content-body team-view' }, el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, result.error))));
+    return;
+  }
+  state.team = result.result.status;
+  if (!state.team.connected) { renderTeamConnect(content); return; }
+  state.teamData = result.result;
+  drawTeam(content);
+  refreshTeam(content);
+}
+
+function teamOrgOf(data) {
+  const orgs = data.orgs || [];
+  if (!orgs.some((o) => o.id === state.teamOrg)) state.teamOrg = orgs.length ? orgs[0].id : null;
+  return orgs.find((o) => o.id === state.teamOrg) || null;
+}
+
+// Ask the server for the latest (short timeouts) and redraw if anything changed.
+async function refreshTeam(content, again = true) {
+  const ticket = (state.teamRefresh = (state.teamRefresh || 0) + 1);
+  state.teamRefreshing = true;
+  updateTeamSync();
+  const org = teamOrgOf(state.teamData);
+  const confirmed = org && (!org.status || org.status === 'confirmed');
+  const calls = [api().call('team_orgs'), api().call('team_invites')];
+  if (confirmed) calls.push(api().call('team_members', { org: org.id }));
+  if (confirmed && ['owner', 'admin'].includes(org.role)) calls.push(api().call('team_events', { org: org.id }));
+  if (state.openCollection) calls.push(api().call('team_collection_members', { collection: state.openCollection }));
+  const results = await Promise.all(calls);
+  const fresh = await api().call('team_overview');
+  if (ticket !== state.teamRefresh || state.view !== 'team') return;
+  state.teamRefreshing = false;
+  const failed = results.find((r) => !r.ok);
+  state.teamReadError = failed && !['offline', 'reconnect'].includes(failed.code) ? failed.error : null;
+  if (!fresh.ok) { updateTeamSync(); return; }
+  state.team = fresh.result.status;
+  if (!state.team.connected) { renderTeamConnect(content); return; }
+  const changed = JSON.stringify(fresh.result) !== JSON.stringify(state.teamData);
+  state.teamData = fresh.result;
+  if (changed || failed) redrawTeam(content);
+  else updateTeamSync();
+  const now = teamOrgOf(state.teamData);
+  if (again && now && (!org || now.id !== org.id)) refreshTeam(content, false);  // first time: its members too
+  updateTeamNav();
+}
+
+// Redraw, but never under the user's fingers: while they type in the view, wait until they leave the field.
+function redrawTeam(content) {
+  const active = document.activeElement;
+  if (active && content.contains(active) && ['INPUT', 'SELECT', 'TEXTAREA'].includes(active.tagName)) {
+    if (state.teamRedrawWaiting) return;
+    state.teamRedrawWaiting = true;
+    active.addEventListener('blur', () => setTimeout(() => {
+      state.teamRedrawWaiting = false;
+      if (state.view === 'team' && content.isConnected) drawTeam(content);
+    }, 150), { once: true });
+    return;
+  }
+  drawTeam(content);
+}
+
+function drawTeam(content) {
+  const data = state.teamData;
+  const org = teamOrgOf(data);
   const rerender = () => renderTeam(content);
-  const orgList = orgs.ok ? orgs.result : [];
-  if (!orgList.some((o) => o.id === state.teamOrg)) state.teamOrg = orgList.length ? orgList[0].id : null;
-  const org = orgList.find((o) => o.id === state.teamOrg);
+  const admin = !!org && ['owner', 'admin'].includes(org.role);
+  const confirmed = !!org && (!org.status || org.status === 'confirmed');
+  const collections = org ? (data.collections || []).filter((c) => c.org === org.id) : [];
+  const members = org ? (data.members || {})[org.id] || [] : [];
+  const tabs = [];
+  if (confirmed) {
+    tabs.push(['collections', 'Colecciones', collections.length]);
+    tabs.push(['people', 'Personas', members.filter((m) => m.status !== 'invited').length]);
+    if (admin) tabs.push(['activity', 'Actividad', null]);
+  }
+  if (org) tabs.push(['account', 'Tu cuenta', null]);
+  else tabs.push(['none', '', null]);  // no organization yet: no tabs, one page
+  if (!tabs.some(([id]) => id === state.teamTab)) state.teamTab = tabs[0][0];
 
   const [kind, text, detail] = syncLine(state.team);
   const syncButton = el('button', { class: 'btn' }, icon('rotate', 'sm'), 'Sincronizar ahora');
@@ -2707,98 +3065,141 @@ async function renderTeam(content) {
     if (result.result.state === 'ok') toast('Sincronizado');
     else toast(result.result.error || 'No se pudo sincronizar', 'error');
   });
-  const problem = ['offline', 'error'].includes(state.team.state) ? detail : null;
-  const body = el('div', { class: 'content-body team-view' }, el('div', { class: 'settings' },
-    state.team.state === 'reconnect' ? el('div', { class: 'pause-card paused' },
+  const orgPicker = data.orgs && data.orgs.length ? el('select', { class: 'input compact org-picker', title: 'Organización' },
+    data.orgs.map((o) => el('option', { value: o.id }, o.name)), el('option', { value: '__new' }, 'Nueva organización…')) : null;
+  if (orgPicker) {
+    orgPicker.value = state.teamOrg;
+    orgPicker.addEventListener('change', () => {
+      if (orgPicker.value === '__new') { orgPicker.value = state.teamOrg; newOrgModal(rerender); return; }
+      state.teamOrg = orgPicker.value;
+      state.teamTab = 'collections';
+      drawTeam(content);
+      refreshTeam(content, false);
+    });
+  }
+  const peopleAlert = verificationsFor(org, members, admin).length;
+  const top = el('div', { class: 'team-top' },
+    el('div', { class: 'content-header' }, el('h1', {}, 'Equipo'), orgPicker,
+      org ? el('span', { class: 'muted small' }, ROLE_LABELS[org.role] || org.role) : null,
+      el('div', { class: 'spacer' }),
+      el('span', { id: 'team-sync', class: `state-text ${kind}`, title: detail }, text), syncButton),
+    org ? el('div', { class: 'team-tabs', role: 'tablist' }, tabs.map(([id, label, count]) => el('button', {
+      class: state.teamTab === id ? 'active' : '', role: 'tab', 'aria-selected': state.teamTab === id ? 'true' : 'false',
+      onclick: () => { state.teamTab = id; drawTeam(content); },
+    }, label, count !== null && count !== undefined ? el('span', { class: 'tab-count' }, count) : null,
+    id === 'people' && peopleAlert ? el('span', { class: 'tab-dot', title: `${plural(peopleAlert, 'persona', 'personas')} por verificar` }) : null))) : null);
+
+  let panel;
+  if (!org) panel = [teamNoOrg(data, rerender), el('div', { style: 'margin-top:28px' }, teamAccountPanel(null, rerender))];
+  else if (!confirmed && state.teamTab !== 'account') panel = teamWaitingForAdmin(org);
+  else if (state.teamTab === 'collections') panel = teamCollectionsPanel(org, collections, members, admin, content);
+  else if (state.teamTab === 'people') panel = teamPeoplePanel(org, members, admin, rerender);
+  else if (state.teamTab === 'activity') panel = teamEventsPanel((data.events || {})[org.id], members, collections);
+  else panel = teamAccountPanel(org, rerender);
+
+  const old = content.querySelector('.content-body.team-view');
+  const scroll = old && state.teamTabShown === state.teamTab ? old.scrollTop : 0;
+  state.teamTabShown = state.teamTab;
+  const body = el('div', { class: 'content-body team-view' }, teamBanners(org, members, admin, rerender), panel);
+  content.replaceChildren(top, body);
+  body.scrollTop = scroll;
+  const scrolled = () => top.classList.toggle('scrolled', body.scrollTop > 2);
+  body.addEventListener('scroll', scrolled, { passive: true });
+  scrolled();
+  if (teamOffline()) {
+    content.querySelectorAll('[data-mutates]').forEach((node) => {
+      node.disabled = true;
+      node.title = 'Sin conexión con el servidor del equipo: vuelve a intentarlo cuando se recupere.';
+    });
+  }
+}
+
+// People whose security code this user should compare now: they can't share (or be shared with) until then.
+function verificationsFor(org, members, admin) {
+  const waiting = ((state.team && state.team.waiting) || []).map((p) => ({ ...p, kind: 'waiting' }));
+  const seen = new Set(waiting.map((p) => p.user_id));
+  const rows = members.filter((m) => !m.me && m.user_id && m.fingerprint && !seen.has(m.user_id)
+    && (m.key_changed || (m.status === 'accepted' && admin)));
+  return [...waiting, ...rows.map((m) => ({ ...m, org: org.id, kind: m.key_changed ? 'changed' : 'confirm' }))];
+}
+
+function teamBanners(org, members, admin, rerender) {
+  const team = state.team;
+  const data = state.teamData || {};
+  const [, , detail] = syncLine(team);
+  const verify = verificationsFor(org, members, admin);
+  const reviews = state.entries.filter((e) => e.shared && e.shared.pending_change);
+  const unsent = state.entries.filter((e) => unsentText(e));
+  const leavers = (data.offboarding || []).filter((p) => p.pending.length);
+  const open = (entry) => { state.view = 'credentials'; state.selected = entry.id; state.tag = null; state.collection = null; renderMain(); };
+  return el('div', { class: 'team-banners' },
+    team.state === 'reconnect' ? el('div', { class: 'pause-card paused' },
       el('div', { class: 'meta' }, el('h3', {}, 'La sesión del equipo ha caducado'),
         el('p', {}, 'Todo sigue funcionando con lo que ya tienes en este PC. Vuelve a entrar para recibir y enviar cambios.')),
       el('button', { class: 'btn primary', onclick: () => reconnectTeam(rerender) }, 'Volver a entrar')) : null,
-    problem ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, problem)) : null,
-    teamAttentionGroup(rerender),
-    invites.ok && invites.result.length ? teamInvitesGroup(invites.result, rerender) : null,
-    orgs.ok ? null : el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, orgs.error)),
-    orgs.ok && !orgList.length ? teamCreateOrg(rerender) : null,
-    org ? await teamOrgSection(org, orgList, (collections.ok ? collections.result : []).filter((c) => c.org === org.id), rerender) : null,
-    teamAccountGroup()));
-  if (state.view !== 'team') return;
-  content.replaceChildren(el('div', { class: 'content-header' }, el('h1', {}, 'Equipo'),
-    el('span', { id: 'team-sync', class: `state-text ${kind}`, title: detail }, text), syncButton), body);
+    ['offline', 'error'].includes(team.state) ? el('div', { class: 'warning banner-line' }, icon('alert', 'sm'), el('span', {}, detail)) : null,
+    state.teamReadError ? el('div', { class: 'warning banner-line' }, icon('alert', 'sm'), el('span', {}, state.teamReadError)) : null,
+    (data.invites || []).length ? teamInvitesGroup(data.invites, rerender) : null,
+    verify.length ? el('div', { class: 'banner' },
+      el('div', { class: 'banner-head' }, icon('fingerprint', 'sm'), el('h3', {}, `Por verificar (${verify.length})`),
+        el('span', { class: 'muted small' }, 'Compara su código de seguridad por teléfono o en persona.')),
+      verify.map((person) => verifyRow(person, rerender))) : null,
+    leavers.map((person) => offboardingCard(person)),
+    reviews.length || unsent.length ? el('div', { class: 'banner' },
+      el('div', { class: 'banner-head' }, icon('alert', 'sm'), el('h3', {}, `Por revisar (${reviews.length + unsent.length})`)),
+      reviews.map((entry) => {
+        const change = entry.shared.pending_change;
+        const hosts = change.only_hosts ? change.hosts || [] : [];
+        return el('div', { class: 'access-row' }, glyph(entry.template),
+          el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name),
+            el('div', { class: 'subtitle' }, hosts.length
+              ? `${change.by || 'Un compañero'} quiere que la IA pueda enviarla a ${listJoin(hosts)}`
+              : `${change.by || 'Un compañero'} ha cambiado adónde puede ir esta clave`)),
+          el('button', { class: 'btn', onclick: () => open(entry) }, 'Revisar'));
+      }),
+      unsent.map((entry) => el('div', { class: 'access-row' }, glyph(entry.template),
+        el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name, el('span', { class: 'draft-badge', style: 'margin-left:8px' }, 'Sin enviar')),
+          el('div', { class: 'subtitle' }, unsentText(entry))),
+        el('button', { class: 'btn ghost', onclick: () => open(entry) }, 'Abrir')))) : null);
 }
 
-function teamAccountGroup() {
-  const team = state.team;
-  const disconnect = () => confirmModal({
-    title: '¿Desconectar la cuenta del equipo?',
-    text: `Se quitan de este PC las ${team.shared} credenciales del equipo; siguen en el servidor para los demás. Las que compartiste tú desde tu bóveda y los cambios sin enviar se quedan como personales.`,
-    warning: 'Para volver a conectarte necesitarás la contraseña de la cuenta.',
-    action: 'Desconectar',
-    danger: true,
-    onConfirm: async (button) => {
-      const result = await teamAct('team_disconnect', {}, 'Para desconectar la cuenta del equipo.', button);
-      if (!result.ok) return false;
-      await loadEntries();
-      renderMain();
-      toast('Desconectado');
-      return true;
-    },
-  });
-  const user = team.user || {};
-  return el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Tu cuenta'),
-    setting(user.name || user.email, `${user.email} · ${hostOf(team.server_url)}`,
-      el('button', { class: 'btn danger', onclick: disconnect }, 'Desconectar')),
-    el('div', { class: 'setting' }, el('div', { class: 'meta' }, el('h3', {}, 'Tu huella'),
-      el('p', {}, el('span', { class: 'fingerprint selectable' }, team.fingerprint)),
-      el('p', {}, 'Si un administrador te la pide para confirmarte, díctasela por teléfono o en persona, no por el mismo chat.')),
-    copyButton(team.fingerprint)));
-}
-
-// Someone whose key is not confirmed on this PC signed a collection key (or must get one): nothing is used
-// or sent until the user compares their fingerprint and confirms it with one click.
-function teamWaitingRow(person, rerender) {
+// One person to verify: their code to compare, and one click («Confirmar» lets them in, «Verificar» trusts
+// them on this PC). A key that changed is only re-verified by typing the code the person reads out: the one
+// shown comes from the server, so sending it back would prove nothing.
+function verifyRow(person, rerender) {
   const label = person.name || person.email || 'Alguien';
-  const button = el('button', { class: 'btn primary' }, 'Verificar');
+  const pending = person.kind === 'confirm';
+  const typed = person.kind === 'changed' ? el('input', { class: 'input mono', placeholder: 'El código que te lee esa persona', autocomplete: 'off', spellcheck: 'false' }) : null;
+  const button = el('button', { class: 'btn primary', 'data-mutates': '1' }, pending ? 'Confirmar' : 'Verificar');
   button.addEventListener('click', async () => {
-    const result = await teamAct('team_confirm_member', { org: person.org, user_id: person.user_id }, `Para confirmar a ${label}.`, button);
+    if (typed && !typed.value.trim()) { typed.focus(); toast('Escribe el código que te lee esa persona', 'error'); return; }
+    const params = { org: person.org, user_id: person.user_id };
+    if (typed) params.fingerprint = typed.value.trim();
+    const result = await teamAct('team_confirm_member', params, `Para verificar a ${label}.`, button);
     if (!result.ok) return;
-    toast(`Huella de ${label} verificada`);
+    toast(pending ? `${label} confirmado` : `${label} verificado`);
     await api().call('team_sync');
     await loadEntries();
     rerender();
   });
+  const subtitle = person.kind === 'waiting'
+    ? `Te comparte ${person.collections === 1 ? 'una colección' : `${person.collections} colecciones`}: verifícalo para recibirlas.`
+    : person.kind === 'changed' ? 'Su clave ha cambiado desde que lo verificaste. No le compartas nada hasta comparar el código.'
+      : `${person.email ? `${person.email} · ` : ''}Pendiente de confirmar`;
   return el('div', { class: 'member' },
     el('div', { class: 'access-row' }, el('div', { class: 'meta' }, el('div', { class: 'title' }, label),
-      el('div', { class: 'subtitle' }, `Comparte contigo ${person.collections === 1 ? 'una colección' : `${person.collections} colecciones`}. Verifica su huella para recibirlas.`)),
-    button),
-    person.fingerprint ? el('div', { class: 'fingerprint-box' }, el('div', { class: 'k' }, 'Su huella'),
-      el('div', { class: 'fingerprint selectable' }, person.fingerprint),
-      el('p', { class: 'help' }, 'Compárala con la suya (Equipo › Tu huella) por teléfono o en persona. Si no coincide, no la verifiques: alguien podría hacerse pasar por esa persona.')) : null);
-}
-
-function teamAttentionGroup(rerender) {
-  const items = teamAttention();
-  const waiting = (state.team && state.team.waiting) || [];
-  if (!items.length && !waiting.length) return null;
-  const open = (entry) => { state.view = 'credentials'; state.selected = entry.id; state.tag = null; state.collection = null; renderMain(); };
-  return el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Por revisar'),
-    waiting.map((person) => teamWaitingRow(person, rerender)),
-    items.map((entry) => {
-      const reminder = (state.reminders || {})[entry.id];
-      const rotate = reminder && reminder.kind === 'team_access';
-      return el('div', { class: 'access-row' }, glyph(entry.template),
-        el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name),
-          el('div', { class: 'subtitle' }, rotate
-            ? `${reminder.people.join(', ')} tenía acceso y ya no está. ${reminder.can_rotate ? 'Rótala.' : 'La rota quien la gestiona.'}`
-            : 'Un compañero ha cambiado adónde puede ir esta clave.')),
-        rotate && reminder.can_rotate && entry.rotation
-          ? el('button', { class: 'btn', onclick: () => { open(entry); rotateGuided(entry); } }, 'Rotar con ayuda')
-          : el('button', { class: 'btn', onclick: () => open(entry) }, rotate ? 'Abrir' : 'Revisar'));
-    }));
+      el('div', { class: 'subtitle' }, subtitle)), button),
+    el('div', { class: 'fingerprint-box' },
+      el('div', { class: 'k' }, typed ? 'Pídele su código de seguridad y escríbelo aquí' : `Código de ${label}`),
+      typed || el('div', { class: 'fingerprint selectable' }, person.fingerprint),
+      typed ? null : el('p', { class: 'help' }, 'Pídele que te lea el suyo (lo ve en Equipo › Tu cuenta). Si no coincide, no lo verifiques: alguien podría hacerse pasar por esa persona.')));
 }
 
 function teamInvitesGroup(invites, rerender) {
-  return el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Invitaciones'),
+  return el('div', { class: 'banner' },
+    el('div', { class: 'banner-head' }, icon('users', 'sm'), el('h3', {}, invites.length === 1 ? 'Te han invitado' : `Te han invitado (${invites.length})`)),
     invites.map((invite) => {
-      const button = el('button', { class: 'btn primary' }, 'Aceptar');
+      const button = el('button', { class: 'btn primary', 'data-mutates': '1' }, 'Aceptar');
       button.addEventListener('click', async () => {
         const result = await teamAct('team_accept_invite', { id: invite.id }, `Para unirte a ${invite.org_name}.`, button);
         if (!result.ok) return;
@@ -2807,93 +3208,105 @@ function teamInvitesGroup(invites, rerender) {
         rerender();
       });
       const by = invite.invited_by_name || invite.invited_by_email;
-      return setting(invite.org_name, `${by ? `${by} te invita` : 'Te invitan'} como ${(ROLE_LABELS[invite.role] || invite.role).toLowerCase()}.`, button);
+      return el('div', { class: 'access-row' }, el('div', { class: 'meta' }, el('div', { class: 'title' }, invite.org_name),
+        el('div', { class: 'subtitle' }, `${by ? `${by} te invita` : 'Te invitan'} como ${(ROLE_LABELS[invite.role] || invite.role).toLowerCase()}. Al aceptar, confías en su código de seguridad.`)), button);
     }));
 }
 
-function createOrgForm(rerender) {
+function createOrgForm(onCreated) {
   const nameInput = el('input', { class: 'input', placeholder: 'Nombre del equipo o la empresa' });
-  const create = el('button', { class: 'btn primary' }, 'Crear organización');
+  const create = el('button', { class: 'btn primary', 'data-mutates': '1' }, 'Crear organización');
   const submit = async () => {
     if (!nameInput.value.trim()) { nameInput.focus(); return; }
     const result = await teamAct('team_create_org', { name: nameInput.value.trim() }, 'Para crear la organización.', create);
     if (!result.ok) return;
     state.teamOrg = result.result.id;
+    state.teamTab = 'collections';
     toast('Organización creada');
-    rerender();
+    onCreated();
   };
   create.addEventListener('click', submit);
   nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
   return el('div', { class: 'inline-form' }, nameInput, create);
 }
 
-function teamCreateOrg(rerender) {
-  return el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Organización'),
+function newOrgModal(rerender) {
+  let modal = null;
+  modal = openModal({ title: 'Nueva organización', body: [
+    el('p', { class: 'muted' }, 'Una organización es un equipo: tiene sus personas y sus colecciones.'),
+    createOrgForm(() => { modal.close(); rerender(); })] });
+  setTimeout(() => modal.overlay.querySelector('input').focus(), 50);
+}
+
+function teamNoOrg(data, rerender) {
+  return el('div', { class: 'settings-group team-panel' }, el('h3', { class: 'muted' }, 'Organización'),
     el('p', { class: 'muted small', style: 'margin-bottom:10px' },
-      `Crea una para tu equipo, o pide a alguien que te invite con ${state.team.user.email}: la invitación aparecerá aquí.`),
+      (data.invites || []).length ? 'Acepta la invitación de arriba, o crea una organización propia.'
+        : `Crea una para tu equipo, o pide a alguien que te invite con ${state.team.user.email}: la invitación aparecerá aquí.`),
     createOrgForm(rerender));
 }
 
-// The organization's name, the others to switch to, and «Nueva organización».
-function teamOrgHead(org, orgs, rerender) {
-  const form = el('div', { class: 'hidden', style: 'margin-top:8px' }, createOrgForm(rerender));
-  return el('div', {},
-    el('div', { class: 'org-head' }, el('h2', {}, org.name), el('span', { class: 'muted small' }, ROLE_LABELS[org.role] || org.role),
-      el('div', { style: 'flex:1' }),
-      orgs.length > 1 ? el('div', { class: 'segmented small' }, orgs.map((o) => el('button', {
-        class: o.id === org.id ? 'active' : '', onclick: () => { state.teamOrg = o.id; rerender(); },
-      }, o.name))) : null,
-      el('button', { class: 'link small muted-link', onclick: () => { form.classList.toggle('hidden'); form.querySelector('input').focus(); } }, 'Nueva organización')),
-    form);
+function teamWaitingForAdmin(org) {
+  return el('div', { class: 'settings-group team-panel' },
+    el('p', { class: 'muted' }, `Has aceptado la invitación. Falta que un administrador de ${org.name} te confirme; si te pide tu código de seguridad, es este:`),
+    el('p', { class: 'fingerprint selectable', style: 'margin:6px 0' }, state.team.fingerprint),
+    el('p', { class: 'help' }, 'Después verás sus colecciones aquí.'));
 }
 
-async function teamOrgSection(org, orgs, collections, rerender) {
-  const admin = ['owner', 'admin'].includes(org.role);
-  const head = teamOrgHead(org, orgs, rerender);
-  if (org.status && org.status !== 'confirmed') {
-    return el('div', { class: 'org' }, head,
-      el('div', { class: 'settings-group' },
-        el('p', { class: 'muted' }, `Has aceptado la invitación. Falta que un administrador de ${org.name} te confirme; si te pide tu huella, es esta:`),
-        el('p', { class: 'fingerprint selectable', style: 'margin:6px 0' }, state.team.fingerprint),
-        el('p', { class: 'help' }, 'Después verás sus colecciones aquí.')));
-  }
-  const [members, events] = await Promise.all([api().call('team_members', { org: org.id }),
-    admin ? api().call('team_events', { org: org.id }) : null]);
-  const people = members.ok ? members.result : [];
-  const names = Object.fromEntries([...people.filter((m) => m.user_id).map((m) => [m.user_id, m.name || m.email]),
-    ...collections.map((c) => [c.id, c.name])]);
-  return el('div', { class: 'org' }, head,
-    teamCollectionsGroup(org, collections, people, admin, rerender),
-    members.ok ? teamMembersGroup(org, people, admin, rerender) : el('p', { class: 'error-text' }, members.error),
-    events && events.ok ? teamEventsGroup(events.result, names) : null);
+function teamAccountPanel(org, rerender) {
+  const team = state.team;
+  const disconnect = () => confirmModal({
+    title: '¿Desconectar la cuenta del equipo?',
+    text: `Se ${team.shared === 1 ? 'quita' : 'quitan'} de este PC ${team.shared === 1 ? 'la credencial' : `las ${team.shared} credenciales`} del equipo; siguen en el servidor para los demás. Las que compartiste tú desde tu bóveda y los cambios sin enviar se quedan como personales.`,
+    warning: 'Para volver a conectarte necesitarás la contraseña de la cuenta.',
+    action: 'Desconectar',
+    danger: true,
+    onConfirm: async (button) => {
+      const result = await teamAct('team_disconnect', {}, 'Para desconectar la cuenta del equipo.', button);
+      if (!result.ok) return false;
+      state.teamData = null;
+      await loadEntries();
+      renderMain();
+      toast('Desconectado');
+      return true;
+    },
+  });
+  const user = team.user || {};
+  const me = org ? ((state.teamData.members || {})[org.id] || []).find((m) => m.me) : null;
+  const leave = me && org.role !== 'owner' ? el('button', { class: 'btn ghost', 'data-mutates': '1', onclick: () => removeMember(org, me, rerender) }, `Salir de ${org.name}`) : null;
+  return el('div', { class: 'settings team-panel' }, el('div', { class: 'settings-group' }, org ? null : el('h3', { class: 'muted' }, 'Tu cuenta'),
+    setting(user.name || user.email, `${user.email} · ${hostOf(team.server_url)}${team.device ? ` · este PC: ${team.device}` : ''}`,
+      el('button', { class: 'btn danger', onclick: disconnect }, 'Desconectar')),
+    el('div', { class: 'setting' }, el('div', { class: 'meta' }, el('h3', {}, 'Tu código de seguridad'),
+      el('p', {}, el('span', { class: 'fingerprint big selectable' }, team.fingerprint)),
+      el('p', {}, 'Quien te confirme o te verifique lo compara con el que ve en su pantalla. Díctaselo por teléfono o en persona, no por el mismo chat.')),
+    copyButton(team.fingerprint)),
+    org ? setting(org.name, `Tu rol: ${(ROLE_LABELS[org.role] || org.role).toLowerCase()}.`, leave) : null));
 }
 
-function teamMembersGroup(org, members, admin, rerender) {
+function teamPeoplePanel(org, members, admin, rerender) {
   const iAmOwner = org.role === 'owner';
+  const verifying = new Set(verificationsFor(org, members, admin).map((p) => p.user_id));
   const row = (m) => {
     const label = m.name || m.email;
-    const pending = m.status === 'accepted';
-    const status = m.status === 'invited' ? 'Invitación enviada' : pending ? 'Pendiente de confirmar' : ROLE_LABELS[m.role] || m.role;
+    const invited = m.status === 'invited';
+    const status = invited ? 'Invitada · aún no ha entrado' : m.status === 'accepted' ? 'Pendiente de confirmar' : ROLE_LABELS[m.role] || m.role;
     const controls = [];
-    // Confirming pins their key on this PC. Admins let in who is waiting; anyone verifies a teammate they will
-    // share with. A key that changed is only re-confirmed by typing the fingerprint the person reads out:
-    // the one shown here comes from the server, so sending it back would prove nothing.
-    const verify = !m.me && m.fingerprint && (m.key_changed || (pending && admin) || (m.status === 'confirmed' && !m.trusted));
-    const typed = m.key_changed ? el('input', { class: 'input mono', placeholder: 'La huella que te lee esa persona', autocomplete: 'off', spellcheck: 'false' }) : null;
-    if (verify) {
-      const confirm = el('button', { class: 'btn primary' }, pending ? 'Confirmar' : 'Verificar');
-      confirm.addEventListener('click', async () => {
-        if (typed && !typed.value.trim()) { typed.focus(); toast('Escribe la huella que te lee esa persona', 'error'); return; }
-        const params = { org: org.id, user_id: m.user_id };
-        if (typed) params.fingerprint = typed.value.trim();
-        const result = await teamAct('team_confirm_member', params, `Para confirmar a ${label}.`, confirm);
+    // Someone already in the org not verified on this PC: one click, after comparing their code.
+    const verify = !m.me && m.fingerprint && m.status === 'confirmed' && !m.trusted && !verifying.has(m.user_id);
+    if (invited && admin) {
+      controls.push(el('button', { class: 'btn', onclick: () => inviteInstructions(org, m.email, m.invite_id) }, icon('copy', 'sm'), 'Copiar instrucciones'));
+    } else if (verify) {
+      const button = el('button', { class: 'btn', 'data-mutates': '1' }, 'Verificar');
+      button.addEventListener('click', async () => {
+        const result = await teamAct('team_confirm_member', { org: org.id, user_id: m.user_id }, `Para verificar a ${label}.`, button);
         if (!result.ok) return;
-        toast(pending ? `${label} confirmado` : `Huella de ${label} verificada`);
-        api().call('team_sync').then(rerender);
+        toast(`${label} verificado`);
+        rerender();
       });
-      controls.push(confirm);
+      controls.push(button);
     } else if (admin && !m.me && m.status === 'confirmed' && (iAmOwner || m.role !== 'owner')) {
-      const roles = el('select', { class: 'input compact' }, Object.entries(ROLE_LABELS)
+      const roles = el('select', { class: 'input compact', 'data-mutates': '1', 'aria-label': `Rol de ${label}` }, Object.entries(ROLE_LABELS)
         .filter(([r]) => iAmOwner || r !== 'owner').map(([r, text]) => el('option', { value: r }, text)));
       roles.value = m.role;
       roles.addEventListener('change', async () => {
@@ -2905,42 +3318,90 @@ function teamMembersGroup(org, members, admin, rerender) {
       controls.push(roles);
     }
     if (admin && !m.me && m.user_id && (iAmOwner || m.role !== 'owner')) {
-      controls.push(el('button', { class: 'btn icon-only', title: 'Quitar de la organización', onclick: () => removeMember(org, m, rerender) }, icon('trash', 'sm')));
+      controls.push(el('button', { class: 'btn icon-only', 'data-mutates': '1', title: 'Quitar de la organización', onclick: () => removeMember(org, m, rerender) }, icon('trash', 'sm')));
     }
     return el('div', { class: 'member' },
       el('div', { class: 'access-row' },
-        el('div', { class: 'meta' }, el('div', { class: 'title' }, label, m.me ? el('span', { class: 'faint' }, ' · tú') : null),
-          el('div', { class: 'subtitle' }, [m.name ? m.email : null, status].filter(Boolean).join(' · '))),
+        el('div', { class: `avatar ${invited ? 'invited' : ''}` }, (label || '?').trim().charAt(0).toUpperCase()),
+        el('div', { class: 'meta' }, el('div', { class: 'title' }, label, m.me ? el('span', { class: 'faint' }, ' · tú') : null,
+          verifying.has(m.user_id) ? el('span', { class: 'draft-badge', style: 'margin-left:8px' }, 'Por verificar') : null),
+          el('div', { class: 'subtitle' }, [m.name && !invited ? m.email : null, status].filter(Boolean).join(' · '))),
         controls),
-      verify ? el('div', { class: 'fingerprint-box' },
-        m.key_changed
-          ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {}, 'Su clave ha cambiado desde que la confirmaste. No le compartas nada hasta comparar la huella: pídele que te la lea y escríbela aquí.'))
-          : el('div', { class: 'k' }, 'Su huella'),
-        typed || el('div', { class: 'fingerprint selectable' }, m.fingerprint),
-        el('p', { class: 'help' }, pending || m.key_changed
-          ? 'Pídele que te lea la suya (la ve en Equipo › Tu huella) por teléfono o en persona. Si coinciden, confirma: así nadie, ni el servidor, puede hacerse pasar por esa persona.'
-          : 'Aún no la has verificado en este PC. Hasta entonces no le das acceso a nada ni se usan las claves que firme. Compárala con la suya (Equipo › Tu huella) por teléfono o en persona.')) : null);
+      verify ? el('div', { class: 'fingerprint-box' }, el('div', { class: 'k' }, `Código de ${label}`),
+        el('div', { class: 'fingerprint selectable' }, m.fingerprint),
+        el('p', { class: 'help' }, 'Aún no lo has verificado en este PC: no le das acceso a nada ni se usan las claves que firme. Compáralo con el suyo (Equipo › Tu cuenta) por teléfono o en persona.')) : null);
   };
 
-  const email = el('input', { class: 'input', type: 'email', placeholder: 'e-mail de la persona' });
-  const role = el('select', { class: 'input compact' }, el('option', { value: 'member' }, 'Miembro'), el('option', { value: 'admin' }, 'Administrador'));
-  const invite = el('button', { class: 'btn' }, 'Invitar');
+  const draft = state.teamDraft || (state.teamDraft = {});
+  const email = el('input', { class: 'input', type: 'email', placeholder: 'e-mail de la persona', value: draft.email || '' });
+  email.addEventListener('input', () => { draft.email = email.value; });
+  const role = el('select', { class: 'input compact', 'aria-label': 'Rol' }, el('option', { value: 'member' }, 'Miembro'), el('option', { value: 'admin' }, 'Administrador'));
+  const invite = el('button', { class: 'btn primary', 'data-mutates': '1' }, 'Invitar');
   const submit = async () => {
     if (!email.value.trim()) { email.focus(); return; }
-    const result = await teamAct('team_invite', { org: org.id, email: email.value.trim(), role: role.value }, 'Para invitar a una persona.', invite);
+    const address = email.value.trim();
+    const result = await teamAct('team_invite', { org: org.id, email: address, role: role.value }, 'Para invitar a una persona.', invite);
     if (!result.ok) return;
-    toast('Invitación enviada');
+    draft.email = '';
     rerender();
+    inviteInstructions(org, address, result.result.id, true);
   };
   invite.addEventListener('click', submit);
   email.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
-  const me = members.find((m) => m.me);
-  const leave = me && org.role !== 'owner' ? el('button', { class: 'link small muted-link', onclick: () => removeMember(org, me, rerender) }, 'Salir de la organización') : null;
-  return el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Personas'),
-    members.map(row),
-    admin ? el('div', { style: 'margin-top:10px' }, el('div', { class: 'inline-form' }, email, role, invite),
-      el('p', { class: 'help', style: 'margin-top:6px' }, 'Le llegará cuando abra Equipo con ese e-mail. Al aceptarla, aparecerá aquí con su huella para que la confirmes.')) : null,
-    leave ? el('div', { style: 'margin-top:8px' }, leave) : null);
+  const people = members.filter((m) => m.status !== 'invited');
+  const invited = members.filter((m) => m.status === 'invited');
+  return el('div', { class: 'settings-group team-panel' },
+    admin ? el('div', { class: 'invite-box' }, el('div', { class: 'inline-form' }, email, role, invite),
+      el('p', { class: 'help' }, 'SecretBroker no envía e-mails: después te damos unas instrucciones y un enlace para que se los pases. Cuando entre, aparecerá aquí con su código de seguridad para que lo confirmes.')) : null,
+    people.map(row),
+    invited.length ? [el('h3', { class: 'muted sub-head' }, `Invitaciones (${invited.length})`), invited.map(row)] : null);
+}
+
+function joinLink(server, email, code) {
+  const params = new URLSearchParams({ server, email });
+  if (code) params.set('code', code);
+  return `secretbroker://join?${params}`;
+}
+
+function parseJoinLink(text) {
+  try {
+    const url = new URL(String(text || '').trim());
+    if (url.protocol !== 'secretbroker:' || (url.host || url.pathname.replace(/^\/+/, '')).toLowerCase() !== 'join') return null;
+    const get = (name) => (url.searchParams.get(name) || '').trim();
+    return get('server') ? { server: get('server'), email: get('email'), code: get('code') } : null;
+  } catch {
+    return null;
+  }
+}
+
+// No e-mail is sent: the admin passes these on (chat, e-mail, in person).
+function inviteInstructions(org, email, code, justInvited = false) {
+  const server = state.team.server_url;
+  const link = joinLink(server, email, code);
+  const text = [
+    `Te he invitado al equipo «${org.name}» en SecretBroker.`,
+    '',
+    `1. Instala SecretBroker: ${RELEASES_URL}`,
+    `2. Abre este enlace: ${link}`,
+    '   Si no se abre, en SecretBroker ve a Equipo y escribe:',
+    `   · Servidor: ${server}`,
+    `   · E-mail: ${email}`,
+    code ? `   · Código de invitación (si te lo pide): ${code}` : null,
+    '3. Crea tu cuenta y acepta la invitación.',
+    '4. Te confirmaré comparando tu código de seguridad (Equipo › Tu cuenta) por teléfono o en persona.',
+  ].filter((line) => line !== null).join('\n');
+  const copy = el('button', { class: 'btn primary' }, icon('copy', 'sm'), 'Copiar instrucciones');
+  copy.addEventListener('click', async () => { await api().copy_text(text); toast('Instrucciones copiadas'); });
+  const copyLink = el('button', { class: 'btn' }, 'Copiar solo el enlace');
+  copyLink.addEventListener('click', async () => { await api().copy_text(link); toast('Enlace copiado'); });
+  const modal = openModal({
+    title: justInvited ? `Invitación creada para ${email}` : `Instrucciones para ${email}`,
+    wide: true,
+    body: [
+      el('p', { class: 'muted' }, 'SecretBroker no envía e-mails. Pásale esto por el canal que uséis; el enlace solo rellena su formulario, sin contraseñas.'),
+      el('pre', { class: 'instructions selectable' }, text)],
+    footer: [copyLink, el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, 'Cerrar'), copy],
+  });
 }
 
 function removeMember(org, member, rerender) {
@@ -2949,7 +3410,7 @@ function removeMember(org, member, rerender) {
   confirmModal({
     title: self ? `¿Salir de ${org.name}?` : `¿Quitar a ${label}?`,
     text: self ? 'Las credenciales de sus colecciones se quitarán de este PC.' : `Dejará de tener acceso a ${org.name} y a sus colecciones.`,
-    warning: self ? null : 'Las colecciones que podía abrir cambiarán de clave, y sus credenciales quedarán marcadas para rotar: pudo verlas o copiarlas.',
+    warning: self ? null : 'Las colecciones que podía abrir se volverán a cifrar, y después te guiamos para cambiar las claves que pudo ver o copiar.',
     action: self ? 'Salir' : 'Quitar',
     danger: true,
     onConfirm: async (button) => {
@@ -2957,77 +3418,85 @@ function removeMember(org, member, rerender) {
         self ? `Para salir de ${org.name}.` : `Para quitar a ${label}.`, button);
       if (!result.ok) return false;
       await loadEntries();
-      const { rekeyed = [], pending = [] } = result.result;
-      toast(self ? 'Has salido' : `Quitado. ${rekeyed.length ? `${rekeyed.length} colección(es) con clave nueva. ` : ''}`
-        + (pending.length ? 'Las demás las cambiará quien las gestiona.' : ''));
-      if (self) state.teamOrg = null;
+      const { failed = [], pending = [], offline = false, credentials = 0, person = label } = result.result;
+      if (self) {
+        toast('Has salido');
+        state.teamOrg = null;
+      } else {
+        toast(['Quitado.',
+          failed.length ? `${failed.length === 1 ? '1 colección se volverá' : `${failed.length} colecciones se volverán`} a cifrar ${offline ? 'al reconectar' : 'en la próxima sincronización'}.` : '',
+          pending.length ? `${pending.length === 1 ? 'Otra la vuelve' : `Otras ${pending.length} las vuelve`} a cifrar quien las gestiona.` : ''].filter(Boolean).join(' '));
+      }
       renderMain();
+      if (!self && credentials) setTimeout(() => openOffboarding(person), 50);
       return true;
     },
   });
 }
 
-function teamCollectionsGroup(org, collections, members, admin, rerender) {
-  const name = el('input', { class: 'input', placeholder: 'Nombre, p. ej. Producción' });
-  const create = el('button', { class: 'btn' }, 'Crear colección');
+function teamCollectionsPanel(org, collections, members, admin, content) {
+  const draft = state.teamDraft || (state.teamDraft = {});
+  const name = el('input', { class: 'input', placeholder: 'Nombre, p. ej. Producción', value: draft.collection || '' });
+  name.addEventListener('input', () => { draft.collection = name.value; });
+  const create = el('button', { class: 'btn', 'data-mutates': '1' }, icon('plus', 'sm'), 'Crear colección');
   const submit = async () => {
     if (!name.value.trim()) { name.focus(); return; }
     const result = await teamAct('team_create_collection', { org: org.id, name: name.value.trim() }, 'Para crear la colección.', create);
     if (!result.ok) return;
+    draft.collection = '';
     state.openCollection = result.result.id;
     toast('Colección creada');
-    rerender();
+    renderTeam(content);
   };
   create.addEventListener('click', submit);
   name.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
-  return el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, 'Colecciones'),
-    el('p', { class: 'muted small', style: 'margin-bottom:6px' }, collections.length
-      ? 'Cada colección es una carpeta compartida: tú eliges quién entra y con qué permiso.'
-      : 'Una colección es una carpeta compartida: eliges quién entra y con qué permiso. Después, en cada credencial, «Compartir».'),
-    collections.map((c) => collectionBlock(c, members, rerender)),
-    admin ? el('div', { class: 'inline-form', style: 'margin-top:10px' }, name, create) : null,
-    el('div', { class: 'perm-legend' }, Object.keys(PERMISSION_LABELS).map((p) => {
-      const [label, text] = PERMISSION_HELP[p].split(': ');
-      return el('div', {}, el('b', {}, label), el('span', {}, text));
-    }), el('p', { class: 'faint' }, '«Solo usar» lo hace cumplir la app: alguien con una app modificada podría sacarla, como en otros gestores.')));
+  return el('div', { class: 'settings-group team-panel' },
+    el('div', { class: 'panel-head' },
+      el('p', { class: 'muted small' }, collections.length
+        ? 'Cada colección es una carpeta compartida: tú eliges quién entra y con qué permiso.'
+        : 'Una colección es una carpeta compartida: eliges quién entra y con qué permiso. Después, en cada credencial, «Compartir».'),
+      permissionHelp()),
+    collections.map((c) => collectionBlock(c, members, content)),
+    admin ? el('div', { class: 'inline-form', style: 'margin-top:12px' }, name, create) : null);
 }
 
-function collectionBlock(collection, orgMembers, rerender) {
+function collectionBlock(collection, orgMembers, content) {
   const manage = collection.permission === 'manage';
-  const list = el('div', { class: 'collection-members' }, el('div', { class: 'spinner' }));
+  const list = el('div', { class: 'collection-members' });
+  const cached = ((state.teamData || {}).collection_members || {})[collection.id];
   const block = el('details', { class: 'collection', open: state.openCollection === collection.id },
     el('summary', {}, el('span', { class: 'chev' }, icon('chevronRight', 'sm')),
       el('div', { class: 'meta' }, el('div', { class: 'title' }, collection.name),
-        el('div', { class: 'subtitle' }, `${collection.entries} ${collection.entries === 1 ? 'credencial' : 'credenciales'} · Tu permiso: ${PERMISSION_LABELS[collection.permission]}`)),
-      collection.needs_rekey ? el('span', { class: 'draft-badge', title: 'Alguien salió de ella. Cambia de clave en la próxima sincronización de quien la gestiona.' }, 'Cambio de clave pendiente') : null),
+        el('div', { class: 'subtitle' }, [plural(collection.entries, 'credencial', 'credenciales'),
+          cached ? plural(cached.length, 'persona', 'personas') : null,
+          `Tu permiso: ${PERMISSION_LABELS[collection.permission]}`].filter(Boolean).join(' · '))),
+      collection.needs_rekey ? el('span', { class: 'draft-badge', title: 'Alguien salió de ella. Quien la gestiona la vuelve a cifrar en su próxima sincronización; mientras, los cambios esperan en cada PC.' }, 'Se volverá a cifrar') : null),
     list);
-  const load = async () => {
-    const result = await api().call('team_collection_members', { collection: collection.id });
-    if (!result.ok) { list.replaceChildren(el('p', { class: 'error-text' }, result.error)); return; }
-    const inside = result.result;
+  const draw = (inside) => {
     const mine = state.team.user.id;
     const row = (m) => {
-      const label = m.name || m.email;
-      let control = el('span', { class: 'muted small' }, PERMISSION_LABELS[m.permission]);
+      const label = m.name || m.email || 'Alguien';
+      let control = el('span', { class: 'muted small', title: PERMISSION_HELP[m.permission] }, PERMISSION_LABELS[m.permission]);
       if (manage && m.user_id !== mine) {
         const select = permissionSelect(m.permission);
+        select.setAttribute('data-mutates', '1');
         select.addEventListener('change', async () => {
           const changed = await teamAct('team_grant', { collection: collection.id, user_id: m.user_id, permission: select.value },
             `Para cambiar el permiso de ${label}.`);
           if (!changed.ok) { select.value = m.permission; return; }
-          toast('Permiso cambiado');
+          toast(`${label}: ${PERMISSION_LABELS[select.value]}`);
           load();
         });
-        control = [select, el('button', { class: 'btn icon-only', title: 'Quitar de la colección', onclick: () => confirmModal({
+        control = [select, el('button', { class: 'btn icon-only', 'data-mutates': '1', title: 'Quitar de la colección', onclick: () => confirmModal({
           title: `¿Quitar a ${label} de ${collection.name}?`,
           text: 'Dejará de recibir sus credenciales y los cambios.',
-          warning: 'La colección cambiará de clave y sus credenciales quedarán marcadas para rotar: pudo verlas o copiarlas.',
+          warning: 'La colección se volverá a cifrar y sus credenciales quedarán marcadas para cambiarlas: pudo verlas o copiarlas.',
           action: 'Quitar', danger: true,
           onConfirm: async (button) => {
             const revoked = await teamAct('team_revoke', { collection: collection.id, user_id: m.user_id }, `Para quitar a ${label}.`, button);
             if (!revoked.ok) return false;
             await loadEntries();
-            toast('Quitado. La colección tiene clave nueva');
+            toast('Quitado. La colección se ha vuelto a cifrar');
             load();
             return true;
           },
@@ -3035,15 +3504,15 @@ function collectionBlock(collection, orgMembers, rerender) {
       }
       return el('div', { class: 'access-row' }, el('div', { class: 'meta' },
         el('div', { class: 'title' }, label, m.user_id === mine ? el('span', { class: 'faint' }, ' · tú') : null),
-        m.name ? el('div', { class: 'subtitle' }, m.email) : null), control);
+        m.name && m.email ? el('div', { class: 'subtitle' }, m.email) : null), control);
     };
     let add = null;
     if (manage) {
       const candidates = orgMembers.filter((m) => m.status === 'confirmed' && m.user_id && !inside.some((i) => i.user_id === m.user_id));
       if (candidates.length) {
-        const who = el('select', { class: 'input' }, candidates.map((m) => el('option', { value: m.user_id }, m.name ? `${m.name} (${m.email})` : m.email)));
+        const who = el('select', { class: 'input', 'aria-label': 'Persona' }, candidates.map((m) => el('option', { value: m.user_id }, m.name ? `${m.name} (${m.email})` : m.email)));
         const permission = permissionSelect('use');
-        const button = el('button', { class: 'btn' }, 'Añadir');
+        const button = el('button', { class: 'btn', 'data-mutates': '1' }, 'Añadir');
         button.addEventListener('click', async () => {
           const granted = await teamAct('team_grant', { collection: collection.id, user_id: who.value, permission: permission.value },
             'Para dar acceso a la colección.', button);
@@ -3056,7 +3525,7 @@ function collectionBlock(collection, orgMembers, rerender) {
         add = el('p', { class: 'help', style: 'margin-top:6px' }, 'Para añadir a alguien, invítalo a la organización y confírmalo.');
       }
     }
-    const leave = !manage ? el('button', { class: 'link small muted-link', style: 'margin-top:8px', onclick: () => confirmModal({
+    const leave = !manage ? el('button', { class: 'link small muted-link', 'data-mutates': '1', style: 'margin-top:8px', onclick: () => confirmModal({
       title: `¿Salir de ${collection.name}?`,
       text: 'Sus credenciales se quitarán de este PC.',
       action: 'Salir', danger: true,
@@ -3065,7 +3534,7 @@ function collectionBlock(collection, orgMembers, rerender) {
         if (!left.ok) return false;
         await loadEntries();
         toast('Has salido de la colección');
-        rerender();
+        renderTeam(content);
         return true;
       },
     }) }, 'Salir de la colección') : null;
@@ -3076,27 +3545,33 @@ function collectionBlock(collection, orgMembers, rerender) {
           state.view = 'credentials'; state.selected = e.id; state.tag = null; state.collection = collection.id; renderMain();
         } }, e.name)])) : null,
       leave);
+    if (teamOffline()) list.querySelectorAll('[data-mutates]').forEach((node) => { node.disabled = true; });
   };
+  const load = async () => {
+    if (!list.firstChild) list.append(el('div', { class: 'spinner' }));
+    const result = await api().call('team_collection_members', { collection: collection.id });
+    if (!result.ok) {
+      if (!cached) list.replaceChildren(el('p', { class: 'error-text' }, result.error));
+      return;
+    }
+    if (state.teamData) (state.teamData.collection_members = state.teamData.collection_members || {})[collection.id] = result.result;
+    draw(result.result);
+  };
+  if (cached) draw(cached);
   block.addEventListener('toggle', () => {
     if (block.open) { state.openCollection = collection.id; load(); }
     else if (state.openCollection === collection.id) state.openCollection = null;
   });
-  if (block.open) load();
+  if (block.open && !cached) load();
   return block;
 }
 
-function permissionSelect(value) {
-  const select = el('select', { class: 'input compact', title: 'Permiso' },
-    Object.entries(PERMISSION_LABELS).map(([p, text]) => el('option', { value: p, title: PERMISSION_HELP[p] }, text)));
-  select.value = value;
-  return select;
-}
-
-function teamEventsGroup(events, names) {
-  if (!events.length) return null;
+function teamEventsPanel(events, members, collections) {
+  const names = Object.fromEntries([...members.filter((m) => m.user_id).map((m) => [m.user_id, m.name || m.email]),
+    ...collections.map((c) => [c.id, c.name])]);
   const name = (id, fallback) => names[id] || fallback;
   const describe = (e) => {
-    const label = EVENT_LABELS[e.action] || e.action;
+    const label = EVENT_LABELS[e.action] || 'Otra acción';
     const [left, extra] = String(e.target || '').split(':');
     const [cid, uid] = left.split('/');
     switch (e.action) {
@@ -3110,30 +3585,30 @@ function teamEventsGroup(events, names) {
       default: return label;
     }
   };
-  return el('details', { class: 'advanced' },
-    el('summary', {}, el('span', { class: 'chev' }, icon('chevronRight', 'sm')), 'Actividad de la organización',
-      el('span', { class: 'hint' }, 'solo la ven los administradores')),
-    el('div', { class: 'inner', style: 'padding-left:0' },
-      el('p', { class: 'help' }, 'El servidor anota quién hizo qué, nunca el contenido: no lo conoce.'),
-      el('table', { class: 'table' }, el('tbody', {}, events.slice(0, 50).map((e) => el('tr', {},
-        el('td', { class: 'muted', style: 'white-space:nowrap' }, formatTime(e.time)),
-        el('td', {}, name(e.actor, 'alguien')),
-        el('td', {}, describe(e))))))));
+  return el('div', { class: 'settings-group team-panel' },
+    el('p', { class: 'help', style: 'margin-bottom:8px' }, 'El servidor anota quién hizo qué, nunca el contenido: no lo conoce. Solo lo ven los administradores.'),
+    events === undefined ? el('div', { class: 'spinner' })
+      : !events.length ? el('p', { class: 'muted' }, 'Aún no hay actividad.')
+        : el('table', { class: 'table' }, el('tbody', {}, events.slice(0, 50).map((e) => el('tr', {},
+          el('td', { class: 'muted', style: 'white-space:nowrap' }, formatTime(e.time)),
+          el('td', {}, name(e.actor, 'alguien')),
+          el('td', {}, describe(e)))))));
 }
 
 // ----- linking the account (the only time its password is typed on this PC)
 
-function teamConnectForm({ server = '', email = '', mode = 'register', lockMode = false, onDone }) {
+function teamConnectForm({ server = '', email = '', code = '', mode = 'register', lockMode = false, invited = false, onDone }) {
   let current = mode;
   const serverInput = el('input', { class: 'input', placeholder: 'https://equipo.tuempresa.com', value: server, spellcheck: 'false' });
   const nameInput = el('input', { class: 'input', placeholder: 'Cómo te verá tu equipo' });
   const emailInput = el('input', { class: 'input', type: 'email', value: email, spellcheck: 'false' });
   const pw = passwordInput({ autocomplete: current === 'register' ? 'new-password' : 'current-password' });
   const repeat = passwordInput();
-  const tokenInput = el('input', { class: 'input mono', spellcheck: 'false' });
+  const tokenInput = el('input', { class: 'input mono', spellcheck: 'false', value: code });
   const errorText = el('div', { class: 'error-text' });
   const button = el('button', { class: 'btn primary lg' });
   const tabs = el('div', { class: 'segmented' });
+  const linkNote = el('div', { class: `notice ${invited ? '' : 'hidden'}` }, icon('users', 'sm'), el('span', { class: 'notice-text' }));
   const registerOnly = [
     el('div', { class: 'field' }, el('label', {}, 'Tu nombre', el('span', { class: 'req' }, ' · opcional')), nameInput),
   ];
@@ -3152,6 +3627,23 @@ function teamConnectForm({ server = '', email = '', mode = 'register', lockMode 
     button.textContent = register ? 'Crear cuenta' : 'Entrar';
   };
   render();
+  const showLink = (link) => {
+    linkNote.classList.remove('hidden');
+    linkNote.querySelector('.notice-text').textContent = `Invitación para ${link.email || 'ti'} en ${hostOf(link.server)}. Comprueba que es el servidor de tu equipo; si ya tienes cuenta en él, elige «Entrar».`;
+  };
+  if (invited) showLink({ server, email });
+  // A pasted invite link (secretbroker://join?…) fills in the form.
+  serverInput.addEventListener('input', () => {
+    const link = parseJoinLink(serverInput.value);
+    if (!link) return;
+    serverInput.value = link.server;
+    if (link.email) emailInput.value = link.email;
+    if (link.code) tokenInput.value = link.code;
+    current = 'register';
+    render();
+    showLink(link);
+    (link.email ? pw.input : emailInput).focus();
+  });
   const submit = async () => {
     errorText.textContent = '';
     const register = current === 'register';
@@ -3176,8 +3668,9 @@ function teamConnectForm({ server = '', email = '', mode = 'register', lockMode 
   [pw.input, repeat.input, tokenInput].forEach((i) => i.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); }));
   return el('div', { class: 'team-form' },
     lockMode ? null : tabs,
+    linkNote,
     el('div', { class: 'field' }, el('label', {}, 'Servidor'), serverInput,
-      el('div', { class: 'help' }, 'La dirección de vuestro SecretBroker Server, propio o alojado.')),
+      el('div', { class: 'help' }, 'La dirección de vuestro SecretBroker Server. También puedes pegar aquí el enlace de invitación.')),
     registerOnly,
     el('div', { class: 'field' }, el('label', {}, 'E-mail'), emailInput),
     el('div', { class: 'field' }, el('label', {}, 'Contraseña de la cuenta'), pw, meter),
@@ -3189,7 +3682,10 @@ function teamConnectForm({ server = '', email = '', mode = 'register', lockMode 
 }
 
 function renderTeamConnect(content) {
-  const form = teamConnectForm({ onDone: async () => { await loadEntries(); renderMain(); } });
+  const link = state.joinLink;
+  state.joinLink = null;
+  const form = teamConnectForm({ server: link ? link.server : '', email: link ? link.email : '', code: link ? link.code : '',
+    invited: !!link, onDone: async () => { await loadEntries(); renderMain(); } });
   content.replaceChildren(el('div', { class: 'content-header' }, el('h1', {}, 'Equipo')),
     el('div', { class: 'content-body team-view' }, el('div', { class: 'team-connect' },
       el('div', { class: 'team-intro' },
@@ -3198,9 +3694,10 @@ function renderTeamConnect(content) {
         el('div', { class: 'points' },
           el('div', {}, icon('lock'), el('div', {}, el('b', {}, 'El servidor no ve nada. '), el('span', { class: 'muted' }, 'Se cifra en este PC antes de salir: ni las claves ni sus nombres viajan en claro.'))),
           el('div', {}, icon('users'), el('div', {}, el('b', {}, 'Solo lo que eliges. '), el('span', { class: 'muted' }, 'Se comparte lo que pones en una colección. El resto sigue solo en este PC.'))),
-          el('div', {}, icon('server'), el('div', {}, el('b', {}, 'Tu servidor o uno alojado. '), el('span', { class: 'muted' }, 'SecretBroker Server es de código abierto: instálalo con Docker o usa uno alojado.'))),
-          el('div', {}, icon('rotate'), el('div', {}, el('b', {}, 'Si alguien se va, '), el('span', { class: 'muted' }, 'sus colecciones cambian de clave y te recuerda rotar lo que pudo ver.'))))),
+          el('div', {}, icon('server'), el('div', {}, el('b', {}, 'En vuestro servidor. '), el('span', { class: 'muted' }, 'SecretBroker Server es de código abierto y se instala con Docker; pide la dirección a quien lo administra.'))),
+          el('div', {}, icon('rotate'), el('div', {}, el('b', {}, 'Si alguien se va, '), el('span', { class: 'muted' }, 'sus colecciones se vuelven a cifrar y te guía para cambiar lo que pudo ver.'))))),
       form)));
+  if (link) setTimeout(() => form.querySelector(link.email ? 'input[type=password]' : 'input[type=email]').focus(), 50);
 }
 
 function reconnectTeam(rerender) {
@@ -3209,6 +3706,26 @@ function reconnectTeam(rerender) {
   const form = teamConnectForm({ server: team.server_url, email: team.user.email, mode: 'login', lockMode: true,
     onDone: () => { modal.close(); rerender(); } });
   modal = openModal({ title: 'Volver a entrar', body: form });
+}
+
+// An invite link the app was opened with (secretbroker://join?…, see app.py): fill in the team form.
+window.onJoinLink = async () => {
+  const link = await api().take_join_link();
+  if (!link) return;
+  state.joinLink = link;
+  if (state.screen === 'main') applyJoinLink();
+};
+
+function applyJoinLink() {
+  const link = state.joinLink;
+  if (!link) return;
+  if (state.team && state.team.connected) {
+    state.joinLink = null;
+    toast(`Este PC ya tiene una cuenta de equipo (${state.team.user.email}). La invitación era para ${link.email || 'otra cuenta'} en ${hostOf(link.server)}.`, 'error');
+    return;
+  }
+  state.view = 'team';
+  renderMain();
 }
 
 // ----------------------------------------------------------------------- settings

@@ -210,8 +210,9 @@ def main():
     api_server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Echo)
     threading.Thread(target=api_server.serve_forever, daemon=True).start()
     api_port = api_server.server_address[1]
-    global TEAM_URL
+    global TEAM_URL, TEAM_SERVER
     TEAM_URL, team_server = start_team_server()
+    TEAM_SERVER = team_server
 
     devtools, mcp_port = free_port(), free_port()
     # A user profile of its own (the search for copies reads it) and a psql of its own (the service runs it).
@@ -524,7 +525,7 @@ def run(app, env, devtools, api_port, client, integrations):
     page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
     wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
 
-    teams_flow(page)
+    teams_flow(page, env)
 
     print("Claude Code over HTTP, and approving with one click")
     url, token = integrations.mcp_endpoint()
@@ -707,7 +708,14 @@ def shell_checks(page):
     wait_for(lambda: page.js("!document.querySelector('#modal-root > *')"), 3)
 
 
-def teams_flow(page):
+def tab(page, name):
+    """Open a tab of the Equipo view (its label, without the count)."""
+    return page.js(f"""(() => {{ const b = [...document.querySelectorAll('.team-tabs button')]
+      .find((x) => x.firstChild && x.firstChild.textContent.trim() === {json.dumps(name)});
+      if (!b) return false; b.click(); return true; }})()""")
+
+
+def teams_flow(page, env):
     from secretbroker.service import Service
 
     print("Teams")
@@ -715,68 +723,139 @@ def teams_flow(page):
     check(wait_for(lambda: "Comparte credenciales con tu equipo" in page.text() and "el servidor no la conoce" in page.text(), 10),
           "not connected: what is shared, that the server sees nothing, and the password asked once")
     check(page.js("[...document.querySelectorAll('.team-form input')].every((i) => !i.value)"), "nothing is prefilled")
+    check("uno alojado" not in page.text(), "no promise of a hosted server that doesn't exist")
     calm_shot(page, "12-team-connect")
+
+    print("An invite link")
+    link = f"secretbroker://join?server={TEAM_URL}&email=alicia%40example.com&code=ABC-123"
+    page.js(f"""(() => {{ const i = document.querySelector('.team-form input'); i.value = {json.dumps(link)};
+      i.dispatchEvent(new Event('input')); }})()""")
+    filled = page.js("[...document.querySelectorAll('.team-form input')].map((i) => i.value)")
+    check(TEAM_URL in filled and "alicia@example.com" in filled and "ABC-123" in filled,
+          "pasting an invite link fills in server, e-mail and code")
+    check("Invitación para alicia@example.com" in page.text(), "and says it came from an invitation, to check the server")
+    calm_shot(page, "12-team-invite-link")
+    page.js("renderView()")
+    wait_for(lambda: page.js("[...document.querySelectorAll('.team-form input')].every((i) => !i.value)"), 5)
+    pythonw = Path(sys.executable).with_name("pythonw.exe")
+    subprocess.Popen([str(pythonw), "-m", "secretbroker.app", link], cwd=ROOT, env=env).wait(20)
+    check(wait_for(lambda: page.js("[...document.querySelectorAll('.team-form input')].some((i) => i.value === 'ABC-123')"), 10),
+          "opening the app with secretbroker://join… fills in the form of the running app")
+    log = (HOME / "user" / "app.log").read_text(encoding="utf-8")
+    check("ABC-123" not in log, "the invite code is not written to the app log")
+    page.js("renderView()")
+    wait_for(lambda: page.js("[...document.querySelectorAll('.team-form input')].every((i) => !i.value)"), 5)
+
     fill(page, "Servidor", TEAM_URL, ".team-form")
     fill(page, "Tu nombre", "Alicia", ".team-form")
     fill(page, "E-mail", "alicia@example.com", ".team-form")
     fill(page, "Contraseña de la cuenta", ACCOUNT, ".team-form")
     fill(page, "Repítela", ACCOUNT, ".team-form")
     page.click("Crear cuenta", ".team-form .btn.primary")
-    check(wait_for(lambda: "Crear organización" in page.text() and "Tu huella" in page.text(), 20), "account created: account, sync and fingerprint")
+    check(wait_for(lambda: "Crear organización" in page.text() and "Tu código de seguridad" in page.text(), 20),
+          "account created: create an organization, and the account with its security code")
+    code = page.js("state.team.fingerprint")
+    check(len(code.split()) == 8 and code.replace(" ", "").isdigit() and code in page.text(), f"the code is groups of digits ({code})")
     check("Confirma que eres tú" not in page.text(), "linking the account asked no other password")
     check(wait_for(lambda: "Sincronizado" in page.text() or "Sin sincronizar" in page.text(), 10), "the sync state shows")
+    calm_shot(page, "12-team-no-org")
 
     fill(page, "Nombre del equipo o la empresa", "Acme")
     page.click("Crear organización")
-    check(wait_for(lambda: "Colecciones" in page.text() and "Personas" in page.text() and "Acme" in page.text(), 15), "organization created")
+    check(wait_for(lambda: page.js("[...document.querySelectorAll('.team-tabs button')].map((b) => b.firstChild.textContent).join('|')")
+                   == "Colecciones|Personas|Actividad|Tu cuenta", 15), "organization created: tabs Colecciones · Personas · Actividad · Tu cuenta")
+    check(page.js("document.querySelector('.org-picker').selectedOptions[0].textContent") == "Acme", "the organization in the header")
     fill(page, "Nombre, p. ej. Producción", "Producción")
     page.click("Crear colección")
-    check(wait_for(lambda: "Tu permiso: Gestionar" in page.text(), 15), "collection created, managed by its creator")
+    check(wait_for(lambda: "Tu permiso: Gestor" in page.text(), 15), "collection created, its creator is «Gestor»")
 
     print("Inviting and confirming a teammate")
     bob = Service(HOME / "bob", owner="test\\bob", isolated=False)
     presence = bob.handle("create_vault", {"master_password": MASTER})["result"]["presence"]
     act = lambda op, **params: bob.handle(op, {**params, "proof": {"kind": "presence", "token": presence}})
     bob_status = act("team_connect", server_url=TEAM_URL, email="bob@example.com", password=ACCOUNT, mode="register", name="Bob")["result"]
+    check(tab(page, "Personas"), "the Personas tab")
+    check(wait_for(lambda: "SecretBroker no envía e-mails" in page.text(), 10), "inviting says honestly that no e-mail is sent")
     fill(page, "e-mail de la persona", "bob@example.com")
     page.click("Invitar")
-    check(wait_for(lambda: "Invitación enviada" in page.text(), 15), "invited by e-mail")
+    check(wait_for(lambda: "Invitación creada para bob@example.com" in page.text() and "secretbroker://join?server=" in page.text(), 15),
+          "invited: instructions with a link to pass on")
+    instructions = page.js("document.querySelector('.instructions').textContent")
+    check("bob%40example.com" in instructions and TEAM_URL in instructions and "Código de invitación" in instructions,
+          "the instructions carry the server, the e-mail and the sign-up code")
+    calm_shot(page, "13-team-invite")
+    page.click("Copiar instrucciones", ".modal button")
+    check(wait_for(lambda: "Instrucciones copiadas" in page.text(), 5), "one click copies them")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    check(wait_for(lambda: "Invitada · aún no ha entrado" in page.text(), 10), "the person shows as invited, not in yet")
     invite = bob.handle("team_invites", {})["result"][0]
     act("team_accept_invite", id=invite["id"])
     page.js("renderView()")
-    check(wait_for(lambda: "Pendiente de confirmar" in page.text() and bob_status["fingerprint"] in page.text(), 15),
-          "Bob accepted: pending, with his fingerprint to compare")
-    page.js("document.querySelector('.fingerprint-box').scrollIntoView({ block: 'center' })")
+    check(wait_for(lambda: "Por verificar (1)" in page.text() and "Pendiente de confirmar" in page.text()
+                   and bob_status["fingerprint"] in page.text() and "Código de Bob" in page.text(), 15),
+          "Bob accepted: «Por verificar (1)» at the top, with his security code to compare")
     calm_shot(page, "13-team-confirm")
     page.click("Confirmar")
-    check(wait_for(lambda: "Bob confirmado" in page.text() or "Pendiente de confirmar" not in page.text(), 15), "one click confirms him")
+    check(wait_for(lambda: "Bob confirmado" in page.text() and "Por verificar" not in page.text(), 15), "one click confirms him")
+    tab(page, "Colecciones")
     check(wait_for(lambda: page.js("!!document.querySelector('.collection-members select')"), 15), "he can be added to the collection")
     page.js("""(() => { const s = document.querySelectorAll('.collection-members .inline-form select'); s[1].value = 'edit'; })()""")
     page.click("Añadir")
     check(wait_for(lambda: page.js("[...document.querySelectorAll('.collection-members .access-row select')].some((s) => s.value === 'edit')"), 15),
-          "Bob is in the collection with «Editar»")
-    check("la IA y sb run pueden usarla; la app no la muestra ni la copia" in page.text(), "the permissions are explained")
+          "Bob is in the collection as «Editor»")
+    options = page.js("[...document.querySelector('.collection-members .access-row select').options].map((o) => o.textContent).join('|')")
+    check(options == "Gestor|Editor|Lector|Solo uso", f"permissions are nouns ({options})")
+    check("Solo uso: la IA y tus programas" not in page.text(), "no legend floating under the list")
+    page.js("document.querySelector('.help-btn').click()")
+    check(wait_for(lambda: "la IA y tus programas pueden usarla; tú no puedes verla ni copiarla" in page.text(), 5),
+          "the «?» explains the permissions")
     calm_shot(page, "14-team")
-    page.js("document.querySelector('.content-body').scrollTop = 1e6")
+    page.js("document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))")
+    check(wait_for(lambda: "tú no puedes verla ni copiarla" not in page.text(), 5), "and closes when clicking elsewhere")
+    tab(page, "Personas")
+    wait_for(lambda: "Invitar" in page.text(), 5)
     calm_shot(page, "14-team-people")
+    tab(page, "Tu cuenta")
+    check(wait_for(lambda: "Tu código de seguridad" in page.text() and "Desconectar" in page.text(), 5), "Tu cuenta: code and disconnect")
+    tab(page, "Actividad")
+    check(wait_for(lambda: "Creó la colección Producción" in page.text(), 10), "Actividad: what the server recorded")
 
     print("Sharing a credential")
     page.js("state.view = 'credentials'; state.selected = 'echo-api'; renderMain()")
     check(wait_for(lambda: page.click("Compartir"), 10), "the credential offers «Compartir»")
-    check(wait_for(lambda: "Les llegará cifrada" in page.text(), 10), "choose the collection")
+    check(wait_for(lambda: "Les llegará cifrada" in page.text() and "Nueva colección…" in page.text(), 10),
+          "choose the collection, or a new one")
     calm_shot(page, "15-share")
     page.click("Compartir", ".modal-foot button")
-    check(wait_for(lambda: "Producción · Gestionar" in page.js("(document.querySelector('.head-sub') || {}).innerText || ''"), 15),
-          "shared: badge with collection and permission")
+    check(wait_for(lambda: "Compartida · Producción" in page.js("(document.querySelector('.head-sub') || {}).innerText || ''"), 15),
+          "shared: «Compartida · Producción»")
+    check("Gestor" in page.js("document.querySelector('.head-sub .shared-badge').title"), "the permission is in its tooltip")
     check(page.js("!!document.querySelector('.row.selected .shared-mark') && !!document.querySelector('.tag.team-tag')"),
           "the list marks it and filters by collection")
-    check("Dejar de compartir" in page.text(), "it can be unshared")
+    check("Dejar de compartir" in page.text() and "Tu permiso: Gestor" in page.text(), "the detail says the permission, and it can be unshared")
     calm_shot(page, "15-shared")
     added = bob.handle("team_sync", {})["result"]["result"]["added"]
     check(added == ["Echo API"], f"Bob receives it ({added})")
     server_files = b"".join(f.read_bytes() for f in (HOME / "server").glob("*") if f.is_file())
     check(b"sk-gui-test-SECRET-123" not in server_files and b"Echo API" not in server_files and "Producción".encode() not in server_files,
           "the server holds neither the key, its name nor the collection name")
+
+    print("Sharing several at once")
+    for name in ("Otra API", "BD tienda"):
+        page.js(f"""(() => {{ const row = [...document.querySelectorAll('.row')].find((r) => r.querySelector('.title').firstChild.textContent === {json.dumps(name)});
+          row.querySelector('.pick').click(); }})()""")
+    check(wait_for(lambda: "2 seleccionadas" in page.text() and "Compartir 2 en…" in page.text(), 5),
+          "ticking two credentials offers «Compartir 2 en…»")
+    calm_shot(page, "15-share-several")
+    page.click("Compartir 2 en…")
+    check(wait_for(lambda: "Compartir 2 credenciales" in page.text(), 10), "one dialog for both")
+    page.js("document.querySelector('.modal input[type=radio][value=new]').click()")
+    fill(page, "Nombre, p. ej. Producción", "Pruebas", ".modal")
+    page.click("Compartir 2", ".modal-foot button")
+    check(wait_for(lambda: page.js("['other-api', 'shop-db'].every((id) => ((state.entries.find((e) => e.id === id) || {}).shared || {}).collection_name === 'Pruebas')"), 20),
+          "a new collection made in the dialog, and both shared in it")
+    check(page.js("state.picked.size") == 0 and page.js("document.querySelector('.bulk-bar').classList.contains('hidden')"),
+          "the selection is cleared")
 
     print("A teammate widens where the key can go")
     mine = bob.vault.get("echo-api")
@@ -786,33 +865,75 @@ def teams_flow(page):
     saved = bob.handle("save_entry", {"entry": mine, "replaces": "echo-api", "proof": {"kind": "master_password", "value": MASTER}})
     check(saved["ok"], f"Bob edits it ({saved.get('error')})")
     bob.handle("team_sync", {})
-    page.js("api().call('team_sync').then(() => loadEntries()).then(renderMain)")
-    check(wait_for(lambda: "Cambio por revisar" in page.text() and "api.evil.example" in page.text(), 15),
-          "the change waits for review, with what changed")
+    page.js("state.selected = 'echo-api'; api().call('team_sync').then(() => loadEntries()).then(renderMain)")
+    check(wait_for(lambda: "Bob quiere que la IA pueda enviar esta clave a:" in page.text() and "api.evil.example" in page.text(), 15),
+          "the change waits for review: who wants the key to go where")
+    check("Rechazar y mantener como estaba" in page.text() and "Permitir api.evil.example" in page.text()
+          and "deshace el cambio para todo el equipo" in page.text() and "la IA no puede usar los destinos nuevos" in page.text(),
+          "rejecting is the main choice, and both are explained")
     check("Revisar cambio" in page.text(), "the list says so")
     calm_shot(page, "16-team-change")
-    page.click("Mantener la actual")
-    check(wait_for(lambda: "Cambio por revisar" not in page.text(), 15), "one click keeps the current one")
+    page.click("Rechazar y mantener como estaba")
+    check(wait_for(lambda: "quiere que la IA pueda enviar" not in page.text(), 15), "one click keeps it as it was")
     hosts = page.js("state.entries.find((e) => e.id === 'echo-api').policy.http.allowed_hosts")
     check(hosts == ["127.0.0.1"], f"and the key still only goes where it went ({hosts})")
 
+    print("An edit that waits")
+    page.js("""(() => { const e = state.entries.find((x) => x.id === 'echo-api'); e.shared.unsent = 'rekey'; renderMain(); })()""")
+    check(wait_for(lambda: "Sin enviar" in page.text(), 5)
+          and "se tiene que volver a cifrar" in page.js("[...document.querySelectorAll('.draft-badge')].map((b) => b.title).join(' ')"),
+          "an edit held for a re-encryption is marked «Sin enviar», with why")
+    page.js("loadEntries().then(renderMain)")
+
     print("Removing a teammate")
-    page.js("state.view = 'team'; renderMain()")
+    page.js("state.view = 'team'; state.teamTab = 'people'; renderMain()")
     check(wait_for(lambda: page.js("!!document.querySelector('button[title=\"Quitar de la organización\"]')"), 15), "admins can remove people")
     page.js("document.querySelector('button[title=\"Quitar de la organización\"]').click()")
-    check(wait_for(lambda: "cambiarán de clave" in page.text() and "marcadas para rotar" in page.text(), 5),
-          "removing warns: re-keyed collections, credentials to rotate")
+    check(wait_for(lambda: "se volverán a cifrar" in page.text() and "cambiar las claves que pudo ver" in page.text(), 5),
+          "removing warns: collections re-encrypted, keys to change")
     calm_shot(page, "17-team-remove")
     page.click("Quitar", ".modal-foot button")
-    check(wait_for(lambda: "Por revisar" in page.text() and "Bob tenía acceso" in page.text(), 15),
-          "the credentials he could see are listed to rotate")
+    check(wait_for(lambda: "Cambiar lo que pudo ver Bob" in page.text() and "0 de 1 cambiada" in page.text(), 15),
+          "then the list of what he could see opens, to change it one after the other")
+    calm_shot(page, "17-team-offboarding")
+    page.click("Más tarde")
+    check(wait_for(lambda: "Bob pudo ver 1 credencial · 0 cambiadas" in page.text(), 10), "Equipo keeps it at the top")
+    check(page.js("(document.querySelector('.nav button[data-view=\"team\"] .count') || {}).textContent") == "1",
+          "and the sidebar counts it")
+    calm_shot(page, "18-team-offboarding-banner")
+    page.js("state.view = 'exposure'; renderMain()")
+    check(wait_for(lambda: "Bob ya no está: 1 credencial por cambiar" in page.text(), 10), "Salud shows it too")
+    calm_shot(page, "18-salud-offboarding")
     page.js("state.view = 'credentials'; state.selected = 'echo-api'; renderMain()")
-    check(wait_for(lambda: "tenía acceso a esta credencial del equipo" in page.text(), 10), "the credential says who had access")
+    check(wait_for(lambda: "Bob tenía acceso a esta credencial del equipo y ya no está" in page.text() and "Cámbiala por si la vio" in page.text(), 10),
+          "the credential says who had access")
+    check("Cambiar: salió Bob" in page.text(), "the list badge says it as a noun")
     calm_shot(page, "18-team-rotate")
-    page.click("Rotar con ayuda", ".warning button")
-    check(wait_for(lambda: "1 · Dónde se usa" in page.text(), 10), "and links to the guided rotation")
-    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    page.js("state.view = 'team'; renderMain()")
+    wait_for(lambda: "Bob pudo ver" in page.text(), 10)
+    page.click("Empezar", ".offboard-card button")
+    check(wait_for(lambda: "Cambiar lo que pudo ver Bob" in page.text(), 10), "the queue opens from Equipo")
+    wait_for(lambda: page.click("Empezar", ".modal-foot button"), 10)
+    check(wait_for(lambda: "1 · Dónde se usa" in page.text(), 10), "and runs the guided rotation")
+    calm_shot(page, "18-team-offboarding-wizard")
+    page.js("[...document.querySelectorAll('.overlay')].pop().dispatchEvent(new Event('dismiss'))")
+    check(wait_for(lambda: "Saltada" in page.text() or "Seguir con" in page.text(), 10), "closing it leaves the queue to go on or skip")
+    page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
     wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+
+    print("Offline")
+    TEAM_SERVER.should_exit = True
+    wait_for(lambda: not TEAM_SERVER.started or TEAM_SERVER.should_exit, 5)
+    time.sleep(1)
+    page.js("api().call('team_sync')")
+    check(wait_for(lambda: page.js("(document.querySelector('.nav button[data-view=\"team\"] .count') || {}).textContent") == "!", 15),
+          "the sidebar warns when the team server can't be reached")
+    page.js("state.view = 'team'; state.teamTab = 'people'; renderMain()")
+    check(wait_for(lambda: "Sin conexión" in page.text() and "Alicia" in page.text(), 10), "Equipo still shows what it knew, and says it is offline")
+    check(wait_for(lambda: page.js("[...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Invitar').disabled"), 10),
+          "changes are disabled while offline")
+    check("Exception" not in page.text() and "Error:" not in page.text(), "no technical error names")
+    calm_shot(page, "19-team-offline")
 
 
 if __name__ == "__main__":

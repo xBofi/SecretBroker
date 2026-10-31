@@ -13,6 +13,7 @@ import copy
 import hashlib
 import json
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
@@ -34,6 +35,8 @@ GRANT_AAD = "secretbroker/grant/v1|"
 NAME_AAD = b"secretbroker/collection-name/v1|"
 ITEM_AAD = "secretbroker/item/v1|"
 TIMEOUT = httpx.Timeout(30.0, connect=10.0)
+# What the user is looking at (the Equipo view): answer soon, from what is known, rather than hang.
+READ_TIMEOUT = httpx.Timeout(8.0, connect=5.0)
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
 MIN_ACCOUNT_PASSWORD = 12
 # Besides the policy, these fields decide where a secret is sent (an SSH or database server).
@@ -116,14 +119,28 @@ def open_private_keys(wrap_key, blob, user_id):
 
 
 def fingerprint(public_key, signing_public_key):
-    """What two people compare over another channel: SHA-256(x25519 || ed25519), 8 groups of 4 hex chars."""
-    digest = hashlib.sha256(unb64(public_key) + unb64(signing_public_key)).hexdigest()[:32]
-    return " ".join(digest[i:i + 4] for i in range(0, 32, 4))
+    """The "código de seguridad" two people compare over another channel, digits being easy to read out:
+    SHA-256(x25519 || ed25519) as 40 decimal digits (133 bits) in 8 groups of 5."""
+    digest = hashlib.sha256(unb64(public_key) + unb64(signing_public_key)).digest()
+    digits = f"{int.from_bytes(digest, 'big') % 10**40:040d}"
+    return " ".join(digits[i:i + 5] for i in range(0, 40, 5))
 
 
-def _same_fingerprint(a, b):
-    clean = lambda text: "".join(str(text or "").split()).lower()
-    return clean(a) == clean(b)
+def _hex_fingerprint(public_key, signing_public_key):
+    """How earlier versions showed it (8 groups of 4 hex chars): someone may still read that one out."""
+    return hashlib.sha256(unb64(public_key) + unb64(signing_public_key)).hexdigest()[:32]
+
+
+def _same_fingerprint(typed, person):
+    """Whether what the user typed is that person's code (or the hex fingerprint older versions showed)."""
+    clean = "".join(ch for ch in str(typed or "") if ch.isalnum()).lower()
+    return bool(clean) and clean in ("".join(person["fp"].split()),
+                                     _hex_fingerprint(person["public_key"], person["signing_public_key"]))
+
+
+def _pinned_fp(pinned):
+    """The code of a pinned key, computed from the key itself (pins made by earlier versions stored the hex one)."""
+    return fingerprint(pinned["public_key"], pinned["signing_public_key"])
 
 
 # ---------------------------------------------------------------------- grants, names and items (2.3)
@@ -216,7 +233,7 @@ def widening_changes(old, new):
         if old["fields"][name] != new["fields"][name]:
             lines.append(f"{labels.get(name, name)}: {old['fields'][name] or '—'} → {new['fields'][name] or '—'}")
     http = lambda d: d["policy"].get("http") or {}
-    hosts = [h for h in http(new).get("allowed_hosts") or [] if h not in (http(old).get("allowed_hosts") or [])]
+    hosts = new_hosts(old, new)
     if hosts:
         lines.append("Webs nuevas: " + ", ".join(hosts))
     if (http(old).get("auth") or {"kind": "none"}) != (http(new).get("auth") or {"kind": "none"}):
@@ -230,6 +247,12 @@ def widening_changes(old, new):
     if env:
         lines.append("Variables nuevas o cambiadas: " + ", ".join(env))
     return lines
+
+
+def new_hosts(old, new):
+    """The web hosts `new` may send the key to and `old` could not (the change review names them)."""
+    http = lambda d: _destination(d)["policy"].get("http") or {}
+    return [h for h in http(new).get("allowed_hosts") or [] if h not in (http(old).get("allowed_hosts") or [])]
 
 
 def secret_fp(vault, entry):
@@ -251,17 +274,17 @@ def server_base(url):
     if not host or parts.query or parts.fragment or parts.username or parts.password:
         raise TeamError("La dirección del servidor no es válida", "invalid")
     if parts.scheme != "https" and not (parts.scheme == "http" and host in LOCAL_HOSTS):
-        raise TeamError("El servidor de equipo debe usar https:// (http solo para pruebas en este mismo PC)", "invalid")
+        raise TeamError("El servidor del equipo debe usar https:// (http solo para pruebas en este mismo PC)", "invalid")
     return url
 
 
 class Client:
     """The server API. TLS certificates are always verified; plain http only to this same PC."""
 
-    def __init__(self, base, token=None):
+    def __init__(self, base, token=None, timeout=TIMEOUT):
         self.base = server_base(base)
         self.token = token
-        self._http = httpx.Client(timeout=TIMEOUT, verify=True, follow_redirects=False,
+        self._http = httpx.Client(timeout=timeout, verify=True, follow_redirects=False,
                                   headers={"User-Agent": "SecretBroker"})
 
     def __enter__(self):
@@ -275,25 +298,67 @@ class Client:
         try:
             response = self._http.request(method, self.base + API + path, json=body, headers=headers)
         except httpx.TimeoutException:
-            raise TeamError("El servidor de equipo no responde. Se reintentará más tarde.", "offline") from None
+            raise TeamError("El servidor del equipo no responde. Se reintentará solo; mientras, todo funciona con "
+                            "lo que ya tienes en este PC.", "offline") from None
         except httpx.HTTPError as exc:
-            reason = "su certificado no es válido" if "CERTIFICATE" in str(exc).upper() else "sin conexión"
-            raise TeamError(f"No se pudo conectar con el servidor de equipo ({reason})", "offline") from None
+            if "CERTIFICATE" in str(exc).upper():
+                raise TeamError("El certificado del servidor del equipo no es válido, así que no se le envía nada. "
+                                "Avisa a quien lo administra.", "offline", data={"certificate": True}) from None
+            raise TeamError("No se llega al servidor del equipo. Se reintentará solo; mientras, todo funciona con "
+                            "lo que ya tienes en este PC.", "offline") from None
         try:
             data = response.json()
         except ValueError:
             data = None
         if response.status_code == 200:
             if data is None:
-                raise TeamError("El servidor de equipo ha respondido algo inesperado", "bad_server")
+                raise TeamError("El servidor del equipo ha respondido algo inesperado", "bad_server")
             return data
         error = data if isinstance(data, dict) else {}
         message = error.get("error") if isinstance(error.get("error"), str) else \
-            f"El servidor de equipo ha respondido con un error ({response.status_code})"
+            f"El servidor del equipo ha respondido con un error ({response.status_code})"
         code = error.get("code") if isinstance(error.get("code"), str) else "server_error"
         if response.status_code == 401 and auth:
-            code, message = "reconnect", "La sesión del equipo ha caducado: vuelve a conectar la cuenta"
+            code, message = "reconnect", "La sesión del equipo ha caducado. Vuelve a entrar en Equipo para seguir recibiendo cambios."
         raise TeamError(message[:300], code, response.status_code, error)
+
+
+# What the user reads when something about the team goes wrong: one sentence that says what to do. The
+# details (codes, exception types) only go to the service log.
+_EXPLAIN = {
+    "bad_grant": "{where}la clave no la firma nadie de confianza, así que no se usa. Avisa a quien la gestiona.",
+    "old_key": "{where}llegó una versión cifrada con una clave antigua y se ha descartado. No tienes que hacer nada.",
+    "rollback": "{where}llegó una versión anterior a la que ya tienes y se ha descartado. No tienes que hacer nada.",
+    "missing_key": "{where}falta la clave para leer una credencial. Pide a quien la gestiona que te vuelva a dar acceso.",
+    "decrypt": "{where}algo no se pudo descifrar. Pide a quien la gestiona que te vuelva a dar acceso.",
+    "invalid_item": "{where}una credencial que llegó no es válida y no se ha aplicado. Pide a quien la cambió que la revise.",
+    "key_changed": "{where}la clave de alguien ha cambiado. Verifica su código de seguridad en Equipo › Personas.",
+    "bad_server": "El servidor del equipo ha respondido algo inesperado. Se reintentará; si sigue, avisa a quien lo administra.",
+    "rate_limited": "El servidor del equipo pide esperar un poco. Se reintentará solo.",
+    "other": "{where}algo no se pudo sincronizar. Se reintentará; si sigue, pide a quien la gestiona que lo revise.",
+}
+
+
+def explain(exc, where=""):
+    """The sentence for the user about a sync problem (`where`: the collection, if it is about one)."""
+    code = "other"
+    if isinstance(exc, TeamError):
+        if exc.code in ("offline", "reconnect"):
+            return str(exc)
+        code = exc.code if exc.code in _EXPLAIN else "rate_limited" if exc.status == 429             else "bad_server" if (exc.status or 0) >= 500 else "other"
+    elif isinstance(exc, ValidationError):
+        code = "invalid_item"
+    elif isinstance(exc, (InvalidTag, ValueError, KeyError, TypeError)):
+        code = "decrypt"
+    text = _EXPLAIN[code].format(where=f"En «{where}», " if where else "")
+    return text[0].upper() + text[1:]
+
+
+def detail(exc):
+    """What goes to the log: the code and type, never a value."""
+    if isinstance(exc, TeamError):
+        return f"{exc.code} {exc.status or ''} {exc}".strip()
+    return type(exc).__name__
 
 
 def connected(state):
@@ -395,13 +460,29 @@ class Team:
             if entry.get("shared"):
                 self._leave(entry, False, notes)
         self.vault.set_team({})
+        self.vault.set_team_view({})
         self._flush_removed()
         return {"removed": len(notes["removed"]), "kept": len(notes.get("kept", [])) + len(notes["conflicts"])}
 
-    def _api(self, state):
+    def _api(self, state, timeout=TIMEOUT):
         if not connected(state):
             raise TeamError("No hay ninguna cuenta de equipo conectada", "not_connected")
-        return Client(state["server_url"], state["token"])
+        return Client(state["server_url"], state["token"], timeout)
+
+    def _read(self):
+        """The server, for what the user is looking at: short timeouts (READ_TIMEOUT)."""
+        return self._api(self.vault.team(), READ_TIMEOUT)
+
+    def _remember(self, key, value, sub=None):
+        """Keep what the server said for the Equipo view to draw next time at once. Only this cache is written
+        (never the team state): reads run alongside a sync, which owns the state."""
+        with self.vault.mutex:
+            view = self.vault.team_view()
+            target = view.setdefault(key, {}) if sub is not None else view
+            name = sub if sub is not None else key
+            if target.get(name) != value:
+                target[name] = value
+                self.vault.set_team_view(view)
 
     def _me(self, state):
         return {"id": state["user"]["id"], "name": _label(state["user"])}
@@ -410,10 +491,40 @@ class Team:
 
     @staticmethod
     def _fetch_keys(api, uid):
-        data = api.call("GET", f"/users/{uid}/keys")
+        return Team._keys_of(api.call("GET", f"/users/{uid}/keys"))
+
+    @staticmethod
+    def _keys_of(data):
         return {"public_key": data["public_key"], "signing_public_key": data["signing_public_key"],
                 "email": data.get("email"), "name": data.get("name"),
                 "fp": fingerprint(data["public_key"], data["signing_public_key"])}
+
+    @staticmethod
+    def _fetch_many(api, uids):
+        """{uid: keys} of several people in one request (servers without it: one by one). Who the server
+        does not show is simply missing."""
+        uids = list(dict.fromkeys(u for u in uids if u))
+        found = {}
+        for start in range(0, len(uids), 200):
+            chunk = uids[start:start + 200]
+            try:
+                rows = api.call("GET", "/users/keys?ids=" + ",".join(chunk))
+            except TeamError as exc:
+                if exc.status not in (404, 405):
+                    raise
+                rows = []
+                for uid in chunk:
+                    try:
+                        rows.append({"id": uid, **api.call("GET", f"/users/{uid}/keys")})
+                    except TeamError as inner:
+                        if inner.code in ("offline", "reconnect"):
+                            raise
+            for row in rows if isinstance(rows, list) else []:
+                try:
+                    found[row["id"]] = Team._keys_of(row)
+                except (KeyError, TypeError, ValueError):
+                    continue
+        return found
 
     def _peer_keys(self, api, state, uid, fresh=True):
         """A person's public keys, only once this user trusts them (pinned by confirming or verifying that
@@ -428,9 +539,10 @@ class Team:
         if not fresh:
             return pinned
         found = self._fetch_keys(api, uid)
-        if pinned["fp"] != found["fp"]:
-            raise TeamError(f"La clave de {_label(found)} ha cambiado desde que la confirmaste. Compara su huella "
-                            "con esa persona y vuelve a confirmarla antes de compartir nada con ella.", "key_changed")
+        if _pinned_fp(pinned) != found["fp"]:
+            raise TeamError(f"La clave de {_label(found)} ha cambiado desde que la verificaste. Compara su código "
+                            "de seguridad con esa persona y vuelve a verificarla antes de compartir nada con ella.",
+                            "key_changed")
         return pinned
 
     def _untrusted(self, api, uid, org=None):
@@ -439,26 +551,31 @@ class Team:
             person = self._fetch_keys(api, uid)
         except TeamError:
             person = {}
-        return TeamError(f"Antes confirma la huella de {_label(person)} en Equipo › Personas: así nadie, ni el "
-                         "servidor, puede colarse con otra clave.", "untrusted",
+        return TeamError(f"Antes verifica el código de seguridad de {_label(person)} en Equipo › Personas: así "
+                         "nadie, ni el servidor, puede colarse con otra clave.", "untrusted",
                          data={"user_id": uid, "name": person.get("name"), "email": person.get("email"),
                                "fingerprint": person.get("fp"), "org": org})
 
     # ------------------------------------------------------------------ organizations
 
     def orgs(self):
-        state = self.vault.team()
-        with self._api(state) as api:
+        with self._read() as api:
             rows = api.call("GET", "/orgs")
-        state["orgs"] = {r["id"]: {"name": r["name"], "role": r["role"], "status": r.get("status")} for r in rows}
-        self.vault.set_team(state)
+        self._remember("orgs", rows)
         return rows
+
+    def _refresh_orgs(self, api, state):
+        """After a change (create, join): the state learns the org now, not at the next sync."""
+        rows = api.call("GET", "/orgs")
+        state["orgs"] = {r["id"]: {"name": r["name"], "role": r["role"], "status": r.get("status")} for r in rows}
+        self._remember("orgs", rows)
 
     def create_org(self, name):
         state = self.vault.team()
         with self._api(state) as api:
             oid = api.call("POST", "/orgs", {"name": str(name or "").strip()})["id"]
-        self.orgs()
+            self._refresh_orgs(api, state)
+        self.vault.set_team(state)
         return {"id": oid}
 
     def invite(self, oid, email, role="member"):
@@ -466,8 +583,10 @@ class Team:
             return api.call("POST", f"/orgs/{oid}/invites", {"email": str(email or "").strip(), "role": role})
 
     def invites(self):
-        with self._api(self.vault.team()) as api:
-            return api.call("GET", "/invites")
+        with self._read() as api:
+            rows = api.call("GET", "/invites")
+        self._remember("invites", rows)
+        return rows
 
     def accept_invite(self, invite_id):
         """Join an organization. Whoever sent the invite is trusted from now on (their key is pinned): accepting
@@ -482,29 +601,29 @@ class Team:
                     state["pinned"][by] = self._fetch_keys(api, by)
                 except TeamError:
                     pass  # confirmed by hand later, if they grant anything
+            self._refresh_orgs(api, state)
         self.vault.set_team(state)
-        self.orgs()
         return {}
 
     def members(self, oid):
-        """Members with their key fingerprints, whether this user trusts each one (`trusted`: pinned with the
-        same fingerprint) and whether a pinned key has changed since."""
+        """Members with their security codes, whether this user trusts each one (`trusted`: pinned with the
+        same code) and whether a pinned key has changed since. Their keys come in one request."""
         state = self.vault.team()
-        with self._api(state) as api:
+        with self._api(state, READ_TIMEOUT) as api:
             rows = api.call("GET", f"/orgs/{oid}/members")
-            for row in rows:
-                row["fingerprint"], row["key_changed"], row["trusted"] = None, False, False
-                if not row.get("user_id"):
-                    continue
-                row["me"] = row["user_id"] == state["user"]["id"]
-                try:
-                    data = api.call("GET", f"/users/{row['user_id']}/keys")
-                except TeamError:
-                    continue
-                row["fingerprint"] = fingerprint(data["public_key"], data["signing_public_key"])
-                pinned = state["pinned"].get(row["user_id"])
-                row["key_changed"] = bool(pinned and pinned["fp"] != row["fingerprint"])
-                row["trusted"] = row["me"] or bool(pinned and not row["key_changed"])
+            keys = self._fetch_many(api, [r.get("user_id") for r in rows])
+        for row in rows:
+            row["fingerprint"], row["key_changed"], row["trusted"] = None, False, False
+            if not row.get("user_id"):
+                continue
+            row["me"] = row["user_id"] == state["user"]["id"]
+            if row["user_id"] not in keys:
+                continue
+            row["fingerprint"] = keys[row["user_id"]]["fp"]
+            pinned = state["pinned"].get(row["user_id"])
+            row["key_changed"] = bool(pinned and _pinned_fp(pinned) != row["fingerprint"])
+            row["trusted"] = row["me"] or bool(pinned and not row["key_changed"])
+        self._remember("members", rows, oid)
         return rows
 
     def confirm_member(self, oid, uid, expected_fingerprint=None):
@@ -517,13 +636,13 @@ class Team:
             if row is None or row.get("status") not in ("accepted", "confirmed"):
                 raise TeamError("Esa persona no está en la organización", "not_found")
             found = self._fetch_keys(api, uid)
-            if expected_fingerprint and not _same_fingerprint(expected_fingerprint, found["fp"]):
-                raise TeamError(f"La huella no coincide con la de {_label(found)}. No la confirmes: alguien podría "
-                                "estar haciéndose pasar por esa persona.", "fingerprint_mismatch")
+            if expected_fingerprint and not _same_fingerprint(expected_fingerprint, found):
+                raise TeamError(f"El código de seguridad no coincide con el de {_label(found)}. No lo verifiques: "
+                                "alguien podría estar haciéndose pasar por esa persona.", "fingerprint_mismatch")
             pinned = state["pinned"].get(uid)
-            if pinned and pinned["fp"] != found["fp"] and not expected_fingerprint:
-                raise TeamError(f"La clave de {_label(found)} ha cambiado. Pídele su huella y escríbela para "
-                                "confirmarla.", "key_changed")
+            if pinned and _pinned_fp(pinned) != found["fp"] and not expected_fingerprint:
+                raise TeamError(f"La clave de {_label(found)} ha cambiado. Pídele su código de seguridad y escríbelo "
+                                "para verificarla.", "key_changed")
             if row["status"] == "accepted":
                 api.call("POST", f"/orgs/{oid}/members/{uid}/confirm")
         state["pinned"][uid] = found
@@ -537,21 +656,33 @@ class Team:
 
     def remove_member(self, oid, uid):
         """Take someone out of the organization, then re-key every collection they could read that this user
-        manages (2.4). The others are re-keyed by their managers on their next sync."""
+        manages (2.4). The others are re-keyed by their managers on their next sync.
+
+        Once the server has let them go, nothing here raises: a collection that cannot be re-encrypted now
+        (offline, someone to verify first…) stays `needs_rekey` and the next sync does it; what was done is
+        always saved. Every credential they could see is flagged to rotate straight away."""
         state = self.vault.team()
         with self._api(state) as api:
             person = self._person(api, state, oid, uid)
             result = api.call("DELETE", f"/orgs/{oid}/members/{uid}")
             if uid == state["user"]["id"]:
-                return {"left": True, "rekeyed": [], "pending": result.get("needs_rekey") or []}
+                return {"left": True, "rekeyed": [], "pending": result.get("needs_rekey") or [], "failed": []}
             # The server's list, plus every collection this PC knows they were in: an empty or short answer
             # must not leave them with a working key.
             known = [cid for cid, c in sorted(state["collections"].items())
                      if c.get("org") == oid and uid in (c.get("members") or {})]
             cids = list(dict.fromkeys([*(result.get("needs_rekey") or []), *known]))
-            rekeyed, pending = self._rekey_after(api, state, cids, [person], [uid])
-        self.vault.set_team(state)
-        return {"rekeyed": rekeyed, "pending": pending}
+            try:
+                rekeyed, pending, failed = self._rekey_after(api, state, cids, [person], [uid])
+            finally:
+                self.vault.set_team(state)
+        for cid in cids:
+            if cid not in rekeyed and cid in state["collections"]:
+                self._flag(cid, [person])  # re-keyed ones were flagged by _rekey
+        flagged = sum(1 for e in self.vault.entries() if (e.get("shared") or {}).get("collection") in cids)
+        return {"rekeyed": rekeyed, "pending": pending, "failed": [cid for cid, _ in failed],
+                "offline": any(code in ("offline", "reconnect") for _, code in failed),
+                "person": person, "credentials": flagged}
 
     def _person(self, api, state, oid, uid):
         try:
@@ -562,25 +693,35 @@ class Team:
         return _label(row or state["pinned"].get(uid))
 
     def _rekey_after(self, api, state, cids, people, removed):
-        rekeyed, pending = [], []
+        """(re-keyed, left to their managers, failed here: the next sync retries them)."""
+        rekeyed, pending, failed = [], [], []
         for cid in cids:
             coll = state["collections"].get(cid)
-            if coll and coll.get("permission") == "manage":
-                try:
-                    self._rekey(api, state, cid, people, removed)
-                except TeamError as exc:
-                    if exc.code != "not_found":
-                        raise
+            if not (coll and coll.get("permission") == "manage"):
+                pending.append(cid)
+                continue
+            if failed and failed[-1][1] in ("offline", "reconnect"):
+                failed.append((cid, failed[-1][1]))  # no point trying the others now
+                continue
+            try:
+                self._rekey(api, state, cid, people, removed)
+            except TeamError as exc:
+                if exc.code == "not_found":
                     pending.append(cid)  # gone from the server meanwhile: the next sync drops it here
                     continue
-                rekeyed.append(cid)
-            else:
-                pending.append(cid)
-        return rekeyed, pending
+                print(f"team re-key after removal: {cid} {detail(exc)}", file=sys.stderr)
+                coll["needs_rekey"] = True
+                failed.append((cid, exc.code))
+                continue
+            rekeyed.append(cid)
+        return rekeyed, pending, failed
 
     def events(self, oid, before=None):
-        with self._api(self.vault.team()) as api:
-            return api.call("GET", f"/orgs/{oid}/events" + (f"?before={int(before)}" if before else ""))
+        with self._read() as api:
+            rows = api.call("GET", f"/orgs/{oid}/events" + (f"?before={int(before)}" if before else ""))
+        if not before:
+            self._remember("events", rows[:50], oid)
+        return rows
 
     # ------------------------------------------------------------------ collections
 
@@ -615,8 +756,60 @@ class Team:
         return {"id": cid}
 
     def collection_members(self, cid):
-        with self._api(self.vault.team()) as api:
-            return api.call("GET", f"/collections/{cid}/members")
+        with self._read() as api:
+            rows = api.call("GET", f"/collections/{cid}/members")
+        self._remember("collection_members", rows, cid)
+        return rows
+
+    def overview(self):
+        """Everything the Equipo view draws, from this PC only (no network): what the server said last time.
+        The view then asks the server (short timeouts) and redraws if anything changed."""
+        state, view = self.vault.team(), self.vault.team_view()
+        orgs = view.get("orgs")
+        if orgs is None:  # nothing cached yet: what the last sync learned
+            orgs = [{"id": oid, **o} for oid, o in (state.get("orgs") or {}).items()]
+        members = dict(view.get("members") or {})
+        for cid, coll in (state.get("collections") or {}).items():  # until asked: who the last sync saw
+            view.setdefault("collection_members", {}).setdefault(
+                cid, [{"user_id": uid, "name": m.get("name"), "email": None, "permission": m.get("permission")}
+                      for uid, m in (coll.get("members") or {}).items()])
+        return {"status": self.status(), "orgs": orgs, "invites": view.get("invites") or [],
+                "collections": self.collections(), "members": members, "events": view.get("events") or {},
+                "collection_members": view.get("collection_members") or {}, "unsent": self.unsent(),
+                "offboarding": self.offboarding()}
+
+    def unsent(self):
+        """{entry id: why} for shared credentials changed here and not on the server yet: "rekey" while their
+        collection waits to be re-encrypted (they go out after it), "pending" otherwise (next sync)."""
+        state = self.vault.team()
+        found = {}
+        for entry in self.vault.entries():
+            shared = entry.get("shared") or {}
+            coll = (state.get("collections") or {}).get(shared.get("collection"))
+            if not shared or not coll:
+                continue
+            known = (coll.get("items") or {}).get(shared.get("item"))
+            if known is None or known.get("hash") != content_hash(effective_content(entry)):
+                found[entry["id"]] = "rekey" if coll.get("needs_rekey") else "pending"
+        return found
+
+    def offboarding(self):
+        """Per person who left: how many credentials they could see and which still have to be changed
+        (`shared.rotate`, see _flag). A credential counts as changed once its secret is not the one they saw."""
+        people = {}
+        for entry in self.vault.entries():
+            rotate = (entry.get("shared") or {}).get("rotate")
+            if not rotate:
+                continue
+            current = rotate.get("fp") == secret_fp(self.vault, entry)
+            for name in sorted(set(rotate.get("people") or []) | set(rotate.get("seen") or [])):
+                person = people.setdefault(name, {"person": name, "since": rotate.get("since"), "total": 0,
+                                                  "pending": []})
+                person["total"] += 1
+                person["since"] = min(filter(None, (person["since"], rotate.get("since"))), default=None)
+                if current and name in (rotate.get("people") or []):
+                    person["pending"].append(entry["id"])
+        return sorted(people.values(), key=lambda p: p["since"] or "", reverse=True)
 
     def _collection(self, state, cid, permissions=SHARE_PERMISSIONS):
         coll = (state.get("collections") or {}).get(cid)
@@ -698,7 +891,8 @@ class Team:
                                                  item["key_version"], item["ciphertext"])
             members = api.call("GET", f"/collections/{cid}/members")
             if any(m["user_id"] in removed for m in members):
-                raise TeamError("El servidor sigue dando acceso a quien acabas de quitar: no se cambia la clave",
+                raise TeamError("El servidor sigue dando acceso a quien acabas de quitar: la colección no se "
+                                "vuelve a cifrar",
                                 "bad_server")
             version, key = listed["key_version"] + 1, os.urandom(32)
             grants = {m["user_id"]: make_grant(state["keys"], state["user"]["id"], cid, version, m["user_id"],
@@ -760,7 +954,7 @@ class Team:
         with self._api(state) as api:
             if coll.get("needs_rekey"):
                 if coll.get("permission") != "manage":
-                    raise TeamError("Esta colección está pendiente de cambiar de clave (alguien salió de ella). "
+                    raise TeamError("Esta colección se tiene que volver a cifrar porque alguien salió de ella. "
                                     "Espera a que quien la gestiona sincronice.", "needs_rekey")
                 self._rekey(api, state, cid, *self._gone(api, state, cid))
             iid, content = str(uuid.uuid4()), shared_content(entry)
@@ -777,6 +971,26 @@ class Team:
             self.vault.put(entry, replaces=entry_id)
         self.vault.set_team(state)
         return {"item": iid, "collection": cid, "collection_name": coll.get("name", "")}
+
+    def share_entries(self, entry_ids, cid):
+        """Share several credentials in one go. Each one is shared or not on its own: {shared, failed}."""
+        shared, failed, name, stop = [], [], "", None
+        for entry_id in list(dict.fromkeys(entry_ids or [])):
+            if stop is not None:  # the server or the collection is gone: the rest would fail the same way
+                failed.append({"id": entry_id, "error": str(stop)})
+                continue
+            try:
+                name = self.share_entry(entry_id, cid)["collection_name"]
+                shared.append(entry_id)
+            except KeyError:
+                failed.append({"id": entry_id, "error": "Ya no existe"})
+            except TeamError as exc:
+                if exc.code in ("offline", "reconnect", "not_found", "forbidden", "needs_rekey"):
+                    if not shared:
+                        raise
+                    stop = exc
+                failed.append({"id": entry_id, "error": str(exc)})
+        return {"shared": shared, "failed": failed, "collection_name": name}
 
     def unshare_entry(self, entry_id):
         """Take a credential out of its collection for everyone; this PC keeps it as a personal one."""
@@ -856,9 +1070,9 @@ class Team:
                         if len(person["collections"]) == 1:
                             notes["trust"].append(_label(person))
                     else:
-                        notes["errors"].append(f"{(state['collections'].get(row['id']) or {}).get('name') or 'Colección'}: {exc}")
-                except (InvalidTag, ValueError, KeyError, TypeError):
-                    notes["errors"].append("Una colección no se pudo descifrar")
+                        self._sync_error(notes, row["id"], (state["collections"].get(row["id"]) or {}).get("name"), exc)
+                except (InvalidTag, ValueError, KeyError, TypeError) as exc:
+                    self._sync_error(notes, row["id"], (state["collections"].get(row["id"]) or {}).get("name"), exc)
                 self.vault.set_team(state)
             for cid in [cid for cid in state["collections"] if cid not in {r["id"] for r in listed}]:
                 notes["removed"] += self._drop_collection(state, cid, notes)
@@ -867,6 +1081,14 @@ class Team:
         self.vault.set_team(state)
         self._flush_removed()
         return notes
+
+    @staticmethod
+    def _sync_error(notes, cid, name, exc):
+        """One sentence for the user (once per kind of problem), the details for the log."""
+        print(f"team sync: collection {cid}: {detail(exc)}", file=sys.stderr)
+        text = explain(exc, name or "una colección")
+        if text not in notes["errors"]:
+            notes["errors"].append(text)
 
     def _sync_collection(self, api, state, row, notes):
         cid = row["id"]
@@ -910,8 +1132,7 @@ class Team:
             try:
                 self._apply(state, cid, item, members, notes)
             except (TeamError, ValidationError, InvalidTag, ValueError, KeyError, TypeError) as exc:
-                notes["errors"].append(f"{coll.get('name') or 'Colección'}: un elemento no se pudo aplicar "
-                                       f"({exc if isinstance(exc, (TeamError, ValidationError)) else type(exc).__name__})")
+                self._sync_error(notes, cid, coll.get("name"), exc)
         coll["revision"] = max(int(coll.get("revision") or 0), int(data["revision"]))
 
     def _apply(self, state, cid, item, members, notes):
@@ -934,7 +1155,7 @@ class Team:
             content = {k: v for k, v in dict(plain["entry"]).items() if k not in ("shared", "updated", "secret_since")}
             (content.get("policy") or {}).pop("approval", None)
             if not ID_RE.match(str(content.get("id", ""))):
-                raise TeamError("identificador no válido", "invalid")
+                raise TeamError("identificador no válido", "invalid_item")
             digest, seq = content_hash(content), _seq(plain)
             if known and (seq < known.get("seq", 0) or (seq == known.get("seq", 0) and seq and digest != known["hash"])):
                 # Each write counts up: an older version served again (a revoked key, say) is not taken back.
@@ -1012,7 +1233,8 @@ class Team:
     @staticmethod
     def _quarantine(local, content, shared, author, lines):
         """Apply the incoming change except where the key may go: that stays as it was until the user accepts."""
-        pending = {"by": author["name"], "at": now_iso(), "changes": lines}
+        pending = {"by": author["name"], "at": now_iso(), "changes": lines, "hosts": new_hosts(local, content),
+                   "only_hosts": all(line.startswith("Webs nuevas: ") for line in lines)}
         if local["template"] != content.get("template"):
             entry = {**shared_content(local), "id": local["id"]}
             pending["entry"] = copy.deepcopy(content)
@@ -1116,7 +1338,10 @@ class Team:
                 fp = secret_fp(self.vault, entry)
                 previous = entry["shared"].get("rotate") or {}
                 known = previous.get("people", []) if previous.get("fp") == fp else []
-                entry["shared"]["rotate"] = {"people": sorted(set(known) | set(people)), "since": now_iso(), "fp": fp}
+                # `seen`: everyone who ever had access, so "Bob pudo ver 3 · 2 cambiadas" survives a rotation.
+                seen = sorted(set(previous.get("seen") or []) | set(previous.get("people") or []) | set(people))
+                entry["shared"]["rotate"] = {"people": sorted(set(known) | set(people)), "since": now_iso(), "fp": fp,
+                                             "seen": seen}
                 self.vault.put(entry, replaces=entry["id"])
 
     def _refresh_entries(self, state, cid):

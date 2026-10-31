@@ -174,21 +174,36 @@ def change_password(ctx):
     return {}
 
 
+KEYS_BATCH_MAX = 200
+# Who may read whose public keys: yourself, org mates, or people invited to an org you belong to.
+_KEYS_SQL = ("SELECT u.id, u.email, u.name, u.public_key, u.signing_public_key FROM users u WHERE u.id = ? AND ("
+             " u.id = ?"
+             " OR EXISTS (SELECT 1 FROM org_members a JOIN org_members b ON a.org_id = b.org_id"
+             "            WHERE a.user_id = ? AND b.user_id = u.id)"
+             " OR EXISTS (SELECT 1 FROM invites i JOIN org_members a ON a.org_id = i.org_id"
+             "            WHERE a.user_id = ? AND i.email = u.email))")
+
+
 @route("GET", "/users/{uid}/keys")
 def user_keys(ctx):
     """Public keys of people you work with: org mates, or people invited to an org you belong to."""
     uid = path_id(ctx.params["uid"])
-    row = ctx.conn.execute(
-        "SELECT u.id, u.email, u.name, u.public_key, u.signing_public_key FROM users u WHERE u.id = ? AND ("
-        " u.id = ?"
-        " OR EXISTS (SELECT 1 FROM org_members a JOIN org_members b ON a.org_id = b.org_id"
-        "            WHERE a.user_id = ? AND b.user_id = u.id)"
-        " OR EXISTS (SELECT 1 FROM invites i JOIN org_members a ON a.org_id = i.org_id"
-        "            WHERE a.user_id = ? AND i.email = u.email))",
-        (uid, ctx.uid, ctx.uid, ctx.uid)).fetchone()
+    row = ctx.conn.execute(_KEYS_SQL, (uid, ctx.uid, ctx.uid, ctx.uid)).fetchone()
     if row is None:
         raise ApiError(404, "not_found", "No existe.")
     return dict(row)
+
+
+@route("GET", "/users/keys")
+def users_keys(ctx):
+    """The same for several people at once (`?ids=a,b,c`, at most 200): one request to show a team's members.
+    People you may not see are left out, exactly as if they did not exist."""
+    raw = [part for part in str(ctx.query.get("ids", "")).split(",") if part]
+    if len(raw) > KEYS_BATCH_MAX:
+        raise ApiError(400, "invalid", f"ids: como mucho {KEYS_BATCH_MAX}.")
+    ids = list(dict.fromkeys(uuid_id(part) for part in raw))
+    rows = (ctx.conn.execute(_KEYS_SQL, (uid, ctx.uid, ctx.uid, ctx.uid)).fetchone() for uid in ids)
+    return [dict(row) for row in rows if row is not None]
 
 
 @route("POST", "/admin/invites")

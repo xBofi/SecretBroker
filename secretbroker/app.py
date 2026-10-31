@@ -2,6 +2,7 @@
 
 import base64
 import ctypes
+import json
 import logging
 import logging.handlers
 import os
@@ -12,6 +13,7 @@ import time
 import webbrowser
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from . import __version__, client, generator, hello, integrations, links, paths, resident, scanner, templates, winsec
 from .client import BrokerError, BrokerUnavailable
@@ -23,13 +25,16 @@ AUTO_SCAN_HOURS = 12
 SESSION_FILE = integrations.PREFS_FILE.parent / "session.bin"
 SESSION_ENTROPY = b"SecretBroker/session-unlock/v1"
 LOG_FILE = integrations.PREFS_FILE.parent / "app.log"
+# An invite link (secretbroker://join?server=…&email=…&code=…) the app was opened with, until the page takes it.
+JOIN_FILE = integrations.PREFS_FILE.parent / "join_link.json"
+JOIN_LINK_MINUTES = 10
 log = logging.getLogger("secretbroker.app")
 BACKUP_EVERY_HOURS = 24
 BACKUPS_KEPT = 10
 # Team changes (see service.TEAM_CHANGE_OPS): one click too.
 TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_invite", "team_accept_invite",
                    "team_confirm_member", "team_set_role", "team_remove_member", "team_create_collection", "team_grant",
-                   "team_revoke", "team_share_entry", "team_unshare_entry", "team_accept_change")
+                   "team_revoke", "team_share_entry", "team_share_entries", "team_unshare_entry", "team_accept_change")
 # What the app that unlocked may do with one click (see service.PRESENCE_OPS).
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
                 "import_file", "export_vault") + TEAM_CHANGE_OPS
@@ -383,6 +388,23 @@ class Api:
 
     def show(self):
         self._bring_to_front(activate=True)
+        if self._window and JOIN_FILE.exists():  # opened again with an invite link
+            try:
+                self._window.evaluate_js("window.onJoinLink && window.onJoinLink()")
+            except Exception:
+                log.exception("invite link")
+
+    def take_join_link(self):
+        """The invite link this app was opened with (once), or None. It only fills in the team form."""
+        try:
+            data = json.loads(JOIN_FILE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        finally:
+            JOIN_FILE.unlink(missing_ok=True)
+        if not isinstance(data, dict) or time.time() - float(data.get("at") or 0) > JOIN_LINK_MINUTES * 60:
+            return None
+        return {k: data.get(k) or "" for k in ("server", "email", "code")}
 
     def hide(self):
         if self._hwnd and sys.platform == "win32":
@@ -646,6 +668,45 @@ def _copy_to_clipboard(text, auto_clear=True):
 # ----------------------------------------------------------------- entry point
 
 
+def parse_join_link(text):
+    """{server, email, code} from secretbroker://join?server=…&email=…&code=…, or None. Only values that look
+    right: it comes from outside (a web page can open such a link), and it only ever fills in a form."""
+    try:
+        parts = urlsplit(str(text or "").strip())
+        query = parse_qs(parts.query, max_num_fields=10)
+    except ValueError:
+        return None
+    if parts.scheme.lower() != "secretbroker" or (parts.netloc or parts.path.strip("/")).lower() != "join":
+        return None
+    value = lambda name: (query.get(name) or [""])[0].strip()
+    server, email, code = value("server"), value("email").lower(), value("code")
+    try:
+        target = urlsplit(server if "://" in server else "https://" + server)
+    except ValueError:
+        return None
+    if not server or len(server) > 300 or target.scheme not in ("https", "http") or not target.hostname \
+            or target.username or target.password:
+        return None
+    if len(email) > 254 or (email and ("@" not in email or any(c.isspace() for c in email))):
+        email = ""
+    if len(code) > 200 or not all(c.isalnum() or c in "-_." for c in code):
+        code = ""
+    return {"server": server, "email": email, "code": code}
+
+
+def _keep_join_link(argv):
+    """Opened from an invite link (the installer registers secretbroker://): keep it for the page."""
+    link = next((a for a in argv if a.lower().startswith("secretbroker:")), None)
+    data = parse_join_link(link) if link else None
+    if not data:
+        return
+    try:
+        JOIN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        JOIN_FILE.write_text(json.dumps({**data, "at": time.time()}), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def _single_instance():
     if sys.platform != "win32":
         return True
@@ -656,6 +717,7 @@ def _single_instance():
 def main():
     import webview
 
+    _keep_join_link(sys.argv[1:])
     if not _single_instance():
         resident.signal_running_instance()
         return
@@ -694,7 +756,8 @@ def _start_logging():
         logger = logging.getLogger(name)
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
-    log.info("SecretBroker %s started (%s)", __version__, " ".join(sys.argv[1:]) or "window")
+    args = ["invite-link" if a.lower().startswith("secretbroker:") else a for a in sys.argv[1:]]  # no codes in logs
+    log.info("SecretBroker %s started (%s)", __version__, " ".join(args) or "window")
 
 
 def _step(name, action):
