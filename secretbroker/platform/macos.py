@@ -445,13 +445,29 @@ def _pasteboard_copy(text, auto_clear, clear_seconds):
         board.setString_forType_("", "org.nspasteboard.ConcealedType")
         board.setString_forType_("", "org.nspasteboard.TransientType")
         count = board.changeCount()
+        _copied_count[0] = count
 
         def clear():
             if board.changeCount() == count:  # nothing else was copied since
                 board.clearContents()
 
-        threading.Timer(clear_seconds, clear).start()
+        timer = threading.Timer(clear_seconds, clear)
+        timer.daemon = True  # never keeps a short-lived process (the browser's native host) alive
+        timer.start()
     return True
+
+
+_copied_count = [0]  # the pasteboard's change count after our last copy
+
+
+def clear_copied():
+    """Clear the pasteboard now if it still holds our last copy: a process about to exit cannot wait for the timer."""
+    if not _copied_count[0]:
+        return
+    from AppKit import NSPasteboard
+    board = NSPasteboard.generalPasteboard()
+    if board.changeCount() == _copied_count[0]:
+        board.clearContents()
 
 
 def copy_to_clipboard(text, auto_clear=True, clear_seconds=30):
@@ -546,4 +562,4 @@ def saved_environment():
     return values
 
 
-__all__ = list(INTERFACE) + ["restart_command"]
+__all__ = list(INTERFACE) + ["restart_command", "clear_copied"]

@@ -265,6 +265,12 @@ def answer(message, origin):
 
 def _clear_copied():
     """The browser closed the host before the clipboard was cleared: clear it now if it still holds what was copied."""
+    if sys.platform == "darwin":
+        try:
+            platform.clear_copied()
+        except Exception:
+            pass
+        return
     if copied_at[0] and sys.platform == "win32":
         import ctypes
         user32 = ctypes.windll.user32
