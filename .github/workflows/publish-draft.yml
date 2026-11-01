@@ -1,8 +1,11 @@
 # Publishes a release left as a draft (0.16.2 was drafted before releases went back to publishing directly).
-# Run it from the Actions tab or with: gh workflow run publish-draft.yml -f tag=v0.16.2
+# It runs when this file changes on main, for the version in pyproject.toml, or by hand with a tag.
 name: Publish draft release
 
 on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-draft.yml]
   workflow_dispatch:
     inputs:
       tag:
@@ -16,11 +19,16 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+
       - name: Publish the draft
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
         run: |
+          if [ -z "$TAG" ]; then
+            TAG=v$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          fi
           id=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq ".[] | select(.draft and .tag_name == \"$TAG\") | .id" | head -n1)
-          test -n "$id" || { echo "No draft for $TAG"; exit 1; }
+          if [ -z "$id" ]; then echo "No draft for $TAG, nothing to publish"; exit 0; fi
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" -F draft=false -f make_latest=true --jq '.html_url'
