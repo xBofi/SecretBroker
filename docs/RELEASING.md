@@ -19,9 +19,9 @@ A release is one version tag, `v<version>` matching `pyproject.toml`. Pushing it
 4. signs every installer for the in-app updater (`tools/sign_release.py`, secret `UPDATE_SIGNING_KEY`): a
    `<asset>.sig` next to each one, an Ed25519 signature over the version and the installer's SHA-256, checked
    against the public key built into `secretbroker/update.py`;
-5. checks all the signatures again and attaches the eight files to a **draft** GitHub Release.
+5. checks all the signatures again and publishes the eight files as the latest GitHub Release.
 
-Nothing reaches users until someone opens the draft on GitHub, reads it and clicks **Publish release**: the
+Nothing is published if any test, build or signature check fails. The
 updater only looks at published releases (`/releases/latest`), picks the asset of its own system (and on a Mac,
 of its processor: `platform.INSTALLER_RE`) and installs it only if its `.sig` verifies.
 

@@ -1,7 +1,6 @@
 # Builds and signs the installers for Windows, Ubuntu and macOS when a version tag (v0.16.0) is pushed, after the
-# suites pass on each system, and attaches them to a DRAFT GitHub Release. Nothing reaches users until the owner
-# reviews the draft and clicks «Publish release»: the in-app updater only sees published releases
-# (secretbroker/update.py, /releases/latest) and installs an asset only with a valid .sig. See docs/RELEASING.md.
+# suites pass on each system and every signature verifies, and publishes them as the latest GitHub Release, which
+# the in-app updater offers (secretbroker/update.py, /releases/latest; it installs an asset only with a valid .sig). See docs/RELEASING.md.
 name: Release
 
 on:
@@ -292,12 +291,12 @@ jobs:
           EOF
           ls -l dist
 
-      - name: Draft release
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.version.outputs.version }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "SecretBroker $VERSION" --generate-notes \
+          gh release create "$GITHUB_REF_NAME" --latest --verify-tag --title "SecretBroker $VERSION" --generate-notes \
             dist/SecretBroker-Setup-*.exe dist/SecretBroker-Setup-*.exe.sig \
             dist/secretbroker_*_amd64.deb dist/secretbroker_*_amd64.deb.sig \
             dist/SecretBroker-*-macos-*.pkg dist/SecretBroker-*-macos-*.pkg.sig
