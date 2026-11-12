@@ -34,6 +34,9 @@ SHOTS = HOME / "screenshots"
 MASTER = "una contraseña de prueba larga"
 ACCOUNT = "cuenta del equipo de prueba 42"
 failures = 0
+# A server version newer than this app, for «Hay una versión nueva» (never a fixed number: the app catches up).
+from secretbroker import __version__  # noqa: E402
+NEWER = ".".join(__version__.split(".")[:2] + [str(int(__version__.split(".")[2].split("-")[0]) + 1)])
 # A local SecretBroker Server for the teams flow (plain http only because it is on this PC).
 os.environ.update(SB_ALLOW_HTTP="1", SB_PUBLIC_URL="http://127.0.0.1", SB_SIGNUPS="open", SB_DATA_DIR=str(HOME / "server"),
                   SB_EMAIL_VERIFICATION="required", SB_SMTP_HOST="smtp.example", SB_SMTP_FROM="secrets@example.com",
@@ -2313,7 +2316,7 @@ def server_admin_flow(page, bob, act, carol, carol_act):
     Against the real server and its admin API, set up as install-server.sh sets it (SB_INSTALL=systemd)."""
     print("The team server's admin: Equipo › Servidor")
     # What the updater wrote after its last check: a newer version is out (the overview reads this file).
-    UPDATE_STATUS.write_text(json.dumps({"current": "0.17.0", "latest": "0.18.1", "last_check": "2026-11-12T03:00:00+00:00",
+    UPDATE_STATUS.write_text(json.dumps({"current": __version__, "latest": NEWER, "last_check": "2026-11-12T03:00:00+00:00",
                                          "auto": True, "last_result": "available"}), encoding="utf-8")
     page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
     page.js("state.view = 'team'; state.teamTab = 'people'; renderMain()")
@@ -2323,7 +2326,7 @@ def server_admin_flow(page, bob, act, carol, carol_act):
     check(wait_for(lambda: "Actualizaciones automáticas" in page.text() and "Hacer copia ahora" in page.text()
                    and "SecretBroker Server" in page.text(), 15), "Resumen: version, automatic updates, backups")
     text = page.text()
-    check("Hay una versión nueva (0.18.1): se instalará sola esta noche" in text
+    check(f"Hay una versión nueva ({NEWER}): se instalará sola esta noche" in text
           and page.js("!!document.querySelector('.server-version.warn')"), "a newer version: said under the server's name, in the warning colour")
     check(page.js("getComputedStyle(document.querySelector('.server-overview input.switch')).appearance") == "none",
           "automatic updates: a switch, not a bare checkbox")
@@ -2335,7 +2338,7 @@ def server_admin_flow(page, bob, act, carol, carol_act):
     check(page.js("document.querySelectorAll('.server-stats .stat').length") == 4, "the counts: accounts, organizations, collections, credentials")
     calm_shot(page, "24-server-overview")
     page.js("document.querySelector('.server-overview input.switch').click()")
-    check(wait_for(lambda: "Hay una versión nueva (0.18.1): actualízala desde el servidor" in page.text()
+    check(wait_for(lambda: f"Hay una versión nueva ({NEWER}): actualízala desde el servidor" in page.text()
                    and not page.js("document.querySelector('.server-overview input.switch').checked"), 15),
           "automatic updates off: the new version is to be installed on the server")
     page.js("document.querySelector('.server-overview input.switch').click()")
@@ -2531,7 +2534,7 @@ def server_admin_flow(page, bob, act, carol, carol_act):
           "the overview in English")
     leaks = spanish_leaks(page)
     check(not leaks, f"no Spanish in Team › Server ({leaks[:6]})")
-    check("A new version is out (0.18.1): it will install itself tonight" in page.text()
+    check(f"A new version is out ({NEWER}): it will install itself tonight" in page.text()
           and "“By invitation only” is safer" in page.text(), "the version line and the sign-up advice in English")
     calm_shot(page, "en-24-server-overview")
     page.send("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": "light"}])
