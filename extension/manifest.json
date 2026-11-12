@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SecretBroker",
   "short_name": "SecretBroker",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "__MSG_ext_description__",
   "default_locale": "en",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqz8SuYdNdCbuMEAHsZUfj+S7KoiVy1Y1P/YbuUNk/w+DDsi3IcQ5hcQZLl5dctvL/vviJ7s+IfyB/1M4xToCEwSR4IVv6BE1skWVQXDJXjwMKmxPuslwMr8LO1f6PqOcCvJ2aTqEKHfmuw7JMEVs0Nel5i2QFL4D8lyEwp1apsnh2r1oxv5esy75791wvcglbKyRTtli7bPE/BDPv7WYCm3nybBOlqqlWyXRocVm7xZhEK4Ei/UkL4ZQVS8LxMiUxB0lAVGL6qVnML4uURXk2P7WU0FGFyhAI8ZDLT3XXlsoJ5hC2KpC68iuTuZEF9xxH1R6XDMD0ujyYNpa7U95AQIDAQAB",

@@ -2,7 +2,7 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
-## Unreleased
+## 0.18.1 (2026-11-12)
 
 ### Team server
 - **The server installer works on a server whose ports 80 and 443 are already in use.** Before installing anything
