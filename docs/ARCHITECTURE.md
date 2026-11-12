@@ -217,6 +217,41 @@ At login the client refuses a `kdf` from `prelogin` with `n` below 2^17 (what `c
 deriving anything (`weak_kdf`, one sentence for the user): a hostile server would otherwise get an `auth_hash` cheap
 to brute-force. The only exception is the `n` this PC already logged in to that account with (`team.kdf_n`).
 
+**Recovery code** (nobody loses the team for good). Made on a device that has the keys, at sign-up and whenever the
+user asks («Crear uno nuevo»: the old one stops working); shown once, never stored by the app or the server:
+
+```
+code           = 30 symbols of Crockford base32 (0-9 A-Z without I L O U), 150 bits, XXXXX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX
+                 (typed in any case, with or without dashes; O is read as 0, I and L as 1)
+recovery_kdf   = crypto.new_kdf()                                          # scrypt, n = 2^17 at least (server and client check)
+master         = scrypt(code, recovery_kdf)
+recovery_auth  = HKDF(master, info=b"secretbroker/team-recovery-auth/v1")  # sent as recovery_auth_hash
+recovery_wrap  = HKDF(master, info=b"secretbroker/team-recovery-wrap/v1")  # never leaves the client
+recovery_blob  = AES-GCM(recovery_wrap, json{x25519, ed25519}, aad=b"secretbroker/team-recovery-keys/v1|" + user_id)
+```
+
+The server stores `recovery_kdf`, `scrypt(recovery_auth_hash, salt, 2^14)` (like `auth_hash`) and the opaque
+`recovery_blob` (table `recovery`). **Proving key possession**: a device asks for a single-use challenge (one per
+account and purpose, 5 minutes) and signs, with the account's Ed25519 key, `b"secretbroker/account-proof/v1|" +
+purpose + "|" + user_id + "|" + challenge + "|" + sha256_hex(canonical JSON of what it stores)`; the server checks it
+against the `signing_public_key` given at sign-up. Purposes: `recovery` (set the code), `reset` (a new password
+without the old one, from a connected device), `recover` (a new password with the code). So a stolen session token
+alone can neither set a code nor change the password, and whoever has the code must first open the keys with it.
+New passwords set these ways also need `n` ≥ 2^17.
+
+* **Forgot the password, a device still connected** (`team_reset_password {password}`): challenge `reset`, the keys
+  wrapped again under the new password; the account's other sessions end.
+* **Forgot the password, no device** (`team_recover {server_url, email, code, password}`): `recover/prelogin` gives
+  the code's `kdf` (a fake, fixed one for unknown e-mails or accounts without a code), `recover/start` with
+  `recovery_auth_hash` gives `recovery_blob` and a challenge; the client opens the keys, checks they are the
+  account's public keys, signs `recover` and sends the new `kdf`, `auth_hash` and `private_blob`; every session ends
+  and the device logs in as usual (pins come back from `/me/data`, credentials with the next sync).
+* **Neither** («Ha perdido el acceso», `team_replace_member {org, user_id}`): an org admin removes the account (2.4,
+  re-keys and «Cambiar» flags as any removal) and invites the e-mail again with `replaces: <old user id>`. Signing up
+  with that invite takes the old account's place (it is deleted, a new user id and keys are made) only if the old
+  one is then in no organization and is not a server admin; otherwise the sign-up answers like any taken e-mail.
+  The admin gives access back after confirming the new account's code.
+
 ### 2.2 Fingerprints and key pinning
 
 `fingerprint(user) = SHA-256(x25519_pub || ed25519_pub)` as 40 decimal digits (`int(digest) mod 10^40`, 133 bits)
@@ -463,19 +498,25 @@ item says and what is deleted is signed with the author's Ed25519 key and checke
 | `POST /accounts/register` (no auth) | `{user_id, email, name, kdf, auth_hash, public_key, signing_public_key, private_blob, invite_token?}` → `{user_id}`. The client picks `user_id` (UUIDv4) so it can bind `private_blob` to it; the server only checks it is new. An e-mail that already has an account gets the same answer and nothing is created (no enumeration); the client's login then fails and it says to log in instead (`email_taken`). |
 | `POST /accounts/login` (no auth) | `{email, auth_hash, device_name}` → `{token, user: {id, email, name}, kdf, private_blob, public_key, signing_public_key}` |
 | `POST /accounts/logout` | → `{}` (revokes this token) |
-| `GET /me` | → `{user, devices: [{id, name, created, last_seen, current}]}` |
+| `GET /me` | → `{user, devices: [{id, name, created, last_seen, current}], recovery: {created} \| null}` |
 | `POST /accounts/verify/send` | `{}` → `{verified, sent, verification?}` (a new e-mail code; one a minute, else `429`) |
 | `POST /accounts/verify` | `{code}` → `{verified: true}` (`400 invalid_code`, `400 code_expired` after 30 min or 5 wrong tries) |
 | `GET /me/data` | → `{blob, revision}` (the account's encrypted data, 2.2; `blob` null at first) |
 | `PUT /me/data` | `{blob, base_revision}` → `{revision}` / `409 {revision}` |
 | `DELETE /me/devices/{id}` | → `{}` |
 | `POST /accounts/password` | `{current_auth_hash, kdf, auth_hash, private_blob}` → `{}` (revokes other sessions; a wrong current password is `403 invalid_credentials` and counts like a failed login) |
+| `POST /accounts/challenge` | `{purpose: reset\|recovery}` → `{challenge}` (single use, 5 minutes, one live per account and purpose; 2.1) |
+| `POST /accounts/recovery` | `{kdf, recovery_auth_hash, recovery_blob, challenge, signature}` → `{created}` (sets or replaces the recovery code; `403 invalid_proof` without a valid signature of the live `recovery` challenge; `n` ≥ 2^17) |
+| `POST /accounts/password/reset` | `{challenge, signature, kdf, auth_hash, private_blob}` → `{}` (a new password without the old one, signed `reset`; revokes the other sessions; org event `password.reset`) |
+| `POST /accounts/recover/prelogin` (no auth) | `{email}` → `{kdf}` (the recovery code's; unknown e-mails and accounts without a code get a fixed fake one) |
+| `POST /accounts/recover/start` (no auth) | `{email, recovery_auth_hash}` → `{user_id, recovery_blob, public_key, signing_public_key, challenge}`; `401 invalid_credentials` alike for a wrong code, an unknown e-mail or no code; throttled like `login` (same counters) |
+| `POST /accounts/recover` (no auth) | `{email, recovery_auth_hash, challenge, signature, kdf, auth_hash, private_blob}` → `{}` (signed `recover` with the opened keys; revokes every session; org event `account.recover`) |
 | `GET /users/{uid}/keys` | → `{id, email, name, public_key, signing_public_key}` (only users sharing an org with you, or invited by your org) |
 | `GET /users/keys?ids=a,b,…` | → `[{id, email, name, public_key, signing_public_key}]`, at most 200 ids; people you may not see are left out (one request for a team's members; clients fall back to the single endpoint on a `404`) |
 | `POST /orgs` | `{name}` → `{id}` (caller is owner) |
 | `GET /orgs` | → `[{id, name, role}]` |
 | `GET /orgs/{oid}/members` | → `[{user_id, email, name, role, status: invited|accepted|confirmed}]` |
-| `POST /orgs/{oid}/invites` | `{email, role}` → `{id, expires, emailed}` (admin; replaces an expired invite to that e-mail; `emailed`: the server e-mailed it, see "Invites") |
+| `POST /orgs/{oid}/invites` | `{email, role, replaces?}` → `{id, expires, emailed}` (admin; replaces an expired invite to that e-mail; `emailed`: the server e-mailed it, see "Invites"; `replaces`: the account of that e-mail whose owner lost access, 2.1, event `invite.replace`; renewing keeps it) |
 | `POST /orgs/{oid}/invites/{id}/renew` | `{}` → `{id, expires, emailed}` (admin; a new id for a pending or expired invite, the old one stops working) |
 | `POST /orgs/{oid}/invites/{id}/send` | `{}` → `{emailed}` (admin; e-mail a pending invite again, at most every 10 minutes, else `429`; `410 invite_expired` if expired) |
 | `GET /invites` | → invites addressed to my e-mail `[{id, org_id, org_name, role, invited_by}]` (`[]` until the e-mail is verified) |
@@ -527,7 +568,8 @@ Implementation notes (`server/`, binding for clients):
   says whether the SMTP server took it. Creating, renewing and re-sending count against `SB_MAX_INVITES_PER_HOUR`
   (30) per organization and per account (`429`). Audit events `invite.renew`, `invite.send` (target: the e-mail).
 * **Versions.** `GET /info` has `api` (the protocol: 1 = 0.16 with signed member lists and deletions; 2 = invites by
-  e-mail and expiry, the version header, `/health`; additions only) and `min_client` (the oldest app it serves:
+  e-mail and expiry, the version header, `/health`; additions only), `recovery: true` on servers with recovery codes,
+  password reset by key possession and replaced accounts (2.1; apps hide those actions otherwise), and `min_client` (the oldest app it serves:
   0.16.0, or `SB_MIN_CLIENT` if newer). Apps send `X-SecretBroker-Version` on every request; one older than
   `min_client` gets `426 {code: "client_too_old", min_client}` everywhere except `/info` and `/health`. No header
   (0.16 apps) or an unreadable one is served as before. Apps check `/info` when linking and at every sync: a server
@@ -543,8 +585,9 @@ Implementation notes (`server/`, binding for clients):
   target the e-mail); server-wide `user.disable`, `user.enable`, `user.delete`.
 * **Operations.** `secretbroker-server backup [--dir] [--keep N] [--every HOURS]` (SQLite online backup of the
   database plus `server_secret` in one zip, pruned to the newest N) and `restore <file>` (refused while `serve` holds
-  its lock on the data folder; the current files are moved to `before-restore-<time>/`). The schema (now 3: disabled
-  accounts, invite expiry) is upgraded on start from any earlier version.
+  its lock on the data folder; the current files are moved to `before-restore-<time>/`). The schema (now 4: disabled
+  accounts, invite expiry; recovery codes and `invites.replaces`) is upgraded on start from any earlier version.
+  The server needs `cryptography` (Ed25519 checks of key-possession proofs).
 * **Extra endpoints.** `DELETE /invites/{id}` → `{}` (the invitee declines, or an org admin withdraws it).
   `POST /admin/invites` `{days?}` → `{token, expires}` (server admin: a single-use signup token).
 * **Signups.** `open`: anyone; the first account becomes server admin. `invite`: `invite_token` must be a signup
@@ -582,7 +625,16 @@ Added to `secretbroker/service.py` (GUI only, never reachable from the AI unless
 account's devices, `GET /me`), `team_revoke_device {id}`, `team_change_password {current, password}`,
 `team_renew_invite {org, email}` (→ `{id, emailed, expires}`; in `TEAM_EXPORT_OPS` like `team_invite`),
 `team_resend_invite {org, email}` (→ `{emailed}`), `team_drop_invite {org, email}`, `team_invite_code {org, email}`
-(→ `{code}`, for «Copiar instrucciones»; in `TEAM_EXPORT_OPS`). The invite id works as a sign-up code, so
+(→ `{code}`, for «Copiar instrucciones»; in `TEAM_EXPORT_OPS`). Recovery (2.1), all in `TEAM_EXPORT_OPS` (after a
+Windows-session unlock, Hello or a password once): `team_recovery_code` (→ `{code, created}`: the code, this once),
+`team_reset_password {password}`, `team_recover {server_url, email, code, password, device_name?}` (→ like
+`team_connect`), `team_replace_member {org, user_id}` (→ `team_remove_member`'s answer plus `{email, invite: {id,
+emailed, expires}, collections: [names]}`; if the invite fails after the removal, calling it again only invites).
+`team_connect` with `mode: register` also answers `recovery_code` on servers with recovery; `team_status` has
+`recovery` (`{created}` or null) and `recovery_supported`, and, when not connected but the vault holds an account
+without a session, `hint: {server_url, email}`. `restore` of a backup on a PC without a vault forgets the backup's
+team session (`Team.forget_session`: the account, collections and pins stay); Equipo then asks for the account
+password and `team_connect` (login, same account and server) carries on with that state. The invite id works as a sign-up code, so
 `team_members` (no proof) strips it from the server's rows (and from the cached copy); these ops look it up
 themselves. `team_invite` answers `{id, emailed,
 expires?}` (`emailed` false on servers before 0.17). Client logic and crypto live in `secretbroker/teams.py`.
@@ -727,6 +779,17 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   quiere que la IA pueda enviar esta clave a: <hosts>»; «Rechazar y mantener como estaba», only with edit permission,
   undoes it for the whole team; «Permitir <host>»), reveal and copy hidden for `use`, and edit / delete / rotate
   limited to what the permission allows. Deleting a shared credential warns that it is deleted for the whole collection.
+* **Recovery and changing PCs.** After «Crear cuenta», and from «Código de recuperación» in Tu cuenta («Crear
+  código» / «Crear uno nuevo», which warns that the old one stops working), the code is shown once (`showRecoveryCode`)
+  with «Copiar» (cleared from the clipboard like a secret), «Guardar como archivo», «Guardar en mi bóveda personal»
+  (a generic credential the AI never uses, with a note that it does not help if the vault is what is lost) and «Ya
+  lo he guardado»; closing it otherwise asks first. Accounts without a code get a banner in Tu cuenta («Ahora no»
+  hides it on this PC). Tu cuenta › Contraseña has «La he olvidado» (also «No la recuerdo» in «Cambiar contraseña»):
+  a new password twice, no old one. The sign-in form has «¿Has olvidado la contraseña?»: e-mail, recovery code and
+  a new password twice, with what to do without a code (a connected PC, or ask to be invited again). Personas has «Ha
+  perdido el acceso» for admins, which explains what happens and then shows the new invite (with the collections the
+  person had) and the list of what to change. «Pasar a otro PC» (Ajustes, and Tu cuenta): save an encrypted backup to
+  a file (`app.backup_to_file`), restore it on the new PC, sign in to the team, close the session on the old one.
 * Credential list: a team mark on shared rows, collection chips next to the tag filter («Con Bob» for a direct
   share), «Sin enviar» / «Cambiar: salió Bob» badges, and with a team account a checkbox on hover (shift-click for a
   range) to «Compartir N…».

@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 INVITE_DAYS_AT_UPGRADE = 14  # invites made before they expired get this long from the upgrade on
 
 # `INTEGER PRIMARY KEY` on events is SQLite's rowid; a Postgres backend would use BIGSERIAL.
@@ -48,6 +48,16 @@ CREATE TABLE IF NOT EXISTS account_data (
     user_id TEXT PRIMARY KEY REFERENCES users(id),
     blob TEXT NOT NULL,
     revision INTEGER NOT NULL
+);
+-- The account's recovery code (docs/ARCHITECTURE.md 2.1): its scrypt parameters, a verifier of the auth key derived
+-- from it (like users.auth_verifier) and the private keys wrapped by a key only the code gives. Opaque here.
+CREATE TABLE IF NOT EXISTS recovery (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    kdf TEXT NOT NULL,
+    auth_salt TEXT NOT NULL,
+    auth_verifier TEXT NOT NULL,
+    blob TEXT NOT NULL,
+    created TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
@@ -89,7 +99,8 @@ CREATE TABLE IF NOT EXISTS invites (
     invited_by TEXT NOT NULL,
     created TEXT NOT NULL,
     expires INTEGER,
-    sent INTEGER
+    sent INTEGER,
+    replaces TEXT
 );
 CREATE INDEX IF NOT EXISTS invites_email ON invites(email);
 CREATE TABLE IF NOT EXISTS collections (
@@ -154,7 +165,9 @@ def _migrate(conn):
     Schema 2 adds e-mail verification and signed deletions. Accounts that already existed count as verified: they
     were in use before verification existed, and their organizations' admins confirmed them by hand.
     Schema 3 adds disabled accounts and invites that expire (and remember when they were e-mailed); invites that
-    were pending get INVITE_DAYS_AT_UPGRADE days from now."""
+    were pending get INVITE_DAYS_AT_UPGRADE days from now.
+    Schema 4 adds recovery codes (the table `recovery`) and invites that replace an account whose owner lost
+    access to it (`invites.replaces`)."""
     if "verified" not in _columns(conn, "users"):
         conn.execute("ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0")
         conn.execute("UPDATE users SET verified = 1")
@@ -171,6 +184,8 @@ def _migrate(conn):
         conn.execute("ALTER TABLE invites ADD COLUMN expires INTEGER")
     if "sent" not in invites:
         conn.execute("ALTER TABLE invites ADD COLUMN sent INTEGER")
+    if "replaces" not in invites:
+        conn.execute("ALTER TABLE invites ADD COLUMN replaces TEXT")
     conn.execute("UPDATE invites SET expires = ? WHERE expires IS NULL", (now_epoch() + INVITE_DAYS_AT_UPGRADE * 86400,))
 
 

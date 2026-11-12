@@ -15,7 +15,8 @@ in [SECURITY.md](../SECURITY.md).
 | Credential policies (allowed hosts, programs, env variables) | Encrypted vault; they decide where a key can go |
 | Approvals and presence | Service memory; Windows Hello key in the TPM |
 | Activity history | Encrypted with an X25519 public key derived from the vault (write-only while locked) |
-| Team account keys (X25519, Ed25519) | Vault; on the server only as `private_blob` wrapped by a key derived from the account password |
+| Team account keys (X25519, Ed25519) | Vault; on the server only as `private_blob` wrapped by a key derived from the account password, and as `recovery_blob` wrapped by a key derived from the recovery code |
+| Recovery code of a team account | Shown once; wherever the user keeps it (paper, a file, their vault). Neither the app nor the server stores it |
 | Collection keys | Sealed to each member's X25519 key, grants signed by the granter's Ed25519 key |
 | Who is in each collection, item authorship, deletions | Signed by the member who changed them (Ed25519), chained per collection |
 | The people a user verified (pins) | Vault; on the server encrypted with a key derived from the account's private keys |
@@ -173,6 +174,16 @@ A member of an organization, with some permission on a collection.
   grants, which need a verified code.
 - At login the app refuses scrypt parameters weaker than the ones it registers accounts with, so the server cannot
   lower the cost of guessing the password from `auth_hash`. Sign-ups do not reveal which e-mails have an account.
+- The recovery code never reaches the server: it gets an HKDF-derived `recovery_auth_hash` (stored hashed with
+  scrypt) and `recovery_blob`, the keys wrapped by another key derived from the code. The code has 150 random bits, so
+  guessing it offline from the blob is infeasible even for the server, unlike a password; the app also refuses
+  scrypt parameters below 2^17 for it, and the server cannot use the blob. Setting a code, or a password without the
+  old one, needs a signature by the account's own Ed25519 key over a single-use challenge, so a stolen session token
+  is not enough. A hostile server could still overwrite what it stores, which only denies service: a blob it makes
+  does not hold the account's keys, and the app checks the keys it opens against the account's public keys.
+- Replacing an account whose owner lost access is limited: only through an org admin's new invite naming that
+  account, only once the account is in no organization, never for a server admin, and the new account has new keys
+  that teammates must verify like anyone's.
 - Item versions and deletions carry the author's signature and a write counter: the server cannot forge, attribute
   or delete content, nor serve an older version again; unsigned deletions are ignored and reported, and a collection
   that disappears with many credentials is held for the user.
@@ -234,6 +245,17 @@ A member of an organization, with some permission on a collection.
   scrypt parameters. Use a strong account password.
 - First contact with a new member is trust on first use: if the server lies about a key the first time you see a user,
   only comparing fingerprints out of band detects it.
+- **A recovery code holder** (someone who finds the paper, the file, or the vault entry where it was kept) can do
+  everything the account can: set a new password, read what is shared with it, sign as it. Recovering ends every
+  session of the account and shows in its organizations' Actividad («Recuperó su cuenta…»), so the owner notices on
+  their next sync; making a new code invalidates the old one. Keep it like a password, away from the PC it protects.
+- Whether an account has a recovery code is not answered directly, but its scrypt salt changes when a new code is
+  made, so someone who keeps asking `recover/prelogin` can tell that an account has one.
+- A malicious org admin can use «Ha perdido el acceso» on someone who has not lost anything: they are removed (which
+  the admin could do anyway) and, if that was their only organization, whoever signs up with the new invite (the
+  admin knows its code) takes the e-mail on this server. With e-mail verification on, that account sees only that
+  organization's invites, and the person can no longer log in; the server admin can restore it
+  (`delete-user` and an invite). The removed person's data on the server was only their own encrypted pins.
 
 ### 3.6 Network attacker
 
@@ -255,7 +277,8 @@ A member of an organization, with some permission on a collection.
 - The vault is AES-256-GCM under a random data key wrapped by scrypt (128 MiB) of the master password; on the PC the
   copy is additionally wrapped with DPAPI (Linux: AES-GCM with a key in a separate 0600 file of the service account,
   which a backup of the vault does not include).
-- Backups are the encrypted vault; restoring needs the master password the backup had.
+- Backups are the encrypted vault; restoring needs the master password the backup had. Restored on a PC without a
+  vault, a backup's team session is not used: that PC signs in to the team with the account password itself.
 - Online guessing through the app is slowed with increasing delays after each failure.
 
 **Limits**

@@ -2,6 +2,34 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
+## Unreleased
+
+### Nobody on a team loses access for good
+- **Recovery code for the team account.** Creating an account shows a recovery code once (30 letters and digits)
+  with «Copiar», «Guardar como archivo» and «Guardar en mi bóveda personal» (fine, but it does not help if the vault
+  is what you lose, and the dialog says so). Accounts made before get a banner in Equipo › Tu cuenta, once; a new
+  code can be made there at any time and the old one stops working. SecretBroker and the server keep nothing that
+  opens it.
+- **Forgot the account password on a PC that is still connected?** Equipo › Tu cuenta › «La he olvidado» sets a new
+  one without the old: that PC has the account's keys and proves it to the server. The account's other devices sign
+  in again with the new password.
+- **Forgot it with no PC left?** On the sign-in form, «¿Has olvidado la contraseña?» takes the e-mail, the recovery
+  code and a new password: the same keys come back, and with them what is shared with you and the people you
+  verified. Every other session of the account ends.
+- **Neither the code nor a PC?** Admins have «Ha perdido el acceso» on each person in Personas: it removes the old
+  account like any removal (collections re-encrypted, what they could see flagged to change) and invites the same
+  e-mail again; the new account takes the old one's place, and the admin gives access back once it is confirmed.
+- Actividad (Equipo) shows recovered accounts, passwords set from a device and these invitations.
+
+### Moving to another PC
+- **Ajustes › Pasar a otro PC** (also linked from Tu cuenta): save an encrypted backup of the vault to a file, restore
+  it on the new PC, sign in to the team, and close the session on the old one. No commands.
+- A backup restored on a new PC no longer reuses the old PC's team session: Equipo asks for the account password,
+  and the account carries on with its collections and verified people (no duplicates).
+
+The team server needs this version for recovery codes, «La he olvidado» and «Ha perdido el acceso» (its database
+upgrades by itself to schema 4, and it now needs the `cryptography` package, installed with it).
+
 ## 0.17.0 (2026-11-12)
 
 Teams: pass a credential to one person, invitations by e-mail, a server that is easy to host and back up, and

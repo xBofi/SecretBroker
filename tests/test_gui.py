@@ -1569,6 +1569,111 @@ def tab(page, name):
       if (!b) return false; b.click(); return true; }})()""")
 
 
+RECOVERY_CODE_RE = r"([0-9A-HJKMNP-TV-Z]{5}-){5}[0-9A-HJKMNP-TV-Z]{5}"
+
+
+def close_dialogs(page):
+    page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+
+
+def recovery_dialogs(page, lang):
+    """The recovery dialogs in `lang`, opened directly (they also work with the team server offline): the code shown
+    once, a new password from this PC, the way back in with the code, «Ha perdido el acceso» and «Pasar a otro PC».
+    Screenshots to look at; in English, no Spanish left."""
+    t = lambda key, **params: page.js(f"t({json.dumps(key)}, {json.dumps(params)})")
+    prefix = "" if lang == "es" else f"{lang}-"
+
+    def leaks(where):
+        if lang == "en":
+            found = spanish_leaks(page)
+            check(not found, f"no Spanish left in {where} ({found[:5]})")
+
+    page.js("showRecoveryCode('7K3QD-M2XHP-9WTRC-4NBVE-ZA6YG-1FJ8S')")
+    check(wait_for(lambda: t("recovery_code.done") in page.text() and "7K3QD-M2XHP-9WTRC-4NBVE-ZA6YG-1FJ8S" in page.text(), 10)
+          and all(t(k) in page.text() for k in ("common.copy", "recovery_code.save_file", "recovery_code.save_vault")),
+          f"the recovery code dialog in {lang}: the code, «Copiar», «Guardar como archivo», «Guardar en mi bóveda personal»")
+    leaks("the recovery code")
+    calm_shot(page, f"{prefix}30-recovery-code")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    check(wait_for(lambda: t("recovery_code.close_title") in page.text(), 5),
+          "closing it without keeping it asks first (it won't be shown again)")
+    calm_shot(page, f"{prefix}30-recovery-code-close")
+    page.click(t("open_modal.discard"), ".modal-foot button")
+    check(wait_for(lambda: page.js("!document.querySelector('.modal')"), 5), "«Descartar» closes both")
+
+    page.js("resetTeamPassword()")
+    check(wait_for(lambda: t("team_reset.lead") in page.text(), 5), f"a new password from this PC, in {lang}")
+    leaks("the new password dialog")
+    calm_shot(page, f"{prefix}31-team-reset-password")
+    close_dialogs(page)
+
+    page.js("reconnectTeam(() => {})")
+    wait_for(lambda: page.js("!!document.querySelector('.modal .team-form')"), 5)
+    page.click(t("team_recover.forgot"), ".modal button")
+    check(wait_for(lambda: t("team_recover.title") in page.text() and t("team_recover.code") in page.text()
+                   and t("team_recover.no_code_title") in page.text(), 5),
+          f"«¿Has olvidado la contraseña?» asks for the code and a new password, and says what to do without it ({lang})")
+    leaks("the recovery form")
+    calm_shot(page, f"{prefix}32-team-recover")
+    close_dialogs(page)
+
+    page.js("""lostAccess(teamOrgOf(state.teamData), ((state.teamData.members || {})[state.teamOrg] || [])
+      .find((m) => !m.me && m.status === 'confirmed') || { name: 'Bob', email: 'bob@example.com', user_id: 'x' }, () => {})""")
+    check(wait_for(lambda: t("lost_access.action") in page.text(), 5), f"«Ha perdido el acceso» says what happens, in {lang}")
+    leaks("«Ha perdido el acceso»")
+    calm_shot(page, f"{prefix}33-team-lost-access")
+    close_dialogs(page)
+
+    page.js("moveComputerGuide()")
+    check(wait_for(lambda: t("move_pc.step_backup") in page.text() and t("move_pc.step_team") in page.text(), 5),
+          f"«Pasar a otro PC»: backup, restore, the team, closing the session here ({lang})")
+    leaks("«Pasar a otro PC»")
+    calm_shot(page, f"{prefix}34-move-pc")
+    close_dialogs(page)
+
+
+def recovery_flow(page):
+    """With the team server up: what Tu cuenta offers, «Guardar en mi bóveda personal», and a lost member's dialog
+    from Personas."""
+    print("Recovery: Tu cuenta, the vault, Personas")
+    page.js("state.view = 'team'; state.teamTab = 'account'; renderMain()")
+    check(wait_for(lambda: "Código de recuperación" in page.text() and "Creado el" in page.text()
+                   and "Crear uno nuevo" in page.text() and "La he olvidado" in page.text()
+                   and "Pasar a otro PC" in page.text(), 15),
+          "Tu cuenta: when the recovery code was made, «Crear uno nuevo», «La he olvidado» and «Pasar a otro PC»")
+    check("Crea tu código de recuperación" not in page.text(), "no banner: the account already has a code")
+    calm_shot(page, "35-team-account-recovery")
+    page.click("Crear uno nuevo")
+    check(wait_for(lambda: "El que tienes dejará de servir" in page.text(), 5), "a new code warns that the old one stops working")
+    page.click("Crear uno nuevo", ".modal-foot button")
+    if wait_for(lambda: "Confirma que eres tú" in page.text(), 3):
+        type_proof(page, MASTER)
+    check(wait_for(lambda: page.js("!!document.querySelector('.recovery-code')"), 15)
+          and __import__("re").fullmatch(RECOVERY_CODE_RE, page.js("document.querySelector('.recovery-code').textContent")),
+          "and shows the new code once")
+    page.click("Guardar en mi bóveda personal")
+    if wait_for(lambda: "Confirma que eres tú" in page.text(), 3):
+        type_proof(page, MASTER)
+    check(wait_for(lambda: "En tu bóveda" in page.text(), 15)
+          and page.js("(state.entries.find((e) => e.id === 'secretbroker-team-recovery') || {}).name") == "Código de recuperación del equipo",
+          "«Guardar en mi bóveda personal» keeps it as a credential")
+    page.click("Ya lo he guardado")
+    check(wait_for(lambda: page.js("!document.querySelector('.modal')"), 5), "«Ya lo he guardado» closes it")
+    page.js("api().call('delete_entry', { id: 'secretbroker-team-recovery' }, { kind: 'master_password', value: " + json.dumps(MASTER) + " }).then(loadEntries)")
+    page.js("state.view = 'team'; state.teamTab = 'people'; renderMain()")
+    check(wait_for(lambda: page.click("Ha perdido el acceso", ".member button"), 15)
+          and wait_for(lambda: "Bob ha perdido el acceso" in page.text() and "ocupa el lugar de la anterior" in page.text(), 5),
+          "Personas: «Ha perdido el acceso» on a member says what happens (removed, re-keyed, invited again)")
+    close_dialogs(page)
+    page.js("state.view = 'settings'; renderMain()")
+    check(wait_for(lambda: "Cambiar de PC" in page.text() and "Ver los pasos" in page.text(), 10), "Ajustes offers «Pasar a otro PC»")
+    page.click("Ver los pasos")
+    check(wait_for(lambda: "Guarda una copia de tu bóveda" in page.text() and "alicia@example.com" in page.text(), 5),
+          "the guide names the team account to sign in with")
+    close_dialogs(page)
+
+
 def teams_flow(page, env):
     from secretbroker.service import Service
 
@@ -1579,6 +1684,19 @@ def teams_flow(page, env):
     check(page.js("[...document.querySelectorAll('.team-form input')].every((i) => !i.value)"), "nothing is prefilled")
     check("uno alojado" not in page.text(), "no promise of a hosted server that doesn't exist")
     calm_shot(page, "12-team-connect")
+    page.click("Entrar", ".team-form .segmented button")
+    page.click("¿Has olvidado la contraseña?")
+    check(wait_for(lambda: "Recuperar la cuenta del equipo" in page.text() and "Código de recuperación" in page.text()
+                   and "Contraseña nueva de la cuenta" in page.text()
+                   and "pide a quien administra tu equipo que te vuelva a invitar" in page.text(), 5),
+          "«¿Has olvidado la contraseña?»: e-mail, recovery code and a new password, and what to do without the code")
+    check(page.js("document.querySelector('.team-form .segmented').classList.contains('hidden')"), "one task at a time: no tabs")
+    calm_shot(page, "12-team-recover")
+    page.click("Volver a entrar con la contraseña")
+    check(wait_for(lambda: "¿Has olvidado la contraseña?" in page.text() and "Recuperar la cuenta del equipo" not in page.text(), 5),
+          "and back to signing in")
+    page.js("renderView()")
+    wait_for(lambda: page.js("!!document.querySelector('.team-form .segmented button.active')"), 5)
 
     print("An invite link")
     link = f"secretbroker://join?server={TEAM_URL}&email=alicia%40example.com&code=ABC-123"
@@ -1605,6 +1723,16 @@ def teams_flow(page, env):
     fill(page, "Contraseña de la cuenta", ACCOUNT, ".team-form")
     fill(page, "Repítela", ACCOUNT, ".team-form")
     page.click("Crear cuenta", ".team-form .btn.primary")
+    check(wait_for(lambda: page.js("!!document.querySelector('.recovery-code')"), 20)
+          and __import__("re").fullmatch(RECOVERY_CODE_RE, page.js("document.querySelector('.recovery-code').textContent"))
+          and all(label in page.text() for label in ("Copiar", "Guardar como archivo", "Guardar en mi bóveda personal",
+                                                      "Ya lo he guardado", "Solo se muestra ahora")),
+          "a new account shows its recovery code once, with «Copiar», «Guardar como archivo», «Guardar en mi bóveda personal»")
+    check(page.js("document.querySelector('.recovery-code').textContent") not in json.dumps(page.js("state.team")),
+          "the page keeps nothing of it")
+    calm_shot(page, "12-team-recovery-code")
+    page.click("Ya lo he guardado")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
     check(wait_for(lambda: "Crear organización" in page.text() and "Tu código de seguridad" in page.text(), 20),
           "account created: create an organization, and the account with its security code")
     code = page.js("state.team.fingerprint")
@@ -1978,6 +2106,8 @@ def teams_flow(page, env):
     gone = bob.handle("team_sync", {})["result"]["result"]["removed"]
     check(sorted(gone) == ["Google OAuth", "Postgres API"], f"Bob loses them at his next sync ({gone})")
 
+    recovery_flow(page)
+
     print("Removing a teammate")
     page.js("state.view = 'team'; state.teamTab = 'people'; renderMain()")
     check(wait_for(lambda: page.js("!!document.querySelector('button[title=\"Quitar de la organización\"]')"), 15), "admins can remove people")
@@ -2033,9 +2163,11 @@ def teams_flow(page, env):
     leaks = spanish_leaks(page)
     check(not leaks, f"no Spanish left in Team › People ({leaks[:6]})")
     calm_shot(page, "en-10-team-people")
+    recovery_dialogs(page, "en")
     page.js("api().set_pref('language', 'es').then(() => applyLanguage('es')).then(renderMain)")
     wait_for(lambda: "Personas" in page.text(), 10)
     calm_shot(page, "13-team-people-expiring")
+    recovery_dialogs(page, "es")
 
     print("Offline")
     TEAM_SERVER.should_exit = True

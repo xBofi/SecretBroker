@@ -140,7 +140,7 @@ def delete(conn, address):
         raise AdminError("can't delete it yet:\n" + "\n".join(f"  - {why}" for _, _, why in held)
                          + "\nThen run this again. (`disable-user` blocks the account meanwhile.)")
     left = _leave_orgs(conn, user, "member.delete")
-    for table in ("sessions", "email_codes", "account_data", "collection_members", "org_members"):
+    for table in ("sessions", "email_codes", "account_data", "recovery", "collection_members", "org_members"):
         conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (user["id"],))
     conn.execute("DELETE FROM users WHERE id = ?", (user["id"],))
     event(conn, None, None, "user.delete", user["id"])

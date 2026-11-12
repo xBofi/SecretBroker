@@ -1168,8 +1168,259 @@ def test_schema_1_upgrade():
         check(old.ok("POST", f"/orgs/{oid}/invites", {"email": "other@example.com", "role": "member"})["id"],
               "new invites work")
         version = server_db(settings, "SELECT value FROM meta WHERE key = 'schema_version'")[0][0]
-        check(version == "3", f"the schema is now 3 ({version})")
+        check(version == "4", f"the schema is now 4 ({version})")
+        replaces = [r for r in server_db(settings, "PRAGMA table_info(invites)") if r[1] == "replaces"]
+        recovery = server_db(settings, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'recovery'")
+        check(replaces and recovery, "with recovery codes and invites that replace an account whose owner lost access")
         check(cli_out(settings, ["users"])[1].count("old@example.com") == 1, "the admin commands work on it")
+    finally:
+        stop()
+
+
+class Keyed(Api):
+    """An account with a real Ed25519 signing key, to prove it holds its keys (recovery, password reset)."""
+
+    def __init__(self, base):
+        super().__init__(base)
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        self.signing = Ed25519PrivateKey.generate()
+
+    def register(self, email, invite_token=None):
+        self.id, self.email, self.auth_hash = str(uuid.uuid4()), email, rand(32)
+        public = base64.b64encode(self.signing.public_key().public_bytes_raw()).decode("ascii")
+        body = {"user_id": self.id, "email": email, "name": email.split("@")[0].title(), "kdf": kdf(),
+                "auth_hash": self.auth_hash, "public_key": rand(32), "signing_public_key": public,
+                "private_blob": box(200)}
+        if invite_token:
+            body["invite_token"] = invite_token
+        return self.call("POST", "/accounts/register", body)
+
+    def sign(self, purpose, challenge, fields, key=None, user_id=None):
+        from secretbroker_server.accounts import proof_message
+        message = proof_message(purpose, user_id or self.id, challenge, fields)
+        return base64.b64encode((key or self.signing).sign(message)).decode("ascii")
+
+    def challenge(self, purpose):
+        return self.ok("POST", "/accounts/challenge", {"purpose": purpose})["challenge"]
+
+    def recovery_body(self, recovery_auth, challenge=None, key=None, n=2**17):
+        fields = {"kdf": {**kdf(), "n": n}, "recovery_auth_hash": recovery_auth, "recovery_blob": box(200)}
+        challenge = challenge or self.challenge("recovery")
+        return {**fields, "challenge": challenge, "signature": self.sign("recovery", challenge, fields, key)}
+
+    def password_body(self, purpose, challenge, key=None):
+        fields = {"kdf": kdf(), "auth_hash": rand(32), "private_blob": box(200)}
+        return {**fields, "challenge": challenge, "signature": self.sign(purpose, challenge, fields, key)}
+
+
+def _events(person, oid):
+    return [e["action"] for e in person.ok("GET", f"/orgs/{oid}/events")]
+
+
+def test_recovery():
+    print("Recovery codes and a new password from a device with the keys")
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    stranger_key = Ed25519PrivateKey.generate()
+    base, stop, settings = start()
+    try:
+        alice = Keyed(base).signup("alice@example.com")
+        other_device = alice.login("Portátil").json()["token"]
+        oid = alice.ok("POST", "/orgs", {"name": "Acme"})["id"]
+        check(alice.ok("GET", "/me")["recovery"] is None, "no recovery code at first")
+        check(Api(base).ok("GET", "/info").get("recovery") is True, "/info says the server has recovery codes")
+
+        # Setting the code: only a device that signs a fresh challenge with the account's key.
+        recovery_auth = rand(32)
+        forged = alice.recovery_body(recovery_auth, challenge="made-up")
+        refused = alice.call("POST", "/accounts/recovery", forged)
+        check(refused.status_code == 403 and refused.json()["code"] == "invalid_proof",
+              "a challenge the server did not give is refused")
+        challenge = alice.challenge("recovery")
+        wrong = alice.call("POST", "/accounts/recovery", alice.recovery_body(recovery_auth, challenge, stranger_key))
+        check(wrong.status_code == 403 and wrong.json()["code"] == "invalid_proof",
+              "a signature by another key is refused (a stolen session alone can't set a code)")
+        again = alice.call("POST", "/accounts/recovery", alice.recovery_body(recovery_auth, challenge))
+        check(again.status_code == 403, "that challenge can't be used again, even with the right signature")
+        weak = alice.call("POST", "/accounts/recovery", alice.recovery_body(recovery_auth, n=2**14))
+        check(weak.status_code == 400, "a recovery code derived with less than 2^17 scrypt work is refused")
+        good = alice.recovery_body(recovery_auth)
+        check(alice.call("POST", "/accounts/recovery", good).status_code == 200, "the account's device sets it")
+        replay = alice.call("POST", "/accounts/recovery", good)
+        check(replay.status_code == 403 and replay.json()["code"] == "invalid_proof", "the same request replayed is refused")
+        check(alice.ok("GET", "/me")["recovery"]["created"], "/me says when the code was made")
+        wrong_purpose = alice.challenge("reset")
+        mixed = alice.call("POST", "/accounts/recovery", alice.recovery_body(rand(32), wrong_purpose))
+        check(mixed.status_code == 403, "a challenge given for something else is refused")
+
+        # Uniform answers: unknown e-mail, account without a code, wrong code.
+        anon = Api(base)
+        bob = Keyed(base).signup("bob@example.com")
+        pre = anon.ok("POST", "/accounts/recover/prelogin", {"email": "alice@example.com"})["kdf"]
+        check(pre == good["kdf"], "recover/prelogin gives the code's scrypt parameters")
+        fake = anon.ok("POST", "/accounts/recover/prelogin", {"email": "nobody@example.com"})["kdf"]
+        fake2 = anon.ok("POST", "/accounts/recover/prelogin", {"email": "nobody@example.com"})["kdf"]
+        no_code = anon.ok("POST", "/accounts/recover/prelogin", {"email": "bob@example.com"})["kdf"]
+        check(set(fake) == set(pre) == set(no_code) and fake == fake2 and fake["n"] == pre["n"]
+              and fake["salt"] != no_code["salt"], "unknown e-mails and accounts without a code look the same, every time")
+        answers = [anon.call("POST", "/accounts/recover/start", {"email": address, "recovery_auth_hash": rand(32)})
+                   for address in ("alice@example.com", "nobody@example.com", "bob@example.com")]
+        check([a.status_code for a in answers] == [401] * 3 and len({a.text for a in answers}) == 1,
+              "a wrong code, an unknown e-mail and an account without a code get the same answer")
+
+        # Recovering on a new device: the keys wrapped by the code, a challenge to sign once they are open.
+        start_body = {"email": "alice@example.com", "recovery_auth_hash": recovery_auth}
+        started = anon.ok("POST", "/accounts/recover/start", start_body)
+        check(started["recovery_blob"] == good["recovery_blob"] and started["user_id"] == alice.id
+              and started["signing_public_key"], "the right code gets the keys wrapped by it and a challenge")
+        new_password = alice.password_body("recover", started["challenge"], stranger_key)
+        forged = anon.call("POST", "/accounts/recover", {**start_body, **new_password})
+        check(forged.status_code == 403 and forged.json()["code"] == "invalid_proof",
+              "without the account's key (the code alone, keys not opened) no new password is set")
+        started = anon.ok("POST", "/accounts/recover/start", start_body)
+        new_password = alice.password_body("recover", started["challenge"])
+        wrong_code = anon.call("POST", "/accounts/recover", {**start_body, "recovery_auth_hash": rand(32),
+                                                              **{k: v for k, v in new_password.items()}})
+        check(wrong_code.status_code == 401, "finishing needs the right code too")
+        done = anon.call("POST", "/accounts/recover", {**start_body, **new_password})
+        check(done.status_code == 200, "the code and the opened keys set a new password")
+        replayed = anon.call("POST", "/accounts/recover", {**start_body, **new_password})
+        check(replayed.status_code == 403, "the same recovery can't be replayed")
+        check(alice.call("GET", "/me").status_code == 401 and alice.call("GET", "/me", token=other_device).status_code == 401,
+              "every session of the account ends")
+        old = alice.login()
+        check(old.status_code == 401, "the old password no longer works")
+        session = alice.login(auth_hash=new_password["auth_hash"])
+        check(session.status_code == 200 and session.json()["private_blob"] == new_password["private_blob"],
+              "the new password logs in and gives the keys wrapped again")
+        alice.token = session.json()["token"]
+        alice.auth_hash = new_password["auth_hash"]
+        check("account.recover" in _events(alice, oid), "the organization sees that the account was recovered")
+        check(anon.call("POST", "/accounts/recover/start", start_body).status_code == 200,
+              "the code keeps working until a new one is made")
+
+        # A new code: the old one stops working.
+        second = rand(32)
+        check(alice.call("POST", "/accounts/recovery", alice.recovery_body(second)).status_code == 200,
+              "a new code replaces the old one")
+        check(anon.call("POST", "/accounts/recover/start", start_body).status_code == 401, "the old code is refused")
+        check(anon.call("POST", "/accounts/recover/start", {"email": "alice@example.com", "recovery_auth_hash": second})
+              .status_code == 200, "the new one works")
+
+        # A connected device sets a new password without the old one by proving it has the keys.
+        laptop = alice.login("Portátil").json()["token"]
+        challenge = alice.challenge("reset")
+        bad = alice.call("POST", "/accounts/password/reset", alice.password_body("reset", challenge, stranger_key))
+        check(bad.status_code == 403 and bad.json()["code"] == "invalid_proof", "a bad signature is refused")
+        replayed = alice.call("POST", "/accounts/password/reset", alice.password_body("reset", challenge))
+        check(replayed.status_code == 403, "a challenge already tried is refused (no replay)")
+        recovery_challenge = alice.challenge("recovery")
+        crossed = alice.call("POST", "/accounts/password/reset", alice.password_body("reset", recovery_challenge))
+        check(crossed.status_code == 403, "a challenge given for a recovery code can't reset the password")
+        weak = alice.password_body("reset", alice.challenge("reset"))
+        weak_fields = {**weak, "kdf": {**weak["kdf"], "n": 2**14}}
+        check(alice.call("POST", "/accounts/password/reset", weak_fields).status_code == 400,
+              "a new password with less than 2^17 scrypt work is refused")
+        reset = alice.password_body("reset", alice.challenge("reset"))
+        check(alice.call("POST", "/accounts/password/reset", reset).status_code == 200,
+              "the device with the keys sets a new password without the old one")
+        check(alice.call("GET", "/me").status_code == 200, "this device stays signed in")
+        check(alice.call("GET", "/me", token=laptop).status_code == 401, "the account's other devices are logged out")
+        check(alice.login(auth_hash=reset["auth_hash"]).status_code == 200
+              and alice.login().status_code == 401, "only the new password works")
+        check("password.reset" in _events(alice, oid), "the organization sees the reset")
+        check(bob.call("POST", "/accounts/password/reset", alice.password_body("reset", bob.challenge("reset")))
+              .status_code == 403, "someone else's key can't reset this account")
+    finally:
+        stop()
+
+    print("Recovery codes: wrong codes are throttled like logins")
+    base, stop, _ = start()
+    try:
+        carol = Keyed(base).signup("carol@example.com")
+        carol.ok("POST", "/accounts/recovery", carol.recovery_body(rand(32)))
+        anon = Api(base)
+        codes = [anon.call("POST", "/accounts/recover/start", {"email": "carol@example.com",
+                                                               "recovery_auth_hash": rand(32)}).status_code
+                 for _ in range(5)]
+        blocked = anon.call("POST", "/accounts/recover/start", {"email": "carol@example.com",
+                                                               "recovery_auth_hash": rand(32)})
+        check(codes == [401] * 5 and blocked.status_code == 429 and blocked.headers.get("retry-after"),
+              "the sixth wrong code in a row waits (429 with Retry-After)")
+        unknown = [anon.call("POST", "/accounts/recover/start", {"email": "ghost@example.com",
+                                                                 "recovery_auth_hash": rand(32)}).status_code
+                   for _ in range(6)]
+        check(unknown == [401] * 5 + [429], "an unknown e-mail is throttled the same way")
+    finally:
+        stop()
+
+
+def test_replace_account():
+    print("An account whose owner lost access is replaced through the admin's new invite")
+    base, stop, settings = start(email_verification="required")
+    try:
+        admin = Keyed(base).signup("admin@example.com")
+        server_db(settings, "UPDATE users SET verified = 1")
+        oid = admin.ok("POST", "/orgs", {"name": "Acme"})["id"]
+        other_oid = admin.ok("POST", "/orgs", {"name": "Otra"})["id"]
+
+        def join(person, org, email):
+            invite = admin.ok("POST", f"/orgs/{org}/invites", {"email": email, "role": "member"})
+            if person.token is None:
+                assert person.register(email, invite_token=invite["id"]).status_code == 200
+                person.token = person.login().json()["token"]
+            person.ok("POST", f"/invites/{invite['id']}/accept")
+            admin.ok("POST", f"/orgs/{org}/members/{person.id}/confirm")
+
+        carol = Keyed(base)
+        join(carol, oid, "carol@example.com")
+        old_id = carol.id
+        early = admin.call("POST", f"/orgs/{oid}/invites", {"email": "carol@example.com", "role": "member",
+                                                             "replaces": old_id})
+        check(early.status_code == 409, "while still a member, no new invite")
+        admin.ok("DELETE", f"/orgs/{oid}/members/{old_id}")
+        wrong = admin.call("POST", f"/orgs/{oid}/invites", {"email": "carol@example.com", "role": "member",
+                                                             "replaces": admin.id})
+        check(wrong.status_code == 400, "`replaces` must be the account of that e-mail")
+        invite = admin.ok("POST", f"/orgs/{oid}/invites", {"email": "carol@example.com", "role": "member",
+                                                            "replaces": old_id})
+        check("invite.replace" in _events(admin, oid), "Actividad says it was a new invite after lost access")
+
+        imposter = Keyed(base)
+        imposter.register("carol@example.com")
+        check(imposter.login().status_code == 401, "signing up without that invite does not replace the account")
+        fresh = Keyed(base)
+        check(fresh.register("carol@example.com", invite_token=invite["id"]).status_code == 200,
+              "signing up with the invite answers like any sign-up")
+        session = fresh.login()
+        check(session.status_code == 200 and session.json()["user"]["id"] == fresh.id != old_id,
+              "the new account takes the e-mail (a new id and new keys)")
+        check(carol.call("GET", "/me").status_code == 401, "the old account's sessions are gone")
+        fresh.token = session.json()["token"]
+        check([i["org_id"] for i in fresh.ok("GET", "/invites")] == [oid],
+              "the new account sees the invite (its code proves the address to that organization)")
+        fresh.ok("POST", f"/invites/{invite['id']}/accept")
+        admin.ok("POST", f"/orgs/{oid}/members/{fresh.id}/confirm")
+        check(any(m["user_id"] == fresh.id for m in admin.ok("GET", f"/orgs/{oid}/members")), "and is back in")
+
+        # Someone also in another organization is not replaced until every organization let them go.
+        dave = Keyed(base)
+        join(dave, oid, "dave@example.com")
+        server_db(settings, "UPDATE users SET verified = 1")
+        join(dave, other_oid, "dave@example.com")
+        admin.ok("DELETE", f"/orgs/{oid}/members/{dave.id}")
+        invite = admin.ok("POST", f"/orgs/{oid}/invites", {"email": "dave@example.com", "role": "member",
+                                                            "replaces": dave.id})
+        again = Keyed(base)
+        again.register("dave@example.com", invite_token=invite["id"])
+        check(again.login().status_code == 401 and dave.call("GET", "/me").status_code == 200,
+              "an account still in another organization is not replaced")
+        plain = admin.ok("POST", f"/orgs/{other_oid}/invites", {"email": "erin@example.com", "role": "member"})
+        erin = Keyed(base)
+        erin.register("erin@example.com", invite_token=plain["id"])
+        erin_again = Keyed(base)
+        erin_again.register("erin@example.com", invite_token=plain["id"])
+        check(erin_again.login().status_code == 401 and erin.login().status_code == 200,
+              "an ordinary invite never replaces an account")
     finally:
         stop()
 
@@ -1198,6 +1449,8 @@ def main():
     test_versions_and_health()
     test_admin_cli()
     test_backup_restore()
+    test_recovery()
+    test_replace_account()
     print("\nAll good." if not failures else f"\n{failures} check(s) failed.")
     sys.exit(1 if failures else 0)
 
