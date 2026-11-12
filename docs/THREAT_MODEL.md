@@ -130,6 +130,10 @@ A member of an organization, with some permission on a collection.
 - Whatever they signed stops counting at the re-key: their old key can't produce accepted items, and the re-key
   re-signs as the manager the items they wrote. A collection whose only manager leaves stays recoverable: the
   organization's owners hold a signed `manage` grant (Equipo warns while one person manages a collection alone).
+- When their account itself must go (a lost laptop, someone who left on bad terms), the server admin can disable it
+  (`secretbroker-server disable-user`): every session ends at once, it can't sign in, and it leaves its organizations
+  with the same re-keying and "rotate" flags as a removal by an org admin, done by the managers' apps on their next
+  sync.
 
 **Limits**
 - Re-keying protects future changes only. Anything they saw, copied or used while they were a member must be rotated
@@ -173,6 +177,16 @@ A member of an organization, with some permission on a collection.
   unsigned until a manager whose PC verified every member signs them.
 - Without SMTP, e-mail verification relies on the admin checking who asks to be verified; a server with
   `SB_EMAIL_VERIFICATION=off` gives invites to whoever registered the address.
+- With SMTP the server e-mails invites, and the inviter writes the organization name they carry. Anyone who can
+  create an account (`SB_SIGNUPS=open`) can make the server send an invite with a misleading organization name to
+  any address. The e-mail never asks for a password (and says so), its link only fills in the app's form, and invites
+  are limited per organization and per account each hour; with `SB_SIGNUPS=invite` (the default) only people the
+  admins let in can send them. A compromised server can send whatever e-mails it likes from its SMTP account.
+- Whoever terminates TLS in front of the server sees what the server sees: a Cloudflare Tunnel (TLS ends at
+  Cloudflare) or another TLS-terminating proxy is part of this actor. Tailscale `serve` / `funnel` and Caddy keep TLS
+  on the operator's machine. Payloads stay end-to-end encrypted either way.
+- A server restored from an old backup forgets later removals and disabled accounts until they are done again; apps
+  refuse content older than what they already have.
 - An attacker who controls the server can try offline guessing of weak account passwords from `private_blob` and the
   scrypt parameters. Use a strong account password.
 - First contact with a new member is trust on first use: if the server lies about a key the first time you see a user,

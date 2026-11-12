@@ -365,7 +365,12 @@ item says and what is deleted is signed with the author's Ed25519 key and checke
   Postgres-compatible for a later backend. Package `server/secretbroker_server`, its own `pyproject.toml`, no Windows
   dependencies. Docker image + `docker-compose.yml` with Caddy for TLS.
 * Configuration by environment: `SB_DATA_DIR`, `SB_SIGNUPS` (`open` | `invite` | `closed`), `SB_PUBLIC_URL`,
-  `SB_ADMIN_EMAILS`, `SB_SESSION_DAYS` (30).
+  `SB_ADMIN_EMAILS`, `SB_SESSION_DAYS` (30), `SB_INVITE_DAYS` (14), `SB_MAX_INVITES_PER_HOUR` (30), `SB_MIN_CLIENT`;
+  the rest in 4.1 and `server/README.md`, which also covers hosting (VPS, own PC through a tunnel), backups and
+  upgrades.
+* Hosting: the image runs as an unprivileged user; Compose runs it read-only, without capabilities, with a daily
+  `backup` service (14 kept) and `GET /api/v1/health` as the healthcheck. Data files are created `600` in `700`
+  folders.
 * Security: HTTPS expected (refuses non-TLS `SB_PUBLIC_URL` unless `SB_ALLOW_HTTP=1` for local tests), bearer tokens
   stored as SHA-256, login rate limiting per IP and per e-mail, constant-time compares, uniform `prelogin` answers for
   unknown e-mails (deterministic fake salt) to avoid account enumeration, request size limits, strict JSON validation,
@@ -377,7 +382,8 @@ item says and what is deleted is signed with the author's Ed25519 key and checke
 
 | Method & path | Body → Response |
 |---|---|
-| `GET /info` (no auth) | → `{name, version, signups, verification: email|admin|off}` |
+| `GET /info` (no auth) | → `{name, version, signups, verification: email|admin|off, api, min_client, mail}` (see "Versions" below) |
+| `GET /health` (no auth) | → `{status: "ok"}`, or `503 {status: "unavailable"}` when the database does not answer; nothing else |
 | `POST /accounts/prelogin` (no auth) | `{email}` → `{kdf}` |
 | `POST /accounts/register` (no auth) | `{user_id, email, name, kdf, auth_hash, public_key, signing_public_key, private_blob, invite_token?}` → `{user_id}`. The client picks `user_id` (UUIDv4) so it can bind `private_blob` to it; the server only checks it is new. |
 | `POST /accounts/login` (no auth) | `{email, auth_hash, device_name}` → `{token, user: {id, email, name}, kdf, private_blob, public_key, signing_public_key}` |
@@ -394,7 +400,9 @@ item says and what is deleted is signed with the author's Ed25519 key and checke
 | `POST /orgs` | `{name}` → `{id}` (caller is owner) |
 | `GET /orgs` | → `[{id, name, role}]` |
 | `GET /orgs/{oid}/members` | → `[{user_id, email, name, role, status: invited|accepted|confirmed}]` |
-| `POST /orgs/{oid}/invites` | `{email, role}` → `{id}` (admin) |
+| `POST /orgs/{oid}/invites` | `{email, role}` → `{id, expires, emailed}` (admin; replaces an expired invite to that e-mail; `emailed`: the server e-mailed it, see "Invites") |
+| `POST /orgs/{oid}/invites/{id}/renew` | `{}` → `{id, expires, emailed}` (admin; a new id for a pending or expired invite, the old one stops working) |
+| `POST /orgs/{oid}/invites/{id}/send` | `{}` → `{emailed}` (admin; e-mail a pending invite again, at most every 10 minutes, else `429`; `410 invite_expired` if expired) |
 | `GET /invites` | → invites addressed to my e-mail `[{id, org_id, org_name, role, invited_by}]` (`[]` until the e-mail is verified) |
 | `POST /invites/{id}/accept` | → `{}` (status accepted; an admin must confirm, see fingerprints; `403 email_unverified` until verified) |
 | `POST /orgs/{oid}/members/{uid}/confirm` | → `{}` (admin) |
@@ -434,6 +442,32 @@ Implementation notes (`server/`, binding for clients):
   carry `invite_id` for org admins only (it works as a signup token) (and `user_id` null if not registered yet); `GET /invites` adds `invited_by_email`,
   `invited_by_name`; `user` objects add `admin` (server admin); events add `id` (newest first, 100 per page,
   `before=<id>`); the 429 answer has `retry_after` and a `Retry-After` header.
+* **Invites** last `SB_INVITE_DAYS` (14). Invited rows of `GET /orgs/{oid}/members` carry `expired` and `expires`
+  (and, for admins, `emailed`); `GET /invites` leaves expired ones out, `accept` answers `410 invite_expired` and an
+  expired id no longer works as a signup token. With SMTP, creating or renewing an invite e-mails the join link
+  (`secretbroker://join?server=SB_PUBLIC_URL&email=…&code=<invite id>`), where to download SecretBroker and the same
+  steps in plain words (`mail.invite_message`); nothing secret: the id is the sign-up code for that e-mail and
+  organization that the admin could already copy. The e-mail is sent after the transaction commits and `emailed`
+  says whether the SMTP server took it. Creating, renewing and re-sending count against `SB_MAX_INVITES_PER_HOUR`
+  (30) per organization and per account (`429`). Audit events `invite.renew`, `invite.send` (target: the e-mail).
+* **Versions.** `GET /info` has `api` (the protocol: 1 = 0.16 with signed member lists and deletions; 2 = invites by
+  e-mail and expiry, the version header, `/health`; additions only) and `min_client` (the oldest app it serves:
+  0.16.0, or `SB_MIN_CLIENT` if newer). Apps send `X-SecretBroker-Version` on every request; one older than
+  `min_client` gets `426 {code: "client_too_old", min_client}` everywhere except `/info` and `/health`. No header
+  (0.16 apps) or an unreadable one is served as before. Apps check `/info` when linking and at every sync: a server
+  without `api` counts as 1 from version 0.16.0 and 0 before; below the app's minimum (1) the app says the server must
+  be updated (`server_too_old`), and below the server's `min_client` that the app must be (`client_too_old`).
+* **Accounts disabled or deleted by the server admin** (`secretbroker-server disable-user | enable-user |
+  delete-user`, `users` lists them). Disabled: sessions revoked, `login` is `403 account_disabled` (only with the
+  right password), existing tokens are refused; it leaves every organization exactly like `DELETE
+  /orgs/{oid}/members/{uid}` (collections `needs_rekey`, so managers' apps re-key and flag "rotate: X had access"),
+  except where it is the last owner or a collection's only manager, where it stays a member until that is handed
+  over. Deleting refuses those cases outright. Org audit events `member.disable` / `member.delete` (actor none,
+  target the e-mail); server-wide `user.disable`, `user.enable`, `user.delete`.
+* **Operations.** `secretbroker-server backup [--dir] [--keep N] [--every HOURS]` (SQLite online backup of the
+  database plus `server_secret` in one zip, pruned to the newest N) and `restore <file>` (refused while `serve` holds
+  its lock on the data folder; the current files are moved to `before-restore-<time>/`). The schema (now 3: disabled
+  accounts, invite expiry) is upgraded on start from any earlier version.
 * **Extra endpoints.** `DELETE /invites/{id}` → `{}` (the invitee declines, or an org admin withdraws it).
   `POST /admin/invites` `{days?}` → `{token, expires}` (server admin: a single-use signup token).
 * **Signups.** `open`: anyone; the first account becomes server admin. `invite`: `invite_token` must be a signup
@@ -466,8 +500,15 @@ Added to `secretbroker/service.py` (GUI only, never reachable from the AI unless
 `team_collection_members`, `team_grant`, `team_revoke`, `team_share_entry`, `team_share_entries`,
 `team_unshare_entry`, `team_accept_change`, `team_events`, `team_overview`, `team_offboarding`,
 `team_verify_email {code}`, `team_send_code` (→ `{sent, verified, verification}`), `team_resolve_deletions
-{collection, apply}` (→ `{applied, count, collection_name}`; a proven op like `delete_entry`). Client logic and
-crypto live in `secretbroker/teams.py`.
+{collection, apply}` (→ `{applied, count, collection_name}`; a proven op like `delete_entry`),
+`team_renew_invite {org, id}` (→ `{id, emailed, expires}`; in `TEAM_EXPORT_OPS` like `team_invite`),
+`team_resend_invite {org, id}` (→ `{emailed}`), `team_drop_invite {id}`. `team_invite` answers `{id, emailed,
+expires?}` (`emailed` false on servers before 0.17). Client logic and crypto live in `secretbroker/teams.py`.
+
+Every request carries `X-SecretBroker-Version`. `team_connect` and every sync round check `GET /info` first
+(`teams.check_server`): a server too old for this app (`server_too_old`) or an app older than the server's
+`min_client` (`client_too_old`, also from a `426` on any request) stop there with one sentence that says which one to
+update; `team_status.state` is `error` with that sentence. `team_status.mail` says whether the server e-mails invites.
 
 The AI sees shared credentials like any other (with `shared: {org, collection, permission}` in `list_secrets`), and
 `reveal`/copy is refused for `use` permission.
@@ -549,8 +590,12 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   to ask), held deletions («N credenciales esperan tu decisión»: «Recuperarlas para el equipo» / «Conservarlas en
   este PC» and «Borrarlas también aquí»), and the change review names a new description («… ha cambiado las
   instrucciones que lee la IA», with the text quoted). Collections that only one person manages say «Un solo gestor».
-* Invites: no invite e-mail is sent. The admin gets instructions to pass on with a link
-  `secretbroker://join?server=…&email=…&code=…` (the code is the invite id, which works as a sign-up code). The
+* Invites: on a server with e-mail (`team_status.mail`) the server e-mails the invite and the dialog says so
+  («Se ha enviado la invitación por e-mail a …»); otherwise no e-mail is sent. Either way the admin gets the
+  instructions to pass on with a link
+  `secretbroker://join?server=…&email=…&code=…` (the code is the invite id, which works as a sign-up code). Personas
+  shows pending invites with «Copiar instrucciones», «Reenviar» (if it was e-mailed) and «Retirar»; expired ones as
+  «Invitación caducada» with «Renovar» (a new code, e-mailed again) and «Retirar». The
   installer registers the `secretbroker:` protocol; `app.py` keeps a link it was opened with (also when the app is
   already running) in `join_link.json` for 10 minutes, and the page fills in the team form from it. Pasting the link
   into the server field does the same.

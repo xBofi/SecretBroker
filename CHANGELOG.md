@@ -2,6 +2,33 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
+## Unreleased
+
+### Teams
+- **Invitations by e-mail.** On a team server with e-mail, inviting someone e-mails them the join link and plain
+  steps, including where to download SecretBroker; the invite dialog says it was sent and still offers «Copiar
+  instrucciones». Without e-mail nothing changes: you pass the instructions on.
+- **Invitations expire** after 14 days. Equipo › Personas shows «Invitación caducada» with «Renovar» (a new code,
+  e-mailed again) and «Retirar»; pending ones can be re-sent («Reenviar») or withdrawn.
+- **App and server versions.** If the team server is too old for this app, Equipo says «El servidor del equipo es
+  una versión antigua: pide a quien lo administra que lo actualice» instead of failing later; if the app is too old
+  for the server, it says to update the app. 0.16 apps keep working with the new server.
+
+### SecretBroker Server
+- Invites by e-mail (`SB_SMTP_*`), expiry (`SB_INVITE_DAYS`, 14), renewal and re-sending, at most
+  `SB_MAX_INVITES_PER_HOUR` (30) per organization and per account.
+- Account management from the command line: `secretbroker-server users`, `disable-user` (revokes its sessions,
+  blocks sign-in, takes it out of its organizations: the managers' apps re-key what it could read and flag it to
+  rotate), `enable-user`, `delete-user` (refused while it is an organization's last owner or a collection's only
+  manager, saying what to do). Each removal is in the organization's Actividad.
+- `GET /api/v1/health` (the Docker `HEALTHCHECK`), `secretbroker-server backup` (consistent, timestamped, prunes old
+  ones) and `restore` (refused while the server runs). The Compose file adds a daily backup service keeping 14, and
+  runs the containers read-only, unprivileged and without capabilities; data files are readable by the server only.
+- `/api/v1/info` has `api` and `min_client`; apps send their version and older ones than `SB_MIN_CLIENT` are asked to
+  update (`426 client_too_old`). Databases from every earlier server version upgrade on start.
+- The README covers an Ubuntu VPS from scratch, hosting on your own PC or home server (Docker Desktop, Cloudflare
+  Tunnel, Tailscale, and their trade-offs), backups, restore and upgrades.
+
 ## 0.16.2 (2026-10-31)
 
 The first public build of everything in 0.16.0 below (the 0.16.0 and 0.16.1 tags never produced a release).
