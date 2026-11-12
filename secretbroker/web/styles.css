@@ -973,10 +973,37 @@ p, .help, .lead, .muted, .subtitle, .banner, .warning { overflow-wrap: break-wor
 .setting { flex-wrap: wrap; }
 .setting > .control { min-width: min(200px, 100%); max-width: 100%; }
 .setting > .control select.input { width: 248px; max-width: 100%; }  /* one width that holds «100 Verwendungen pro Stunde» */
-/* «1 item to check» runs to «1 пункт на проверку»: one line, with an ellipsis; the whole text is in its tooltip. */
-.sidebar-footer .state > span:last-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* «3 items to check» runs to «3 tarkistettavaa asiaa»: up to two lines rather than cut; the whole text is in its tooltip. */
+.sidebar-footer .state > span:last-child { min-width: 0; white-space: normal; line-height: 1.25; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .finding .source, .event .actor > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-grid-head > span { overflow-wrap: anywhere; hyphens: auto; line-height: 1.25; padding: 0 2px; }
 .language-select { width: auto; max-width: 220px; }
 .auth-language { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); }
 .auth-language .input { height: 30px; padding-block: 0; font-size: var(--fs-sm); }
+
+/* Sharing with one person: the Compartir dialog, the picker in Personas and «Con Bob» in Colecciones */
+.share-modes { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-top: -6px; }
+.share-modes button { position: relative; height: 34px; padding: 0 12px; border: none; background: none; color: var(--muted);
+  font-weight: var(--fw-medium); cursor: pointer; }
+.share-modes button:hover { color: var(--text); }
+.share-modes button.active { color: var(--text); }
+.share-modes button.active::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--interactive); }
+.share-panel { display: flex; flex-direction: column; gap: 14px; }
+.share-dialog .segmented button { padding: 6px 14px; }
+.verify-first { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: var(--radius); background: var(--bg-subtle); }
+.verify-first .fingerprint { margin-top: 4px; }
+.pick-list { display: flex; flex-direction: column; max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); padding: 4px; margin-top: -6px; }
+.pick-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: var(--radius-sm); cursor: pointer; }
+.pick-row:hover { background: var(--bg-subtle); }
+.pick-row input { accent-color: var(--interactive); width: 16px; height: 16px; flex: none; }
+.pick-row .meta { display: flex; flex-direction: column; min-width: 0; }
+.pick-row .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick-row .subtitle { color: var(--muted); font-size: var(--fs-sm); }
+.pick-row.done { cursor: default; opacity: .7; }
+.glyph.sm { width: 26px; height: 26px; border-radius: var(--radius-sm); }
+.glyph.sm .icon { width: 15px; height: 15px; }
+.avatar.small { width: 26px; height: 26px; font-size: var(--fs-xs); }
+.direct-head { margin-top: 28px; }
+.direct-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.direct-controls .spacer { flex: 1; }

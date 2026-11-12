@@ -2,6 +2,34 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
+## Unreleased
+
+### Sharing with one person
+- **Pass a credential to a teammate in one step.** «Compartir» now opens on «Con una persona»: choose who and what
+  they may do (Editor, Lector or Solo uso; Lector by default) and it reaches them encrypted. Behind it is a private
+  collection of the two of you, made the first time and reused after; no collection to create, nobody to add. Any
+  member can do it, not only admins (the team server needs this version).
+- From **Equipo › Personas**, «Compartir con Bob…» on each verified person: tick credentials from a list.
+- **Colecciones** lists these apart, «Con una persona», as «Con Bob»: change Bob's permission or stop sharing with
+  him there. Credentials say «Compartida con Bob» or, on Bob's PC, «Compartida por Alicia».
+- Someone not verified on your PC yet: the dialog shows their security code and «Verificar a Bob», one click;
+  nothing is shared with a key you have not confirmed.
+- **Stopping sharing with someone** (or removing them from the organization) leaves those credentials as yours and
+  flags each one to change, because they could have copied it: «Cambiar: la tenía Bob» while they are still on the
+  team, «Cambiar: salió Bob» if they left. The list of what to change opens at once.
+- Removing someone who shared credentials directly is no longer blocked: what they shared with one person goes with
+  them.
+- Removing someone or changing a role: when the server says no, the app says why in your language and what to do
+  (for example, which collections only that person manages), instead of the server's Spanish message.
+- In Personas, «Compartir con Bob…» sits next to the role; removing someone you share with directly says that it
+  stops reaching them.
+- The status line at the bottom of the sidebar wraps to two lines instead of cutting longer languages short.
+
+### Server
+- `POST /orgs/{id}/collections` takes `direct: true` (any confirmed member; two members at most, `400
+  direct_full`); `GET /collections` says `direct`; removing a member deletes the direct shares only they manage and
+  lists them in `deleted`. The database gains a column on start.
+
 ## 0.16.2 (2026-10-31)
 
 The first public build of everything in 0.16.0 below (the 0.16.0 and 0.16.1 tags never produced a release).
