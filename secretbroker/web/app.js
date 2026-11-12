@@ -3032,7 +3032,8 @@ const EVENT_LABELS = {
   'member.leave': 'team_event.member_leave', 'member.role': 'team_event.member_role',
   'collection.create': 'team_event.collection_create', 'collection.delete': 'team_event.collection_delete',
   grant: 'team_event.grant', revoke: 'team_event.revoke', rotate: 'team_event.rotate', 'item.put': 'team_event.item_put',
-  'item.delete': 'team_event.item_delete',
+  'item.delete': 'team_event.item_delete', 'invite.renew': 'team_event.invite_renew', 'invite.send': 'team_event.invite_send',
+  'member.disable': 'team_event.member_disable', 'member.delete': 'team_event.member_delete',
 };
 const RELEASES_URL = 'https://github.com/xBofi/SecretBroker/releases/latest';
 
@@ -4215,13 +4216,18 @@ function teamPeoplePanel(org, members, admin, rerender) {
     const label = m.name || m.email;
     const invited = m.status === 'invited';
     const waiting = verifying.has(m.user_id);
-    const status = invited ? t('team_people_panel.invited_hasn_joined_yet')
+    // A pending invite says until when it works, in the warning colour in its last two days.
+    const expiresIn = invited && m.expires ? Date.parse(m.expires) - Date.now() : NaN;
+    const warn = invited && (m.expired || expiresIn < 2 * 86400000);
+    const pending = [t('team_people_panel.invited_hasn_joined_yet'),
+      m.expires ? t('team_people_panel.expires_on', { date: fmtDate(m.expires, { day: 'numeric', month: 'short' }) }) : null].filter(Boolean).join(' · ');
+    const status = invited ? (m.expired ? t('team_people_panel.invitation_expired') : pending)
       : m.status === 'accepted' && !waiting ? t('team_people_panel.waiting_for_confirmation') : ROLE_LABELS[m.role] || m.role;
     const controls = [];
     // Someone already in the org not verified on this PC: one click, after comparing their code.
     const verify = !m.me && m.fingerprint && m.status === 'confirmed' && !m.trusted && !verifying.has(m.user_id);
     if (invited && admin) {
-      controls.push(el('button', { class: 'btn', onclick: () => inviteInstructions(org, m.email, m.invite_id) }, icon('copy', 'sm'), t('common.copy_instructions')));
+      controls.push(...inviteControls(org, m, rerender));
     } else if (verify) {
       const button = el('button', { class: 'btn', 'data-mutates': '1' }, t('common.verify'));
       button.addEventListener('click', async () => {
@@ -4248,7 +4254,7 @@ function teamPeoplePanel(org, members, admin, rerender) {
       controls.unshift(el('button', { class: 'btn ghost', 'data-mutates': '1', onclick: () => shareWithPerson({ ...m, org: org.id, label }) },
         icon('share', 'sm'), t('team_people_panel.share_with', { name: label })));
     }
-    if (admin && !m.me && m.user_id && (iAmOwner || m.role !== 'owner')) {
+    if (admin && !m.me && m.user_id && !invited && (iAmOwner || m.role !== 'owner')) {
       controls.push(el('button', { class: 'btn icon-only', 'data-mutates': '1', title: t('team_people_panel.remove_from_organization'), 'aria-label': t('team_people_panel.remove_from_organization'), onclick: () => removeMember(org, m, rerender) }, icon('trash', 'sm')));
     }
     return el('div', { class: 'member' },
@@ -4257,7 +4263,7 @@ function teamPeoplePanel(org, members, admin, rerender) {
         el('div', { class: 'meta' }, el('div', { class: 'title' }, label, m.me ? el('span', { class: 'faint' }, t('common.you')) : null,
           waiting ? el('span', { class: 'draft-badge', style: 'margin-left:8px' },
             m.status === 'accepted' ? t('team_people_panel.waiting_for_confirmation') : t('team_people_panel.verify')) : null),
-          el('div', { class: 'subtitle' }, [m.name && !invited ? m.email : null, status].filter(Boolean).join(' · '))),
+          el('div', { class: 'subtitle', style: warn ? 'color:var(--warning)' : null }, [m.name && !invited ? m.email : null, status].filter(Boolean).join(' · '))),
         controls),
       verify ? el('div', { class: 'fingerprint-box' }, el('div', { class: 'k' }, t('common.code', { label })),
         el('div', { class: 'fingerprint selectable' }, m.fingerprint),
@@ -4276,7 +4282,7 @@ function teamPeoplePanel(org, members, admin, rerender) {
     if (!result.ok) return;
     draft.email = '';
     rerender();
-    inviteInstructions(org, address, result.result.id, true);
+    inviteInstructions(org, address, result.result.id, true, result.result.emailed);
   };
   invite.addEventListener('click', submit);
   email.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
@@ -4284,7 +4290,8 @@ function teamPeoplePanel(org, members, admin, rerender) {
   const invited = members.filter((m) => m.status === 'invited');
   return el('div', { class: 'settings-group team-panel' },
     admin ? el('div', { class: 'invite-box' }, el('div', { class: 'inline-form' }, email, role, invite),
-      el('p', { class: 'help' }, t('team_people_panel.secretbroker_doesn_send_invitations_by'))) : null,
+      el('p', { class: 'help' }, state.team.mail ? t('team_people_panel.server_emails_invitations')
+        : t('team_people_panel.secretbroker_doesn_send_invitations_by'))) : null,
     people.map(row),
     invited.length ? [el('h3', { class: 'muted sub-head' }, t('team_people_panel.invitations', { length: invited.length })), invited.map(row)] : null);
 }
@@ -4306,8 +4313,35 @@ function parseJoinLink(text) {
   }
 }
 
-// No e-mail is sent: the admin passes these on (chat, e-mail, in person).
-function inviteInstructions(org, email, code, justInvited = false) {
+// A pending invite: copy its instructions, e-mail it again (if the server e-mailed it), withdraw it. An expired
+// one: renew it (a new code, e-mailed again if the server can) or withdraw it.
+function inviteControls(org, m, rerender) {
+  const button = (label, op, params, reason, done) => {
+    const node = el('button', { class: 'btn', 'data-mutates': '1' }, label);
+    node.addEventListener('click', async () => {
+      const result = await teamAct(op, params, reason, node);
+      if (result.ok) done(result.result);
+    });
+    return node;
+  };
+  const renew = button(t('team_people_panel.renew'), 'team_renew_invite', { org: org.id, id: m.invite_id },
+    t('team_people_panel.renew_invitation'), (r) => { rerender(); inviteInstructions(org, m.email, r.id, true, r.emailed); });
+  const resend = button(t('team_people_panel.resend'), 'team_resend_invite', { org: org.id, id: m.invite_id },
+    t('team_people_panel.resend_invitation'), (r) => {
+      toast(r.emailed ? t('team_people_panel.invitation_resent', { email: m.email }) : t('team_people_panel.couldn_send_email'), r.emailed ? undefined : 'error');
+      rerender();
+    });
+  const withdraw = button(t('team_people_panel.withdraw'), 'team_drop_invite', { id: m.invite_id },
+    t('team_people_panel.withdraw_invitation'), () => { toast(t('team_people_panel.invitation_withdrawn')); rerender(); });
+  withdraw.classList.add('ghost');
+  if (m.expired) return [renew, withdraw];
+  const copy = el('button', { class: 'btn', onclick: () => inviteInstructions(org, m.email, m.invite_id, false, m.emailed) },
+    icon('copy', 'sm'), t('common.copy_instructions'));
+  return [copy, m.emailed ? resend : null, withdraw].filter(Boolean);
+}
+
+// The admin passes these on (chat, e-mail, in person); a server with e-mail has also sent them itself.
+function inviteInstructions(org, email, code, justInvited = false, emailed = false) {
   const server = state.team.server_url;
   const link = joinLink(server, email, code);
   const text = [
@@ -4322,15 +4356,33 @@ function inviteInstructions(org, email, code, justInvited = false) {
     t('invite_instructions.3_create_your_account_and'),
     t('invite_instructions.4_i_ll_confirm_you'),
   ].filter((line) => line !== null).join('\n');
-  const copy = el('button', { class: 'btn primary' }, icon('copy', 'sm'), t('common.copy_instructions'));
+  const copy = el('button', { class: `btn ${justInvited && emailed ? '' : 'primary'}` }, icon('copy', 'sm'), t('common.copy_instructions'));
   copy.addEventListener('click', async () => { await api().copy_text(text); toast(t('invite_instructions.instructions_copied')); });
   const copyLink = el('button', { class: 'btn' }, t('invite_instructions.copy_only_link'));
   copyLink.addEventListener('click', async () => { await api().copy_text(link); toast(t('invite_instructions.link_copied')); });
+  if (justInvited && emailed) {
+    // The server sent it: nothing to do but close. The instructions stay one click away, for another channel.
+    const more = el('div', { class: 'hidden' },el('pre', { class: 'instructions selectable' }, text),
+      el('div', { style: 'display:flex;gap:8px;margin-top:10px' }, copy, copyLink));
+    const toggle = el('button', { class: 'link small', style: 'margin-top:14px;align-self:flex-start;text-align:left;padding:0' },
+      t('invite_instructions.show_instructions'));
+    toggle.addEventListener('click', () => { more.classList.remove('hidden'); toggle.remove(); });
+    const done = el('button', { class: 'btn primary', onclick: () => modal.close() }, t('common.done'));
+    const modal = openModal({
+      title: t('invite_instructions.invitation_created_for', { email }),
+      wide: true,
+      body: [el('div', { class: 'notice' }, icon('check', 'sm'), el('span', { class: 'notice-text' }, t('invite_instructions.sent_to', { email }))),
+        toggle, more],
+      footer: [el('div', { class: 'spacer' }), done],
+    });
+    return;
+  }
   const modal = openModal({
     title: justInvited ? t('invite_instructions.invitation_created_for', { email }) : t('invite_instructions.instructions_for', { email }),
     wide: true,
     body: [
-      el('p', { class: 'muted' }, t('invite_instructions.secretbroker_doesn_send_invitations_by')),
+      emailed ? el('div', { class: 'notice' }, icon('check', 'sm'), el('span', { class: 'notice-text' }, t('invite_instructions.emailed_to', { email })))
+        : el('p', { class: 'muted' }, state.team.mail ? t('team_people_panel.couldn_send_email') : t('invite_instructions.secretbroker_doesn_send_invitations_by')),
       el('pre', { class: 'instructions selectable' }, text)],
     footer: [copyLink, el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, t('common.close')), copy],
   });
@@ -4600,7 +4652,8 @@ function teamEventsPanel(events, members, collections) {
     const someone = t('common.someone');
     const collection = name(cid, t('common.collection'));
     const params = {
-      invite: { who: e.target }, 'invite.delete': { who: e.target },
+      invite: { who: e.target }, 'invite.delete': { who: e.target }, 'invite.renew': { who: e.target },
+      'invite.send': { who: e.target }, 'member.disable': { who: e.target }, 'member.delete': { who: e.target },
       'member.confirm': { who: name(e.target, someone) }, 'member.remove': { who: name(e.target, someone) },
       'member.role': { who: name(left, someone), role: lowerFirst(ROLE_LABELS[extra] || extra || '') },
       grant: { who: name(uid, someone), collection, permission: PERMISSION_LABELS[extra] || extra },
@@ -4616,7 +4669,7 @@ function teamEventsPanel(events, members, collections) {
       : !events.length ? el('p', { class: 'muted' }, t('common.no_activity_yet'))
         : el('table', { class: 'table' }, el('tbody', {}, events.slice(0, 50).map((e) => el('tr', {},
           el('td', { class: 'muted', style: 'white-space:nowrap' }, formatTime(e.time)),
-          el('td', {}, name(e.actor, t('common.someone'))),
+          el('td', {}, e.actor ? name(e.actor, t('common.someone')) : ''),  // none: the server admin (it says so)
           el('td', {}, describe(e)))))));
 }
 

@@ -1,0 +1,8 @@
+# For a tunnel (Cloudflare Tunnel, Tailscale) on this same machine instead of Caddy: the server answers on
+# http://127.0.0.1:8080, reachable only from this machine, and the tunnel gives it its public HTTPS address.
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d server backup
+# SB_DOMAIN in .env must be that public name (for example secrets.example.com or pc.tail1234.ts.net).
+services:
+  server:
+    ports:
+      - "127.0.0.1:8080:8080"

@@ -1,7 +1,7 @@
 """Organizations: members and roles, invites (invite -> accept -> admin confirms), collections, audit events."""
 
-from . import manifests
-from .db import event, now_iso
+from . import mail, manifests
+from .db import event, iso, now_epoch, now_iso
 from .validate import (ApiError, body, boolean, dump, email, grant, members_record, one_of, path_id, query_int, sealed,
                        text, uuid_id)
 from .web import new_id, route
@@ -70,32 +70,128 @@ def list_members(ctx):
     members = [{"user_id": r["id"], "email": r["email"], "name": r["name"], "role": r["role"], "status": r["status"]}
                for r in rows]
     # An account that has not verified the invited e-mail is not shown as that person (it may not be them).
-    invites = ctx.conn.execute("SELECT i.id, i.email, i.role, u.id AS user_id, u.name FROM invites i LEFT JOIN users u "
-                               "ON u.email = i.email AND (u.verified = 1 OR u.invited_to = i.org_id) WHERE i.org_id = ? "
-                               "ORDER BY i.email",
+    invites = ctx.conn.execute("SELECT i.id, i.email, i.role, i.expires, i.sent, u.id AS user_id, u.name FROM invites i "
+                               "LEFT JOIN users u ON u.email = i.email AND (u.verified = 1 OR u.invited_to = i.org_id) "
+                               "WHERE i.org_id = ? ORDER BY i.email",
                                (oid,)).fetchall()
     # The invite id doubles as a signup token for that e-mail (SB_SIGNUPS=invite): only admins see it.
     admin = caller["role"] in ADMIN_ROLES
+    now = now_epoch()
     members += [{"user_id": r["user_id"], "email": r["email"], "name": r["name"] or "", "role": r["role"],
-                 "status": "invited", **({"invite_id": r["id"]} if admin else {})} for r in invites]
+                 "status": "invited", "expired": _expired(r, now), **({"expires": iso(r["expires"])} if r["expires"] else {}),
+                 **({"invite_id": r["id"], "emailed": bool(r["sent"])} if admin else {})} for r in invites]
     return members
 
 
-@route("POST", "/orgs/{oid}/invites")
+# ---------------------------------------------------------------------- invites
+#
+# An invite lasts SB_INVITE_DAYS (14). With SMTP the server e-mails it (the join link and plain steps, see
+# mail.invite_message); the admin can always copy the same instructions in the app. Creating, renewing and
+# re-sending count against SB_MAX_INVITES_PER_HOUR per organization and per account, so nobody can use the server
+# to flood inboxes. The e-mail goes out after the transaction: an SMTP server may take seconds.
+
+def _expired(row, now=None):
+    return row["expires"] is not None and row["expires"] <= (now or now_epoch())
+
+
+def _invite_limit(ctx, oid):
+    for key in (f"org:{oid}", f"user:{ctx.uid}"):
+        wait = ctx.server.invite_window.hit(key)
+        if wait:
+            raise ApiError(429, "rate_limited", "Demasiadas invitaciones en una hora. Espera un poco.",
+                           retry_after=wait)
+
+
+def _new_invite(ctx, conn, oid, address, role):
+    invite_id, expires = new_id(), now_epoch() + ctx.settings.invite_days * 86400
+    conn.execute("INSERT INTO invites (id, org_id, email, role, invited_by, created, expires) "
+                 "VALUES (?, ?, ?, ?, ?, ?, ?)", (invite_id, oid, address, role, ctx.uid, now_iso(), expires))
+    return invite_id, expires
+
+
+def _email_invite(ctx, oid, invite_id, address, expires):
+    """E-mail the invite if this server has SMTP and the inviter verified their own address (so a throwaway
+    account can't make the server e-mail strangers); True once the SMTP server took it (and that time is recorded).
+    Otherwise the invite still exists and the app gives the admin the instructions to pass on."""
+    if not ctx.settings.smtp or not ctx.user["verified"]:
+        return False
+    org = ctx.db.conn().execute("SELECT name FROM orgs WHERE id = ?", (oid,)).fetchone()
+    inviter = f"{ctx.user['name']} ({ctx.user['email']})" if ctx.user["name"] else ctx.user["email"]
+    if not mail.send_invite(ctx.settings, address, invite_id, org["name"], inviter, expires):
+        return False
+    with ctx.db.tx(write=True) as conn:
+        conn.execute("UPDATE invites SET sent = ? WHERE id = ?", (now_epoch(), invite_id))
+    return True
+
+
+def _org_invite_row(conn, oid, ctx):
+    require_admin(conn, oid, ctx.uid)
+    row = conn.execute("SELECT * FROM invites WHERE id = ? AND org_id = ?",
+                       (path_id(ctx.params["iid"]), oid)).fetchone()
+    if row is None:
+        raise not_found()
+    return row
+
+
+@route("POST", "/orgs/{oid}/invites", tx=False)
 def invite(ctx):
+    """Invite an e-mail (an expired invite to it is replaced). → {id, expires, emailed}"""
     oid = path_id(ctx.params["oid"])
     data = body(ctx.body, {"email": email, "role": one_of("member", "admin")})
-    require_admin(ctx.conn, oid, ctx.uid)
-    if ctx.conn.execute("SELECT 1 FROM org_members m JOIN users u ON u.id = m.user_id WHERE m.org_id = ? "
+    with ctx.db.tx(write=True) as conn:
+        require_admin(conn, oid, ctx.uid)
+        if conn.execute("SELECT 1 FROM org_members m JOIN users u ON u.id = m.user_id WHERE m.org_id = ? "
                         "AND u.email = ?", (oid, data["email"])).fetchone():
-        raise ApiError(409, "already_member", "Esa persona ya está en la organización.")
-    if ctx.conn.execute("SELECT 1 FROM invites WHERE org_id = ? AND email = ?", (oid, data["email"])).fetchone():
-        raise ApiError(409, "already_invited", "Esa persona ya tiene una invitación pendiente.")
-    invite_id = new_id()
-    ctx.conn.execute("INSERT INTO invites (id, org_id, email, role, invited_by, created) VALUES (?, ?, ?, ?, ?, ?)",
-                     (invite_id, oid, data["email"], data["role"], ctx.uid, now_iso()))
-    event(ctx.conn, oid, ctx.uid, "invite", data["email"])
-    return {"id": invite_id}
+            raise ApiError(409, "already_member", "Esa persona ya está en la organización.")
+        old = conn.execute("SELECT id, expires FROM invites WHERE org_id = ? AND email = ?",
+                           (oid, data["email"])).fetchone()
+        if old and not _expired(old):
+            raise ApiError(409, "already_invited", "Esa persona ya tiene una invitación pendiente.")
+        _invite_limit(ctx, oid)
+        if old:
+            conn.execute("DELETE FROM invites WHERE id = ?", (old["id"],))
+        invite_id, expires = _new_invite(ctx, conn, oid, data["email"], data["role"])
+        event(conn, oid, ctx.uid, "invite", data["email"])
+    return {"id": invite_id, "expires": iso(expires),
+            "emailed": _email_invite(ctx, oid, invite_id, data["email"], expires)}
+
+
+@route("POST", "/orgs/{oid}/invites/{iid}/renew", tx=False)
+def renew_invite(ctx):
+    """A new invite (new id, full validity) in place of this one, pending or expired; the old id stops working.
+    → {id, expires, emailed}"""
+    oid = path_id(ctx.params["oid"])
+    body(ctx.body, {})
+    with ctx.db.tx(write=True) as conn:
+        row = _org_invite_row(conn, oid, ctx)
+        _invite_limit(ctx, oid)
+        conn.execute("DELETE FROM invites WHERE id = ?", (row["id"],))
+        invite_id, expires = _new_invite(ctx, conn, oid, row["email"], row["role"])
+        event(conn, oid, ctx.uid, "invite.renew", row["email"])
+    return {"id": invite_id, "expires": iso(expires),
+            "emailed": _email_invite(ctx, oid, invite_id, row["email"], expires)}
+
+
+@route("POST", "/orgs/{oid}/invites/{iid}/send", tx=False)
+def resend_invite(ctx):
+    """E-mail a pending invite again (at most every 10 minutes). → {emailed} (false on a server without SMTP)"""
+    oid = path_id(ctx.params["oid"])
+    body(ctx.body, {})
+    with ctx.db.tx(write=True) as conn:
+        row = _org_invite_row(conn, oid, ctx)
+        if _expired(row):
+            raise ApiError(410, "invite_expired", "Esta invitación ha caducado: renuévala.")
+        if not ctx.settings.smtp or not ctx.user["verified"]:
+            return {"emailed": False}
+        wait = (row["sent"] or 0) + mail.INVITE_RESEND_SECONDS - now_epoch()
+        if wait > 0:
+            raise ApiError(429, "rate_limited", "Ya se envió hace poco. Espera unos minutos.", retry_after=wait)
+        _invite_limit(ctx, oid)
+    emailed = _email_invite(ctx, oid, row["id"], row["email"], row["expires"] or now_epoch() + 86400)
+    if emailed:
+        with ctx.db.tx(write=True) as conn:
+            event(conn, oid, ctx.uid, "invite.send", row["email"])
+    return {"emailed": emailed}
 
 
 def unverified():
@@ -111,7 +207,8 @@ def my_invites(ctx):
         "SELECT i.id, i.org_id, o.name AS org_name, i.role, i.invited_by, u.email AS invited_by_email, "
         "u.name AS invited_by_name, u.public_key AS invited_by_public_key, "
         "u.signing_public_key AS invited_by_signing_public_key FROM invites i JOIN orgs o ON o.id = i.org_id LEFT JOIN users u "
-        "ON u.id = i.invited_by WHERE i.email = ? ORDER BY i.created", (ctx.user["email"],)).fetchall()
+        "ON u.id = i.invited_by WHERE i.email = ? AND COALESCE(i.expires, ?) > ? ORDER BY i.created",
+        (ctx.user["email"], 2**62, now_epoch())).fetchall()
     return [dict(r) for r in rows if _may_take(ctx.user, r["org_id"])]
 
 
@@ -134,6 +231,8 @@ def accept_invite(ctx):
         raise not_found()
     if not _may_take(ctx.user, row["org_id"]):
         raise unverified()
+    if _expired(row):
+        raise ApiError(410, "invite_expired", "Esta invitación ha caducado: pide a quien te invitó que la renueve.")
     ctx.conn.execute("DELETE FROM invites WHERE id = ?", (row["id"],))
     ctx.conn.execute("INSERT INTO org_members (org_id, user_id, role, status, created) VALUES (?, ?, ?, 'accepted', ?) "
                      "ON CONFLICT (org_id, user_id) DO NOTHING", (row["org_id"], ctx.uid, row["role"], now_iso()))
@@ -191,6 +290,42 @@ def set_role(ctx):
     return {}
 
 
+def blockers(conn, oid, uid):
+    """Why someone can't leave an organization yet: (they are its last owner, collections they alone manage).
+    Without a manager nobody could re-key, grant or delete a collection again: it has to be handed over first."""
+    role = conn.execute("SELECT role FROM org_members WHERE org_id = ? AND user_id = ?", (oid, uid)).fetchone()
+    last_owner = bool(role) and role["role"] == "owner" and _owners(conn, oid) == 1
+    orphans = [r[0] for r in conn.execute(
+        "SELECT cm.collection_id FROM collection_members cm JOIN collections c ON c.id = cm.collection_id "
+        "WHERE c.org_id = ? AND cm.user_id = ? AND cm.permission = 'manage' AND NOT EXISTS (SELECT 1 FROM "
+        "collection_members o WHERE o.collection_id = cm.collection_id AND o.permission = 'manage' "
+        "AND o.user_id != cm.user_id) AND c.direct = 0 ORDER BY cm.collection_id", (oid, uid)).fetchall()]
+    return last_owner, orphans
+
+
+def drop_member(conn, oid, uid, actor=None):
+    """Take someone out of an organization and every collection of it. Each collection they could read is marked
+    needs_rekey: a manager's app re-keys it on its next sync and flags its credentials "rotate: X had access".
+    What they shared with one person (a direct collection only they manage) goes with them: nobody else could
+    manage it. -> (collections to re-key, direct collections deleted)"""
+    direct = [r[0] for r in conn.execute(
+        "SELECT c.id FROM collections c JOIN collection_members cm ON cm.collection_id = c.id WHERE c.org_id = ? "
+        "AND c.direct = 1 AND cm.user_id = ? AND cm.permission = 'manage' AND NOT EXISTS (SELECT 1 FROM "
+        "collection_members o WHERE o.collection_id = c.id AND o.permission = 'manage' AND o.user_id != ?) "
+        "ORDER BY c.id", (oid, uid, uid)).fetchall()]
+    for cid in direct:
+        delete_collection_rows(conn, cid)
+        event(conn, oid, actor, "collection.delete", cid)
+    cids = [r[0] for r in conn.execute(
+        "SELECT c.id FROM collections c JOIN collection_members cm ON cm.collection_id = c.id "
+        "WHERE c.org_id = ? AND cm.user_id = ? ORDER BY c.id", (oid, uid)).fetchall()]
+    for cid in cids:
+        conn.execute("DELETE FROM collection_members WHERE collection_id = ? AND user_id = ?", (cid, uid))
+        conn.execute("UPDATE collections SET needs_rekey = 1 WHERE id = ?", (cid,))
+    conn.execute("DELETE FROM org_members WHERE org_id = ? AND user_id = ?", (oid, uid))
+    return cids, direct
+
+
 @route("DELETE", "/orgs/{oid}/members/{uid}")
 def remove_member(ctx):
     """Remove someone (or leave). Every collection they could read must be re-keyed: returned as needs_rekey."""
@@ -200,33 +335,13 @@ def remove_member(ctx):
             raise forbidden("Solo un administrador de la organización puede quitar a otros.")
         if target["role"] == "owner" and caller["role"] != "owner":
             raise forbidden("Solo un propietario puede quitar a otro propietario.")
-    if target["role"] == "owner" and _owners(ctx.conn, oid) == 1:
+    last_owner, orphans = blockers(ctx.conn, oid, uid)
+    if last_owner:
         raise ApiError(400, "last_owner", "La organización necesita al menos un propietario.")
-    cids = [r[0] for r in ctx.conn.execute(
-        "SELECT c.id FROM collections c JOIN collection_members cm ON cm.collection_id = c.id "
-        "WHERE c.org_id = ? AND cm.user_id = ? ORDER BY c.id", (oid, uid)).fetchall()]
-    # Without a manager nobody could re-key, grant or delete the collection again: hand it over first.
-    orphans = [r[0] for r in ctx.conn.execute(
-        "SELECT cm.collection_id FROM collection_members cm JOIN collections c ON c.id = cm.collection_id "
-        "WHERE c.org_id = ? AND cm.user_id = ? AND cm.permission = 'manage' AND NOT EXISTS (SELECT 1 FROM "
-        "collection_members o WHERE o.collection_id = cm.collection_id AND o.permission = 'manage' "
-        "AND o.user_id != cm.user_id) ORDER BY cm.collection_id", (oid, uid)).fetchall()]
-    # What someone shared with one person (a direct collection) goes with them: nobody else could manage it.
-    direct = {r[0] for r in ctx.conn.execute(
-        f"SELECT id FROM collections WHERE direct = 1 AND id IN ({','.join('?' * len(orphans))})", orphans).fetchall()} \
-        if orphans else set()
-    orphans = [cid for cid in orphans if cid not in direct]
     if orphans:
         raise ApiError(400, "last_manager", "Es la única persona que gestiona alguna colección. Antes, da permiso "
                        "de gestionar a otra persona en esas colecciones (o bórralas).", collections=orphans)
-    for cid in sorted(direct):
-        delete_collection_rows(ctx.conn, cid)
-        event(ctx.conn, oid, ctx.uid, "collection.delete", cid)
-    cids = [cid for cid in cids if cid not in direct]
-    for cid in cids:
-        ctx.conn.execute("DELETE FROM collection_members WHERE collection_id = ? AND user_id = ?", (cid, uid))
-        ctx.conn.execute("UPDATE collections SET needs_rekey = 1 WHERE id = ?", (cid,))
-    ctx.conn.execute("DELETE FROM org_members WHERE org_id = ? AND user_id = ?", (oid, uid))
+    cids, direct = drop_member(ctx.conn, oid, uid, ctx.uid)
     event(ctx.conn, oid, ctx.uid, "member.leave" if uid == ctx.uid else "member.remove", uid)
     return {"needs_rekey": cids, **({"deleted": sorted(direct)} if direct else {})}
 

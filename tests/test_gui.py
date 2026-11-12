@@ -43,7 +43,7 @@ OUTBOX = []  # what the team server would e-mail (verification codes)
 
 def email_code(address):
     import re
-    found = wait_for(lambda: [m for m in OUTBOX if m["To"] == address], 10, 0.05)
+    found = wait_for(lambda: [m for m in OUTBOX if m["To"] == address and "código" in m["Subject"]], 10, 0.05)
     return re.search(r"\b(\d{8})\b", found[-1].get_content()).group(1) if found else ""
 
 
@@ -826,6 +826,19 @@ def english_flow(page, client):
         leaks = spanish_leaks(page)
         check(not leaks, f"no Spanish left in {view} ({leaks[:6]})")
         calm_shot(page, name)
+    page.js("state.view = 'team'; renderMain()")
+    if wait_for(lambda: tab(page, "People"), 10):
+        # The team server is offline by now, and inviting would first ask for a proof (Windows-session unlock above):
+        # open the dialog an e-mailed invite shows. The pending row in English is checked in teams_flow.
+        page.js("inviteInstructions(teamOrgOf(state.teamData), 'dana@example.com', 'CODE', true, true)")
+        check(wait_for(lambda: "The invitation was e-mailed to dana@example.com" in page.text() and "Done" in page.text(), 15),
+              "an e-mailed invite in English: the success line and «Done»")
+        leaks = spanish_leaks(page)
+        check(not leaks, f"no Spanish left in the invite dialog ({leaks[:6]})")
+        calm_shot(page, "en-10-team-invite-emailed")
+        page.click("See instructions to pass on")
+        calm_shot(page, "en-10-team-invite-instructions")
+        page.click("Done")
     dialog_shots(page, "en")
     page.js("lockNow()")
     check(wait_for(lambda: "SecretBroker is locked" in page.text(), 10), "the lock screen in English")
@@ -1550,11 +1563,20 @@ def teams_flow(page, env):
     bob_status = act("team_connect", server_url=TEAM_URL, email="bob@example.com", password=ACCOUNT, mode="register", name="Bob")["result"]
     act("team_verify_email", code=email_code("bob@example.com"))
     check(tab(page, "Personas"), "the Personas tab")
-    check(wait_for(lambda: "SecretBroker no envía las invitaciones por e-mail" in page.text(), 10), "inviting says honestly that no e-mail is sent")
+    check(wait_for(lambda: "El servidor le enviará la invitación por e-mail" in page.text(), 10),
+          "a server with e-mail: inviting says the server e-mails the invitation")
     fill(page, "E-mail de la persona", "bob@example.com")
     page.click("Invitar")
-    check(wait_for(lambda: "Invitación creada para bob@example.com" in page.text() and "secretbroker://join?server=" in page.text(), 15),
-          "invited: instructions with a link to pass on")
+    check(wait_for(lambda: "Invitación creada para bob@example.com" in page.text()
+                   and "Se ha enviado la invitación por e-mail a bob@example.com" in page.text(), 15)
+          and any(m["To"] == "bob@example.com" and "invita" in m["Subject"] for m in OUTBOX),
+          "invited: it says the invitation was e-mailed (it was)")
+    check("Hecho" in page.text() and "secretbroker://join?server=" not in page.text(),
+          "e-mailed: «Hecho», and the instructions folded away")
+    calm_shot(page, "13-team-invite-emailed")
+    page.click("Ver instrucciones para pasárselas")
+    check(wait_for(lambda: "secretbroker://join?server=" in page.text(), 5),
+          "«Ver instrucciones para pasárselas» shows them, with a link to pass on")
     instructions = page.js("document.querySelector('.instructions').textContent")
     check("bob%40example.com" in instructions and TEAM_URL in instructions and "Código de invitación" in instructions,
           "the instructions carry the server, the e-mail and the sign-up code")
@@ -1562,7 +1584,34 @@ def teams_flow(page, env):
     page.click("Copiar instrucciones", ".modal button")
     check(wait_for(lambda: "Instrucciones copiadas" in page.text(), 5), "one click copies them")
     page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
-    check(wait_for(lambda: "Invitada · aún no ha entrado" in page.text(), 10), "the person shows as invited, not in yet")
+    check(wait_for(lambda: "Invitada · aún no ha entrado · caduca el " in page.text() and "Reenviar" in page.text()
+                   and "Retirar" in page.text(), 10),
+          "the person shows as invited, not in yet, until when; it can be re-sent or withdrawn")
+
+    print("An invitation that expired")
+    fill(page, "E-mail de la persona", "carla@example.com")
+    page.click("Invitar")
+    wait_for(lambda: "Invitación creada para carla@example.com" in page.text(), 15)
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    import sqlite3
+    db = sqlite3.connect(HOME / "server" / "secretbroker.db")
+    db.execute("UPDATE invites SET expires = 1 WHERE email = 'carla@example.com'")
+    db.commit()
+    db.close()
+    page.js("renderView()")
+    check(wait_for(lambda: "Invitación caducada" in page.text() and "Renovar" in page.text(), 15),
+          "an expired invitation says so, with «Renovar» and «Retirar»")
+    calm_shot(page, "13-team-invite-expired")
+    page.click("Renovar")
+    check(wait_for(lambda: "Se ha enviado la invitación por e-mail a carla@example.com" in page.text(), 15)
+          and len([m for m in OUTBOX if m["To"] == "carla@example.com" and "invita" in m["Subject"]]) == 2,
+          "«Renovar» makes a new code and e-mails it again")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    check(wait_for(lambda: "Invitación caducada" not in page.text(), 10), "it is pending again")
+    page.js("""[...document.querySelectorAll('.member')].find((m) => m.textContent.includes('carla@example.com'))
+      .querySelector('button.ghost').click()""")
+    check(wait_for(lambda: "Invitación retirada" in page.text() and "carla@example.com" not in page.text(), 15),
+          "«Retirar» withdraws it")
     invite = bob.handle("team_invites", {})["result"][0]
     act("team_accept_invite", id=invite["id"])
     page.js("renderView()")
@@ -1884,6 +1933,28 @@ def teams_flow(page, env):
     check(wait_for(lambda: "Saltada" in page.text() or "Seguir con" in page.text(), 10), "closing it leaves the queue to go on or skip")
     page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
     wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+
+    print("A pending invitation, in English")
+    import uuid as _uuid
+    org = page.js("state.teamOrg")
+    db = sqlite3.connect(HOME / "server" / "secretbroker.db")
+    inviter = db.execute("SELECT user_id FROM org_members WHERE org_id = ? AND role = 'owner'", (org,)).fetchone()[0]
+    db.execute("INSERT INTO invites (id, org_id, email, role, invited_by, created, expires, sent) "
+               "VALUES (?, ?, 'dana@example.com', 'member', ?, '2026-11-01T00:00:00+00:00', ?, ?)",
+               (str(_uuid.uuid4()), org, inviter, int(time.time()) + 86400, int(time.time())))
+    db.commit()
+    db.close()
+    page.js("api().set_pref('language', 'en').then(() => applyLanguage('en')).then(() => { state.view = 'team'; state.teamTab = 'people'; renderMain(); })")
+    check(wait_for(lambda: "Invited · hasn't joined yet · expires " in page.text() and "dana@example.com" in page.text(), 20),
+          "pending invites say when they expire (in English too)")
+    check(page.js("""[...document.querySelectorAll('.member')].find((m) => m.textContent.includes('dana@example.com'))
+      .querySelector('.subtitle').style.color""") == "var(--warning)", "in the warning colour in their last two days")
+    leaks = spanish_leaks(page)
+    check(not leaks, f"no Spanish left in Team › People ({leaks[:6]})")
+    calm_shot(page, "en-10-team-people")
+    page.js("api().set_pref('language', 'es').then(() => applyLanguage('es')).then(renderMain)")
+    wait_for(lambda: "Personas" in page.text(), 10)
+    calm_shot(page, "13-team-people-expiring")
 
     print("Offline")
     TEAM_SERVER.should_exit = True

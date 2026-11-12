@@ -13,6 +13,7 @@ import copy
 import hashlib
 import json
 import os
+import re
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -23,7 +24,7 @@ from cryptography.exceptions import InvalidSignature, InvalidTag
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
-from . import autofill, crypto, templates
+from . import __version__, autofill, crypto, templates
 from .crypto import b64, unb64
 from .vault import ID_RE, LOCAL_ONLY_KEYS, SHARE_PERMISSIONS, SHARE_WRITE, ValidationError, secret_fields, shared_content
 from .vault import validate_entry as vault_validate
@@ -64,6 +65,12 @@ MIN_ACCOUNT_KDF_N = 2**17
 HEAD_SIG = b"secretbroker/item-head/v1|"
 HEAD_HASHES = 20  # member list hashes remembered per collection (to tell a fork from an old link)
 SOMEONE = "alguien que ya no está"
+# The oldest server protocol this app works with (GET /info `api`; servers before it was announced count by their
+# version): 1 = 0.16, which keeps signed member lists and deletions. Older servers refuse them, so the app says
+# the server must be updated instead of failing later on a member list.
+MIN_SERVER_API = 1
+VERSION_HEADER = "X-SecretBroker-Version"
+VERSION_RE = re.compile(r"^\s*v?(\d{1,6})\.(\d{1,6})(?:\.(\d{1,6}))?")
 
 
 class TeamError(Exception):
@@ -506,7 +513,7 @@ class Client:
         self.base = server_base(base)
         self.token = token
         self._http = httpx.Client(timeout=timeout, verify=True, follow_redirects=False,
-                                  headers={"User-Agent": "SecretBroker"})
+                                  headers={"User-Agent": "SecretBroker", VERSION_HEADER: __version__})
 
     def __enter__(self):
         return self
@@ -538,9 +545,39 @@ class Client:
         code = error.get("code") if isinstance(error.get("code"), str) else "server_error"
         if response.status_code == 401 and auth:
             code, message = "reconnect", "La sesión del equipo ha caducado. Vuelve a entrar en Equipo para seguir recibiendo cambios."
+        elif response.status_code == 426:  # the server serves only newer apps (its min_client)
+            code, message = "client_too_old", tr("teams.app_too_old")
         elif code in SERVER_MESSAGES:
             message = tr(SERVER_MESSAGES[code])
         raise TeamError(message[:300], code, response.status_code, error)
+
+
+def _version(text):
+    """(major, minor, patch) of "0.17.0" or "0.17.0-beta1"; None if it is not a version."""
+    match = VERSION_RE.match(str(text or ""))
+    return tuple(int(n or 0) for n in match.groups()) if match else None
+
+
+def server_api(info):
+    """The protocol a server speaks: its `api`, or for servers that did not announce one, 1 from 0.16 on."""
+    api = info.get("api")
+    if isinstance(api, int) and not isinstance(api, bool):
+        return api
+    version = _version(info.get("version"))
+    return 1 if version and version >= (0, 16, 0) else 0
+
+
+def check_server(info):
+    """Whether this app and the team server work together (GET /info), before anything fails halfway: one
+    sentence that says which of the two to update."""
+    if not isinstance(info, dict):
+        raise TeamError(tr("teams.team_server_answered_something_unexpecte"), "bad_server")
+    if server_api(info) < MIN_SERVER_API:
+        raise TeamError(tr("teams.server_too_old"), "server_too_old")
+    oldest, mine = _version(info.get("min_client")), _version(__version__)
+    if oldest and mine and mine < oldest:
+        raise TeamError(tr("teams.app_too_old"), "client_too_old")
+    return info
 
 
 # What the user reads when something about the team goes wrong: one sentence that says what to do (the
@@ -570,7 +607,7 @@ def explain(exc, where=""):
     """The sentence for the user about a sync problem (`where`: the collection, if it is about one)."""
     code = "other"
     if isinstance(exc, TeamError):
-        if exc.code in ("offline", "reconnect"):
+        if exc.code in ("offline", "reconnect", "server_too_old", "client_too_old"):
             return str(exc)
         code = exc.code if exc.code in _EXPLAIN else "rate_limited" if exc.status == 429             else "bad_server" if (exc.status or 0) >= 500 else "other"
     elif isinstance(exc, ValidationError):
@@ -661,6 +698,7 @@ class Team:
                 # An account that has not proved its e-mail sees no invites (see verify_email).
                 "verified": state["user"].get("verified", True) is not False,
                 "verification": state.get("verification") or "email",
+                "mail": bool(state.get("mail")),  # the server e-mails invites itself
                 "held_deletions": self.held_deletions(),
                 "waiting": [{k: p.get(k) for k in ("user_id", "name", "email", "fingerprint", "org", "reason")}
                             | {"collections": len(p.get("collections") or [])}
@@ -692,7 +730,7 @@ class Team:
             raise TeamError(tr("teams.another_team_account_is_already"), "invalid")
         device_name = str(device_name or os.environ.get("COMPUTERNAME") or "PC")[:100]
         with Client(base) as api:
-            info = api.call("GET", "/info", auth=False)
+            info = check_server(api.call("GET", "/info", auth=False))
             if mode == "register":
                 if len(password or "") < MIN_ACCOUNT_PASSWORD:
                     raise TeamError(tr("teams.account_password_must_have_at", MIN_ACCOUNT_PASSWORD=MIN_ACCOUNT_PASSWORD),
@@ -735,6 +773,7 @@ class Team:
             state.update(server_url=base, token=session["token"], user=user, keys=keys, device=device_name,
                          kdf_n=int(kdf["n"]),
                          verification=info.get("verification", "off") if isinstance(info, dict) else "off",
+                         mail=isinstance(info, dict) and info.get("mail") is True,
                          **public_keys(keys))
             for section in ("pinned", "orgs", "collections"):
                 state.setdefault(section, {})
@@ -1045,8 +1084,30 @@ class Team:
         return {"id": oid}
 
     def invite(self, oid, email, role="member"):
+        """→ {id, emailed, expires?}: `emailed` when the server e-mailed the invite itself (servers before 0.17
+        never do: the app gives the admin the instructions to pass on)."""
         with self._api(self.vault.team()) as api:
-            return api.call("POST", f"/orgs/{oid}/invites", {"email": str(email or "").strip(), "role": role})
+            result = api.call("POST", f"/orgs/{oid}/invites", {"email": str(email or "").strip(), "role": role})
+        return {**result, "emailed": result.get("emailed") is True}
+
+    def renew_invite(self, oid, invite_id):
+        """A new code for a pending or expired invite (the old one stops working), e-mailed if the server can.
+        → {id, emailed, expires}"""
+        with self._api(self.vault.team()) as api:
+            result = api.call("POST", f"/orgs/{oid}/invites/{invite_id}/renew", {})
+        return {**result, "emailed": result.get("emailed") is True}
+
+    def resend_invite(self, oid, invite_id):
+        """E-mail a pending invite again. → {emailed}"""
+        with self._api(self.vault.team()) as api:
+            result = api.call("POST", f"/orgs/{oid}/invites/{invite_id}/send", {})
+        return {"emailed": result.get("emailed") is True}
+
+    def drop_invite(self, invite_id):
+        """Withdraw an invite (org admins)."""
+        with self._api(self.vault.team()) as api:
+            api.call("DELETE", f"/invites/{invite_id}")
+        return {}
 
     @staticmethod
     def _inviter(invite):
@@ -1978,6 +2039,10 @@ class Team:
         self._freed = set()
         waiting = {}
         with self._api(state) as api:
+            # Each round: a server updated (or replaced by an older one) since, or an app too old for it, is
+            # told plainly instead of failing on the first signed member list.
+            info = check_server(api.call("GET", "/info", auth=False))
+            state["mail"] = info.get("mail") is True
             self._refresh_me(api, state)
             try:
                 self._sync_account_data(api, state)

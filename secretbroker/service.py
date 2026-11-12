@@ -68,15 +68,17 @@ TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_i
                    "team_confirm_member", "team_set_role", "team_remove_member", "team_create_collection", "team_grant",
                    "team_revoke", "team_share_entry", "team_share_entries", "team_unshare_entry", "team_accept_change",
                    "team_verify_email", "team_send_code", "team_resolve_deletions", "team_share_with",
-                   "team_unshare_with", "team_revoke_device", "team_change_password")
+                   "team_unshare_with", "team_revoke_device", "team_change_password", "team_renew_invite",
+                   "team_resend_invite", "team_drop_invite")
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
                 "import_file", "import_env_file", "export_vault") + TEAM_CHANGE_OPS  # what the app that unlocked may do with one click
 # Operations that can send credentials or keys out of the vault (to someone else's account, or a file in clear).
 # "Open with my Windows session" needs no proof, and anything running as the user (the AI's shell too) could use
 # it to get a one-click token, so after such an unlock these need Hello or a password once; from then on they are
 # one click again.
-TEAM_EXPORT_OPS = ("team_connect", "team_invite", "team_accept_invite", "team_confirm_member", "team_set_role",
-                   "team_grant", "team_share_entry", "team_share_entries", "team_share_with", "export_vault")
+TEAM_EXPORT_OPS = ("team_connect", "team_invite", "team_renew_invite", "team_accept_invite", "team_confirm_member",
+                   "team_set_role", "team_grant", "team_share_entry", "team_share_entries", "team_share_with",
+                   "export_vault")
 # Operations that may change a shared credential: the team sync runs soon after them to push it.
 TEAM_PUSH_OPS = {"save_entry", "delete_entry", "replace_key", "rotate", "update_credential", "ai_rotate", "ai_delete"}
 # Rotations from the app: one click. Copying a new password not applied yet gives it out, like exporting.
@@ -2714,6 +2716,18 @@ class Service:
     def op_team_invite(self, params):
         return self._team_call("team_invite", params, lambda: self.team.invite(
             params.get("org"), params.get("email"), params.get("role") or "member"))
+
+    def op_team_renew_invite(self, params):
+        """A new code for a pending or expired invite, e-mailed again if the server can."""
+        return self._team_call("team_renew_invite", params, lambda: self.team.renew_invite(
+            params.get("org"), params.get("id")))
+
+    def op_team_resend_invite(self, params):
+        return self._team_call("team_resend_invite", params, lambda: self.team.resend_invite(
+            params.get("org"), params.get("id")))
+
+    def op_team_drop_invite(self, params):
+        return self._team_call("team_drop_invite", params, lambda: self.team.drop_invite(params.get("id")))
 
     def op_team_invites(self, params):
         return self._team_call("team_invites", params, self.team.invites, change=False)

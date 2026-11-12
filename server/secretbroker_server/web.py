@@ -33,10 +33,14 @@ SECURITY_HEADERS = [
 ]
 
 
-def route(method, path, auth=True, tx=None):
-    """Register a handler. `tx`: None = automatic, False = the handler opens its own transactions."""
+VERSION_HEADER = "x-secretbroker-version"
+
+
+def route(method, path, auth=True, tx=None, any_client=False):
+    """Register a handler. `tx`: None = automatic, False = the handler opens its own transactions.
+    `any_client`: answered even to apps older than SB_MIN_CLIENT (/info, so they can tell the user; /health)."""
     def register(handler):
-        ROUTES.append((method, path, auth, tx, handler))
+        ROUTES.append((method, path, auth, tx, any_client, handler))
         return handler
     return register
 
@@ -53,6 +57,8 @@ class Server:
         self.ip_throttle = security.Throttle(free=20)
         self.signup_throttle = security.Throttle(free=30)  # a whole team may join from one office
         self.delete_window = security.Window(settings.max_deletes_per_hour, 3600)  # item deletions per account
+        self.invite_window = security.Window(settings.max_invites_per_hour, 3600)  # per organization and per account
+        self.oldest_client = config.parse_version(settings.oldest_client)
 
 
 class Ctx:
@@ -80,10 +86,10 @@ def authenticate(server, header):
         raise unauthorized()
     row = server.db.conn().execute(
         "SELECT s.id AS session_id, s.touched, s.expires, u.id, u.email, u.name, u.is_admin, u.verified, "
-        "u.invited_to FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?",
+        "u.invited_to, u.disabled FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?",
         (security.token_hash(token),)).fetchone()
     now = now_epoch()
-    if row is None or row["expires"] <= now:
+    if row is None or row["expires"] <= now or row["disabled"]:
         raise unauthorized()
     if now - row["touched"] >= 60:  # at most one write a minute per session
         with server.db.tx(write=True) as conn:
@@ -130,6 +136,15 @@ def client_ip(request, trust_proxy):
     return request.client.host if request.client else "unknown"
 
 
+def check_client(server, request):
+    """426 for an app older than this server serves. An app that does not say its version (before 0.17) or says
+    something unreadable is served as before: nothing proves it is too old."""
+    version = config.parse_version(request.headers.get(VERSION_HEADER, "")[:40])
+    if version is not None and version < server.oldest_client:
+        raise ApiError(426, "client_too_old", "Esta versión de SecretBroker es demasiado antigua para este servidor: "
+                       "actualiza la app.", min_client=server.settings.oldest_client)
+
+
 def error_response(exc):
     headers = {"Retry-After": str(exc.extra["retry_after"])} if "retry_after" in exc.extra else None
     return JSONResponse(exc.body(), status_code=exc.status, headers=headers)
@@ -146,9 +161,11 @@ def _run(server, handler, ctx, auth, tx, method, authorization):
         return handler(ctx)
 
 
-def _endpoint(server, handler, auth, tx, method):
+def _endpoint(server, handler, auth, tx, any_client, method):
     async def endpoint(request):
         try:
+            if not any_client:
+                check_client(server, request)
             body = await _read_json(request, server.settings.max_body)
             ctx = Ctx(server, body, dict(request.path_params), request.query_params,
                       client_ip(request, server.settings.trust_proxy))
@@ -197,8 +214,8 @@ def create_app(settings):
 
     settings.check()
     server = Server(settings)
-    routes = [Route(PREFIX + path, _endpoint(server, handler, auth, tx, method), methods=[method])
-              for method, path, auth, tx, handler in ROUTES]
+    routes = [Route(PREFIX + path, _endpoint(server, handler, auth, tx, any_client, method), methods=[method])
+              for method, path, auth, tx, any_client, handler in ROUTES]
 
     @asynccontextmanager
     async def lifespan(app):
