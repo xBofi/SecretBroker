@@ -562,7 +562,9 @@
   "teams.account_keys_don_match_server": "Iċ-ċwievet tal-kont ma jaqblux ma' dawk tas-server",
   "teams.account_password_must_have_at": "Il-password tal-kont trid ikollha mill-inqas {MIN_ACCOUNT_PASSWORD} karattru",
   "teams.add_key_before_sharing_it": "Żid iċ-ċavetta qabel taqsamha",
+  "teams.admin_backup_failed": "Is-server ma setax jagħmel il-backup. Iċċekkja l-ispazju fuq id-diska tas-server u erġa' pprova.",
   "teams.admin_bad_signups": "Agħżel jekk ir-reġistrazzjonijiet humiex miftuħa, bl-istedina biss jew magħluqa.",
+  "teams.admin_last_admin": "Huwa l-uniku kont li jmexxi s-server: ma jistax jiġi diżattivat jew imħassar.",
   "teams.admin_last_manager": {
     "one": "{person} huwa l-uniku wieħed li jimmaniġġja kollezzjoni: xi ħadd mill-organizzazzjoni jrid jieħu “Maniġer” fiha (jew iħassarha) qabel ma jitħassar il-kont.",
     "two": "{person} huwa l-uniku wieħed li jimmaniġġja {count} kollezzjonijiet: xi ħadd mill-organizzazzjoni jrid jieħu “Maniġer” fihom (jew iħassarhom) qabel ma jitħassar il-kont.",
@@ -574,6 +576,7 @@
   "teams.admin_last_owner_some": "{person} huwa l-uniku sid ta' organizzazzjoni: agħmel lil xi ħadd ieħor sid qabel tħassar il-kont.",
   "teams.admin_not_yourself": "Il-kont tiegħek stess ma jistax jiġi diżattivat jew imħassar minn hawn.",
   "teams.admin_only": "Dan jista' jagħmlu biss min imexxi s-server tat-tim.",
+  "teams.admin_owner_disabled": "Dak il-kont huwa diżattivat: agħżel lil xi ħadd li jista' jidħol.",
   "teams.admin_quoted": "“{name}”",
   "teams.admin_server_too_old": "Is-server tat-tim għadu ma jistax jiġi amministrat mill-app: aġġornah għall-aħħar verżjoni.",
   "teams.another_team_account_is_already": "Diġà hemm kont tat-tim ieħor imqabbad. Skonnettjah l-ewwel.",

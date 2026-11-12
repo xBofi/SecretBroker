@@ -496,7 +496,9 @@
   "teams.account_keys_don_match_server": "Las claves de la cuenta no coinciden con las del servidor",
   "teams.account_password_must_have_at": "La contraseña de la cuenta debe tener al menos {MIN_ACCOUNT_PASSWORD} caracteres",
   "teams.add_key_before_sharing_it": "Añade la clave antes de compartirla",
+  "teams.admin_backup_failed": "El servidor no ha podido hacer la copia. Mira el espacio en disco del servidor y vuelve a probar.",
   "teams.admin_bad_signups": "Elige si el registro de cuentas está abierto, es solo con invitación o está cerrado.",
+  "teams.admin_last_admin": "Es la única cuenta que administra el servidor: no se puede desactivar ni borrar.",
   "teams.admin_last_manager": {
     "one": "{person} es la única persona que gestiona una colección: alguien de la organización tiene que recibir «Gestor» en ella (o borrarla) antes de borrar la cuenta.",
     "many": "{person} es la única persona que gestiona {count} colecciones: alguien de la organización tiene que recibir «Gestor» en ellas (o borrarlas) antes de borrar la cuenta.",
@@ -506,6 +508,7 @@
   "teams.admin_last_owner_some": "{person} es la única persona propietaria de una organización: haz propietaria a otra persona antes de borrar la cuenta.",
   "teams.admin_not_yourself": "Tu propia cuenta no se puede desactivar ni borrar desde aquí.",
   "teams.admin_only": "Solo quien administra el servidor del equipo puede hacer esto.",
+  "teams.admin_owner_disabled": "Esa cuenta está desactivada: elige a alguien que pueda entrar.",
   "teams.admin_quoted": "«{name}»",
   "teams.admin_server_too_old": "El servidor del equipo aún no se puede administrar desde la app: actualízalo a la última versión.",
   "teams.another_team_account_is_already": "Ya hay otra cuenta de equipo conectada. Desconéctala antes.",

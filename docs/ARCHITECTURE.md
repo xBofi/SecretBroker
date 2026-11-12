@@ -883,16 +883,20 @@ backup. Only for an account whose `user.admin` is true (the first account of an 
   service keeps it only if every line is `systemctl`, `docker compose` or `secretbroker-server` (by name or full
   path), optionally after a bare `sudo ` (no sudo options), with plain arguments, `<file>` at most once a line and no
   shell metacharacters or `..`, `teams.restore_lines`; the systemd install sends the single line `sudo
-  secretbroker-server restore /var/lib/secretbroker-server/backups/<file>`, which stops and starts the service); `GET users` → `[{id, email, name,
-  verified, admin, disabled, created, last_seen, orgs: [{id, name, role}]}]`; `POST users/{uid}/disable` → `{left:
-  [{org, name, collections}], held?: [{org, name}]}`; `POST users/{uid}/enable | verify` → `{}`; `DELETE users/{uid}`
-  → `{}` or `400 last_owner {orgs}` / `400 last_manager {collections}` (ids, or `{id, name}` objects); `POST
-  orgs/{oid}/owner {user_id}` → `{}`; `GET orgs` → `[{id, name, members, collections, owners: [{id, email, name}]}]`;
-  `POST backups` → `{file, at}`; `GET backups` → `[{file, at, bytes}]`; `POST invites {days?}` → `{token, expires}`;
-  `PUT settings {signups?, auto_update?}` → `{}`; `GET events` → `[{time, actor, action, target}]` (`user.disable`,
-  `user.enable`, `user.delete`, `user.verify`, `signup_token.create`, `backup.create`, `settings.signups`,
-  `settings.auto_update`, `org.owner`, and the server-wide `register`, `login`, `email.verify`, `password.change`,
-  `password.fail`, `device.revoke`; others show as «Otra acción»). A `404`/`405` on a page without an id means a
+  secretbroker-server restore /var/lib/secretbroker-server/backups/<file>`, which stops and starts the service; the
+  `latest` / `updates.last_check` come from the updater's status file, SB_UPDATE_STATUS); `GET users` → `[{id, email,
+  name, verified, admin, disabled, created, last_seen, orgs: [{id, name, role, status}], replacing?}]` (a new account
+  waiting to replace one whose owner lost access is listed under the address it will take, with `replacing`: the old
+  account's id; verifying it completes the replacement); `POST users/{uid}/disable` → `{left: [{org, name,
+  collections}], held: [{org, name, reason, collections}]}`; `POST users/{uid}/enable | verify` → `{}`; `DELETE
+  users/{uid}` → `{}` or `400 last_owner {orgs: [{id, name}], collections}` / `400 last_manager {collections: [ids]}`;
+  disabling or deleting the last server admin is `400 last_admin`; `POST orgs/{oid}/owner {user_id}` → `{}`; `GET
+  orgs` → `[{id, name, members, pending, collections, direct, owners: [{id, email, name}]}]`; `POST backups` → `{file,
+  at, bytes}`; `GET backups` → `[{file, at, bytes}]`; `POST invites {days?, email?}` → `{token, expires}`; `PUT
+  settings {signups?, auto_update?}` → `{}`; `GET events` → `[{id, time, actor, actor_email, via, action, target,
+  detail}]` (`user.disable | enable | delete | verify` with `detail.email`, `org.owner` (target the organization,
+  `detail.user`/`email`), `signup_token.create`, `backup.create`, `settings` with the changes in `detail`; others show
+  as «Otra acción»). A `404`/`405` on a page without an id means a
   server from before this (`server_too_old`: «actualízalo a la última versión»).
 * **Service ops** (GUI only, never in `AI_OPS`). Reads, an unlocked vault only, short timeouts, no team lock, cached
   in `team_view.admin {overview, users, orgs, events, backups}` so the tab draws at once: `team_admin_overview`,
@@ -923,7 +927,10 @@ backup. Only for an account whose `user.admin` is true (the first account of an 
   organizations, collections re-encrypted by their managers' apps and credentials flagged; reversible), «Reactivar»,
   and «Borrar la cuenta» (the e-mail typed to confirm; a refusal shows its sentence in the dialog with the fix: for
   each organization «Nuevo propietario de «X»:» with its members and «Hacer propietario», then «Volver a intentar»;
-  «Abrir la colección X» when this user is in it)), **Organizaciones** (owners, people, collections; «Cambiar
+  «Abrir la colección X» when this user is in it); a new account replacing one whose owner lost access shows as
+  «Cuenta nueva» with «Espera confirmar su e-mail · sustituirá a la cuenta anterior» (the old one: «Ha perdido el
+  acceso: una cuenta nueva espera para sustituirla») and «Verificar», which asks to confirm it is that person and
+  then completes the replacement), **Organizaciones** (owners, people, collections; «Cambiar
   propietario») and **Registro** (the admin log).
 
 ## 6. Platforms

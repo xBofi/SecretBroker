@@ -5139,6 +5139,7 @@ function serverAccounts(admin, rerender) {
 function serverAccountRow(u, admin, rerender) {
   const label = u.name || u.email;
   const [cls, status] = u.disabled ? ['is-exposed', t('server_admin.status_disabled')]
+    : u.replacing ? ['is-warning', t('server_admin.status_new_account')]
     : u.verified === false ? ['is-warning', t('server_admin.status_unverified')] : ['is-ok', t('server_admin.status_verified')];
   const orgs = (u.orgs || []).map((o) => `${o.name} (${lowerFirst(ROLE_LABELS[o.role] || o.role || '')})`);
   const seen = u.last_seen ? t('server_admin.last_seen', { when: whenText(u.last_seen) }) : t('server_admin.never_seen');
@@ -5153,7 +5154,26 @@ function serverAccountRow(u, admin, rerender) {
     });
     return node;
   };
-  if (!u.me) {
+  // A new account of someone who lost access to theirs (Equipo › Personas › «Ha perdido el acceso»): it waits to
+  // prove the e-mail; verifying it here makes it take the old account's place.
+  const replacing = !!u.replacing;
+  const replaced = (admin.users || []).find((x) => x.replacing === u.id);
+  if (replacing && !u.disabled) {
+    const verify = el('button', { class: 'btn primary', 'data-mutates': '1' }, t('server_admin.verify_replacement'));
+    verify.addEventListener('click', () => confirmModal({
+      title: t('server_admin.replace_title', { name: label }),
+      text: t('server_admin.replace_text', { name: label, email: u.email }),
+      action: t('server_admin.verify_replacement'),
+      onConfirm: async (button) => {
+        const result = await teamAct('team_admin_verify', { user_id: u.id }, t('server_admin.verify_reason', { name: label }), button);
+        if (!result.ok) return false;
+        toast(t('server_admin.replaced_done', { name: label }));
+        rerender();
+        return true;
+      },
+    }));
+    controls.push(verify);
+  } else if (!u.me) {
     if (!u.disabled && u.verified === false) {
       controls.push(oneClick(t('server_admin.verify_email'), 'team_admin_verify', t('server_admin.verify_reason', { name: label }),
         t('server_admin.verified_done', { name: label })));
@@ -5169,8 +5189,10 @@ function serverAccountRow(u, admin, rerender) {
     el('div', { class: 'meta' },
       el('div', { class: 'title' }, el('span', { class: 'name' }, label), u.me ? el('span', { class: 'faint' }, t('common.you')) : null,
         el('span', { class: `chip ${cls}` }, status), u.admin ? el('span', { class: 'chip' }, t('server_admin.status_admin')) : null),
-      el('div', { class: 'subtitle' }, [u.name ? u.email : null, seen].filter(Boolean).join(' · ')),
-      el('div', { class: 'subtitle' }, orgs.length ? orgs.join(', ') : t('server_admin.in_no_org'))),
+      el('div', { class: 'subtitle' }, [u.name ? u.email : null, replacing ? null : seen].filter(Boolean).join(' · ')),
+      replacing ? el('div', { class: 'subtitle warn-line' }, t('server_admin.replacing_status'))
+        : replaced ? el('div', { class: 'subtitle warn-line' }, t('server_admin.being_replaced'))
+          : el('div', { class: 'subtitle' }, orgs.length ? orgs.join(', ') : t('server_admin.in_no_org'))),
     el('div', { class: 'row-actions' }, controls)));
 }
 
@@ -5316,23 +5338,35 @@ function changeOwner(org, admin, rerender) {
 function serverLog(admin) {
   const events = admin.events;
   const names = Object.fromEntries((admin.users || []).map((u) => [u.id, u.name || u.email]));
-  const who = (id) => names[id] || t('server_admin.deleted_account');
+  // The server's log names accounts by id, with the e-mail they had in `detail` / `actor_email` (also once deleted).
+  const detail = (e) => (e.detail && typeof e.detail === 'object' ? e.detail : {});
+  const who = (id, email) => names[id] || email || t('server_admin.deleted_account');
+  const onOff = (value) => (value ? t('server_admin.on') : t('server_admin.off'));
   const describe = (e) => {
+    const d = detail(e);
+    if (e.action === 'settings') {  // {signups?, auto_update?}: what changed
+      const parts = [];
+      if (typeof d.signups === 'string') parts.push(t('server_admin.event_signups', { value: lowerFirst(SIGNUP_LABELS[d.signups] || '') }));
+      if (typeof d.auto_update === 'boolean') parts.push(t('server_admin.event_auto_update', { value: onOff(d.auto_update) }));
+      return parts.join(' · ') || t('team_events_panel.other_action');
+    }
+    if (e.action === 'settings.signups') return t('server_admin.event_signups', { value: lowerFirst(SIGNUP_LABELS[e.target] || '') });
+    if (e.action === 'settings.auto_update') return t('server_admin.event_auto_update', { value: onOff(e.target !== 'off') });
     const key = ADMIN_EVENT_LABELS[e.action];
     if (!key) return t('team_events_panel.other_action');
-    if (e.action === 'user.delete' && !names[e.target]) return t('server_admin.event_delete_gone');
+    if (e.action === 'user.delete' && !names[e.target] && !d.email) return t('server_admin.event_delete_gone');
     if (e.action === 'email.verify' && e.actor && e.actor === e.target) return t('server_admin.event_verify_own');
-    const value = e.action === 'settings.signups' ? lowerFirst(SIGNUP_LABELS[e.target] || '')
-      : e.action === 'settings.auto_update' ? (e.target === 'off' ? t('server_admin.off') : t('server_admin.on')) : '';
-    return t(key, { who: who(e.target), value });
+    if (e.action === 'org.owner') return t(key, { who: who(d.user, d.email) });  // the target is the organization
+    return t(key, { who: who(e.target, d.email) });
   };
+  const actor = (e) => (e.actor ? capitalized(who(e.actor, e.actor_email)) : t('server_admin.from_the_server'));
   return el('div', { class: 'settings-group' },
     el('p', { class: 'help', style: 'margin-bottom:8px' }, t('server_admin.log_help')),
     events === undefined ? el('div', { class: 'spinner' })
       : !events.length ? el('p', { class: 'muted' }, t('common.no_activity_yet'))
         : el('table', { class: 'table' }, el('tbody', {}, events.slice(0, 100).map((e) => el('tr', {},
           el('td', { class: 'muted', style: 'white-space:nowrap' }, formatTime(e.time)),
-          el('td', {}, e.actor ? capitalized(who(e.actor)) : t('server_admin.from_the_server')),
+          el('td', {}, actor(e)),
           el('td', {}, describe(e)))))));
 }
 // ----- linking the account (the only time its password is typed on this PC)

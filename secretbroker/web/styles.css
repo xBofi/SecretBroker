@@ -1048,6 +1048,7 @@ p, .help, .lead, .muted, .subtitle, .banner, .warning { overflow-wrap: break-wor
 .command-box .instructions { margin-top: 0; flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
 .restore-show { align-self: flex-start; margin-top: 2px; }
 .server-version { margin-top: 3px; }
+.server-account .subtitle.warn-line { color: var(--warning); }
 .setting .meta p.warn-text { color: var(--warning); }
 /* An on/off setting: a switch rather than a bare checkbox */
 input.switch { appearance: none; -webkit-appearance: none; width: 36px; height: 20px; border-radius: 999px; background: var(--line-strong);

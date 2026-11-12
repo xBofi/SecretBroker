@@ -496,7 +496,9 @@
   "teams.account_keys_don_match_server": "Kontuaren gakoak ez datoz bat zerbitzariarenekin",
   "teams.account_password_must_have_at": "Kontuaren pasahitzak gutxienez {MIN_ACCOUNT_PASSWORD} karaktere izan behar ditu",
   "teams.add_key_before_sharing_it": "Gehitu gakoa partekatu aurretik",
+  "teams.admin_backup_failed": "Zerbitzariak ezin izan du kopia egin. Begiratu zerbitzariaren diskoan dagoen lekua eta saiatu berriro.",
   "teams.admin_bad_signups": "Aukeratu kontuen erregistroa irekita dagoen, gonbidapenarekin soilik den edo itxita dagoen.",
+  "teams.admin_last_admin": "Zerbitzaria administratzen duen kontu bakarra da: ezin da desaktibatu edo ezabatu.",
   "teams.admin_last_manager": {
     "one": "{person} da bilduma baten kudeatzaile bakarra: erakundeko norbaitek «Kudeatzailea» jaso behar du bertan (edo bilduma ezabatu) kontua ezabatu aurretik.",
     "other": "{person} da {count} bildumaren kudeatzaile bakarra: erakundeko norbaitek «Kudeatzailea» jaso behar du haietan (edo bildumak ezabatu) kontua ezabatu aurretik."
@@ -505,6 +507,7 @@
   "teams.admin_last_owner_some": "{person} da erakunde baten jabe bakarra: egin beste norbait jabe kontua ezabatu aurretik.",
   "teams.admin_not_yourself": "Zure kontua ezin da hemendik desaktibatu edo ezabatu.",
   "teams.admin_only": "Taldeko zerbitzaria administratzen duenak soilik egin dezake hau.",
+  "teams.admin_owner_disabled": "Kontu hori desaktibatuta dago: aukeratu sartu daitekeen norbait.",
   "teams.admin_quoted": "«{name}»",
   "teams.admin_server_too_old": "Taldeko zerbitzaria ezin da oraindik aplikaziotik administratu: eguneratu azken bertsiora.",
   "teams.another_team_account_is_already": "Beste talde-kontu bat dago konektatuta. Deskonektatu lehenik.",

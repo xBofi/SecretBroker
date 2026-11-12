@@ -496,7 +496,9 @@
   "teams.account_keys_don_match_server": "Kontonøklene samsvarer ikke med serverens",
   "teams.account_password_must_have_at": "Kontopassordet må ha minst {MIN_ACCOUNT_PASSWORD} tegn",
   "teams.add_key_before_sharing_it": "Legg til nøkkelen før du deler den",
+  "teams.admin_backup_failed": "Serveren kunne ikke ta kopien. Sjekk diskplassen på serveren og prøv igjen.",
   "teams.admin_bad_signups": "Velg om registreringen er åpen, bare med invitasjon eller stengt.",
+  "teams.admin_last_admin": "Det er den eneste kontoen som driver serveren: den kan ikke deaktiveres eller slettes.",
   "teams.admin_last_manager": {
     "one": "{person} er den eneste som forvalter en samling: noen i organisasjonen må få «Forvalter» i den (eller slette den) før kontoen slettes.",
     "other": "{person} er den eneste som forvalter {count} samlinger: noen i organisasjonen må få «Forvalter» i dem (eller slette dem) før kontoen slettes."
@@ -505,6 +507,7 @@
   "teams.admin_last_owner_some": "{person} er eneste eier av en organisasjon: gjør noen andre til eier før kontoen slettes.",
   "teams.admin_not_yourself": "Din egen konto kan ikke deaktiveres eller slettes herfra.",
   "teams.admin_only": "Bare den som driver teamserveren, kan gjøre dette.",
+  "teams.admin_owner_disabled": "Den kontoen er deaktivert: velg noen som kan logge på.",
   "teams.admin_quoted": "«{name}»",
   "teams.admin_server_too_old": "Teamserveren kan ikke administreres fra appen ennå: oppdater den til nyeste versjon.",
   "teams.another_team_account_is_already": "En annen teamkonto er allerede koblet til. Koble den fra først.",

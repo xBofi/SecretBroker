@@ -496,7 +496,9 @@
   "teams.account_keys_don_match_server": "Le chiavi dell’account non corrispondono a quelle del server",
   "teams.account_password_must_have_at": "La password dell’account deve avere almeno {MIN_ACCOUNT_PASSWORD} caratteri",
   "teams.add_key_before_sharing_it": "Aggiungi la chiave prima di condividerla",
+  "teams.admin_backup_failed": "Il server non è riuscito a fare il backup. Controlla lo spazio su disco del server e riprova.",
   "teams.admin_bad_signups": "Scegli se le registrazioni sono aperte, solo su invito o chiuse.",
+  "teams.admin_last_admin": "È l’unico account che gestisce il server: non si può disattivare né eliminare.",
   "teams.admin_last_manager": {
     "one": "{person} è l’unica persona che gestisce una raccolta: qualcuno dell’organizzazione deve ricevere il permesso «Gestore» su di essa (o eliminarla) prima di eliminare l’account.",
     "many": "{person} è l’unica persona che gestisce {count} raccolte: qualcuno dell’organizzazione deve ricevere il permesso «Gestore» su di esse (o eliminarle) prima di eliminare l’account.",
@@ -506,6 +508,7 @@
   "teams.admin_last_owner_some": "{person} è l’unica persona proprietaria di un’organizzazione: rendi proprietario qualcun altro prima di eliminare l’account.",
   "teams.admin_not_yourself": "Il tuo account non si può disattivare né eliminare da qui.",
   "teams.admin_only": "Può farlo solo chi gestisce il server del team.",
+  "teams.admin_owner_disabled": "Quell’account è disattivato: scegli qualcuno che possa entrare.",
   "teams.admin_quoted": "«{name}»",
   "teams.admin_server_too_old": "Il server del team non si può ancora gestire dall’app: aggiornalo all’ultima versione.",
   "teams.another_team_account_is_already": "Un altro account del team è già connesso. Disconnettilo prima.",

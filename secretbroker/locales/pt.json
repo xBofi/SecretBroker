@@ -498,7 +498,9 @@
   "teams.account_keys_don_match_server": "As chaves da conta não correspondem às do servidor",
   "teams.account_password_must_have_at": "A palavra-passe da conta tem de ter pelo menos {MIN_ACCOUNT_PASSWORD} caracteres",
   "teams.add_key_before_sharing_it": "Adiciona a chave antes de a partilhar",
+  "teams.admin_backup_failed": "O servidor não conseguiu fazer a cópia. Verifica o espaço em disco do servidor e tenta novamente.",
   "teams.admin_bad_signups": "Escolhe se o registo de contas está aberto, é só por convite ou está fechado.",
+  "teams.admin_last_admin": "É a única conta que administra o servidor: não pode ser desativada nem eliminada.",
   "teams.admin_last_manager": {
     "one": "{person} é a única pessoa que gere uma coleção: alguém da organização tem de receber «Gestor» nela (ou eliminá-la) antes de eliminar a conta.",
     "many": "{person} é a única pessoa que gere {count} coleções: alguém da organização tem de receber «Gestor» nelas (ou eliminá-las) antes de eliminar a conta.",
@@ -508,6 +510,7 @@
   "teams.admin_last_owner_some": "{person} é a única pessoa proprietária de uma organização: torna outra pessoa proprietária antes de eliminar a conta.",
   "teams.admin_not_yourself": "A tua própria conta não pode ser desativada nem eliminada a partir daqui.",
   "teams.admin_only": "Só quem administra o servidor da equipa pode fazer isto.",
+  "teams.admin_owner_disabled": "Essa conta está desativada: escolhe alguém que possa iniciar sessão.",
   "teams.admin_quoted": "«{name}»",
   "teams.admin_server_too_old": "O servidor da equipa ainda não pode ser administrado a partir da aplicação: atualiza-o para a versão mais recente.",
   "teams.another_team_account_is_already": "Já está ligada outra conta de equipa. Desliga-a primeiro.",

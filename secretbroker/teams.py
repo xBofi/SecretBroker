@@ -585,7 +585,10 @@ SERVER_MESSAGES = {"last_owner": "teams.org_needs_an_owner", "last_manager": "te
                    "key_version": "teams.server_changed_meanwhile", "needs_rekey": "teams.this_collection_has_be_re",
                    "collection_full": "teams.server_collection_full", "too_large": "teams.server_too_large",
                    "client_too_old": "teams.app_too_old", "invalid_proof": "teams.server_invalid_proof",
-                   "replace_blocked": "teams.server_replace_blocked"}
+                   "replace_blocked": "teams.server_replace_blocked",
+                   # The server admin's own pages (5.2).
+                   "last_admin": "teams.admin_last_admin", "disabled": "teams.admin_owner_disabled",
+                   "backup_failed": "teams.admin_backup_failed"}
 SERVER_MESSAGES_BY_STATUS = {("invalid_credentials", 403): "teams.current_account_password_wrong"}
 
 

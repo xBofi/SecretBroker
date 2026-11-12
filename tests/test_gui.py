@@ -36,7 +36,11 @@ ACCOUNT = "cuenta del equipo de prueba 42"
 failures = 0
 # A local SecretBroker Server for the teams flow (plain http only because it is on this PC).
 os.environ.update(SB_ALLOW_HTTP="1", SB_PUBLIC_URL="http://127.0.0.1", SB_SIGNUPS="open", SB_DATA_DIR=str(HOME / "server"),
-                  SB_EMAIL_VERIFICATION="required", SB_SMTP_HOST="smtp.example", SB_SMTP_FROM="secrets@example.com")
+                  SB_EMAIL_VERIFICATION="required", SB_SMTP_HOST="smtp.example", SB_SMTP_FROM="secrets@example.com",
+                  # As install-server.sh sets them: the admin overview names the systemd restore command and reads
+                  # what the updater wrote after its last check.
+                  SB_INSTALL="systemd", SB_UPDATE_STATUS=str(HOME / "updater-status.json"))
+UPDATE_STATUS = HOME / "updater-status.json"
 sys.path.insert(0, str(ROOT / "server"))
 OUTBOX = []  # what the team server would e-mail (verification codes)
 
@@ -270,7 +274,7 @@ def fake_psql():
 def start_team_server():
     import uvicorn
     from secretbroker_server import config, mail
-    from fake_admin import create_app  # the server's admin pages, faked on its own functions until this tree has them
+    from secretbroker_server.web import create_app
 
     mail.deliver = lambda settings, msg: OUTBOX.append(msg)
 
@@ -2306,11 +2310,11 @@ def server_admin_flow(page, bob, act, carol, carol_act):
     """Alicia, the first account of an open server, runs it from Equipo › Servidor: overview, a backup, a sign-up
     code, deleting an account that still owns an organization (the fix offered inline), disabling Bob and seeing
     the effects, re-enabling him, and the log; in Spanish and English, dark and light, and at the smallest window.
-    The server is the real one of this tree; its admin pages come from tests/fake_admin.py (on the server's own
-    functions) while this tree's server has none."""
+    Against the real server and its admin API, set up as install-server.sh sets it (SB_INSTALL=systemd)."""
     print("The team server's admin: Equipo › Servidor")
-    import fake_admin
-    fake_admin.LATEST["version"] = "0.18.1"  # the server knows of a newer version
+    # What the updater wrote after its last check: a newer version is out (the overview reads this file).
+    UPDATE_STATUS.write_text(json.dumps({"current": "0.17.0", "latest": "0.18.1", "last_check": "2026-11-12T03:00:00+00:00",
+                                         "auto": True, "last_result": "available"}), encoding="utf-8")
     page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
     page.js("state.view = 'team'; state.teamTab = 'people'; renderMain()")
     check(wait_for(lambda: page.js("[...document.querySelectorAll('.team-tabs button')].some((b) => b.firstChild.textContent === 'Servidor')"), 10),
@@ -2340,7 +2344,7 @@ def server_admin_flow(page, bob, act, carol, carol_act):
     check(wait_for(lambda: "Copia de seguridad hecha" in page.text() and "Última: " in page.text(), 15), "«Hacer copia ahora»: one click")
     check(wait_for(lambda: "Ver los comandos" in page.text(), 10), "restoring is done on the server: one line, the commands one click away")
     page.click("Ver los comandos")
-    check(wait_for(lambda: "sudo secretbroker-server restore /var/lib/secretbroker-server/backups/secretbroker-backup-" in page.text()
+    check(wait_for(lambda: "sudo secretbroker-server restore " in page.text() and "/backups/secretbroker-backup-" in page.text()
                    and "systemctl" not in page.text()
                    and "En el servidor, ejecuta:" in page.text(), 10)
           and page.js("!!document.querySelector('.command-box .btn')"),
@@ -2449,6 +2453,49 @@ def server_admin_flow(page, bob, act, carol, carol_act):
           "disabling the only owner of an organization says he stays in it until it has another owner")
     page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
 
+    print("A new account for someone who lost access to theirs")
+    from secretbroker.service import Service
+
+    def person(label, name, email, invite_token=None):
+        service = Service(HOME / label, owner=f"test\\{label}", isolated=False)
+        token = service.handle("create_vault", {"master_password": MASTER})["result"]["presence"]
+        run = lambda op, **params: service.handle(op, {**params, "proof": {"kind": "presence", "token": token}})  # noqa: E731
+        answer = run("team_connect", server_url=TEAM_URL, email=email, password=ACCOUNT, mode="register", name=name,
+                     **({"invite_token": invite_token} if invite_token else {}))
+        return service, run, answer
+
+    dani, dani_act, _ = person("dani", "Dani", "dani@example.com")
+    dani_act("team_verify_email", code=email_code("dani@example.com"))
+    act("team_invite", org=carla_org, email="dani@example.com", role="member")
+    dani_act("team_accept_invite", id=dani.handle("team_invites", {})["result"][0]["id"])
+    dani_id = dani.handle("team_status", {})["result"]["user"]["id"]
+    act("team_confirm_member", org=carla_org, user_id=dani_id)
+    lost = act("team_replace_member", org=carla_org, user_id=dani_id)
+    check(lost["ok"], f"Bob says Dani lost access: out of the organization, invited again ({lost.get('error')})")
+    fresh, fresh_act, pending = person("dani-new", "Dani", "dani@example.com", lost["result"]["invite"]["id"])
+    check(pending["ok"] and pending["result"].get("replace_pending"), "Dani signs up again with that invitation: it waits")
+    server_pane(page, "Cuentas")
+    waiting_row = """[...document.querySelectorAll('.server-account')].find((r) => r.innerText.includes(%s))"""
+    check(wait_for(lambda: page.js(f"!!({waiting_row % json.dumps('Espera confirmar su e-mail')})"), 15)
+          and "replacing.invalid" not in page.text(),
+          "Cuentas: the new account under Dani's address, «Espera confirmar su e-mail · sustituirá a la cuenta anterior»")
+    check(page.js(f"({waiting_row % json.dumps('Espera confirmar')}).querySelector('.chip').innerText.trim()") == "Cuenta nueva"
+          and "Ha perdido el acceso: una cuenta nueva espera para sustituirla" in page.text(),
+          "the old account says a new one is waiting to replace it")
+    calm_shot(page, "24-server-replacing")
+    page.js(f"[...({waiting_row % json.dumps('Espera confirmar')}).querySelectorAll('button')].find((b) => b.innerText.trim() === 'Verificar').click()")
+    check(wait_for(lambda: "¿Verificar la cuenta nueva de Dani?" in page.text() and "la anterior se borra" in page.text(), 5),
+          "«Verificar» asks first: only once it is checked that it is Dani, the old account is deleted")
+    calm_shot(page, "24-server-replace-confirm")
+    page.click("Verificar", ".modal-foot button")
+    check(wait_for(lambda: "Dani ya puede entrar con su cuenta nueva" in page.text()
+                   and "Espera confirmar" not in page.text() and "Ha perdido el acceso" not in page.text()
+                   and page.js("[...document.querySelectorAll('.server-account .name')].filter((n) => n.textContent === 'Dani').length") == 1, 15),
+          "verified: the new account takes Dani's place, the old one is gone")
+    check(dani.handle("team_sync", {})["result"]["state"] == "reconnect", "the old account's app is signed out")
+    login = fresh_act("team_connect", server_url=TEAM_URL, email="dani@example.com", password=ACCOUNT, mode="login")
+    check(login["ok"] and login["result"]["user"]["id"] != dani_id, "and the new one signs in, with its own keys")
+
     print("The server's log")
     server_pane(page, "Registro")
     check(wait_for(lambda: "Desactivó la cuenta de Bob" in page.text() and "Reactivó la cuenta de Bob" in page.text()
@@ -2504,7 +2551,8 @@ def server_admin_flow(page, bob, act, carol, carol_act):
     calm_shot(page, "en-24-server-disable")
     page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
     server_pane(page, "Log")
-    check(wait_for(lambda: "Disabled Bob's account" in page.text(), 10), "the log in English")
+    check(wait_for(lambda: "Disabled Bob's account" in page.text() and "Verified Dani's e-mail" in page.text()
+                   and "Changed sign-ups: by invitation only" in page.text(), 10), "the log in English")
     leaks = spanish_leaks(page)
     check(not leaks, f"no Spanish in the server's log ({leaks[:6]})")
     calm_shot(page, "en-24-server-log")

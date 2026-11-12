@@ -540,7 +540,9 @@
   "teams.account_keys_don_match_server": "Kľúče účtu nezodpovedajú kľúčom na serveri",
   "teams.account_password_must_have_at": "Heslo účtu musí mať aspoň {MIN_ACCOUNT_PASSWORD} znakov",
   "teams.add_key_before_sharing_it": "Pred zdieľaním pridajte kľúč",
+  "teams.admin_backup_failed": "Server nemohol vytvoriť zálohu. Skontrolujte miesto na disku servera a skúste to znova.",
   "teams.admin_bad_signups": "Vyberte, či je registrácia otvorená, len na pozvánku alebo zatvorená.",
+  "teams.admin_last_admin": "Je to jediný účet, ktorý spravuje server: nedá sa deaktivovať ani odstrániť.",
   "teams.admin_last_manager": {
     "one": "{person} je jediná osoba, ktorá spravuje kolekciu: niekto z organizácie v nej musí dostať „Správca“ (alebo ju odstrániť), než sa účet odstráni.",
     "few": "{person} je jediná osoba, ktorá spravuje {count} kolekcie: niekto z organizácie v nich musí dostať „Správca“ (alebo ich odstrániť), než sa účet odstráni.",
@@ -551,6 +553,7 @@
   "teams.admin_last_owner_some": "{person} je jediná osoba, ktorá vlastní jednu z organizácií: pred odstránením účtu urobte vlastníkom niekoho iného.",
   "teams.admin_not_yourself": "Vlastný účet odtiaľto nemôžete deaktivovať ani odstrániť.",
   "teams.admin_only": "Toto môže urobiť len ten, kto spravuje tímový server.",
+  "teams.admin_owner_disabled": "Tento účet je deaktivovaný: vyberte niekoho, kto sa môže prihlásiť.",
   "teams.admin_quoted": "„{name}“",
   "teams.admin_server_too_old": "Tímový server sa z aplikácie zatiaľ nedá spravovať: aktualizujte ho na najnovšiu verziu.",
   "teams.another_team_account_is_already": "Už je pripojený iný tímový účet. Najprv ho odpojte.",

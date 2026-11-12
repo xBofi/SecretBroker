@@ -33,8 +33,7 @@ from cryptography.exceptions import InvalidTag  # noqa: E402
 from secretbroker import platform, teams  # noqa: E402
 from secretbroker.service import AI_OPS, TEAM_CHANGE_OPS, Service  # noqa: E402
 from secretbroker_server import config, mail  # noqa: E402
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from fake_admin import create_app  # noqa: E402 - the real server, plus its admin pages if this tree has none yet
+from secretbroker_server.web import create_app  # noqa: E402
 
 OUTBOX = []
 mail.deliver = lambda settings, msg: OUTBOX.append(msg)  # what the server would e-mail
@@ -1229,8 +1228,7 @@ def disabled_account(base, settings, alice, oid, cid, code):
 
 def server_admin(base, settings, alice, carol, oid, c5):
     """The server admin («Servidor» in Equipo, 5.2): reads, changes with one click, refusals with their fix, and
-    nobody else gets in. Against the real server's admin pages, or tests/fake_admin.py on the server's own functions
-    while this tree's server has none."""
+    nobody else gets in. Against the real server's admin API (server/secretbroker_server/admin_api.py)."""
     print("The team server's admin, from the app")
     from secretbroker import i18n
     alice_id = alice.service.vault.team()["user"]["id"]
@@ -1631,6 +1629,11 @@ def lost_access(base, alice, oid):
     pending = again.act("team_connect", server_url=base, email="kira@example.com", password=NEW_ACCOUNT,
                         mode="register", name="Kira", invite_token=result["invite"]["id"])
     check(pending.get("replace_pending", {}).get("mail") is True, "Kira signs up with the invite: a code is e-mailed")
+    accounts = alice.ok("team_admin_users")
+    waiting = [u for u in accounts if u.get("replacing") == kira.id]
+    check(len(waiting) == 1 and waiting[0]["email"] == "kira@example.com" and waiting[0]["verified"] is False
+          and not any("replacing.invalid" in u["email"] for u in accounts),
+          "the server admin sees the new account under Kira's address, waiting to replace hers")
     for _ in range(100):
         mails = [m for m in OUTBOX if m["To"] == "kira@example.com" and "código" in m["Subject"]]
         if len(mails) > before:

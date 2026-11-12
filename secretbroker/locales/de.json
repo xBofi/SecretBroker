@@ -496,7 +496,9 @@
   "teams.account_keys_don_match_server": "Die Kontoschlüssel stimmen nicht mit denen des Servers überein",
   "teams.account_password_must_have_at": "Das Kontopasswort muss mindestens {MIN_ACCOUNT_PASSWORD} Zeichen haben",
   "teams.add_key_before_sharing_it": "Füge den Schlüssel hinzu, bevor du ihn teilst",
+  "teams.admin_backup_failed": "Der Server konnte die Sicherung nicht erstellen. Prüf den Speicherplatz auf dem Server und versuch es noch einmal.",
   "teams.admin_bad_signups": "Wähle, ob die Registrierung offen, nur mit Einladung oder geschlossen ist.",
+  "teams.admin_last_admin": "Es ist das einzige Konto, das den Server betreibt: Es kann nicht deaktiviert oder gelöscht werden.",
   "teams.admin_last_manager": {
     "one": "{person} ist die einzige Person, die eine Sammlung verwaltet: Jemand in der Organisation muss darin „Verwalter“ bekommen (oder sie löschen), bevor das Konto gelöscht wird.",
     "other": "{person} ist die einzige Person, die {count} Sammlungen verwaltet: Jemand in der Organisation muss darin „Verwalter“ bekommen (oder sie löschen), bevor das Konto gelöscht wird."
@@ -505,6 +507,7 @@
   "teams.admin_last_owner_some": "{person} ist der einzige Inhaber einer Organisation: Mach jemand anderen zum Inhaber, bevor du das Konto löschst.",
   "teams.admin_not_yourself": "Dein eigenes Konto kann hier nicht deaktiviert oder gelöscht werden.",
   "teams.admin_only": "Das kann nur, wer den Teamserver betreibt.",
+  "teams.admin_owner_disabled": "Dieses Konto ist deaktiviert: Wähle jemanden, der sich anmelden kann.",
   "teams.admin_quoted": "„{name}“",
   "teams.admin_server_too_old": "Der Teamserver lässt sich noch nicht aus der App verwalten: Aktualisiere ihn auf die neueste Version.",
   "teams.another_team_account_is_already": "Ein anderes Teamkonto ist bereits verbunden. Trenne es zuerst.",

@@ -496,7 +496,9 @@
   "teams.account_keys_don_match_server": "Kontots nycklar stämmer inte med serverns",
   "teams.account_password_must_have_at": "Kontots lösenord måste ha minst {MIN_ACCOUNT_PASSWORD} tecken",
   "teams.add_key_before_sharing_it": "Lägg till nyckeln innan du delar den",
+  "teams.admin_backup_failed": "Servern kunde inte göra säkerhetskopian. Kontrollera diskutrymmet på servern och försök igen.",
   "teams.admin_bad_signups": "Välj om registreringen är öppen, endast med inbjudan eller stängd.",
+  "teams.admin_last_admin": "Det är det enda kontot som driver servern: det kan inte inaktiveras eller raderas.",
   "teams.admin_last_manager": {
     "one": "{person} är den enda som hanterar en samling: någon i organisationen måste få ”Hanterare” i den (eller radera den) innan kontot raderas.",
     "other": "{person} är den enda som hanterar {count} samlingar: någon i organisationen måste få ”Hanterare” i dem (eller radera dem) innan kontot raderas."
@@ -505,6 +507,7 @@
   "teams.admin_last_owner_some": "{person} är den enda ägaren av en organisation: gör någon annan till ägare innan kontot raderas.",
   "teams.admin_not_yourself": "Ditt eget konto kan inte inaktiveras eller raderas härifrån.",
   "teams.admin_only": "Bara den som driver teamservern kan göra det här.",
+  "teams.admin_owner_disabled": "Det kontot är inaktiverat: välj någon som kan logga in.",
   "teams.admin_quoted": "”{name}”",
   "teams.admin_server_too_old": "Teamservern kan inte administreras från appen än: uppdatera den till den senaste versionen.",
   "teams.another_team_account_is_already": "Ett annat teamkonto är redan anslutet. Koppla från det först.",
