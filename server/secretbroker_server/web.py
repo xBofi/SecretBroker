@@ -59,6 +59,7 @@ class Server:
         self.signup_throttle = security.Throttle(free=30)  # a whole team may join from one office
         self.delete_window = security.Window(settings.max_deletes_per_hour, 3600)  # item deletions per account
         self.invite_window = security.Window(settings.max_invites_per_hour, 3600)  # per organization and per account
+        self.challenges = security.Challenges()  # proofs that a device holds the account's keys (accounts.py)
         self.oldest_client = config.parse_version(settings.oldest_client)
         self.started = time.monotonic()
         # Server admin endpoints, per admin account: reads and changes in a minute, backups in an hour.

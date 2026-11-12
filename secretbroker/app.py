@@ -46,6 +46,8 @@ TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_i
                    "team_resend_invite", "team_drop_invite", "team_invite_code", "team_admin_backup_now",
                    "team_admin_settings", "team_admin_disable", "team_admin_enable", "team_admin_verify",
                    "team_admin_delete", "team_admin_transfer_owner", "team_admin_signup_token")
+TEAM_CHANGE_OPS += ("team_recovery_code", "team_reset_password", "team_recover", "team_replace_member")
+TEAM_CHANGE_OPS += ("team_confirm_replacement",)
 # What the app that unlocked may do with one click (see service.PRESENCE_OPS).
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
                 "import_file", "import_env_file", "export_vault") + TEAM_CHANGE_OPS
@@ -765,6 +767,47 @@ class Api:
             return {"ok": False, "error": tr("app.couldn_write", folder=folder, value=exc.strerror or exc)}
         integrations.set_pref("last_backup", datetime.now().isoformat(timespec="seconds"))
         return {"ok": True, "result": {"entries": result["result"]["entries"]}}
+
+    def backup_to_file(self, proof=None):
+        """«Pasar a otro ordenador»: a copy of the encrypted vault wherever the user says (a USB drive, a cloud
+        folder). It opens only with the master password. → {path, entries}"""
+        import webview
+        stamp = datetime.now().strftime("%Y-%m-%d")
+        chosen = self._window.create_file_dialog(
+            webview.SAVE_DIALOG, directory=str(Path.home() / "Documents"), save_filename=f"SecretBroker_{stamp}.sbbackup",
+            file_types=_file_types((tr("app.backup_files"), "*.sbbackup"))) if self._window else None
+        if not chosen:
+            return {"ok": False, "code": "cancelled", "error": tr("app.cancelled")}
+        target = Path(chosen if isinstance(chosen, str) else chosen[0])
+        result = self.call("backup", {}, proof)
+        if not result["ok"]:
+            return result
+        try:
+            target.write_text(result["result"]["vault"], encoding="utf-8")
+        except OSError as exc:
+            return {"ok": False, "code": "error", "error": tr("app.couldn_write_2", target=target, value=exc.strerror or exc)}
+        return {"ok": True, "result": {"path": str(target), "entries": result["result"]["entries"]}}
+
+    def save_recovery_code(self, text):
+        """The team account's recovery code (and a few lines on what it is) to a text file where the user says."""
+        import webview
+        chosen = self._window.create_file_dialog(
+            webview.SAVE_DIALOG, directory=str(Path.home() / "Documents"),
+            save_filename=tr("app.recovery_code_file_name") + ".txt") \
+            if self._window else None
+        if not chosen:
+            return {"ok": False, "code": "cancelled", "error": tr("app.cancelled")}
+        target = Path(chosen if isinstance(chosen, str) else chosen[0])
+        try:
+            target.write_text(str(text), encoding="utf-8")
+        except OSError as exc:
+            return {"ok": False, "code": "error", "error": tr("app.couldn_write_2", target=target, value=exc.strerror or exc)}
+        return {"ok": True, "result": {"path": str(target)}}
+
+    def copy_recovery_code(self, text):
+        """Like a secret: out of clipboard history, cleared after a while. → seconds until it is cleared"""
+        _copy_to_clipboard(str(text))
+        return CLIPBOARD_CLEAR_SECONDS
 
     def pick_backup_file(self):
         import webview

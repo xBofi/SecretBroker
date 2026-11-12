@@ -223,6 +223,8 @@ const ACTION_LABELS = localized(() => ({
   team_review: t('activity_action.team_change_review'), team_held: t('activity_action.team_deletions_on_hold'),
   team_unsigned: t('activity_action.unsigned_change_discarded'), team_recovery: t('activity_action.recovery_access'), team_resolve: t('activity_action.team_deletions_decided'),
   team_verify_email: t('activity.email_verified'), team_admin: t('activity_action.team_server_admin'),
+  team_recovery_code: t('activity_action.team_recovery_code'), team_password_reset: t('activity_action.team_password_reset'),
+  team_account_recovered: t('activity_action.team_account_recovered'),
 }));
 const APPROVAL_LABELS = localized(() => ({ session: t('approval_mode.once_per_session'), always: t('approval_mode.always'), never: t('common.never') }));
 const AUTH_LABELS = localized(() => ({ none: t('auth.don_add'), header: t('auth.in_header'), query: t('auth.as_url_parameter'), basic: t('auth.http_basic_username_and_password') }));
@@ -3044,6 +3046,8 @@ const EVENT_LABELS = {
   grant: 'team_event.grant', revoke: 'team_event.revoke', rotate: 'team_event.rotate', 'item.put': 'team_event.item_put',
   'item.delete': 'team_event.item_delete', 'invite.renew': 'team_event.invite_renew', 'invite.send': 'team_event.invite_send',
   'member.disable': 'team_event.member_disable', 'member.delete': 'team_event.member_delete',
+  'account.recover': 'team_event.account_recover', 'password.reset': 'team_event.password_reset',
+  'invite.replace': 'team_event.invite_replace',
 };
 const RELEASES_URL = 'https://github.com/xBofi/SecretBroker/releases/latest';
 
@@ -4201,7 +4205,7 @@ function teamAccountPanel(org, rerender) {
   const user = team.user || {};
   const me = org ? ((state.teamData.members || {})[org.id] || []).find((m) => m.me) : null;
   const leave = me && org.role !== 'owner' ? el('button', { class: 'btn ghost', 'data-mutates': '1', onclick: () => removeMember(org, me, rerender) }, t('team_account_panel.leave', { name: org.name })) : null;
-  return el('div', { class: 'settings team-panel' }, el('div', { class: 'settings-group' }, org ? null : el('h3', { class: 'muted' }, t('common.your_account')),
+  return el('div', { class: 'settings team-panel' }, recoveryOffer(rerender), el('div', { class: 'settings-group' }, org ? null : el('h3', { class: 'muted' }, t('common.your_account')),
     setting(user.name || user.email, `${user.email} · ${hostOf(team.server_url)}${team.device ? ` · ${t('team.this_pc', { device: team.device })}` : ''}`,
       el('button', { class: 'btn danger', onclick: disconnect }, t('common.disconnect'))),
     el('div', { class: 'setting' }, el('div', { class: 'meta' }, el('h3', {}, t('team_account_panel.your_security_code')),
@@ -4209,8 +4213,11 @@ function teamAccountPanel(org, rerender) {
       el('p', {}, t('team_account_panel.whoever_confirms_or_verifies_you'))),
     copyButton(team.fingerprint)),
     teamDevicesSetting(rerender),
-    setting(t('team_password.title'), t('team_password.help'),
-      el('button', { class: 'btn', 'data-mutates': '1', onclick: changeTeamPassword }, t('team_password.change'))),
+    setting(t('team_password.title'), t('team_password.help'), el('div', { class: 'setting-buttons' },
+      el('button', { class: 'btn ghost', 'data-mutates': '1', onclick: resetTeamPassword }, t('team_reset.forgot')),
+      el('button', { class: 'btn', 'data-mutates': '1', onclick: changeTeamPassword }, t('team_password.change')))),
+    recoverySetting(rerender),
+    setting(t('move_pc.title'), t('move_pc.account_help'), el('button', { class: 'btn', onclick: moveComputerGuide }, t('move_pc.open'))),
     org ? setting(org.name, t('team_account_panel.your_role', { value: lowerFirst(ROLE_LABELS[org.role] || org.role) }), leave) : null));
 }
 
@@ -4241,7 +4248,8 @@ function changeTeamPassword() {
   const modal = openModal({
     title: t('team_password.title'),
     body: [el('p', { class: 'muted' }, t('team_password.other_devices_log_out')),
-      el('div', { class: 'field' }, el('label', {}, t('team_password.current')), current),
+      el('div', { class: 'field' }, el('label', {}, t('team_password.current')), current,
+        el('button', { class: 'link small', type: 'button', style: 'align-self:flex-start', onclick: () => { modal.close(); resetTeamPassword(); } }, t('team_reset.dont_remember'))),
       el('div', { class: 'field' }, el('label', {}, t('team_password.new')), next, strengthMeter(next.input))],
     footer: [el('button', { class: 'btn', onclick: () => modal.close() }, t('common.cancel')), save],
   });
@@ -4299,6 +4307,9 @@ function teamPeoplePanel(org, members, admin, rerender) {
     if (!m.me && m.user_id && m.status === 'confirmed' && m.trusted) {
       controls.unshift(el('button', { class: 'btn ghost', 'data-mutates': '1', onclick: () => shareWithPerson({ ...m, org: org.id, label }) },
         icon('share', 'sm'), t('team_people_panel.share_with', { name: label })));
+    }
+    if (admin && !m.me && m.user_id && !invited && (iAmOwner || m.role !== 'owner') && state.team.recovery_supported) {
+      controls.push(el('button', { class: 'btn ghost', 'data-mutates': '1', title: t('lost_access.button_help', { label }), onclick: () => lostAccess(org, m, rerender) }, t('lost_access.button')));
     }
     if (admin && !m.me && m.user_id && !invited && (iAmOwner || m.role !== 'owner')) {
       controls.push(el('button', { class: 'btn icon-only', 'data-mutates': '1', title: t('team_people_panel.remove_from_organization'), 'aria-label': t('team_people_panel.remove_from_organization'), onclick: () => removeMember(org, m, rerender) }, icon('trash', 'sm')));
@@ -4391,7 +4402,8 @@ function inviteControls(org, m, rerender) {
 }
 
 // The admin passes these on (chat, e-mail, in person); a server with e-mail has also sent them itself.
-function inviteInstructions(org, email, code, justInvited = false, emailed = false) {
+function inviteInstructions(org, email, code, justInvited = false, emailed = false, { note = null, onClose = null } = {}) {
+  const noteBox = note ? el('div', { class: 'warning subtle' }, icon('info', 'sm'), el('span', {}, note)) : null;
   const server = state.team.server_url;
   const link = joinLink(server, email, code);
   const text = [
@@ -4422,8 +4434,9 @@ function inviteInstructions(org, email, code, justInvited = false, emailed = fal
       title: t('invite_instructions.invitation_created_for', { email }),
       wide: true,
       body: [el('div', { class: 'notice' }, icon('check', 'sm'), el('span', { class: 'notice-text' }, t('invite_instructions.sent_to', { email }))),
-        toggle, more],
+        noteBox, toggle, more],
       footer: [el('div', { class: 'spacer' }), done],
+      onClose,
     });
     return;
   }
@@ -4433,8 +4446,10 @@ function inviteInstructions(org, email, code, justInvited = false, emailed = fal
     body: [
       emailed ? el('div', { class: 'notice' }, icon('check', 'sm'), el('span', { class: 'notice-text' }, t('invite_instructions.emailed_to', { email })))
         : el('p', { class: 'muted' }, state.team.mail ? t('team_people_panel.couldn_send_email') : t('invite_instructions.secretbroker_doesn_send_invitations_by')),
+      noteBox,
       el('pre', { class: 'instructions selectable' }, text)],
     footer: [copyLink, el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, t('common.close')), copy],
+    onClose,
   });
 }
 
@@ -4705,6 +4720,8 @@ function teamEventsPanel(events, members, collections) {
       invite: { who: e.target }, 'invite.delete': { who: e.target }, 'invite.renew': { who: e.target },
       'invite.send': { who: e.target }, 'member.disable': { who: e.target }, 'member.delete': { who: e.target },
       'member.confirm': { who: name(e.target, someone) }, 'member.remove': { who: name(e.target, someone) },
+      'account.recover': { who: name(e.target, someone) }, 'password.reset': { who: name(e.target, someone) },
+      'invite.replace': { who: e.target },
       'member.role': { who: name(left, someone), role: lowerFirst(ROLE_LABELS[extra] || extra || '') },
       grant: { who: name(uid, someone), collection, permission: PERMISSION_LABELS[extra] || extra },
       revoke: { who: name(uid, someone), collection },
@@ -4721,6 +4738,201 @@ function teamEventsPanel(events, members, collections) {
           el('td', { class: 'muted', style: 'white-space:nowrap' }, formatTime(e.time)),
           el('td', {}, e.actor ? name(e.actor, t('common.someone')) : ''),  // none: the server admin (it says so)
           el('td', {}, describe(e)))))));
+}
+
+// ----- recovery (docs/ARCHITECTURE.md 2.1): nobody on a team loses access for good
+
+// The account's recovery code, shown once: nothing of it is kept, here or on the server.
+function showRecoveryCode(code, { onClose, used = false } = {}) {
+  const team = state.team || {};
+  const email = (team.user || {}).email || '';
+  const server = team.server_url || '';
+  const fileText = [t('recovery_code.file_title'), '', code, '', t('recovery_code.file_account', { email, server }), '',
+    t('recovery_code.file_what'), t('recovery_code.file_keep')].join('\n');
+  let kept = false;
+  const copy = el('button', { class: 'btn' }, icon('copy', 'sm'), t('common.copy'));
+  copy.addEventListener('click', async () => {
+    const seconds = await api().copy_recovery_code(code);
+    kept = true;
+    toast(t('recovery_code.copied', { seconds }));
+  });
+  const save = el('button', { class: 'btn' }, icon('download', 'sm'), t('recovery_code.save_file'));
+  save.addEventListener('click', async () => {
+    busy(save, true);
+    const result = await api().save_recovery_code(fileText);
+    busy(save, false);
+    if (result.ok) { kept = true; toast(t('recovery_code.saved_file', { path: result.result.path })); } else if (result.code !== 'cancelled') toast(result.error, 'error');
+  });
+  const vault = el('button', { class: 'btn ghost' }, icon('lock', 'sm'), t('recovery_code.save_vault'));
+  vault.addEventListener('click', async () => {
+    const id = 'secretbroker-team-recovery';
+    const entry = { id, name: t('recovery_code.entry_name'), template: 'generic', description: t('recovery_code.entry_description', { email, server }),
+      fields: { value: code, username: email, url: server }, policy: { approval: 'never' }, tags: [] };
+    busy(vault, true);
+    const exists = state.entries.some((e) => e.id === id);
+    const result = await withProof((p) => api().call('save_entry', { entry, replaces: exists ? id : null }, p), t('recovery_code.save_vault'));
+    busy(vault, false);
+    if (!result.ok) { if (result.code !== 'cancelled') toast(result.error, 'error'); return; }
+    kept = true;
+    vault.replaceChildren(icon('check', 'sm'), t('recovery_code.in_vault'));
+    vault.disabled = true;
+    await loadEntries();
+    toast(t('recovery_code.saved_vault'));
+  });
+  const done = el('button', { class: 'btn primary' }, t('recovery_code.done'));
+  const modal = openModal({
+    title: t('recovery_code.title'),
+    lead: el('div', { class: 'glyph lock' }, icon('key')),
+    body: [
+      used ? el('div', { class: 'notice' }, icon('info', 'sm'), el('span', { class: 'notice-text' }, t('recovery_code.used'))) : null,
+      el('p', { class: 'muted' }, t('recovery_code.lead')),
+      el('div', { class: 'recovery-code selectable', 'aria-label': t('recovery_code.title') }, code),
+      el('p', { class: 'help' }, t('recovery_code.shown_once')),
+      el('div', { class: 'recovery-actions' }, copy, save, vault),
+      el('div', { class: 'warning subtle' }, icon('info', 'sm'), el('span', {}, t('recovery_code.vault_note')))],
+    footer: [el('div', { class: 'spacer' }), done],
+    // Closing without keeping it: say once that it won't be shown again.
+    confirmClose: () => kept ? null : { title: t('recovery_code.close_title'), text: t('recovery_code.close_text') },
+    onClose,
+  });
+  done.addEventListener('click', () => modal.close());
+}
+
+// Make the account's recovery code (or a new one: the old one stops working) and show it once.
+async function makeRecoveryCode(button, rerender) {
+  const result = await teamAct('team_recovery_code', {}, t('recovery.reason'), button);
+  if (!result.ok) return false;
+  state.team.recovery = { created: result.result.created };
+  try { localStorage.removeItem(`recoveryOffer:${(state.team.user || {}).id}`); } catch { /* storage may be off */ }
+  showRecoveryCode(result.result.code, { onClose: rerender });
+  return true;
+}
+
+function recoverySetting(rerender) {
+  const team = state.team;
+  if (!team.recovery_supported) return null;
+  const made = team.recovery && team.recovery.created;
+  const button = el('button', { class: `btn ${made ? '' : 'primary'}`, 'data-mutates': '1' }, made ? t('recovery.make_new') : t('recovery.make'));
+  button.addEventListener('click', () => {
+    if (!made) { makeRecoveryCode(button, rerender); return; }
+    confirmModal({
+      title: t('recovery.new_title'),
+      text: t('recovery.new_text'),
+      action: t('recovery.make_new'),
+      onConfirm: (node) => makeRecoveryCode(node, rerender),
+    });
+  });
+  return setting(t('recovery.title'),
+    made ? `${t('recovery.made_on', { date: fmtDate(made, { day: 'numeric', month: 'long', year: 'numeric' }) })} ${t('recovery.help')}`
+      : t('recovery.none_help'), button);
+}
+
+// Offered once to accounts made before recovery codes existed (or that skipped it): «Ahora no» hides it here.
+function recoveryOffer(rerender) {
+  const team = state.team;
+  const key = `recoveryOffer:${(team.user || {}).id}`;
+  let dismissed = false;
+  try { dismissed = localStorage.getItem(key) === 'no'; } catch { /* storage may be off */ }
+  if (!team.recovery_supported || (team.recovery && team.recovery.created) || dismissed) return null;
+  const make = el('button', { class: 'btn primary', 'data-mutates': '1' }, t('recovery.make'));
+  make.addEventListener('click', () => makeRecoveryCode(make, rerender));
+  const later = el('button', { class: 'btn ghost', onclick: () => { try { localStorage.setItem(key, 'no'); } catch { /* */ } rerender(); } }, t('recovery.not_now'));
+  return el('div', { class: 'pause-card recovery-offer' },
+    el('div', { class: 'meta' }, el('h3', {}, t('recovery.offer_title')), el('p', {}, t('recovery.offer_text'))),
+    later, make);
+}
+
+// «He olvidado la contraseña» on a PC still connected: it has the keys, so it sets a new one without the old one.
+function resetTeamPassword() {
+  const next = passwordInput({ autocomplete: 'new-password' });
+  const repeat = passwordInput({ autocomplete: 'new-password' });
+  const errorText = el('div', { class: 'error-text' });
+  const save = el('button', { class: 'btn primary', 'data-mutates': '1' }, t('team_reset.button'));
+  const modal = openModal({
+    title: t('team_reset.title'),
+    body: [el('p', { class: 'muted' }, t('team_reset.lead')),
+      el('div', { class: 'field' }, el('label', {}, t('team_password.new')), next, strengthMeter(next.input)),
+      el('div', { class: 'field' }, el('label', {}, t('common.repeat')), repeat),
+      el('p', { class: 'help' }, t('team_reset.other_devices')),
+      errorText],
+    footer: [el('button', { class: 'btn', onclick: () => modal.close() }, t('common.cancel')), save],
+  });
+  const submit = async () => {
+    errorText.textContent = '';
+    if (next.input.value.length < 12) { errorText.textContent = t('team_connect_form.account_password_needs_at_least'); next.input.focus(); return; }
+    if (next.input.value !== repeat.input.value) { errorText.textContent = t('common.two_passwords_don_match'); repeat.input.focus(); return; }
+    const result = await teamAct('team_reset_password', { password: next.input.value }, t('team_reset.reason'), save);
+    if (!result.ok) return;
+    modal.close();
+    toast(t('team_reset.done'));
+  };
+  save.addEventListener('click', submit);
+  repeat.input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  setTimeout(() => next.input.focus(), 50);
+}
+
+// «Ha perdido el acceso»: someone who can't get into their account at all. They are removed like anyone (re-keys,
+// «cambiar» flags) and their e-mail invited again; their new account takes the old one's place.
+function lostAccess(org, member, rerender) {
+  const label = member.name || member.email;
+  const button = el('button', { class: 'btn solid-danger' }, t('lost_access.action'));
+  const modal = openModal({
+    title: t('lost_access.title', { label }),
+    body: [
+      el('p', { class: 'muted' }, t('lost_access.when', { label })),
+      el('ul', { class: 'plain-list' },
+        el('li', {}, t('lost_access.removed', { name: org.name })),
+        el('li', {}, t('lost_access.invited', { email: member.email })),
+        el('li', {}, t('lost_access.give_back', { label }))),
+      el('div', { class: 'warning subtle' }, icon('info', 'sm'), el('span', {}, t('lost_access.not_needed')))],
+    footer: [el('button', { class: 'btn', onclick: () => modal.close() }, t('common.cancel')), button],
+  });
+  button.addEventListener('click', async () => {
+    const result = await teamAct('team_replace_member', { org: org.id, user_id: member.user_id }, t('lost_access.reason', { label }), button);
+    if (!result.ok) return;
+    modal.close();
+    await loadEntries();
+    const { invite, email, collections = [], credentials = 0, person = label } = result.result;
+    rerender();
+    inviteInstructions(org, email, invite.id, true, invite.emailed, {
+      note: collections.length ? t('lost_access.had', { label, names: listJoin(collections) }) : t('lost_access.had_none', { label }),
+      onClose: credentials ? () => setTimeout(() => openOffboarding(person), 50) : null,
+    });
+  });
+}
+
+// «Pasar a otro PC»: what to take, what to do on the new one, and closing the session here. Each step says how.
+function moveComputerGuide() {
+  const team = state.team && state.team.connected ? state.team : null;
+  const backupState = el('div', { class: 'step-state' });
+  const backup = el('button', { class: 'btn primary' }, icon('download', 'sm'), t('move_pc.backup_button'));
+  backup.addEventListener('click', async () => {
+    busy(backup, true);
+    const result = await withProof((p) => api().backup_to_file(p), t('move_pc.backup_reason'));
+    busy(backup, false);
+    if (!result.ok) { if (result.code !== 'cancelled') toast(result.error, 'error'); return; }
+    backup.classList.remove('primary');
+    backupState.replaceChildren(el('span', { class: 'state-text ok' }, icon('check', 'sm'), t('move_pc.backup_saved', { path: result.result.path })));
+  });
+  const copyLink = el('button', { class: 'btn' }, icon('copy', 'sm'), t('move_pc.copy_download_link'));
+  copyLink.addEventListener('click', async () => { await api().copy_text(RELEASES_URL); toast(t('invite_instructions.link_copied')); });
+  const step = (title, ...rest) => el('li', {}, el('div', { class: 'step-title' }, title), ...rest);
+  const noRecovery = team && team.recovery_supported && !(team.recovery && team.recovery.created);
+  const steps = [
+    step(t('move_pc.step_backup'), el('p', { class: 'muted' }, t('move_pc.step_backup_text')), el('div', { class: 'step-actions' }, backup), backupState),
+    step(t('move_pc.step_restore'), el('p', { class: 'muted' }, t('move_pc.step_restore_text')), el('div', { class: 'step-actions' }, copyLink)),
+    team ? step(t('move_pc.step_team'), el('p', { class: 'muted' }, t('move_pc.step_team_text', { email: team.user.email, host: hostOf(team.server_url) })),
+      noRecovery ? el('p', { class: 'help' }, t('move_pc.step_team_no_code')) : null) : null,
+    step(team ? t('move_pc.step_close') : t('move_pc.step_close_no_team'),
+      el('p', { class: 'muted' }, team ? t('move_pc.step_close_text') : t('move_pc.step_close_no_team_text'))),
+  ].filter(Boolean);
+  const modal = openModal({
+    title: t('move_pc.title'),
+    wide: true,
+    body: [el('p', { class: 'muted' }, t('move_pc.lead')), el('ol', { class: 'install-steps move-steps' }, steps),
+      el('div', { class: 'warning subtle' }, icon('info', 'sm'), el('span', {}, t('move_pc.unlock_note')))],
+    footer: [el('div', { class: 'spacer' }), el('button', { class: 'btn primary', onclick: () => modal.close() }, t('common.done'))],
+  });
 }
 
 // ----- «Servidor»: the team server's admin (docs/ARCHITECTURE.md 5.2). Accounts, organizations, backups and sign-ups;
@@ -5123,10 +5335,9 @@ function serverLog(admin) {
           el('td', {}, e.actor ? capitalized(who(e.actor)) : t('server_admin.from_the_server')),
           el('td', {}, describe(e)))))));
 }
-
 // ----- linking the account (the only time its password is typed on this PC)
 
-function teamConnectForm({ server = '', email = '', code = '', mode = 'register', lockMode = false, invited = false, onDone }) {
+function teamConnectForm({ server = '', email = '', code = '', mode = 'register', lockMode = false, invited = false, restored = false, pending = null, onDone }) {
   let current = mode;
   const serverInput = el('input', { class: 'input', placeholder: 'https://equipo.tuempresa.com', value: server, spellcheck: 'false' });
   const nameInput = el('input', { class: 'input', placeholder: t('team_connect_form.how_your_team_will_see') });
@@ -5134,26 +5345,65 @@ function teamConnectForm({ server = '', email = '', code = '', mode = 'register'
   const pw = passwordInput({ autocomplete: current === 'register' ? 'new-password' : 'current-password' });
   const repeat = passwordInput();
   const tokenInput = el('input', { class: 'input mono', spellcheck: 'false', value: code });
+  // «¿Has olvidado la contraseña?»: the recovery code opens the keys here and a new password wraps them (2.1).
+  const recoveryInput = el('input', { class: 'input mono', spellcheck: 'false', autocomplete: 'off', placeholder: 'XXXXX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX' });
+  const pwLabel = el('label', {});
+  const forgot = el('button', { class: 'link small', type: 'button', style: 'align-self:flex-start;margin-top:6px',
+    onclick: () => { current = 'recover'; errorText.textContent = ''; render(); recoveryInput.focus(); } }, t('team_recover.forgot'));
+  const back = el('button', { class: 'link small', type: 'button', style: 'align-self:flex-start',
+    onclick: () => { current = 'login'; errorText.textContent = ''; render(); } }, t('team_recover.back'));
+  const recoverHead = el('div', { class: 'recover-head' }, el('h3', {}, t('team_recover.title')), el('p', { class: 'muted' }, t('team_recover.lead')));
+  const recoverField = el('div', { class: 'field' }, el('label', {}, t('team_recover.code')), recoveryInput,
+    el('div', { class: 'help' }, t('team_recover.code_help')));
+  const noCode = el('div', { class: 'warning subtle' }, icon('info', 'sm'), el('div', {},
+    el('b', {}, t('team_recover.no_code_title')), ' ', t('team_recover.no_code_text')));
+  const onlyOnce = el('p', { class: 'help' }, t('team_connect_form.only_asked_for_this_once'));
+  // A new account replacing one whose owner lost access: it proves the e-mail first (the e-mailed code, or the
+  // server admin), so an invite code alone never takes an address.
+  let replacing = pending;  // {email, mail}: shown at once (the sign-up said the e-mail must be proven)
+  if (pending) current = 'replace';
+  const replaceText = el('p', { class: 'muted' });
+  const replaceHead = el('div', { class: 'recover-head' }, el('h3', {}, t('team_replace.title')), replaceText);
+  const replaceInput = el('input', { class: 'input mono', spellcheck: 'false', autocomplete: 'one-time-code', inputmode: 'numeric' });
+  const replaceField = el('div', { class: 'field' }, el('label', {}, t('team_replace.code')), replaceInput);
   const errorText = el('div', { class: 'error-text' });
   const button = el('button', { class: 'btn primary lg' });
   const tabs = el('div', { class: 'segmented' });
   const linkNote = el('div', { class: `notice ${invited ? '' : 'hidden'}` }, icon('users', 'sm'), el('span', { class: 'notice-text' }));
+  const serverField = el('div', { class: 'field' }, el('label', {}, t('team_connect_form.server')), serverInput,
+    el('div', { class: 'help' }, t('team_connect_form.address_your_secretbroker_server_you')));
+  const emailField = el('div', { class: 'field' }, el('label', {}, 'E-mail'), emailInput);
   const registerOnly = [
     el('div', { class: 'field' }, el('label', {}, t('team_connect_form.your_name'), el('span', { class: 'req' }, t('common.optional_suffix'))), nameInput),
   ];
   const meter = strengthMeter(pw.input);
   const repeatField = el('div', { class: 'field' }, el('label', {}, t('common.repeat')), repeat);
   const tokenField = el('div', { class: 'field' }, el('label', {}, t('team_connect_form.invitation_code'), el('span', { class: 'req' }, t('team_connect_form.if_your_server_asks_for'))), tokenInput);
+  const pwField = el('div', { class: 'field' }, pwLabel, pw, meter, forgot);
   const render = () => {
     tabs.replaceChildren([['register', t('team_connect_form.create_account')], ['login', t('team_connect_form.sign_in')]].map(([m, text]) => el('button', {
       type: 'button', class: m === current ? 'active' : '', onclick: () => { current = m; errorText.textContent = ''; render(); },
     }, text)));
     const register = current === 'register';
+    const recover = current === 'recover';
+    const replace = current === 'replace';
+    tabs.classList.toggle('hidden', recover || replace);
+    replaceHead.classList.toggle('hidden', !replace);
+    replaceField.classList.toggle('hidden', !replace || !(replacing && replacing.mail));
+    [serverField, emailField, pwField].forEach((n) => n.classList.toggle('hidden', replace));
+    [recoverHead, recoverField, noCode, back].forEach((n) => n.classList.toggle('hidden', !recover));
+    forgot.classList.toggle('hidden', current !== 'login');
+    onlyOnce.classList.toggle('hidden', recover || replace);
     registerOnly.forEach((n) => n.classList.toggle('hidden', !register));
-    meter.forEach((n) => n.classList.toggle('hidden', !register));
-    repeatField.classList.toggle('hidden', !register);
+    meter.forEach((n) => n.classList.toggle('hidden', !register && !recover));
+    repeatField.classList.toggle('hidden', (!register && !recover) || replace);
     tokenField.classList.toggle('hidden', !register);
-    button.textContent = register ? t('team_connect_form.create_account') : t('team_connect_form.sign_in');
+    pwLabel.textContent = recover ? t('team_recover.new_password') : t('team_connect_form.account_password');
+    pw.input.autocomplete = register || recover ? 'new-password' : 'current-password';
+    button.textContent = replace ? (replacing && replacing.mail ? t('team_replace.button') : t('team_connect_form.sign_in'))
+      : recover ? t('team_recover.button') : register ? t('team_connect_form.create_account') : t('team_connect_form.sign_in');
+    if (replace) replaceText.textContent = replacing.mail ? t('team_replace.mail_text', { email: replacing.email })
+      : t('team_replace.no_mail_text', { email: replacing.email });
   };
   render();
   const showLink = (link) => {
@@ -5161,6 +5411,10 @@ function teamConnectForm({ server = '', email = '', code = '', mode = 'register'
     linkNote.querySelector('.notice-text').textContent = t('team_connect_form.invitation_for_on_check_that', { value: link.email || 'ti', host: hostOf(link.server) });
   };
   if (invited) showLink({ server, email });
+  if (restored) {  // a vault restored on a new PC: the account is here, the old PC's session is not
+    linkNote.classList.remove('hidden');
+    linkNote.querySelector('.notice-text').textContent = t('team_connect_form.restored_sign_in', { email, host: hostOf(server) });
+  }
   // A pasted invite link (secretbroker://join?…) fills in the form.
   serverInput.addEventListener('input', () => {
     const link = parseJoinLink(serverInput.value);
@@ -5175,46 +5429,90 @@ function teamConnectForm({ server = '', email = '', code = '', mode = 'register'
   });
   const submit = async () => {
     errorText.textContent = '';
+    if (current === 'replace') { await submitReplace(); return; }
     const register = current === 'register';
+    const recover = current === 'recover';
     if (!serverInput.value.trim()) { errorText.textContent = t('team_connect_form.type_server_address'); serverInput.focus(); return; }
     if (!emailInput.value.trim()) { errorText.textContent = t('team_connect_form.type_your_e_mail'); emailInput.focus(); return; }
-    if (!pw.input.value) { errorText.textContent = t('team_connect_form.type_account_password'); pw.input.focus(); return; }
-    if (register && pw.input.value.length < 12) { errorText.textContent = t('team_connect_form.account_password_needs_at_least'); return; }
-    if (register && pw.input.value !== repeat.input.value) { errorText.textContent = t('common.two_passwords_don_match'); return; }
+    if (recover && !recoveryInput.value.trim()) { errorText.textContent = t('team_recover.type_code'); recoveryInput.focus(); return; }
+    if (!pw.input.value) { errorText.textContent = recover ? t('team_recover.type_new_password') : t('team_connect_form.type_account_password'); pw.input.focus(); return; }
+    if ((register || recover) && pw.input.value.length < 12) { errorText.textContent = t('team_connect_form.account_password_needs_at_least'); return; }
+    if ((register || recover) && pw.input.value !== repeat.input.value) { errorText.textContent = t('common.two_passwords_don_match'); return; }
     busy(button, true);
     const params = { server_url: serverInput.value.trim(), email: emailInput.value.trim(), password: pw.input.value, mode: current };
     if (register && nameInput.value.trim()) params.name = nameInput.value.trim();
     if (register && tokenInput.value.trim()) params.invite_token = tokenInput.value.trim();
-    const result = await withProof((p) => api().call('team_connect', params, p), t('team_connect_form.connect_team_account'));
+    if (recover) { delete params.mode; params.code = recoveryInput.value.trim(); }
+    const result = await withProof((p) => api().call(recover ? 'team_recover' : 'team_connect', params, p),
+      recover ? t('team_recover.reason') : t('team_connect_form.connect_team_account'));
     busy(button, false);
     if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
+    if (result.result.replace_pending) {  // the e-mail had an account whose owner lost access: prove it first
+      replacing = result.result.replace_pending;
+      current = 'replace';
+      render();
+      if (replacing.mail) replaceInput.focus();
+      return;
+    }
+    await finish(result.result, recover ? t('team_recover.done') : register ? t('team_connect_form.account_created_and_connected') : t('common.connected'));
+  };
+  const finish = async (status, message) => {
     pw.input.value = '';
     repeat.input.value = '';
-    toast(register ? t('team_connect_form.account_created_and_connected') : t('common.connected'));
-    onDone(result.result);
+    recoveryInput.value = '';
+    replaceInput.value = '';
+    toast(message);
+    const code = status.recovery_code;
+    const used = !!status.recovery_used;
+    delete status.recovery_code;
+    await onDone(status);
+    // A new account, or a recovery code that was just used: the (new) code, shown once.
+    if (code) showRecoveryCode(code, { used });
+  };
+  const submitReplace = async () => {
+    const params = { server_url: serverInput.value.trim(), email: emailInput.value.trim(), password: pw.input.value };
+    if (replacing.mail && !replaceInput.value.trim()) { errorText.textContent = t('team_replace.type_code'); replaceInput.focus(); return; }
+    busy(button, true);
+    const result = replacing.mail
+      ? await withProof((p) => api().call('team_confirm_replacement', { ...params, code: replaceInput.value.trim() }, p), t('team_replace.reason'))
+      : await withProof((p) => api().call('team_connect', { ...params, mode: 'login' }, p), t('team_connect_form.connect_team_account'));
+    busy(button, false);
+    if (!result.ok) {
+      if (result.code === 'cancelled') return;
+      errorText.textContent = !replacing.mail && result.code === 'invalid_credentials' ? t('team_replace.not_yet') : result.error;
+      return;
+    }
+    await finish(result.result, t('team_replace.done'));
   };
   button.addEventListener('click', submit);
-  [pw.input, repeat.input, tokenInput].forEach((i) => i.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); }));
+  [pw.input, repeat.input, tokenInput, replaceInput].forEach((i) => i.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); }));
+  if (lockMode) tabs.remove();
   return el('div', { class: 'team-form' },
     lockMode ? null : tabs,
+    recoverHead,
+    replaceHead,
     linkNote,
-    el('div', { class: 'field' }, el('label', {}, t('team_connect_form.server')), serverInput,
-      el('div', { class: 'help' }, t('team_connect_form.address_your_secretbroker_server_you'))),
+    serverField,
     registerOnly,
-    el('div', { class: 'field' }, el('label', {}, 'E-mail'), emailInput),
-    el('div', { class: 'field' }, el('label', {}, t('team_connect_form.account_password')), pw, meter),
+    emailField,
+    recoverField,
+    noCode,
+    pwField,
+    replaceField,
     repeatField,
     tokenField,
-    el('p', { class: 'help' }, t('team_connect_form.only_asked_for_this_once')),
+    onlyOnce,
     errorText,
-    el('div', {}, button));
+    el('div', { class: 'form-actions' }, button, back));
 }
 
 function renderTeamConnect(content) {
   const link = state.joinLink;
   state.joinLink = null;
-  const form = teamConnectForm({ server: link ? link.server : '', email: link ? link.email : '', code: link ? link.code : '',
-    invited: !!link, onDone: async () => { await loadEntries(); renderMain(); } });
+  const hint = !link && state.team && state.team.hint;  // a vault restored on a new PC
+  const form = teamConnectForm({ server: link ? link.server : hint ? hint.server_url : '', email: link ? link.email : hint ? hint.email : '',
+    code: link ? link.code : '', invited: !!link, restored: !!hint, mode: hint ? 'login' : 'register',
+    onDone: async () => { await loadEntries(); renderMain(); } });
   content.replaceChildren(el('div', { class: 'content-header' }, el('h1', {}, t('common.team'))),
     el('div', { class: 'content-body team-view' }, el('div', { class: 'team-connect' },
       el('div', { class: 'team-intro' },
@@ -5226,7 +5524,7 @@ function renderTeamConnect(content) {
           el('div', {}, icon('server'), el('div', {}, el('b', {}, t('team_connect.on_your_own_server')), el('span', { class: 'muted' }, t('team_connect.secretbroker_server_is_open_source')))),
           el('div', {}, icon('rotate'), el('div', {}, el('b', {}, t('team_connect.if_someone_leaves')), el('span', { class: 'muted' }, t('team_connect.their_collections_are_re_encrypted')))))),
       form)));
-  if (link) setTimeout(() => form.querySelector(link.email ? 'input[type=password]' : 'input[type=email]').focus(), 50);
+  if (link || hint) setTimeout(() => form.querySelector(link && !link.email ? 'input[type=email]' : 'input[type=password]').focus(), 50);
 }
 
 function reconnectTeam(rerender) {
@@ -5579,6 +5877,8 @@ function renderSettings(content) {
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, t('settings.app')),
         setting(t('settings.start_with_windows'), t('settings.secretbroker_stays_next_clock_ready'), startToggle)),
       backupSlot,
+      el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, t('move_pc.group')),
+        setting(t('move_pc.settings_title'), t('move_pc.settings_help'), el('button', { class: 'btn', onclick: moveComputerGuide }, t('move_pc.open')))),
       importExportGroup(),  // personal.js
       browserSettingsGroup(),
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, t('settings.copies_your_keys')),

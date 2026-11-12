@@ -1013,6 +1013,21 @@ p, .help, .lead, .muted, .subtitle, .banner, .warning { overflow-wrap: break-wor
 .direct-head { margin-top: 28px; }
 .direct-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .direct-controls .spacer { flex: 1; }
+/* Recovery: the account's recovery code (shown once), the way back in, and «Pasar a otro PC» */
+.recovery-code { font: var(--fw-semibold) 17px/1.5 var(--font-mono); letter-spacing: .03em; text-align: center; padding: 14px 8px;
+  margin: 12px 0 8px; border: 1px dashed var(--line-strong, var(--line)); border-radius: var(--radius); background: var(--bg-subtle);
+  white-space: nowrap; overflow-x: auto; user-select: text; }
+.recovery-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.recovery-offer { margin-bottom: 18px; border-color: var(--interactive); }
+.setting-buttons { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.plain-list { margin: 10px 0 12px; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-sm); }
+.recover-head { display: flex; flex-direction: column; gap: 4px; }
+.recover-head p { font-size: var(--fs-sm); }
+.form-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.move-steps .step-title { font-weight: var(--fw-semibold); }
+.move-steps p { margin-top: 4px; font-size: var(--fs-sm); }
+.move-steps .step-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.move-steps .step-state { margin-top: 6px; font-size: var(--fs-sm); word-break: break-all; }
 
 /* «Servidor» in Equipo: the team server's admin */
 .team-tabs .server-tab { margin-left: auto; }

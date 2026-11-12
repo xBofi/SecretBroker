@@ -1,5 +1,6 @@
 """Accounts, sessions (devices), e-mail verification, key lookup, server info and server-admin signup tokens."""
 
+import hashlib
 import hmac
 import json
 import logging
@@ -8,13 +9,17 @@ import threading
 
 from . import __version__, config, mail, security
 from .db import event, now_epoch, now_iso
-from .validate import ApiError, b64, body, email, integer, kdf, name, path_id, sealed, text, uuid_id
+from .validate import ApiError, b64, body, email, integer, kdf, name, one_of, path_id, sealed, text, uuid_id
 from .web import is_server_admin, new_id, route
 
 log = logging.getLogger("secretbroker_server")
 
 BLOB_MAX = 4096
 ACCOUNT_DATA_MAX = 256 * 1024  # the account's own encrypted data (pins of verified people), see /me/data
+# A password set without the old one (from a device with the keys, or with the recovery code) and a recovery code
+# take at least the work new accounts use (secretbroker/crypto.py): never a cheaper auth_hash to guess from.
+MIN_NEW_KDF_N = 2**17
+PROOF = b"secretbroker/account-proof/v1|"
 
 
 def _user(row, settings):
@@ -32,7 +37,8 @@ def info(ctx):
     oldest app served), so either side can tell the user which one to update."""
     return {"name": ctx.settings.name, "version": __version__, "signups": ctx.settings.signups,
             "verification": ctx.settings.verification, "api": config.API_VERSION,
-            "min_client": ctx.settings.oldest_client, "mail": ctx.settings.smtp}
+            "min_client": ctx.settings.oldest_client, "mail": ctx.settings.smtp,
+            "recovery": True}  # recovery codes, a new password from a device with the keys, accounts replaced
 
 
 @route("GET", "/health", auth=False, tx=False, any_client=True)
@@ -109,11 +115,14 @@ def register(ctx):
     if conn.execute("SELECT 1 FROM users WHERE id = ?", (data["user_id"],)).fetchone():
         raise ApiError(409, "exists", "Ese id de usuario ya existe.")
     verified = ctx.settings.verification == "off"
-    if conn.execute("SELECT 1 FROM users WHERE email = ?", (data["email"],)).fetchone():
+    existing = conn.execute("SELECT * FROM users WHERE email = ?", (data["email"],)).fetchone()
+    if existing and not _replaceable(conn, existing, data["invite_token"]):
         # The same answer as a new account (nothing is created; the client's login then fails), so a sign-up
         # does not tell anyone which addresses have an account here (prelogin doesn't either), nor sooner.
         security.verifier(data["auth_hash"], security.new_salt())
         return {"user_id": data["user_id"], "verified": verified}
+    if existing:
+        return _pending_replacement(ctx, conn, data, existing)
     first = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
     invited_to = None if verified or not data["invite_token"] else _org_invite(ctx, data["email"], data["invite_token"])
     salt = security.new_salt()
@@ -130,6 +139,98 @@ def register(ctx):
     if not verified and ctx.settings.smtp:
         _send_code(ctx, conn, data["user_id"], data["email"])
     return {"user_id": data["user_id"], "verified": verified, **({"invited_to": invited_to} if invited_to else {})}
+
+
+def _replaceable(conn, user, token):
+    """Whether this sign-up may take the place of the account that has its e-mail: its owner lost access to it for
+    good (no password, no recovery code, no device), an organization admin took it out and invited the address
+    again saying so («Ha perdido el acceso»: invites.replaces), and this sign-up uses that very invite. The old
+    account must be in no organization by then (nobody else depends on it) and not a server admin."""
+    try:
+        invite_id = uuid_id(token or "")
+    except ApiError:
+        return False
+    row = conn.execute("SELECT 1 FROM invites WHERE id = ? AND email = ? AND replaces = ? AND COALESCE(expires, ?) > ?",
+                       (invite_id, user["email"], user["id"], 2**62, now_epoch())).fetchone()
+    return bool(row) and not user["is_admin"] and not conn.execute(
+        "SELECT 1 FROM org_members WHERE user_id = ?", (user["id"],)).fetchone()
+
+
+def _pending_replacement(ctx, conn, data, old):
+    """The new account of someone who lost access waits here, unable to sign in, until it proves the e-mail: the
+    code e-mailed to it (`/accounts/replace/verify`) or a server admin (`verify-email`, mark_verified). Until then the
+    old account keeps its e-mail and nothing of it changes: the invite code alone (which the org admin knows) never
+    takes an address. A newer sign-up for the same account takes the place of an older one still waiting."""
+    for (waiting,) in conn.execute("SELECT id FROM users WHERE replaces = ?", (old["id"],)).fetchall():
+        _drop_account(conn, waiting)
+    uid, salt = data["user_id"], security.new_salt()
+    conn.execute(
+        "INSERT INTO users (id, email, name, kdf, auth_salt, auth_verifier, public_key, signing_public_key, "
+        "private_blob, is_admin, verified, created, replaces, replacing_email) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)",
+        (uid, f"{uid}@replacing.invalid", data["name"], json.dumps(data["kdf"]), salt,
+         security.verifier(data["auth_hash"], salt), data["public_key"], data["signing_public_key"],
+         json.dumps(data["private_blob"]), now_iso(), old["id"], data["email"]))
+    event(conn, None, uid, "user.replace_pending", old["id"])
+    if ctx.settings.smtp:
+        _send_code(ctx, conn, uid, data["email"])
+    return {"user_id": uid, "verified": False, "replacing": True, "mail": bool(ctx.settings.smtp)}
+
+
+def complete_replacement(conn, uid, actor):
+    """The waiting account proved the e-mail: it takes the old account's place (the old one is deleted). Refused
+    (False, nothing changes) if the old account is in an organization again or is a server admin by now."""
+    row = conn.execute("SELECT id, replaces, replacing_email FROM users WHERE id = ? AND replacing_email IS NOT NULL",
+                       (uid,)).fetchone()
+    if row is None:
+        return False
+    old = conn.execute("SELECT * FROM users WHERE email = ?", (row["replacing_email"],)).fetchone()
+    if old and (old["id"] != row["replaces"] or old["is_admin"]
+                or conn.execute("SELECT 1 FROM org_members WHERE user_id = ?", (old["id"],)).fetchone()):
+        return False
+    if old:
+        _drop_account(conn, old["id"])
+    conn.execute("UPDATE users SET email = replacing_email, replaces = NULL, replacing_email = NULL, verified = 1 "
+                 "WHERE id = ?", (uid,))
+    conn.execute("DELETE FROM email_codes WHERE user_id = ?", (uid,))
+    event(conn, None, actor, "user.replace", row["replaces"])
+    return True
+
+
+@route("POST", "/accounts/replace/verify", auth=False, tx=False)
+def verify_replacement(ctx):
+    """The code e-mailed to a new account that waits to replace one whose owner lost access. Wrong tries count
+    (5 per code) and are throttled like logins; an unknown e-mail gets the same answer as an expired code."""
+    data = body(ctx.body, {"email": email, "code": text(20)})
+    code = "".join(ch for ch in data["code"] if ch.isdigit())
+    server = ctx.server
+    wait = max(server.ip_throttle.retry_after(ctx.ip), server.email_throttle.retry_after(data["email"]))
+    if wait:
+        raise rate_limited(wait)
+    error = None
+    with ctx.db.tx(write=True) as conn:
+        row = conn.execute("SELECT u.id, c.code_hash, c.expires, c.attempts FROM users u LEFT JOIN email_codes c "
+                           "ON c.user_id = u.id WHERE u.replacing_email = ?", (data["email"],)).fetchone()
+        if row is None or row["code_hash"] is None or row["expires"] <= now_epoch() or row["attempts"] >= mail.CODE_TRIES:
+            error = ApiError(400, "code_expired", "Ese código ha caducado. Pide uno nuevo.")
+        elif not hmac.compare_digest(mail.code_hash(ctx.server.secret, row["id"], code), row["code_hash"]):
+            conn.execute("UPDATE email_codes SET attempts = attempts + 1 WHERE user_id = ?", (row["id"],))
+            error = ApiError(400, "invalid_code", "El código no es correcto.")
+        elif not complete_replacement(conn, row["id"], row["id"]):
+            error = ApiError(409, "replace_blocked", "La cuenta anterior vuelve a estar en una organización.")
+    if error:
+        if error.code != "replace_blocked":
+            server.ip_throttle.fail(ctx.ip)
+            server.email_throttle.fail(data["email"])
+        raise error
+    return {}
+
+
+def _drop_account(conn, uid):
+    """Everything only that account uses (its keys were lost: nothing here can be opened any more)."""
+    for table in ("sessions", "email_codes", "account_data", "recovery", "collection_members", "org_members"):
+        conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (uid,))
+    conn.execute("DELETE FROM users WHERE id = ?", (uid,))
 
 
 # ---------------------------------------------------------------------- e-mail verification
@@ -190,9 +291,14 @@ def verify_email(ctx):
 
 
 def mark_verified(conn, user_id, actor):
+    """Verified by its code or by a server admin. An account waiting to replace one whose owner lost access takes
+    its place now (complete_replacement; False if that is refused)."""
+    if conn.execute("SELECT 1 FROM users WHERE id = ? AND replacing_email IS NOT NULL", (user_id,)).fetchone():
+        return complete_replacement(conn, user_id, actor)
     conn.execute("UPDATE users SET verified = 1 WHERE id = ?", (user_id,))
     conn.execute("DELETE FROM email_codes WHERE user_id = ?", (user_id,))
     event(conn, None, actor, "email.verify", user_id)
+    return True
 
 
 @route("POST", "/accounts/login", auth=False, tx=False)
@@ -203,6 +309,8 @@ def login(ctx):
     if wait:
         raise rate_limited(wait)
     user = ctx.db.conn().execute("SELECT * FROM users WHERE email = ?", (address,)).fetchone()
+    if user and user["replacing_email"]:
+        user = None  # waiting to replace an account: it signs in once it has proven the e-mail
     if user:
         ok = security.verify(data["auth_hash"], user["auth_salt"], user["auth_verifier"])
     else:  # same work as a real check, so timing does not reveal whether the account exists
@@ -242,7 +350,9 @@ def me(ctx):
                             "AND expires > ? ORDER BY created", (ctx.uid, now_epoch())).fetchall()
     devices = [{"id": r["id"], "name": r["device_name"], "created": r["created"], "last_seen": r["last_seen"],
                 "current": r["id"] == ctx.session_id} for r in rows]
-    return {"user": _user(ctx.user, ctx.settings), "devices": devices}
+    recovery = ctx.conn.execute("SELECT created FROM recovery WHERE user_id = ?", (ctx.uid,)).fetchone()
+    return {"user": _user(ctx.user, ctx.settings), "devices": devices,
+            "recovery": {"created": recovery["created"]} if recovery else None}
 
 
 @route("DELETE", "/me/devices/{sid}")
@@ -279,6 +389,158 @@ def change_password(ctx):
                       json.dumps(data["private_blob"]), ctx.uid))
         conn.execute("DELETE FROM sessions WHERE user_id = ? AND id != ?", (ctx.uid, ctx.session_id))
         event(conn, None, ctx.uid, "password.change", ctx.uid)
+    return {}
+
+
+# ---------------------------------------------------------------------- recovery (docs/ARCHITECTURE.md 2.1)
+#
+# Nothing here can open the keys: a device that has them proves it by signing a single-use challenge with the
+# account's Ed25519 key (checked against the signing_public_key stored at sign-up), and the recovery code never
+# reaches the server, only an auth key derived from it (stored as a verifier, like auth_hash) and the private keys
+# wrapped by another key derived from it.
+
+def _digest(fields):
+    return hashlib.sha256(json.dumps(fields, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+                          .encode("utf-8")).hexdigest()
+
+
+def proof_message(purpose, user_id, challenge, fields):
+    """What the device signs: the purpose, the account, the challenge and what it is about to store."""
+    return PROOF + f"{purpose}|{user_id}|{challenge}|{_digest(fields)}".encode("utf-8")
+
+
+def _prove(ctx, user_id, signing_key, purpose, data, names):
+    """The challenge must be the live one for this account and purpose (used once) and the signature the account's."""
+    fields = {k: data[k] for k in names}
+    if not ctx.server.challenges.take(user_id, purpose, data["challenge"]) or not security.signed_by(
+            signing_key, data["signature"], proof_message(purpose, user_id, data["challenge"], fields)):
+        raise ApiError(403, "invalid_proof", "Este dispositivo no ha demostrado tener las claves de la cuenta.")
+
+
+def _strong(value):
+    """A kdf for something new (a password set without the old one, a recovery code): at least MIN_NEW_KDF_N."""
+    if value["n"] < MIN_NEW_KDF_N:
+        raise ApiError(400, "invalid", f"kdf: n debe ser al menos {MIN_NEW_KDF_N}.")
+    return value
+
+
+def _org_event(conn, uid, action):
+    """The account changed how it signs in: the account and each of its organizations see it in their events."""
+    event(conn, None, uid, action, uid)
+    for (oid,) in conn.execute("SELECT org_id FROM org_members WHERE user_id = ?", (uid,)).fetchall():
+        event(conn, oid, uid, action, uid)
+
+
+def _set_password(conn, uid, data):
+    salt = security.new_salt()
+    conn.execute("UPDATE users SET kdf = ?, auth_salt = ?, auth_verifier = ?, private_blob = ? WHERE id = ?",
+                 (json.dumps(data["kdf"]), salt, security.verifier(data["auth_hash"], salt),
+                  json.dumps(data["private_blob"]), uid))
+
+
+def _signing_key(conn, uid):
+    return conn.execute("SELECT signing_public_key FROM users WHERE id = ?", (uid,)).fetchone()["signing_public_key"]
+
+
+@route("POST", "/accounts/challenge")
+def new_challenge(ctx):
+    """A challenge for this account's device to sign (`reset`: a new password; `recovery`: a recovery code)."""
+    purpose = body(ctx.body, {"purpose": one_of("reset", "recovery")})["purpose"]
+    return {"challenge": ctx.server.challenges.issue(ctx.uid, purpose)}
+
+
+@route("POST", "/accounts/recovery")
+def set_recovery(ctx):
+    """Set (or replace: the old code stops working) the account's recovery code, from a device with the keys."""
+    data = body(ctx.body, {"kdf": kdf, "recovery_auth_hash": b64(32), "recovery_blob": sealed(BLOB_MAX),
+                           "challenge": text(100), "signature": b64(64)})
+    _strong(data["kdf"])
+    _prove(ctx, ctx.uid, _signing_key(ctx.conn, ctx.uid), "recovery", data,
+           ("kdf", "recovery_auth_hash", "recovery_blob"))
+    salt, created = security.new_salt(), now_iso()
+    ctx.conn.execute("INSERT INTO recovery (user_id, kdf, auth_salt, auth_verifier, blob, created) VALUES "
+                     "(?, ?, ?, ?, ?, ?) ON CONFLICT (user_id) DO UPDATE SET kdf = excluded.kdf, auth_salt = "
+                     "excluded.auth_salt, auth_verifier = excluded.auth_verifier, blob = excluded.blob, "
+                     "created = excluded.created",
+                     (ctx.uid, json.dumps(data["kdf"]), salt, security.verifier(data["recovery_auth_hash"], salt),
+                      json.dumps(data["recovery_blob"]), created))
+    event(ctx.conn, None, ctx.uid, "recovery.set", ctx.uid)
+    return {"created": created}
+
+
+@route("POST", "/accounts/password/reset")
+def reset_password(ctx):
+    """A new password without the old one, from a device that proves it holds the account's keys (it wraps them
+    again). The account's other devices are logged out."""
+    data = body(ctx.body, {"challenge": text(100), "signature": b64(64), "kdf": kdf, "auth_hash": b64(32),
+                           "private_blob": sealed(BLOB_MAX)})
+    _strong(data["kdf"])
+    _prove(ctx, ctx.uid, _signing_key(ctx.conn, ctx.uid), "reset", data, ("kdf", "auth_hash", "private_blob"))
+    _set_password(ctx.conn, ctx.uid, data)
+    ctx.conn.execute("DELETE FROM sessions WHERE user_id = ? AND id != ?", (ctx.uid, ctx.session_id))
+    _org_event(ctx.conn, ctx.uid, "password.reset")
+    return {}
+
+
+@route("POST", "/accounts/recover/prelogin", auth=False, tx="read")
+def recover_prelogin(ctx):
+    """The scrypt parameters of the account's recovery code. Unknown e-mails and accounts without a code get the
+    same shape, with a fake salt that never changes, so nobody can probe for either."""
+    address = body(ctx.body, {"email": email})["email"]
+    row = ctx.conn.execute("SELECT r.kdf FROM recovery r JOIN users u ON u.id = r.user_id WHERE u.email = ?",
+                           (address,)).fetchone()
+    return {"kdf": json.loads(row["kdf"]) if row else security.fake_kdf(ctx.server.secret, address, "recovery")}
+
+
+def _recovery_login(ctx, address, recovery_auth_hash):
+    """The account whose recovery code gave `recovery_auth_hash`. Throttled like a login (the same counters), and
+    the same answer for an unknown e-mail, an account without a code and a wrong code."""
+    server = ctx.server
+    wait = max(server.ip_throttle.retry_after(ctx.ip), server.email_throttle.retry_after(address))
+    if wait:
+        raise rate_limited(wait)
+    row = ctx.db.conn().execute(
+        "SELECT u.id, u.disabled, u.public_key, u.signing_public_key, r.auth_salt, r.auth_verifier, r.blob "
+        "FROM users u JOIN recovery r ON r.user_id = u.id WHERE u.email = ?", (address,)).fetchone()
+    if row:
+        ok = security.verify(recovery_auth_hash, row["auth_salt"], row["auth_verifier"])
+    else:  # same work as a real check
+        security.verifier(recovery_auth_hash, security.fake_kdf(server.secret, address, "recovery")["salt"])
+        ok = False
+    if not ok:
+        server.ip_throttle.fail(ctx.ip)
+        server.email_throttle.fail(address)
+        raise ApiError(401, "invalid_credentials", "E-mail o código de recuperación incorrectos.")
+    if row["disabled"]:  # told only to whoever has the code
+        raise ApiError(403, "account_disabled", "Esta cuenta está desactivada en este servidor. Habla con quien lo "
+                       "administra.")
+    return row
+
+
+@route("POST", "/accounts/recover/start", auth=False, tx=False)
+def recover_start(ctx):
+    """With the recovery code: the keys wrapped by it, and a challenge to sign once they are open."""
+    data = body(ctx.body, {"email": email, "recovery_auth_hash": b64(32)})
+    row = _recovery_login(ctx, data["email"], data["recovery_auth_hash"])
+    return {"user_id": row["id"], "recovery_blob": json.loads(row["blob"]), "public_key": row["public_key"],
+            "signing_public_key": row["signing_public_key"],
+            "challenge": ctx.server.challenges.issue(row["id"], "recover")}
+
+
+@route("POST", "/accounts/recover", auth=False, tx=False)
+def recover(ctx):
+    """A new password with the recovery code, from a device that opened the keys with it (it signs the challenge
+    of recover/start). Every session of the account ends; the code keeps working until a new one is made."""
+    data = body(ctx.body, {"email": email, "recovery_auth_hash": b64(32), "challenge": text(100),
+                           "signature": b64(64), "kdf": kdf, "auth_hash": b64(32), "private_blob": sealed(BLOB_MAX)})
+    _strong(data["kdf"])
+    row = _recovery_login(ctx, data["email"], data["recovery_auth_hash"])
+    _prove(ctx, row["id"], row["signing_public_key"], "recover", data, ("kdf", "auth_hash", "private_blob"))
+    ctx.server.email_throttle.reset(data["email"])
+    with ctx.db.tx(write=True) as conn:
+        _set_password(conn, row["id"], data)
+        conn.execute("DELETE FROM sessions WHERE user_id = ?", (row["id"],))
+        _org_event(conn, row["id"], "account.recover")
     return {}
 
 

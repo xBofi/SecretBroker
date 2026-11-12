@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -42,6 +43,16 @@ ITEM_SIG = b"secretbroker/item-sig/v1|"
 DELETE_SIG = b"secretbroker/delete/v1|"
 DATA_INFO = b"secretbroker/account-data/v1"
 DATA_AAD = b"secretbroker/account-data/v1|"
+# The recovery code (2.1): scrypt of the code, then two keys like the account password's (one to log in with it,
+# one that wraps the private keys), and what a device signs to prove it holds the account's keys.
+RECOVERY_AUTH_INFO = b"secretbroker/team-recovery-auth/v1"
+RECOVERY_WRAP_INFO = b"secretbroker/team-recovery-wrap/v1"
+RECOVERY_AAD = b"secretbroker/team-recovery-keys/v1|"
+PROOF = b"secretbroker/account-proof/v1|"
+# Crockford's base32 (no I, L, O, U: nothing to confuse when it is typed from paper): 30 characters, 150 bits,
+# in 6 groups of 5.
+RECOVERY_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+RECOVERY_LENGTH = 30
 # A sync that would delete more than this many credentials of a collection (or at least MASS_DELETE_MIN that are
 # half of it or more) waits for the user instead (2.7): a stolen account, a broken client or the server itself.
 MASS_DELETE = 5
@@ -148,6 +159,35 @@ def open_private_keys(wrap_key, blob, user_id):
         raise TeamError(tr("teams.couldn_open_account_keys_password"),
                         "invalid_credentials") from None
     return keys
+
+
+def new_recovery_code():
+    """A recovery code: 150 random bits, written as XXXXX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX."""
+    chars = "".join(secrets.choice(RECOVERY_ALPHABET) for _ in range(RECOVERY_LENGTH))
+    return "-".join(chars[i:i + 5] for i in range(0, RECOVERY_LENGTH, 5))
+
+
+def normalize_recovery_code(text):
+    """The code as typed (any case, spaces or dashes; O for 0 and I or L for 1) in the form it is derived from."""
+    code = str(text or "").upper().translate(str.maketrans({"O": "0", "I": "1", "L": "1"}))
+    code = "".join(c for c in code if not c.isspace() and c not in "-–—_.")
+    if len(code) != RECOVERY_LENGTH or any(c not in RECOVERY_ALPHABET for c in code):
+        raise TeamError(tr("teams.recovery_code_looks_wrong"), "invalid")
+    return code
+
+
+def recovery_secrets(code, kdf):
+    """(auth_key, wrap_key) of a recovery code, like account_secrets() for the password: the first is sent to the
+    server as recovery_auth_hash, the second never leaves this PC. Always at least 2^17 scrypt work."""
+    master = crypto.derive_key(normalize_recovery_code(code), check_kdf(kdf, MIN_ACCOUNT_KDF_N))
+    return crypto._hkdf(master, RECOVERY_AUTH_INFO), crypto._hkdf(master, RECOVERY_WRAP_INFO)
+
+
+def account_proof(keys, purpose, user_id, challenge, fields):
+    """The signature that shows the server this device holds the account's keys (server accounts.proof_message):
+    the purpose, the account, the server's single-use challenge and a hash of what is about to be stored."""
+    digest = hashlib.sha256(_canonical(fields)).hexdigest()
+    return sign(keys, PROOF + f"{purpose}|{user_id}|{challenge}|{digest}".encode("utf-8"))
 
 
 def fingerprint(public_key, signing_public_key):
@@ -544,7 +584,8 @@ SERVER_MESSAGES = {"last_owner": "teams.org_needs_an_owner", "last_manager": "te
                    "forbidden": "teams.server_forbidden", "conflict": "teams.server_changed_meanwhile",
                    "key_version": "teams.server_changed_meanwhile", "needs_rekey": "teams.this_collection_has_be_re",
                    "collection_full": "teams.server_collection_full", "too_large": "teams.server_too_large",
-                   "client_too_old": "teams.app_too_old"}
+                   "client_too_old": "teams.app_too_old", "invalid_proof": "teams.server_invalid_proof",
+                   "replace_blocked": "teams.server_replace_blocked"}
 SERVER_MESSAGES_BY_STATUS = {("invalid_credentials", 403): "teams.current_account_password_wrong"}
 
 
@@ -764,7 +805,11 @@ class Team:
     def status(self):
         state = self.vault.team()
         if not connected(state):
-            return {"connected": False}
+            # A vault restored on a new PC keeps the account (keys, collections, pins) but not the old PC's
+            # session (forget_session): the app asks to log in again to that account.
+            user = state.get("user") or {}
+            return {"connected": False, **({"hint": {"server_url": state.get("server_url"), "email": user["email"]}}
+                                            if state.get("keys") and user.get("email") else {})}
         entries = [e for e in self.vault.entries() if e.get("shared")]
         return {"connected": True, "server_url": state["server_url"], "user": state["user"],
                 "fingerprint": fingerprint(state["public_key"], state["signing_public_key"]),
@@ -778,6 +823,9 @@ class Team:
                 "mail": bool(state.get("mail")),  # the server e-mails invites itself
                 "server_admin": state["user"].get("admin") is True,  # the «Servidor» tab (5.2)
                 "held_deletions": self.held_deletions(),
+                # The account's recovery code: when it was made ({created}), or None; and whether the server has them.
+                "recovery": state.get("recovery") if isinstance(state.get("recovery"), dict) else None,
+                "recovery_supported": bool(state.get("recovery_supported")),
                 "waiting": [{k: p.get(k) for k in ("user_id", "name", "email", "fingerprint", "org", "reason")}
                             | {"collections": len(p.get("collections") or [])}
                             for p in (state.get("waiting") or {}).values()]}
@@ -807,6 +855,7 @@ class Team:
         if connected(current) and (current["user"]["email"] != email or current["server_url"] != base):
             raise TeamError(tr("teams.another_team_account_is_already"), "invalid")
         device_name = str(device_name or os.environ.get("COMPUTERNAME") or "PC")[:100]
+        recovery_code = None
         with Client(base) as api:
             info = check_server(api.call("GET", "/info", auth=False))
             if mode == "register":
@@ -821,11 +870,17 @@ class Team:
                 if invite_token:
                     body["invite_token"] = str(invite_token).strip()
                 try:
-                    api.call("POST", "/accounts/register", body, auth=False)
+                    registered = api.call("POST", "/accounts/register", body, auth=False)
                 except TeamError as exc:
                     if exc.code == "email_taken":  # servers before 0.17 say so; newer ones answer as if created
                         raise TeamError(tr("teams.account_could_not_be_created"), "email_taken") from None
                     raise
+                if registered.get("replacing"):
+                    # The e-mail had an account whose owner lost access (an admin's «Ha perdido el acceso» invite):
+                    # this one takes its place only once it proves the e-mail (confirm_replacement, or the server
+                    # admin). Nothing is kept here until then.
+                    return {"connected": False, "replace_pending": {
+                        "server_url": base, "email": email, "mail": registered.get("mail") is True}}
             else:
                 kdf = api.call("POST", "/accounts/prelogin", {"email": email}, auth=False)["kdf"]
                 # Less work than the app uses only if this PC already logged in to this account with it.
@@ -848,7 +903,13 @@ class Team:
             user = {k: session["user"].get(k) for k in ("id", "email", "name")}
             user["verified"] = session["user"].get("verified", True) is not False  # servers before 0.16: no check
             user["admin"] = session["user"].get("admin") is True  # the server's admin: the «Servidor» tab (5.2)
-            state = current if connected(current) and current["user"]["id"] == user["id"] else {}
+            # The same account on this PC (signing in again, or a vault restored on a new PC without its old
+            # session) keeps what it had: collections, pins, credentials. Another account starts from nothing.
+            same = current.get("keys") and (current.get("user") or {}).get("id") == user["id"] \
+                and current.get("server_url") == base
+            if current.get("keys") and not same:
+                self._drop_local(current)
+            state = current if same else {}
             state.update(server_url=base, token=session["token"], user=user, keys=keys, device=device_name,
                          kdf_n=int(kdf["n"]),
                          verification=info.get("verification", "off") if isinstance(info, dict) else "off",
@@ -857,12 +918,158 @@ class Team:
             for section in ("pinned", "orgs", "collections"):
                 state.setdefault(section, {})
             api.token = session["token"]
+            state.pop("moved", None)
+            state["recovery_supported"] = isinstance(info, dict) and info.get("recovery") is True
             try:  # the people this account verified on its other devices are trusted here at once
                 self._sync_account_data(api, state)
             except TeamError as exc:
                 print(f"team account data: {detail(exc)}", file=sys.stderr)
+            try:
+                if mode == "register" and state["recovery_supported"]:
+                    recovery_code = self._make_recovery(api, state)  # shown once by the app, never kept
+                elif state["recovery_supported"]:
+                    state["recovery"] = api.call("GET", "/me").get("recovery")
+            except TeamError as exc:  # the app offers it again in «Tu cuenta»
+                print(f"team recovery code: {detail(exc)}", file=sys.stderr)
         self.vault.set_team(state)
-        return self.status()
+        return {**self.status(), **({"recovery_code": recovery_code} if recovery_code else {})}
+
+    # ------------------------------------------------------------------ recovery (2.1)
+    #
+    # Nobody loses the team for good: a recovery code made on a device with the keys opens them on a new device,
+    # and a device still connected can set a new password without the old one. The server can use neither: the
+    # code never reaches it, and a password set without the old one needs the account's signature.
+
+    @staticmethod
+    def _challenge(api, purpose):
+        try:
+            return api.call("POST", "/accounts/challenge", {"purpose": purpose})["challenge"]
+        except TeamError as exc:
+            if exc.status in (404, 405):
+                raise TeamError(tr("teams.server_needs_update_for_recovery"), "server_too_old") from None
+            raise
+
+    def _make_recovery(self, api, state):
+        """A new recovery code for the account (the server forgets the old one). → the code; nothing of it is
+        kept here: only when it was made."""
+        code, kdf, me = new_recovery_code(), crypto.new_kdf(), state["user"]["id"]
+        auth_key, wrap_key = recovery_secrets(code, kdf)
+        fields = {"kdf": kdf, "recovery_auth_hash": b64(auth_key),
+                  "recovery_blob": crypto.seal(wrap_key, _canonical(state["keys"]), RECOVERY_AAD + me.encode("utf-8"))}
+        challenge = self._challenge(api, "recovery")
+        result = api.call("POST", "/accounts/recovery", {
+            **fields, "challenge": challenge, "signature": account_proof(state["keys"], "recovery", me, challenge, fields)})
+        state["recovery"] = {"created": result.get("created") or now_iso()}
+        return code
+
+    def make_recovery_code(self):
+        """Make the account's recovery code (or a new one: the old one stops working). → {code, created}"""
+        state = self.vault.team()
+        with self._api(state) as api:
+            code = self._make_recovery(api, state)
+        state["recovery_supported"] = True
+        self.vault.set_team(state)
+        return {"code": code, "created": state["recovery"]["created"]}
+
+    def reset_password(self, new):
+        """A new account password without the old one: this device holds the account's keys, signs the server's
+        challenge with them and wraps them again. The account's other devices log out."""
+        if len(new or "") < MIN_ACCOUNT_PASSWORD:
+            raise TeamError(tr("teams.account_password_must_have_at", MIN_ACCOUNT_PASSWORD=MIN_ACCOUNT_PASSWORD),
+                            "invalid")
+        state = self.vault.team()
+        me = state["user"]["id"] if connected(state) else None
+        with self._api(state) as api:
+            challenge = self._challenge(api, "reset")
+            kdf = crypto.new_kdf()
+            auth_key, wrap_key = account_secrets(new, kdf)
+            fields = {"kdf": kdf, "auth_hash": b64(auth_key), "private_blob": seal_private_keys(wrap_key, state["keys"], me)}
+            api.call("POST", "/accounts/password/reset", {
+                **fields, "challenge": challenge, "signature": account_proof(state["keys"], "reset", me, challenge, fields)})
+        state["kdf_n"] = int(kdf["n"])
+        self.vault.set_team(state)
+        return {}
+
+    def recover(self, server_url, email, code, password, device_name=""):
+        """Get back into the account with its recovery code on a device without it (a new PC, after a forgotten
+        password): the code opens the keys, they sign the server's challenge, the new password wraps them again,
+        and the device logs in with it (the account's other sessions end)."""
+        base, email = server_base(server_url), str(email or "").strip().lower()
+        if not email or "@" not in email:
+            raise TeamError(tr("teams.type_your_e_mail"), "invalid")
+        normalize_recovery_code(code)
+        if len(password or "") < MIN_ACCOUNT_PASSWORD:
+            raise TeamError(tr("teams.account_password_must_have_at", MIN_ACCOUNT_PASSWORD=MIN_ACCOUNT_PASSWORD),
+                            "invalid")
+        current = self.vault.team()
+        if connected(current) and (current["user"]["email"] != email or current["server_url"] != base):
+            raise TeamError(tr("teams.another_team_account_is_already"), "invalid")
+        with Client(base) as api:
+            info = check_server(api.call("GET", "/info", auth=False))
+            if info.get("recovery") is not True:
+                raise TeamError(tr("teams.server_needs_update_for_recovery"), "server_too_old")
+            kdf = api.call("POST", "/accounts/recover/prelogin", {"email": email}, auth=False)["kdf"]
+            auth_key, wrap_key = recovery_secrets(code, kdf)
+            asked = {"email": email, "recovery_auth_hash": b64(auth_key)}
+            try:
+                started = api.call("POST", "/accounts/recover/start", asked, auth=False)
+            except TeamError as exc:
+                if exc.code == "invalid_credentials":
+                    raise TeamError(tr("teams.recovery_code_wrong"), "invalid_credentials") from None
+                raise
+            user_id = str(started.get("user_id") or "")
+            try:
+                keys = json.loads(crypto.open_sealed(wrap_key, started["recovery_blob"], RECOVERY_AAD + user_id.encode("utf-8")))
+                keys = {"x25519": keys["x25519"], "ed25519": keys["ed25519"]}
+                mine = public_keys(keys)
+            except (InvalidTag, ValueError, KeyError, TypeError):
+                raise TeamError(tr("teams.recovery_code_wrong"), "invalid_credentials") from None
+            if mine != {"public_key": started.get("public_key"), "signing_public_key": started.get("signing_public_key")}:
+                raise TeamError(tr("teams.account_keys_don_match_server"), "bad_server")
+            new_kdf = crypto.new_kdf()
+            new_auth, new_wrap = account_secrets(password, new_kdf)
+            fields = {"kdf": new_kdf, "auth_hash": b64(new_auth),
+                      "private_blob": seal_private_keys(new_wrap, keys, user_id)}
+            api.call("POST", "/accounts/recover", {
+                **asked, **fields, "challenge": started["challenge"],
+                "signature": account_proof(keys, "recover", user_id, started["challenge"], fields)}, auth=False)
+        result = self.connect(base, email, password, "login", device_name=device_name)
+        # The code was used (it may have been read from paper, a file, a vault): a new one at once, shown once.
+        return {**self._fresh_recovery(result), "recovery_used": True}
+
+    def _fresh_recovery(self, result):
+        """`result` (a connect answer) with a new recovery code for the account, if the server has them."""
+        if not result.get("recovery_supported") or result.get("recovery_code"):
+            return result
+        try:
+            made = self.make_recovery_code()
+        except TeamError as exc:  # «Tu cuenta» offers it again
+            print(f"team recovery code: {detail(exc)}", file=sys.stderr)
+            return result
+        return {**result, **self.status(), "recovery_code": made["code"]}
+
+    def confirm_replacement(self, server_url, email, code, password, device_name=""):
+        """The code e-mailed to a new account that waits to take the place of one whose owner lost access: once
+        it is right the server makes the swap, and this PC logs in with the password chosen at sign-up and makes
+        the new account's recovery code."""
+        base, email = server_base(server_url), str(email or "").strip().lower()
+        with Client(base) as api:
+            api.call("POST", "/accounts/replace/verify", {"email": email, "code": str(code or "").strip()[:20]},
+                     auth=False)
+        return self._fresh_recovery(self.connect(base, email, password, "login", device_name=device_name))
+
+    def forget_session(self):
+        """A vault restored on another PC: keep the account (keys, collections, pins, credentials) but not the
+        session of the PC the backup came from, which stays that PC's. The app asks to log in again (status
+        `hint`), and the account carries on where it was."""
+        state = self.vault.team()
+        if not connected(state):
+            return False
+        for key in ("token", "device"):
+            state.pop(key, None)
+        state["moved"] = now_iso()
+        self.vault.set_team(state)
+        return True
 
     # ------------------------------------------------------------------ e-mail verification
 
@@ -889,14 +1096,18 @@ class Team:
     def _refresh_me(self, api, state):
         """While the e-mail is not verified, each sync asks again (the admin may have verified it meanwhile). A
         server admin's app also asks every round, so the «Servidor» tab goes away when that stops; accounts linked
-        before the app knew about server admins ask once."""
+        before the app knew about server admins, or about recovery codes, ask once."""
         user = state["user"]
-        if user.get("verified", True) is not False and user.get("admin") is False:
+        unknown = state.get("recovery_supported") and "recovery" not in state
+        if user.get("verified", True) is not False and user.get("admin") is False and not unknown:
             return
-        me = api.call("GET", "/me").get("user") or {}
-        if me.get("verified"):
+        me = api.call("GET", "/me")
+        found = me.get("user") or {}
+        if found.get("verified"):
             user["verified"] = True
-        user["admin"] = me.get("admin") is True
+        user["admin"] = found.get("admin") is True
+        if state.get("recovery_supported"):
+            state["recovery"] = me.get("recovery") if isinstance(me.get("recovery"), dict) else None
 
     # ------------------------------------------------------------------ the account's own data (2.2)
 
@@ -1004,6 +1215,11 @@ class Team:
                     api.call("POST", "/accounts/logout")
             except TeamError:
                 pass  # offline or already expired: the token is forgotten anyway
+        return self._drop_local(state)
+
+    def _drop_local(self, state):
+        """Forget the account on this PC without telling the server: its collections and the team's credentials
+        go (credentials this user shared from the personal vault stay, as personal ones)."""
         notes = {"removed": [], "conflicts": []}
         for cid in list(state.get("collections") or {}):
             notes["removed"] += self._drop_collection(state, cid, notes)
@@ -1379,6 +1595,42 @@ class Team:
         return {"rekeyed": rekeyed, "pending": pending, "failed": [cid for cid, _ in failed], "ended": ended_ids,
                 "offline": any(code in ("offline", "reconnect") for _, code in failed),
                 "person": person, "credentials": flagged}
+
+    def replace_member(self, oid, uid):
+        """«Ha perdido el acceso»: someone who can't get into their account any more (no password, no recovery
+        code, no device with the keys). They are removed exactly like remove_member (re-keys, "rotate" flags) and
+        their e-mail is invited again with a code that lets a new account take the old one's place (the server
+        allows it once the old account is in no organization). → remove_member's answer plus {email, invite:
+        {id, emailed, expires}, collections: [names they could read]} so the admin can give them back."""
+        state = self.vault.team()
+        if uid == state["user"]["id"]:
+            raise TeamError(tr("teams.cannot_replace_yourself"), "invalid")
+        if not state.get("recovery_supported"):
+            raise TeamError(tr("teams.server_needs_update_for_recovery"), "server_too_old")
+        with self._api(state) as api:
+            row = next((r for r in api.call("GET", f"/orgs/{oid}/members") if r.get("user_id") == uid
+                        and r.get("status") != "invited"), None)
+        if row is None:
+            # Already taken out (the invite failed last time, say): invite them again, if this PC knows who it was.
+            known = state.get("replacing", {}).get(uid)
+            if not known:
+                raise TeamError(tr("teams.that_person_isn_in_organization"), "not_found")
+            row, result = known, {"rekeyed": [], "pending": [], "failed": [], "person": _label(known), "credentials": 0}
+        else:
+            state.setdefault("replacing", {})[uid] = {"email": row["email"], "name": row.get("name"),
+                                                      "role": row.get("role"), "at": now_iso()}
+            self.vault.set_team(state)
+            had = sorted(c.get("name") or "" for c in state["collections"].values()
+                         if c.get("org") == oid and uid in (c.get("members") or {}) and not c.get("direct"))
+            result = {**self.remove_member(oid, uid), "collections": [n for n in had if n]}
+        role = "admin" if row.get("role") in ("owner", "admin") else "member"
+        with self._api(self.vault.team()) as api:
+            invite = api.call("POST", f"/orgs/{oid}/invites", {"email": row["email"], "role": role, "replaces": uid})
+        state = self.vault.team()
+        state.get("replacing", {}).pop(uid, None)
+        self.vault.set_team(state)
+        return {"collections": [], **result, "email": row["email"],
+                "invite": {**invite, "emailed": invite.get("emailed") is True}}
 
     def _person(self, api, state, oid, uid):
         try:
@@ -2345,6 +2597,7 @@ class Team:
             # told plainly instead of failing on the first signed member list.
             info = check_server(api.call("GET", "/info", auth=False))
             state["mail"] = info.get("mail") is True
+            state["recovery_supported"] = info.get("recovery") is True
             self._refresh_me(api, state)
             try:
                 self._sync_account_data(api, state)

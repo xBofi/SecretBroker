@@ -23,6 +23,8 @@ class AdminError(Exception):
 
 def find(conn, address):
     row = conn.execute("SELECT * FROM users WHERE email = ?", (address,)).fetchone()
+    if row is None:  # a new account waiting to take the place of one whose owner lost access (accounts.py)
+        row = conn.execute("SELECT * FROM users WHERE replacing_email = ?", (address,)).fetchone()
     if row is None:
         raise AdminError(f"no account with the e-mail {address}", "not_found", 404)
     return row
@@ -182,11 +184,18 @@ def verify(conn, user, actor=None, via="cli"):
     """Mark an account's e-mail as verified (after checking who the person is). → False if it already was."""
     from .accounts import mark_verified
 
+    if not user["replacing_email"]:
+        # Verifying an address that a new account waits to take (its owner lost access to the old one, an org
+        # admin invited it again): that new account is the one proving it. → "replaced"
+        user = conn.execute("SELECT * FROM users WHERE replacing_email = ?", (user["email"],)).fetchone() or user
     if user["verified"]:
         return False
-    mark_verified(conn, user["id"], actor)
-    admin_event(conn, actor, via, "user.verify", user["id"], {"email": user["email"]})
-    return True
+    replacing = user["replacing_email"]
+    if not mark_verified(conn, user["id"], actor):
+        raise AdminError(f"the account {replacing} has is in an organization again (or is a server admin): the new "
+                         "one can't take its place", "replace_blocked", 409)
+    admin_event(conn, actor, via, "user.verify", user["id"], {"email": replacing or user["email"]})
+    return "replaced" if replacing else True
 
 
 def delete(conn, user, actor=None, via="cli"):
@@ -202,7 +211,7 @@ def delete(conn, user, actor=None, via="cli"):
                          orgs=[{"id": h["org"], "name": h["name"]} for h in owner],
                          collections=[c for h in held for c in h["collections"]])
     left = _leave_orgs(conn, user, "member.delete")
-    for table in ("sessions", "email_codes", "account_data", "collection_members", "org_members"):
+    for table in ("sessions", "email_codes", "account_data", "recovery", "collection_members", "org_members"):
         conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (user["id"],))
     conn.execute("DELETE FROM users WHERE id = ?", (user["id"],))
     event(conn, None, None, "user.delete", user["id"])

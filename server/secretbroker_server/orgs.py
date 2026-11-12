@@ -103,10 +103,10 @@ def _invite_limit(ctx, oid):
                            retry_after=wait)
 
 
-def _new_invite(ctx, conn, oid, address, role):
+def _new_invite(ctx, conn, oid, address, role, replaces=None):
     invite_id, expires = new_id(), now_epoch() + ctx.settings.invite_days * 86400
-    conn.execute("INSERT INTO invites (id, org_id, email, role, invited_by, created, expires) "
-                 "VALUES (?, ?, ?, ?, ?, ?, ?)", (invite_id, oid, address, role, ctx.uid, now_iso(), expires))
+    conn.execute("INSERT INTO invites (id, org_id, email, role, invited_by, created, expires, replaces) "
+                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (invite_id, oid, address, role, ctx.uid, now_iso(), expires, replaces))
     return invite_id, expires
 
 
@@ -136,11 +136,18 @@ def _org_invite_row(conn, oid, ctx):
 
 @route("POST", "/orgs/{oid}/invites", tx=False)
 def invite(ctx):
-    """Invite an e-mail (an expired invite to it is replaced). → {id, expires, emailed}"""
+    """Invite an e-mail (an expired invite to it is replaced). → {id, expires, emailed}
+
+    `replaces`: the account that e-mail has, whose owner lost access to it for good («Ha perdido el acceso»: the
+    admin just took it out of the organization). Signing up with this invite then takes its place (accounts.py
+    _replaceable) once it is in no organization."""
     oid = path_id(ctx.params["oid"])
-    data = body(ctx.body, {"email": email, "role": one_of("member", "admin")})
+    data = body(ctx.body, {"email": email, "role": one_of("member", "admin")}, {"replaces": uuid_id})
     with ctx.db.tx(write=True) as conn:
         require_admin(conn, oid, ctx.uid)
+        if data["replaces"] and not conn.execute("SELECT 1 FROM users WHERE id = ? AND email = ?",
+                                                 (data["replaces"], data["email"])).fetchone():
+            raise ApiError(400, "invalid", "replaces: no es la cuenta de ese e-mail.")
         if conn.execute("SELECT 1 FROM org_members m JOIN users u ON u.id = m.user_id WHERE m.org_id = ? "
                         "AND u.email = ?", (oid, data["email"])).fetchone():
             raise ApiError(409, "already_member", "Esa persona ya está en la organización.")
@@ -151,8 +158,8 @@ def invite(ctx):
         _invite_limit(ctx, oid)
         if old:
             conn.execute("DELETE FROM invites WHERE id = ?", (old["id"],))
-        invite_id, expires = _new_invite(ctx, conn, oid, data["email"], data["role"])
-        event(conn, oid, ctx.uid, "invite", data["email"])
+        invite_id, expires = _new_invite(ctx, conn, oid, data["email"], data["role"], data["replaces"])
+        event(conn, oid, ctx.uid, "invite.replace" if data["replaces"] else "invite", data["email"])
     return {"id": invite_id, "expires": iso(expires),
             "emailed": _email_invite(ctx, oid, invite_id, data["email"], expires)}
 
@@ -167,7 +174,7 @@ def renew_invite(ctx):
         row = _org_invite_row(conn, oid, ctx)
         _invite_limit(ctx, oid)
         conn.execute("DELETE FROM invites WHERE id = ?", (row["id"],))
-        invite_id, expires = _new_invite(ctx, conn, oid, row["email"], row["role"])
+        invite_id, expires = _new_invite(ctx, conn, oid, row["email"], row["role"], row["replaces"])
         event(conn, oid, ctx.uid, "invite.renew", row["email"])
     return {"id": invite_id, "expires": iso(expires),
             "emailed": _email_invite(ctx, oid, invite_id, row["email"], expires)}

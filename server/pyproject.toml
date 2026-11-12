@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
     "starlette>=0.37",
     "uvicorn>=0.29",
+    "cryptography>=42",  # Ed25519: a device proves it holds the account's keys (password reset, recovery)
 ]
 
 [project.scripts]

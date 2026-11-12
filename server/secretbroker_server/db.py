@@ -36,7 +36,9 @@ CREATE TABLE IF NOT EXISTS users (
     verified INTEGER NOT NULL DEFAULT 0,
     invited_to TEXT,
     disabled INTEGER NOT NULL DEFAULT 0,
-    created TEXT NOT NULL
+    created TEXT NOT NULL,
+    replaces TEXT,
+    replacing_email TEXT
 );
 CREATE TABLE IF NOT EXISTS email_codes (
     user_id TEXT PRIMARY KEY REFERENCES users(id),
@@ -49,6 +51,16 @@ CREATE TABLE IF NOT EXISTS account_data (
     user_id TEXT PRIMARY KEY REFERENCES users(id),
     blob TEXT NOT NULL,
     revision INTEGER NOT NULL
+);
+-- The account's recovery code (docs/ARCHITECTURE.md 2.1): its scrypt parameters, a verifier of the auth key derived
+-- from it (like users.auth_verifier) and the private keys wrapped by a key only the code gives. Opaque here.
+CREATE TABLE IF NOT EXISTS recovery (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    kdf TEXT NOT NULL,
+    auth_salt TEXT NOT NULL,
+    auth_verifier TEXT NOT NULL,
+    blob TEXT NOT NULL,
+    created TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
@@ -91,7 +103,8 @@ CREATE TABLE IF NOT EXISTS invites (
     invited_by TEXT NOT NULL,
     created TEXT NOT NULL,
     expires INTEGER,
-    sent INTEGER
+    sent INTEGER,
+    replaces TEXT
 );
 CREATE INDEX IF NOT EXISTS invites_email ON invites(email);
 CREATE TABLE IF NOT EXISTS collections (
@@ -167,7 +180,9 @@ def _migrate(conn):
     were in use before verification existed, and their organizations' admins confirmed them by hand.
     Schema 3 adds disabled accounts and invites that expire (and remember when they were e-mailed); invites that
     were pending get INVITE_DAYS_AT_UPGRADE days from now.
-    Schema 4 adds the server admin log (admin_events) and signup tokens bound to one e-mail."""
+    Schema 4 adds the server admin log (admin_events) and signup tokens bound to one e-mail; recovery codes (the
+    table `recovery`) and invites that replace an account whose owner lost access to it (`invites.replaces`; the
+    new account waits in `users.replaces` / `users.replacing_email` until its e-mail is proven)."""
     if "verified" not in _columns(conn, "users"):
         conn.execute("ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0")
         conn.execute("UPDATE users SET verified = 1")
@@ -179,11 +194,16 @@ def _migrate(conn):
         conn.execute("ALTER TABLE collections ADD COLUMN direct INTEGER NOT NULL DEFAULT 0")
     if "disabled" not in _columns(conn, "users"):
         conn.execute("ALTER TABLE users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0")
+    for column in ("replaces", "replacing_email"):
+        if column not in _columns(conn, "users"):
+            conn.execute(f"ALTER TABLE users ADD COLUMN {column} TEXT")
     invites = _columns(conn, "invites")
     if "expires" not in invites:
         conn.execute("ALTER TABLE invites ADD COLUMN expires INTEGER")
     if "sent" not in invites:
         conn.execute("ALTER TABLE invites ADD COLUMN sent INTEGER")
+    if "replaces" not in invites:
+        conn.execute("ALTER TABLE invites ADD COLUMN replaces TEXT")
     conn.execute("UPDATE invites SET expires = ? WHERE expires IS NULL", (now_epoch() + INVITE_DAYS_AT_UPGRADE * 86400,))
     if "email" not in _columns(conn, "signup_tokens"):  # schema 4: a token for one address (the installer's)
         conn.execute("ALTER TABLE signup_tokens ADD COLUMN email TEXT")

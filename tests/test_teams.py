@@ -1440,6 +1440,219 @@ def version_checks(base, alice):
     check(alice.sync()["state"] == "ok", "an up-to-date app syncs again")
 
 
+NEW_ACCOUNT = "a brand new team passphrase 7"
+THIRD_ACCOUNT = "the third team passphrase 99"
+
+
+def team_credential(alice, oid, name, entry_id, value):
+    """A collection of Alice's with one credential in it. → its id"""
+    cid = alice.act("team_create_collection", org=oid, name=name)["id"]
+    alice.save({"id": entry_id, "name": name, "template": "api_key", "description": "",
+                "fields": {"value": value}, "policy": {"approval": "session"}})
+    alice.act("team_share_entry", id=entry_id, collection=cid)
+    return cid
+
+
+def restored_pc(label, backup):
+    """A new PC: SecretBroker installed, «Restaurar una copia» on the first screen (no vault yet, so no proof)."""
+    person = Person.__new__(Person)
+    person.service = Service(HOME / label, owner=platform.default_owner(), isolated=False)
+    person.service.data_dir.mkdir(parents=True, exist_ok=True)  # the running service makes it (Service.start)
+    person.presence = person.ok("restore", vault=backup, master_password=MASTER)["presence"]
+    return person
+
+
+def recovery_flows(base, alice, oid, settings):
+    print("Recovery: a forgotten password, a new PC with the recovery code, a new code")
+    hana = Person("hana-a")
+    status = hana.act("team_connect", server_url=base, email="hana@example.com", password=ACCOUNT, mode="register",
+                      name="Hana")
+    code = status.get("recovery_code") or ""
+    check(re.fullmatch(r"([0-9A-HJKMNP-TV-Z]{5}-){5}[0-9A-HJKMNP-TV-Z]{5}", code) and status["recovery"]["created"]
+          and status["recovery_supported"], "a new account gets a recovery code at sign-up (30 characters, 150 bits)")
+    kept = json.dumps(hana.service.vault.team()) + (HOME / "hana-a" / "data" / "vault.json").read_text()
+    check(code not in kept and code.replace("-", "") not in kept, "nothing of the code is kept on the PC")
+    check(code.replace("-", "") not in json.dumps(ServerDb(settings).run("SELECT * FROM recovery")),
+          "nor on the server (only a verifier and the keys wrapped by it)")
+    hana.act("team_verify_email", code=email_code("hana@example.com"))
+    alice.act("team_invite", org=oid, email="hana@example.com", role="member")
+    hana.act("team_accept_invite", id=hana.ok("team_invites")[0]["id"])
+    hana_id = next(m["user_id"] for m in alice.ok("team_members", org=oid) if m["email"] == "hana@example.com")
+    alice.act("team_confirm_member", org=oid, user_id=hana_id)
+    alice_id = alice.service.vault.team()["user"]["id"]
+    hana.act("team_confirm_member", org=oid, user_id=alice_id)  # Hana verifies Alice's code: a pin to come back
+    cid = team_credential(alice, oid, "De Hana", "hana-api", "sk-hana-FAKE-1")
+    alice.act("team_grant", collection=cid, user_id=hana_id, permission="view")
+    hana.sync()
+    check(hana.entry("hana-api")["fields"]["value"] == "sk-hana-FAKE-1", "Hana reads the shared credential")
+    laptop = Person("hana-b")
+    laptop.act("team_connect", server_url=base, email="hana@example.com", password=ACCOUNT, mode="login")
+    laptop.sync()
+
+    # Forgotten password, but the laptop is still connected: it sets a new one without the old one.
+    response = laptop.call("team_reset_password", password=NEW_ACCOUNT)
+    check(response["code"] == "proof_required", "a new password without the old one needs the user (one click)")
+    response = laptop.call("team_reset_password", password="short", proof={"kind": "presence", "token": laptop.presence})
+    check(response["code"] == "invalid", "a short password is refused")
+    laptop.act("team_reset_password", password=NEW_ACCOUNT)
+    check(laptop.sync()["state"] == "ok", "the laptop, which has the keys, sets a new password and stays connected")
+    check(hana.sync()["state"] == "reconnect", "the account's other devices are logged out")
+    response = hana.call("team_connect", server_url=base, email="hana@example.com", password=ACCOUNT, mode="login",
+                         proof={"kind": "presence", "token": hana.presence})
+    check(response["code"] == "invalid_credentials", "the old password no longer works")
+    again = hana.act("team_connect", server_url=base, email="hana@example.com", password=NEW_ACCOUNT, mode="login")
+    check(again["fingerprint"] == status["fingerprint"] and hana.entry("hana-api")["fields"]["value"] == "sk-hana-FAKE-1",
+          "the new one does: same keys, nothing lost")
+
+    # Everything lost (no device, password forgotten): the recovery code on a new PC.
+    fresh = Person("hana-c")
+    response = fresh.call("team_recover", server_url=base, email="hana@example.com", code="1234", password=THIRD_ACCOUNT,
+                          proof={"kind": "presence", "token": fresh.presence})
+    check(response["code"] == "invalid" and response["error"].endswith("."), "a code that can't be one is refused at once")
+    response = fresh.call("team_recover", server_url=base, email="hana@example.com", code=teams.new_recovery_code(),
+                          password=THIRD_ACCOUNT, proof={"kind": "presence", "token": fresh.presence})
+    check(response["code"] == "invalid_credentials" and not fresh.ok("team_status")["connected"],
+          f"a wrong code is refused ({response['error']})")
+    typed = code.lower().replace("-", " ").replace("0", "o").replace("1", "l")  # read from paper
+    recovered = fresh.act("team_recover", server_url=base, email="hana@example.com", code=typed, password=THIRD_ACCOUNT)
+    check(recovered["connected"] and recovered["fingerprint"] == status["fingerprint"]
+          and fresh.service.vault.team()["keys"] == hana.service.vault.team()["keys"],
+          "the code, typed as read from paper, gives the same keys on a new PC")
+    check(recovered.get("recovery_used") and re.fullmatch(r"([0-9A-HJKMNP-TV-Z]{5}-){5}[0-9A-HJKMNP-TV-Z]{5}",
+                                                           recovered.get("recovery_code") or "")
+          and recovered["recovery_code"] != code, "the used code is replaced at once by a new one, shown once")
+    used = Person("hana-f")
+    response = used.call("team_recover", server_url=base, email="hana@example.com", code=code, password=ACCOUNT,
+                         proof={"kind": "presence", "token": used.presence})
+    check(response["code"] == "invalid_credentials", "the code that was used no longer works")
+    code = recovered["recovery_code"]
+    check(alice_id in fresh.service.vault.team()["pinned"], "the people Hana verified come back by themselves")
+    fresh.sync()
+    check(fresh.entry("hana-api")["fields"]["value"] == "sk-hana-FAKE-1", "and so does what is shared with her")
+    check(laptop.sync()["state"] == "reconnect" and hana.sync()["state"] == "reconnect",
+          "every other session of the account ends")
+    check(any(e["action"] == "account.recover" for e in alice.ok("team_events", org=oid)),
+          "the organization's Actividad says the account was recovered")
+
+    # A new code: the old one stops working.
+    response = fresh.call("team_recovery_code")
+    check(response["code"] == "proof_required", "a new code needs the user (one click)")
+    second = fresh.act("team_recovery_code")
+    check(second["code"] != code and fresh.ok("team_status")["recovery"]["created"] == second["created"],
+          "a new code is made (the app shows it once)")
+    other = Person("hana-d")
+    response = other.call("team_recover", server_url=base, email="hana@example.com", code=code, password=ACCOUNT,
+                          proof={"kind": "presence", "token": other.presence})
+    check(response["code"] == "invalid_credentials", "the old code no longer works")
+    check(other.act("team_recover", server_url=base, email="hana@example.com", code=second["code"],
+                    password=ACCOUNT)["connected"], "the new one does")
+
+    # Opened with the Windows session: anything running as the user could ask, so Hello or a password once.
+    token = other.ok("enable_session_unlock", proof={"kind": "master_password", "value": MASTER})["token"]
+    other.ok("lock")
+    weak = other.ok("unlock", proof={"kind": "session", "token": token})["presence"]
+    for op, params in (("team_recovery_code", {}), ("team_reset_password", {"password": NEW_ACCOUNT})):
+        response = other.call(op, proof={"kind": "presence", "token": weak}, **params)
+        check(response["code"] == "proof_required" and response.get("weak"), f"{op} after a session unlock asks once")
+
+
+def move_computer(base, alice, oid):
+    print("Moving to another PC: a backup, the account password, and everything comes back")
+    juan = joined(alice, base, oid, "juan", "Juan")
+    alice_id = alice.service.vault.team()["user"]["id"]
+    juan.act("team_confirm_member", org=oid, user_id=alice_id)
+    cid = team_credential(alice, oid, "De Juan", "juan-api", "sk-juan-FAKE-1")
+    alice.act("team_grant", collection=cid, user_id=juan.id, permission="view")
+    juan.sync()
+    personal(juan, "juan-own", "Personal de Juan", "sk-own-FAKE-1")
+    backup = juan.act("backup")["vault"]
+
+    new_pc = restored_pc("juan-new", backup)
+    status = new_pc.ok("team_status")
+    check(not status["connected"] and status["hint"] == {"server_url": base, "email": "juan@example.com"},
+          "the restored vault does not reuse the old PC's session: Equipo asks to log in to that account")
+    check(new_pc.entry("juan-own")["fields"]["value"] == "sk-own-FAKE-1", "personal credentials are there")
+    new_pc.act("team_connect", server_url=base, email="juan@example.com", password=ACCOUNT, mode="login",
+               device_name="PC nuevo")
+    new_pc.sync()
+    copies = [e for e in new_pc.service.vault.entries() if e["name"] == "De Juan"]
+    check(len(copies) == 1 and copies[0]["fields"]["value"] == "sk-juan-FAKE-1",
+          "after logging in, the shared credential is there (once)")
+    check(alice_id in new_pc.service.vault.team()["pinned"], "and the people Juan verified")
+    check(juan.sync()["state"] == "ok", "the old PC keeps its own session meanwhile")
+    devices = new_pc.ok("team_devices")
+    check(len(devices) == 2 and any(d["current"] and d["name"] == "PC nuevo" for d in devices),
+          "Tu cuenta › Dispositivos lists both PCs")
+    old = next(d for d in devices if not d["current"])
+    new_pc.act("team_revoke_device", id=old["id"])
+    check(juan.sync()["state"] == "reconnect" and new_pc.sync()["state"] == "ok",
+          "the old PC is logged out from the new one; the new one carries on")
+
+    # A brand-new PC without any backup: logging in is enough for the team's part.
+    bare = Person("juan-bare")
+    bare.act("team_connect", server_url=base, email="juan@example.com", password=ACCOUNT, mode="login")
+    check(alice_id in bare.service.vault.team()["pinned"], "a fresh device gets the verified people from the account's data")
+    bare.sync()
+    check(bare.entry("juan-api")["fields"]["value"] == "sk-juan-FAKE-1", "and the shared credentials")
+
+
+def lost_access(base, alice, oid):
+    print("Someone lost access for good: removed and invited again in one step")
+    kira = joined(alice, base, oid, "kira", "Kira")
+    cid = team_credential(alice, oid, "Lo de Kira", "kira-api", "sk-kira-FAKE-1")
+    alice.act("team_grant", collection=cid, user_id=kira.id, permission="view")
+    kira.sync()
+    response = alice.call("team_replace_member", org=oid, user_id=kira.id)
+    check(response["code"] == "proof_required", "it needs the user (one click)")
+    result = alice.act("team_replace_member", org=oid, user_id=kira.id)
+    check(result["person"] == "Kira" and cid in result["rekeyed"] and result["collections"] == ["Lo de Kira"]
+          and result["invite"]["id"] and result["invite"]["emailed"] and result["email"] == "kira@example.com",
+          "Kira is removed (her collections re-keyed) and invited again by e-mail, naming what she could read")
+    reminder = next((r for r in alice.ok("reminders") if r["id"] == "kira-api"), {})
+    check(reminder.get("kind") == "team_access" and reminder.get("people") == ["Kira"],
+          "what she could see is flagged to rotate, as with any removal")
+    events = [e["action"] for e in alice.ok("team_events", org=oid)]
+    check("member.remove" in events and "invite.replace" in events, "Actividad says so")
+    check(kira.sync()["state"] in ("ok", "reconnect") and not kira.service.vault.team()["collections"],
+          "her old device no longer gets the collection")
+    # Alice (the admin) knows the invite code: signing up with it must not be enough to take Kira's address.
+    hostile = Person("kira-hostile")
+    pending = hostile.act("team_connect", server_url=base, email="kira@example.com", password=NEW_ACCOUNT,
+                          mode="register", name="Kira", invite_token=result["invite"]["id"])
+    check(pending == {"connected": False, "replace_pending": {"server_url": base, "email": "kira@example.com", "mail": True}}
+          and not hostile.service.vault.team(), "a sign-up with the invite waits for the e-mailed code; nothing is linked")
+    check(kira.sync()["state"] != "reconnect", "meanwhile the old account is untouched")
+    response = hostile.call("team_confirm_replacement", server_url=base, email="kira@example.com", code="00000000",
+                            password=NEW_ACCOUNT, proof={"kind": "presence", "token": hostile.presence})
+    check(response["code"] == "invalid_code" and kira.sync()["state"] != "reconnect",
+          "without the code from Kira's mailbox, nothing changes")
+    again = Person("kira-new")
+    before = sum(1 for m in OUTBOX if m["To"] == "kira@example.com" and "código" in m["Subject"])
+    pending = again.act("team_connect", server_url=base, email="kira@example.com", password=NEW_ACCOUNT,
+                        mode="register", name="Kira", invite_token=result["invite"]["id"])
+    check(pending.get("replace_pending", {}).get("mail") is True, "Kira signs up with the invite: a code is e-mailed")
+    for _ in range(100):
+        mails = [m for m in OUTBOX if m["To"] == "kira@example.com" and "código" in m["Subject"]]
+        if len(mails) > before:
+            break
+        time.sleep(0.05)
+    sent = re.search(r"\b(\d{8})\b", mails[-1].get_content()).group(1)
+    status = again.act("team_confirm_replacement", server_url=base, email="kira@example.com", code=sent,
+                       password=NEW_ACCOUNT)
+    check(status["connected"] and status["user"]["id"] != kira.id and status.get("recovery_code"),
+          "with the code, the new account takes the e-mail, signs in and gets a recovery code")
+    check(kira.sync()["state"] == "reconnect", "the old account is gone")
+    again.act("team_accept_invite", id=again.ok("team_invites")[0]["id"])
+    new_id = status["user"]["id"]
+    alice.act("team_confirm_member", org=oid, user_id=new_id)
+    alice.act("team_grant", collection=cid, user_id=new_id, permission="view")
+    again.sync()
+    check(again.entry("kira-api")["fields"]["value"] == "sk-kira-FAKE-1", "once given access again, it comes back")
+    response = alice.call("team_replace_member", org=oid, user_id=alice.service.vault.team()["user"]["id"],
+                          proof={"kind": "presence", "token": alice.presence})
+    check(response["code"] == "invalid", "nobody replaces themselves")
+
+
 def main():
     base, stop, settings = start_server()
     echo = HTTPServer(("127.0.0.1", 0), Echo)
@@ -1505,8 +1718,9 @@ def main():
     check(not any(op.startswith("team_") for op in AI_OPS), "no team operation is reachable by the AI")
     import ast
     tree = ast.parse((Path(__file__).resolve().parents[1] / "secretbroker" / "app.py").read_text(encoding="utf-8"))
-    app_ops = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign)
-                   and getattr(n.targets[0], "id", "") == "TEAM_CHANGE_OPS")
+    app_ops = [op for n in tree.body if isinstance(n, (ast.Assign, ast.AugAssign))
+               and getattr(n.targets[0] if isinstance(n, ast.Assign) else n.target, "id", "") == "TEAM_CHANGE_OPS"
+               for op in ast.literal_eval(n.value)]
     check(set(app_ops) == set(TEAM_CHANGE_OPS), "the app passes its one-click token to every team change the service has")
 
     print("Organization, invites and fingerprints")
@@ -1770,6 +1984,10 @@ def main():
           "the sharer keeps it as a personal credential")
     alice.act("team_share_entry", id="echo-api", collection=cid)
     carol.sync()
+
+    recovery_flows(base, alice, oid, settings)
+    move_computer(base, alice, oid)
+    lost_access(base, alice, oid)
 
     print("Background sync and leaving")
     threading.Thread(target=carol.service._team_loop, daemon=True).start()

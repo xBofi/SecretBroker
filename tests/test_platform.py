@@ -169,7 +169,7 @@ for folder in (i18n.WEB_LOCALES, i18n.LOCALES):
         mac = i18n.for_system(raw, code, "macos")
         for key, value in mac.items():
             for text in (value.values() if isinstance(value, dict) else [value]):
-                if re.search(r"\bPC\b", text):
+                if re.search(r"\bPC\b", text, re.I):  # «PC», «pc» (Dutch, Danish), «Pc»
                     leftover.append(f"{code}:{key}")
                 if OTHER_MAC.search(text):
                     others.append(f"{code}:{key}: {text[:80]}")
@@ -182,6 +182,18 @@ check(web("es", "setup.encrypted_on_this_pc") == "Cifrado en este Mac. " and web
       and web("de", "setup.encrypted_on_this_pc") == "Verschlüsselt auf diesem Mac. " and web("fr", "import_source.on_other_pc") == "Sur l’autre ordinateur : "
       and web("ru", "setup.encrypted_on_this_pc") == "Шифруется на этом Mac. ",
       "macOS: «Cifrado en este Mac», «En el otro ordenador» (and in other languages)")
+mac_text = lambda code, text: i18n.for_system({"k": text}, code, "macos")["k"]
+check(mac_text("nl", "Programma op deze pc") == "Programma op deze Mac" and mac_text("nl", "Van pc wisselen") == "Van computer wisselen"
+      and mac_text("nl", "Op een andere pc") == "Op een andere computer"
+      and mac_text("da", "på denne pc.") == "på denne Mac." and mac_text("da", "genstart din pc") == "genstart din Mac"
+      and mac_text("da", "forlader de pc'en") == "forlader de computeren" and mac_text("da", "en anden pc") == "en anden computer",
+      "macOS: Dutch and Danish write «pc»: «deze Mac», «andere computer», «denne Mac», «pc'en» → «computeren»")
+check(mac_text("es", "Pc nuevo") == "Ordenador nuevo" and mac_text("es", "otro pc") == "otro ordenador"
+      and mac_text("es", "este pc") == "este Mac" and mac_text("es", "otro PC") == "otro ordenador"
+      and mac_text("de", "Ein anderer PC") == "Ein anderer Computer" and mac_text("en", "your pc") == "your Mac"
+      and mac_text("fr", "un autre pc") == "un autre ordinateur",
+      "macOS: the word put in keeps the case style of the «PC» it replaces («pc» → «ordenador», «Pc» → «Ordenador»)")
+check(mac_text("hu", "pcsős") == "pcsős" and mac_text("pl", "pcze") == "pcze", "and only the word PC, nothing that contains it")
 
 # The window's page may call the app only while it shows the app's own page: a link or file dropped on the window
 # (or anything that navigates it) gets pywebview's bridge too, and must not reveal, export or approve anything.

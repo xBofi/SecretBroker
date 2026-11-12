@@ -32,10 +32,24 @@ def verify(auth_hash_b64, salt_b64, expected_b64):
     return hmac.compare_digest(verifier(auth_hash_b64, salt_b64), expected_b64)
 
 
-def fake_kdf(secret, email):
-    """A deterministic kdf for e-mails without an account, indistinguishable from a real one."""
-    salt = hmac.new(secret, b"secretbroker/prelogin/v1|" + email.encode("utf-8"), hashlib.sha256).digest()[:16]
+def fake_kdf(secret, email, purpose="prelogin"):
+    """A deterministic kdf for e-mails without an account (or, for `purpose` "recovery", without a recovery code),
+    indistinguishable from a real one."""
+    salt = hmac.new(secret, f"secretbroker/{purpose}/v1|".encode("ascii") + email.encode("utf-8"),
+                    hashlib.sha256).digest()[:16]
     return {**DEFAULT_KDF, "salt": b64(salt)}
+
+
+def signed_by(public_key_b64, signature_b64, message):
+    """Whether `signature_b64` is an Ed25519 signature of `message` by that public key. Never raises."""
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    try:
+        Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key_b64)).verify(
+            base64.b64decode(signature_b64), message)
+        return True
+    except (InvalidSignature, ValueError, TypeError):
+        return False
 
 
 def new_token():
@@ -107,3 +121,32 @@ class Window:
             if len(self._times) > 50_000:
                 self._times = {k: v for k, v in self._times.items() if v and now - v[-1] < self.seconds}
             return 0
+
+
+class Challenges:
+    """Single-use challenges an account's device signs with the account's Ed25519 key to prove it holds the private
+    keys (a password reset from a connected device, setting a recovery code, finishing a recovery). One live
+    challenge per account and purpose (a new one replaces it), each valid for `seconds`. In memory, like Throttle:
+    a restart only means asking for a new one."""
+
+    def __init__(self, seconds=300):
+        self.seconds = seconds
+        self._items = {}
+        self._lock = threading.Lock()
+
+    def issue(self, user_id, purpose):
+        challenge, now = secrets.token_urlsafe(32), time.monotonic()
+        with self._lock:
+            self._items[(user_id, purpose)] = (challenge, now + self.seconds)
+            if len(self._items) > 50_000:
+                self._items = {k: v for k, v in self._items.items() if v[1] > now}
+        return challenge
+
+    def take(self, user_id, purpose, challenge):
+        """True once for the live challenge of that account and purpose; it can't be used again."""
+        with self._lock:
+            item = self._items.get((user_id, purpose))
+            if item is None or not hmac.compare_digest(item[0].encode(), str(challenge).encode()):
+                return False
+            del self._items[(user_id, purpose)]
+        return item[1] > time.monotonic()

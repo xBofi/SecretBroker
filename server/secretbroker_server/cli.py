@@ -71,15 +71,18 @@ def verify_email(args):
     from . import admin
 
     changed = _admin(admin.verify, args)
-    print(f"{args.email} {'is verified now' if changed else 'was already verified'}.")
+    print(f"{args.email} " + ("is verified now: the new account took the place of the one whose owner lost access."
+                              if changed == "replaced" else "is verified now." if changed else "was already verified."))
 
 
 def unverified(args):
     """List accounts still waiting for e-mail verification."""
     settings = _settings()
     db = Database(settings.db_path)
-    for row in db.conn().execute("SELECT email, name, created FROM users WHERE verified = 0 ORDER BY created"):
-        print(f"{row['email']:40} {row['name']:24} {row['created']}")
+    for row in db.conn().execute("SELECT COALESCE(replacing_email, email) AS email, name, created, replacing_email "
+                                 "FROM users WHERE verified = 0 ORDER BY created"):
+        note = "  (new account: replaces one whose owner lost access)" if row["replacing_email"] else ""
+        print(f"{row['email']:40} {row['name']:24} {row['created']}{note}")
     db.close()
 
 
