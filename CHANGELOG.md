@@ -2,7 +2,42 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
-## Unreleased
+## 0.17.0 (2026-11-12)
+
+Teams: pass a credential to one person, invitations by e-mail, a server that is easy to host and back up, and
+the fixes of two independent security reviews. Update the team server together with (or before) the apps.
+
+### Sharing with one person
+- **Pass a credential to a teammate in one step.** «Compartir» now opens on «Con una persona»: choose who and what
+  they may do (Editor, Lector or Solo uso; Lector by default) and it reaches them encrypted. Behind it is a private
+  collection of the two of you, made the first time and reused after; no collection to create, nobody to add. Any
+  member can do it, not only admins (the team server needs this version).
+- From **Equipo › Personas**, «Compartir con Bob…» on each verified person: tick credentials from a list.
+- **Colecciones** lists these apart, «Con una persona», as «Con Bob»: change Bob's permission or stop sharing with
+  him there. Credentials say «Compartida con Bob» or, on Bob's PC, «Compartida por Alicia».
+- Someone not verified on your PC yet: the dialog shows their security code and «Verificar a Bob», one click;
+  nothing is shared with a key you have not confirmed.
+- **Stopping sharing with someone** (or removing them from the organization) leaves those credentials as yours and
+  flags each one to change, because they could have copied it: «Cambiar: la tenía Bob» while they are still on the
+  team, «Cambiar: salió Bob» if they left. The list of what to change opens at once.
+- Removing someone who shared credentials directly is no longer blocked: what they shared with one person goes with
+  them.
+- Removing someone or changing a role: when the server says no, the app says why in your language and what to do
+  (for example, which collections only that person manages), instead of the server's Spanish message.
+- In Personas, «Compartir con Bob…» sits next to the role; removing someone you share with directly says that it
+  stops reaching them.
+- The status line at the bottom of the sidebar wraps to two lines instead of cutting longer languages short.
+
+### Invitations and versions
+- **Invitations by e-mail.** On a team server with e-mail, inviting someone e-mails them the join link and plain
+  steps, including where to download SecretBroker; the invite dialog says it was sent, with «Hecho», and keeps the
+  instructions one click away. Without e-mail nothing changes: you pass the instructions on. Pending invites say
+  when they expire, in the warning colour in their last two days.
+- **Invitations expire** after 14 days. Equipo › Personas shows «Invitación caducada» with «Renovar» (a new code,
+  e-mailed again) and «Retirar»; pending ones can be re-sent («Reenviar») or withdrawn.
+- **App and server versions.** If the team server is too old for this app, Equipo says «El servidor del equipo es
+  una versión antigua: pide a quien lo administra que lo actualice» instead of failing later; if the app is too old
+  for the server, it says to update the app. 0.16 apps keep working with the new server.
 
 ### Security
 Fixes from an independent review of team sharing. Update every desktop of a team and the server together.
@@ -52,46 +87,6 @@ Fixes from an independent review of team sharing. Update every desktop of a team
   characters; invite e-mails keep names out of the subject, and one that can't be written no longer fails the
   invite after it was saved.
 
-### Other
-- On a Mac the app says «Mac» for this computer and «ordenador» / "computer" for another one, instead of «PC», in
-  every language.
-
-### Sharing with one person
-- **Pass a credential to a teammate in one step.** «Compartir» now opens on «Con una persona»: choose who and what
-  they may do (Editor, Lector or Solo uso; Lector by default) and it reaches them encrypted. Behind it is a private
-  collection of the two of you, made the first time and reused after; no collection to create, nobody to add. Any
-  member can do it, not only admins (the team server needs this version).
-- From **Equipo › Personas**, «Compartir con Bob…» on each verified person: tick credentials from a list.
-- **Colecciones** lists these apart, «Con una persona», as «Con Bob»: change Bob's permission or stop sharing with
-  him there. Credentials say «Compartida con Bob» or, on Bob's PC, «Compartida por Alicia».
-- Someone not verified on your PC yet: the dialog shows their security code and «Verificar a Bob», one click;
-  nothing is shared with a key you have not confirmed.
-- **Stopping sharing with someone** (or removing them from the organization) leaves those credentials as yours and
-  flags each one to change, because they could have copied it: «Cambiar: la tenía Bob» while they are still on the
-  team, «Cambiar: salió Bob» if they left. The list of what to change opens at once.
-- Removing someone who shared credentials directly is no longer blocked: what they shared with one person goes with
-  them.
-- Removing someone or changing a role: when the server says no, the app says why in your language and what to do
-  (for example, which collections only that person manages), instead of the server's Spanish message.
-- In Personas, «Compartir con Bob…» sits next to the role; removing someone you share with directly says that it
-  stops reaching them.
-- The status line at the bottom of the sidebar wraps to two lines instead of cutting longer languages short.
-
-### Server
-- `POST /orgs/{id}/collections` takes `direct: true` (any confirmed member; two members at most, `400
-  direct_full`); `GET /collections` says `direct`; removing a member deletes the direct shares only they manage and
-  lists them in `deleted`. The database gains a column on start.
-### Teams
-- **Invitations by e-mail.** On a team server with e-mail, inviting someone e-mails them the join link and plain
-  steps, including where to download SecretBroker; the invite dialog says it was sent, with «Hecho», and keeps the
-  instructions one click away. Without e-mail nothing changes: you pass the instructions on. Pending invites say
-  when they expire, in the warning colour in their last two days.
-- **Invitations expire** after 14 days. Equipo › Personas shows «Invitación caducada» with «Renovar» (a new code,
-  e-mailed again) and «Retirar»; pending ones can be re-sent («Reenviar») or withdrawn.
-- **App and server versions.** If the team server is too old for this app, Equipo says «El servidor del equipo es
-  una versión antigua: pide a quien lo administra que lo actualice» instead of failing later; if the app is too old
-  for the server, it says to update the app. 0.16 apps keep working with the new server.
-
 ### SecretBroker Server
 - Invites by e-mail (`SB_SMTP_*`), expiry (`SB_INVITE_DAYS`, 14), renewal and re-sending, at most
   `SB_MAX_INVITES_PER_HOUR` (30) per organization and per account.
@@ -108,6 +103,17 @@ Fixes from an independent review of team sharing. Update every desktop of a team
   update (`426 client_too_old`). Databases from every earlier server version upgrade on start.
 - The README covers an Ubuntu VPS from scratch, hosting on your own PC or home server (Docker Desktop, Cloudflare
   Tunnel, Tailscale, and their trade-offs), backups, restore and upgrades.
+- `POST /orgs/{id}/collections` takes `direct: true` (any confirmed member; two members at most, `400
+  direct_full`); `GET /collections` says `direct`; removing a member deletes the direct shares only they manage and
+  lists them in `deleted`. The database gains a column on start.
+
+### Ubuntu and macOS
+- The real-app test suite now runs on Ubuntu in CI too; it found labels cut short in German, Finnish and Greek,
+  now fixed. macOS gets a smoke check of the installed app.
+- macOS: quitting the app (Cmd+Q, the Dock, logging out or shutting down) quits it instead of only hiding the
+  window.
+- On a Mac the app says «Mac» for this computer and «ordenador» / "computer" for another one, instead of «PC», in
+  every language.
 
 ## 0.16.2 (2026-10-31)
 
