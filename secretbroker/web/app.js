@@ -148,6 +148,13 @@ function hostOf(url) {
   try { return new URL(url.includes('://') ? url : `https://${url}`).hostname; } catch { return url; }
 }
 
+// A team server's name as the user typed it, with its port when it is not the usual one (secrets.example.com:8443):
+// two servers on one host differ only by it, and an invite link's host is checked by eye.
+function serverHost(url) {
+  if (!url) return '';
+  try { return new URL(url.includes('://') ? url : `https://${url}`).host; } catch { return url; }
+}
+
 function formatTime(iso) {
   if (!iso) return '';
   return fmtDate(iso, { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' });
@@ -4206,7 +4213,7 @@ function teamAccountPanel(org, rerender) {
   const me = org ? ((state.teamData.members || {})[org.id] || []).find((m) => m.me) : null;
   const leave = me && org.role !== 'owner' ? el('button', { class: 'btn ghost', 'data-mutates': '1', onclick: () => removeMember(org, me, rerender) }, t('team_account_panel.leave', { name: org.name })) : null;
   return el('div', { class: 'settings team-panel' }, recoveryOffer(rerender), el('div', { class: 'settings-group' }, org ? null : el('h3', { class: 'muted' }, t('common.your_account')),
-    setting(user.name || user.email, `${user.email} · ${hostOf(team.server_url)}${team.device ? ` · ${t('team.this_pc', { device: team.device })}` : ''}`,
+    setting(user.name || user.email, `${user.email} · ${serverHost(team.server_url)}${team.device ? ` · ${t('team.this_pc', { device: team.device })}` : ''}`,
       el('button', { class: 'btn danger', onclick: disconnect }, t('common.disconnect'))),
     el('div', { class: 'setting' }, el('div', { class: 'meta' }, el('h3', {}, t('team_account_panel.your_security_code')),
       el('p', {}, el('span', { class: 'fingerprint big selectable' }, team.fingerprint)),
@@ -4921,7 +4928,7 @@ function moveComputerGuide() {
   const steps = [
     step(t('move_pc.step_backup'), el('p', { class: 'muted' }, t('move_pc.step_backup_text')), el('div', { class: 'step-actions' }, backup), backupState),
     step(t('move_pc.step_restore'), el('p', { class: 'muted' }, t('move_pc.step_restore_text')), el('div', { class: 'step-actions' }, copyLink)),
-    team ? step(t('move_pc.step_team'), el('p', { class: 'muted' }, t('move_pc.step_team_text', { email: team.user.email, host: hostOf(team.server_url) })),
+    team ? step(t('move_pc.step_team'), el('p', { class: 'muted' }, t('move_pc.step_team_text', { email: team.user.email, host: serverHost(team.server_url) })),
       noRecovery ? el('p', { class: 'help' }, t('move_pc.step_team_no_code')) : null) : null,
     step(team ? t('move_pc.step_close') : t('move_pc.step_close_no_team'),
       el('p', { class: 'muted' }, team ? t('move_pc.step_close_text') : t('move_pc.step_close_no_team_text'))),
@@ -4999,7 +5006,7 @@ function serverOverview(admin, rerender) {
   const head = el('div', { class: 'server-head' },
     el('div', { class: 'start-icon' }, icon('server')),
     el('div', { class: 'meta' },
-      el('div', { class: 'title' }, hostOf(state.team.server_url)),
+      el('div', { class: 'title' }, serverHost(state.team.server_url)),
       el('div', { class: 'subtitle' }, [t('server_admin.version', { version: o.version || '?' }),
         since ? t('server_admin.running_since', { when: whenText(since) }) : null,
         o.db_bytes ? t('server_admin.database_size', { size: fmtBytes(o.db_bytes) }) : null].filter(Boolean).join(' · ')),
@@ -5442,12 +5449,12 @@ function teamConnectForm({ server = '', email = '', code = '', mode = 'register'
   render();
   const showLink = (link) => {
     linkNote.classList.remove('hidden');
-    linkNote.querySelector('.notice-text').textContent = t('team_connect_form.invitation_for_on_check_that', { value: link.email || 'ti', host: hostOf(link.server) });
+    linkNote.querySelector('.notice-text').textContent = t('team_connect_form.invitation_for_on_check_that', { value: link.email || 'ti', host: serverHost(link.server) });
   };
   if (invited) showLink({ server, email });
   if (restored) {  // a vault restored on a new PC: the account is here, the old PC's session is not
     linkNote.classList.remove('hidden');
-    linkNote.querySelector('.notice-text').textContent = t('team_connect_form.restored_sign_in', { email, host: hostOf(server) });
+    linkNote.querySelector('.notice-text').textContent = t('team_connect_form.restored_sign_in', { email, host: serverHost(server) });
   }
   // A pasted invite link (secretbroker://join?…) fills in the form.
   serverInput.addEventListener('input', () => {
@@ -5582,7 +5589,7 @@ function applyJoinLink() {
   if (!link) return;
   if (state.team && state.team.connected) {
     state.joinLink = null;
-    toast(t('apply_join_link.this_pc_already_has_team', { email: state.team.user.email, value: link.email || t('team.another_account'), host: hostOf(link.server) }), 'error');
+    toast(t('apply_join_link.this_pc_already_has_team', { email: state.team.user.email, value: link.email || t('team.another_account'), host: serverHost(link.server) }), 'error');
     return;
   }
   state.view = 'team';

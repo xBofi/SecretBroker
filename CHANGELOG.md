@@ -2,6 +2,20 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
+## Unreleased
+
+### Team server
+- **The server installer works on a server whose ports 80 and 443 are already in use.** Before installing anything
+  it says which program has them (nginx, Apache, another Caddy, a Docker container...), never stops or changes it on
+  its own, and offers what fits: **behind your web server** (`--behind-proxy`; with nginx it can add SecretBroker's
+  site itself, check it with `nginx -t`, reload it and get the certificate with certbot, once you say yes), **Caddy on
+  another HTTPS port** such as 8443 when port 80 is free (`SB_HTTPS_PORT=8443`), or **a tunnel** (`--local`, now
+  with step-by-step Cloudflare Tunnel and Tailscale instructions). Without questions it stops before changing
+  anything unless `SB_MODE` says which way. Its own local port is checked too. Running it again keeps the way and
+  the ports; changing them removes only what the installer itself had set up.
+- The app takes a team server address with a port (`https://secrets.example.com:8443`) in the form and in invite
+  links, shows the port where it shows the server, and refuses one with an impossible port.
+
 ## 0.18.0 (2026-11-12)
 
 The team server on a headless Ubuntu with one command, administered from the app; nobody on a team loses

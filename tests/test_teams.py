@@ -565,6 +565,30 @@ def empty_notes():
                             "held", "errors", "unsigned", "held_deletions", "recovery", "changes")}
 
 
+def server_addresses():
+    """A team server on another HTTPS port (install-server.sh when 443 is taken): typed, pasted or in a link."""
+    print("Team server addresses with a port")
+    from secretbroker.app import parse_join_link
+    for typed in ("https://secrets.example.com:8443", "https://secrets.example.com:8443/", "secrets.example.com:8443",
+                  "https://secrets.example.com:8443/api/v1"):
+        check(teams.server_base(typed) == "https://secrets.example.com:8443", f"{typed!r} keeps its port")
+    check(teams.server_base("http://127.0.0.1:8080") == "http://127.0.0.1:8080", "a local server on its port")
+    for bad in ("https://secrets.example.com:99999", "https://secrets.example.com:port", "http://secrets.example.com:8443"):
+        try:
+            teams.server_base(bad)
+            check(False, f"{bad!r} is refused")
+        except teams.TeamError as exc:
+            check(exc.code == "invalid", f"{bad!r} is refused ({exc})")
+    # As install-server.sh prints it (not encoded), and as the app and the server's e-mails make it (encoded).
+    printed = "secretbroker://join?server=https://secrets.example.com:8443&email=ana%2Bsb@example.com&code=sbi_Ab-1"
+    check(parse_join_link(printed) == {"server": "https://secrets.example.com:8443", "email": "ana+sb@example.com",
+                                       "code": "sbi_Ab-1"}, "the installer's link with a port fills in the form")
+    made = mail.join_link("https://secrets.example.com:8443", "ana@example.com", "sbi_Ab-1")
+    check((parse_join_link(made) or {}).get("server") == "https://secrets.example.com:8443", "so does the server's")
+    check(parse_join_link("secretbroker://join?server=https://secrets.example.com:99999&code=x") is None,
+          "a link with an impossible port is ignored")
+
+
 def security_findings():
     """Regressions for the 0.17 security review: each attack that worked before, as it was shown to work."""
     from secretbroker import actions, exposure, templates, vault as vault_module
@@ -2091,6 +2115,7 @@ def main():
     hostile_server(base, settings, alice, carol, oid, carol_id)
     weak_approvals()
     security_findings()
+    server_addresses()
 
     alice.ok("lock")
     check(alice.call("team_collections")["code"] == "locked", "team operations need an unlocked vault")
@@ -2108,6 +2133,7 @@ def main():
 if __name__ == "__main__":
     if sys.argv[1:] == ["--security"]:  # only the attacks of the security review (no server needed)
         security_findings()
+        server_addresses()
         print("ALL PASSED" if failures == 0 else f"{failures} FAILURE(S)")
         sys.exit(1 if failures else 0)
     sys.exit(0 if main() else 1)

@@ -1065,6 +1065,7 @@ def parse_join_link(text):
     server, email, code = value("server"), value("email").lower(), value("code")
     try:
         target = urlsplit(server if "://" in server else "https://" + server)
+        target.port  # https://host:8443 is fine; a port that is not a number 0-65535 raises here
     except ValueError:
         return None
     if not server or len(server) > 300 or target.scheme not in ("https", "http") or not target.hostname \
