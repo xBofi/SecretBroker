@@ -215,6 +215,7 @@ jobs:
               if w.get('kCGWindowOwnerPID') == pid:
                   print('window: layer', w.get('kCGWindowLayer'), dict(w.get('kCGWindowBounds')), 'on screen' if w.get('kCGWindowIsOnscreen') else '')
           " || true
+          grep "menu bar icon" "$log" || echo "the app log doesn't say the menu bar icon was shown"
           # Quitting the app (as Cmd+Q, the Dock or logging out do) quits it; only the window's close button hides it.
           osascript -e 'tell application "SecretBroker" to quit'
           for i in $(seq 1 10); do pgrep -u "$USER" -f "[-]m secretbroker[.]app" >/dev/null || break; sleep 1; done
