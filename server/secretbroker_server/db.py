@@ -4,6 +4,7 @@ Everything the server stores is either routing metadata or opaque ciphertext pro
 Timestamps shown to clients are ISO 8601 UTC strings; expiry times are integer epoch seconds.
 """
 
+import os
 import sqlite3
 import threading
 import time
@@ -11,7 +12,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+INVITE_DAYS_AT_UPGRADE = 14  # invites made before they expired get this long from the upgrade on
 
 # `INTEGER PRIMARY KEY` on events is SQLite's rowid; a Postgres backend would use BIGSERIAL.
 SCHEMA = """
@@ -32,6 +34,7 @@ CREATE TABLE IF NOT EXISTS users (
     is_admin INTEGER NOT NULL DEFAULT 0,
     verified INTEGER NOT NULL DEFAULT 0,
     invited_to TEXT,
+    disabled INTEGER NOT NULL DEFAULT 0,
     created TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS email_codes (
@@ -84,7 +87,9 @@ CREATE TABLE IF NOT EXISTS invites (
     email TEXT NOT NULL,
     role TEXT NOT NULL,
     invited_by TEXT NOT NULL,
-    created TEXT NOT NULL
+    created TEXT NOT NULL,
+    expires INTEGER,
+    sent INTEGER
 );
 CREATE INDEX IF NOT EXISTS invites_email ON invites(email);
 CREATE TABLE IF NOT EXISTS collections (
@@ -146,7 +151,9 @@ def _migrate(conn):
     """Bring a database made by an earlier version up to date (new tables come from SCHEMA).
 
     Schema 2 adds e-mail verification and signed deletions. Accounts that already existed count as verified: they
-    were in use before verification existed, and their organizations' admins confirmed them by hand."""
+    were in use before verification existed, and their organizations' admins confirmed them by hand.
+    Schema 3 adds disabled accounts and invites that expire (and remember when they were e-mailed); invites that
+    were pending get INVITE_DAYS_AT_UPGRADE days from now."""
     if "verified" not in _columns(conn, "users"):
         conn.execute("ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0")
         conn.execute("UPDATE users SET verified = 1")
@@ -154,14 +161,32 @@ def _migrate(conn):
         conn.execute("ALTER TABLE users ADD COLUMN invited_to TEXT")
     if "deletion" not in _columns(conn, "items"):
         conn.execute("ALTER TABLE items ADD COLUMN deletion TEXT")
+    if "disabled" not in _columns(conn, "users"):
+        conn.execute("ALTER TABLE users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0")
+    invites = _columns(conn, "invites")
+    if "expires" not in invites:
+        conn.execute("ALTER TABLE invites ADD COLUMN expires INTEGER")
+    if "sent" not in invites:
+        conn.execute("ALTER TABLE invites ADD COLUMN sent INTEGER")
+    conn.execute("UPDATE invites SET expires = ? WHERE expires IS NULL", (now_epoch() + INVITE_DAYS_AT_UPGRADE * 86400,))
 
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def iso(epoch):
+    return datetime.fromtimestamp(epoch, timezone.utc).isoformat(timespec="seconds")
+
+
 def now_epoch():
     return int(time.time())
+
+
+def private_file(path):
+    """Only the server's own account may read its data (no-op on Windows, where the folder's ACL decides)."""
+    if os.name == "posix" and os.path.exists(path):
+        os.chmod(path, 0o600)
 
 
 class Database:
@@ -170,6 +195,8 @@ class Database:
     def __init__(self, path):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.path = str(path)
+        if os.name == "posix" and not os.path.exists(self.path):
+            os.close(os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600))
         self._local = threading.local()
         self._all = []
         self._lock = threading.Lock()
@@ -178,6 +205,8 @@ class Database:
         _migrate(conn)
         conn.execute("INSERT INTO meta (key, value) VALUES ('schema_version', ?) ON CONFLICT (key) DO UPDATE "
                      "SET value = excluded.value", (str(SCHEMA_VERSION),))
+        for suffix in ("", "-wal", "-shm"):  # databases made by earlier versions may be readable by others
+            private_file(self.path + suffix)
 
     def conn(self):
         conn = getattr(self._local, "conn", None)

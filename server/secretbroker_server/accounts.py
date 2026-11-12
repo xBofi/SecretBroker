@@ -2,12 +2,16 @@
 
 import hmac
 import json
+import logging
+import sqlite3
 import threading
 
-from . import __version__, mail, security
+from . import __version__, config, mail, security
 from .db import event, now_epoch, now_iso
 from .validate import ApiError, b64, body, email, integer, kdf, path_id, sealed, text, uuid_id
 from .web import is_server_admin, new_id, route
+
+log = logging.getLogger("secretbroker_server")
 
 BLOB_MAX = 4096
 ACCOUNT_DATA_MAX = 256 * 1024  # the account's own encrypted data (pins of verified people), see /me/data
@@ -22,10 +26,24 @@ def rate_limited(wait):
     return ApiError(429, "rate_limited", "Demasiados intentos. Espera un poco y vuelve a probar.", retry_after=wait)
 
 
-@route("GET", "/info", auth=False)
+@route("GET", "/info", auth=False, any_client=True)
 def info(ctx):
+    """What a client checks before anything else: `api` (the protocol, config.API_VERSION) and `min_client` (the
+    oldest app served), so either side can tell the user which one to update."""
     return {"name": ctx.settings.name, "version": __version__, "signups": ctx.settings.signups,
-            "verification": ctx.settings.verification}
+            "verification": ctx.settings.verification, "api": config.API_VERSION,
+            "min_client": ctx.settings.oldest_client, "mail": ctx.settings.smtp}
+
+
+@route("GET", "/health", auth=False, tx=False, any_client=True)
+def health(ctx):
+    """For Docker and uptime monitors: no authentication, says nothing but whether the database answers."""
+    try:
+        ctx.db.conn().execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
+    except sqlite3.Error:
+        log.warning("Health check: the database does not answer")
+        return 503, {"status": "unavailable"}
+    return {"status": "ok"}
 
 
 @route("POST", "/accounts/prelogin", auth=False, tx="read")
@@ -45,7 +63,8 @@ def _org_invite(ctx, address, token):
         invite_id = uuid_id(token)
     except ApiError:
         return None
-    row = ctx.conn.execute("SELECT org_id FROM invites WHERE id = ? AND email = ?", (invite_id, address)).fetchone()
+    row = ctx.conn.execute("SELECT org_id FROM invites WHERE id = ? AND email = ? AND COALESCE(expires, ?) > ?",
+                           (invite_id, address, 2**62, now_epoch())).fetchone()
     return row["org_id"] if row else None
 
 
@@ -189,6 +208,9 @@ def login(ctx):
         server.email_throttle.fail(address)
         raise ApiError(401, "invalid_credentials", "E-mail o contraseña incorrectos.")
     server.email_throttle.reset(address)
+    if user["disabled"]:  # told only to whoever knows the password
+        raise ApiError(403, "account_disabled", "Esta cuenta está desactivada en este servidor. Habla con quien lo "
+                       "administra.")
     token, session_id, now = security.new_token(), new_id(), now_epoch()
     with ctx.db.tx(write=True) as conn:
         conn.execute("DELETE FROM sessions WHERE expires <= ?", (now,))

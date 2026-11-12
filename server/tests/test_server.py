@@ -480,11 +480,14 @@ class Outbox:
 
     def code(self, to):
         for _ in range(100):  # sent from a background thread
-            found = [m for m in self.sent if m["To"] == to]
+            found = [m for m in self.sent if m["To"] == to and "código" in m["Subject"]]
             if found:
                 return re.search(r"\b(\d{8})\b", found[-1].get_content()).group(1)
             time.sleep(0.05)
         raise AssertionError(f"no e-mail to {to}")
+
+    def invites(self, to):
+        return [m for m in self.sent if m["To"] == to and "invita" in m["Subject"]]
 
 
 def test_email_verification():
@@ -697,6 +700,269 @@ def test_account_data():
         stop()
 
 
+def server_db(settings, sql, args=()):
+    """Change the server's database behind its back (time passing, for instance)."""
+    import sqlite3
+    conn = sqlite3.connect(settings.db_path)
+    try:
+        rows = conn.execute(sql, args).fetchall()
+        conn.commit()
+        return rows
+    finally:
+        conn.close()
+
+
+def cli_out(settings, argv):
+    """`secretbroker-server <argv>`: (exit code, everything it printed)."""
+    import contextlib
+    import io
+    out = io.StringIO()
+    code = 0
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+        try:
+            run_cli(settings, argv)
+        except SystemExit as exc:
+            code = exc.code if isinstance(exc.code, int) else 1
+            if not isinstance(exc.code, int) and exc.code:
+                print(exc.code)
+    return code, out.getvalue()
+
+
+def test_invite_lifecycle():
+    print("Invites by e-mail, expiry, renewal and re-sending")
+    with Outbox() as outbox:
+        base, stop, settings = start(smtp_host="smtp.example", smtp_from="secrets@example.com", max_invites_per_hour=6,
+                                     public_url="https://secrets.example.com", allow_http=True)
+        try:
+            check(Api(base).ok("GET", "/info")["mail"] is True, "info says the server sends e-mail")
+            alice = Api(base).signup("alice@example.com")
+            oid = alice.ok("POST", "/orgs", {"name": "Acme"})["id"]
+            answer = alice.ok("POST", f"/orgs/{oid}/invites", {"email": "bob@example.com", "role": "member"})
+            sent = outbox.invites("bob@example.com")
+            check(answer["emailed"] is True and answer["expires"] and len(sent) == 1, "the invite is e-mailed")
+            text = sent[0].get_content()
+            link = f"secretbroker://join?server=https%3A%2F%2Fsecrets.example.com&email=bob%40example.com&code={answer['id']}"
+            check(link in text and "https://github.com/xBofi/SecretBroker/releases/latest" in text
+                  and "Acme" in sent[0]["Subject"] and "Alice (alice@example.com)" in text,
+                  "with the join link, where to download SecretBroker and who invites")
+            check(alice.token not in text and alice.auth_hash not in text and "Nadie te pedirá nunca tu contraseña" in text,
+                  "and nothing secret (it says nobody will ask for a password)")
+            row = next(m for m in alice.ok("GET", f"/orgs/{oid}/members") if m["email"] == "bob@example.com")
+            check(row["emailed"] is True and row["expired"] is False and row["expires"] == answer["expires"],
+                  "the admin sees it was e-mailed and when it expires")
+            from datetime import datetime
+            days = (datetime.fromisoformat(answer["expires"]).timestamp() - time.time()) / 86400
+            check(13.9 < days < 14.1, "invites last 14 days by default")
+            again = alice.call("POST", f"/orgs/{oid}/invites/{answer['id']}/send", {})
+            check(again.status_code == 429 and again.headers.get("retry-after"), "re-sending at once is refused")
+            server_db(settings, "UPDATE invites SET sent = sent - 3600")
+            check(alice.ok("POST", f"/orgs/{oid}/invites/{answer['id']}/send", {})["emailed"]
+                  and len(outbox.invites("bob@example.com")) == 2, "a pending invite can be re-sent")
+            bob = Api(base).signup("bob@example.com")
+            check(len(bob.ok("GET", "/invites")) == 1, "bob sees it")
+            server_db(settings, "UPDATE invites SET expires = ?", (int(time.time()) - 1,))
+            row = next(m for m in alice.ok("GET", f"/orgs/{oid}/members") if m["email"] == "bob@example.com")
+            check(row["expired"] is True and row["status"] == "invited", "an expired invite shows as expired")
+            check(bob.ok("GET", "/invites") == [], "the invitee no longer sees it")
+            gone = bob.call("POST", f"/invites/{answer['id']}/accept")
+            check(gone.status_code == 410 and gone.json()["code"] == "invite_expired", "nor can accept it")
+            check(alice.call("POST", f"/orgs/{oid}/invites/{answer['id']}/send", {}).status_code == 410,
+                  "an expired invite is renewed, not re-sent")
+            renewed = alice.ok("POST", f"/orgs/{oid}/invites/{answer['id']}/renew", {})
+            check(renewed["id"] != answer["id"] and renewed["emailed"] and len(outbox.invites("bob@example.com")) == 3
+                  and renewed["id"] in outbox.invites("bob@example.com")[-1].get_content(),
+                  "renewing makes a new code and e-mails it")
+            check(bob.call("POST", f"/invites/{answer['id']}/accept").status_code == 404, "the old code stops working")
+            check(bob.ok("GET", "/invites")[0]["id"] == renewed["id"], "the new one is there")
+            check(alice.call("POST", f"/orgs/{oid}/invites", {"email": "bob@example.com", "role": "member"}).status_code == 409,
+                  "a pending invite is not duplicated")
+            server_db(settings, "UPDATE invites SET expires = ?", (int(time.time()) - 1,))
+            check(alice.ok("POST", f"/orgs/{oid}/invites", {"email": "bob@example.com", "role": "admin"})["emailed"],
+                  "inviting again replaces an expired invite")
+            check(bob.call("POST", f"/orgs/{oid}/invites/{renewed['id']}/renew", {}).status_code in (403, 404),
+                  "only org admins renew")
+            events = [(e["action"], e["target"]) for e in alice.ok("GET", f"/orgs/{oid}/events")]
+            check(("invite.renew", "bob@example.com") in events and ("invite.send", "bob@example.com") in events,
+                  "renewals and re-sends are in the audit log")
+            limited = None
+            for n in range(10):
+                limited = alice.call("POST", f"/orgs/{oid}/invites", {"email": f"p{n}@example.com", "role": "member"})
+                if limited.status_code != 200:
+                    break
+            check(limited.status_code == 429 and limited.headers.get("retry-after") and n == 2,
+                  f"at most SB_MAX_INVITES_PER_HOUR invites an hour per organization (stopped after {n})")
+            check(not any("código" in m["Subject"] for m in outbox.sent if m["To"].startswith("p")),
+                  "no verification code went to people only invited")
+        finally:
+            stop()
+    base, stop, settings = start()
+    try:
+        alice = Api(base).signup("alice@example.com")
+        oid = alice.ok("POST", "/orgs", {"name": "Sin correo"})["id"]
+        answer = alice.ok("POST", f"/orgs/{oid}/invites", {"email": "bob@example.com", "role": "member"})
+        check(answer["emailed"] is False and Api(base).ok("GET", "/info")["mail"] is False,
+              "without SMTP nothing is e-mailed, and the answer says so")
+        check(alice.ok("POST", f"/orgs/{oid}/invites/{answer['id']}/send", {}) == {"emailed": False},
+              "re-sending without SMTP says it was not e-mailed")
+    finally:
+        stop()
+
+
+def test_versions_and_health():
+    print("Version compatibility and health")
+    from secretbroker_server.accounts import health
+    base, stop, settings = start()
+    try:
+        anon = Api(base)
+        info = anon.ok("GET", "/info")
+        check(info["api"] == config.API_VERSION and info["min_client"] == config.MIN_CLIENT, "info has api and min_client")
+        alice = Api(base).signup("alice@example.com")
+        old = alice.http.get("/me", headers={"Authorization": f"Bearer {alice.token}", "X-SecretBroker-Version": "0.15.3"})
+        check(old.status_code == 426 and old.json()["code"] == "client_too_old"
+              and old.json()["min_client"] == config.MIN_CLIENT, "an app older than min_client gets 426 client_too_old")
+        for header, label in (({}, "no version header (0.16 apps)"), ({"X-SecretBroker-Version": "0.17.0"}, "a current app"),
+                              ({"X-SecretBroker-Version": "nonsense"}, "an unreadable version")):
+            answer = alice.http.get("/me", headers={"Authorization": f"Bearer {alice.token}", **header})
+            check(answer.status_code == 200, f"{label} is served")
+        check(anon.http.get("/info", headers={"X-SecretBroker-Version": "0.1.0"}).status_code == 200,
+              "info answers any app, so it can tell its user to update")
+        health_answer = anon.http.get("/health", headers={"X-SecretBroker-Version": "0.1.0"})
+        check(health_answer.status_code == 200 and health_answer.json() == {"status": "ok"},
+              "health answers without auth and says nothing else")
+    finally:
+        stop()
+    base, stop, settings = start(min_client="0.99.0")
+    try:
+        check(Api(base).ok("GET", "/info")["min_client"] == "0.99.0", "SB_MIN_CLIENT raises the minimum")
+        person = Api(base).signup("bob@example.com")
+        check(person.http.get("/me", headers={"Authorization": f"Bearer {person.token}",
+                                              "X-SecretBroker-Version": "0.17.0"}).status_code == 426,
+              "and apps below it are told to update")
+    finally:
+        stop()
+    try:
+        config.Settings(data_dir=Path("."), public_url="https://x.example", min_client="latest").check()
+        check(False, "SB_MIN_CLIENT must be a version")
+    except config.ConfigError:
+        check(True, "SB_MIN_CLIENT must be a version")
+
+    class Broken:
+        def conn(self):
+            import sqlite3
+            raise sqlite3.OperationalError("disk I/O error")
+
+    class Ctx:
+        db = Broken()
+    check(health(Ctx()) == (503, {"status": "unavailable"}), "health is 503 when the database does not answer")
+
+
+def test_admin_cli():
+    print("Server admin: users, disable-user, enable-user, delete-user")
+    base, stop, settings = start()
+    try:
+        alice, bob = Api(base).signup("alice@example.com"), Api(base).signup("bob@example.com")
+        carol, dave = Api(base).signup("carol@example.com"), Api(base).signup("dave@example.com")
+        oid = alice.ok("POST", "/orgs", {"name": "Acme"})["id"]
+        for person, role in ((bob, "member"), (carol, "admin")):
+            alice.ok("POST", f"/orgs/{oid}/invites", {"email": person.email, "role": role})
+            person.ok("POST", f"/invites/{person.ok('GET', '/invites')[0]['id']}/accept")
+            alice.ok("POST", f"/orgs/{oid}/members/{person.id}/confirm", {})
+        cid, solo = str(uuid.uuid4()), str(uuid.uuid4())
+        alice.ok("POST", f"/orgs/{oid}/collections", {"id": cid, "encrypted_name": box(), "grant": alice.grant()})
+        alice.ok("PUT", f"/collections/{cid}/members/{bob.id}", {"permission": "edit", "grant": alice.grant()})
+        carol.ok("POST", f"/orgs/{oid}/collections", {"id": solo, "encrypted_name": box(), "grant": carol.grant()})
+        dave.ok("POST", "/orgs", {"name": "Solo de Dave"})
+        keys = alice.ok("GET", f"/users/{bob.id}/keys")
+
+        code, out = cli_out(settings, ["users"])
+        check(code == 0 and all(p.email in out for p in (alice, bob, carol, dave)) and "Acme (owner)" in out
+              and "last seen 20" in out, "users lists e-mails, organizations with roles and last seen")
+        check(keys["public_key"] not in out and "verifier" not in out and bob.auth_hash not in out,
+              "and never keys or verifiers")
+
+        code, out = cli_out(settings, ["disable-user", "bob@example.com"])
+        check(code == 0 and "is disabled" in out and "left «Acme»: 1 collection(s) will be re-keyed" in out,
+              "disable-user says what happens")
+        check(bob.call("GET", "/me").status_code == 401, "its sessions are revoked")
+        refused = bob.login()
+        check(refused.status_code == 403 and refused.json()["code"] == "account_disabled", "it can't sign in")
+        wrong = bob.login(auth_hash=rand(32))
+        check(wrong.status_code == 401 and wrong.json()["code"] == "invalid_credentials",
+              "a wrong password is not told the account is disabled")
+        listed = next(c for c in alice.ok("GET", "/collections") if c["id"] == cid)
+        check(listed["needs_rekey"] and bob.id not in [m["user_id"] for m in alice.ok("GET", f"/collections/{cid}/members")],
+              "it leaves its collections, which wait for a re-key")
+        check(bob.id not in [m["user_id"] for m in alice.ok("GET", f"/orgs/{oid}/members")], "and the organization")
+        events = [(e["action"], e["target"], e["actor"]) for e in alice.ok("GET", f"/orgs/{oid}/events")]
+        check(("member.disable", "bob@example.com", None) in events, "the org audit log says the server admin did it")
+        check("DISABLED" in cli_out(settings, ["users"])[1], "users marks it")
+        code, out = cli_out(settings, ["enable-user", "bob@example.com"])
+        check(code == 0 and bob.login().status_code == 200 and "invite it again" in out,
+              "enable-user lets it sign in again (not back into its organizations)")
+
+        code, out = cli_out(settings, ["delete-user", "carol@example.com", "--yes"])
+        check(code != 0 and "only manager of 1 collection(s) of «Acme»" in out and carol.login().status_code == 200,
+              "delete-user refuses the only manager of a collection, says what to do, changes nothing")
+        code, out = cli_out(settings, ["delete-user", "dave@example.com", "--yes"])
+        check(code != 0 and "only owner of «Solo de Dave»" in out, "and the last owner of an organization")
+        code, out = cli_out(settings, ["delete-user", "bob@example.com"])
+        check(code != 0 and "--yes" in out and bob.login().status_code == 200, "it asks for --yes")
+        code, out = cli_out(settings, ["delete-user", "bob@example.com", "--yes"])
+        gone = bob.login()
+        check(code == 0 and gone.status_code == 401 and "bob@example.com" not in cli_out(settings, ["users"])[1],
+              "delete-user deletes the account")
+        check(server_db(settings, "SELECT COUNT(*) FROM sessions WHERE user_id = ?", (bob.id,))[0][0] == 0
+              and server_db(settings, "SELECT COUNT(*) FROM events WHERE action = 'user.delete' AND target = ?",
+                            (bob.id,))[0][0] == 1, "with its sessions; the server log keeps that it happened")
+        code, out = cli_out(settings, ["disable-user", "carol@example.com"])
+        check(code == 0 and "stays a member" in out and carol.login().status_code == 403
+              and carol.id in [m["user_id"] for m in alice.ok("GET", f"/orgs/{oid}/members")],
+              "disabling a collection's only manager blocks the account and keeps it there until handed over")
+        check(cli_out(settings, ["disable-user", "nobody@example.com"])[0] != 0, "an unknown e-mail is an error")
+    finally:
+        stop()
+
+
+def test_backup_restore():
+    print("Backups and restore")
+    import zipfile
+    from secretbroker_server.backup import release_lock, take_lock
+    base, stop, settings = start()
+    backups = Path(tempfile.mkdtemp(prefix="sb-backups-"))
+    try:
+        alice = Api(base).signup("alice@example.com")
+        alice.ok("POST", "/orgs", {"name": "Antes"})
+        for _ in range(3):
+            code, out = cli_out(settings, ["backup", "--dir", str(backups), "--keep", "2"])
+        files = sorted(backups.glob("secretbroker-backup-*.zip"))
+        check(code == 0 and len(files) == 2 and "deleted" in out, "backups are timestamped and the oldest pruned")
+        with zipfile.ZipFile(files[-1]) as archive:
+            check(sorted(archive.namelist()) == ["secretbroker.db", "server_secret"], "a backup has the database and the secret")
+        alice.ok("POST", "/orgs", {"name": "Después"})
+        lock = take_lock(settings.data_dir)  # what `secretbroker-server serve` holds while it runs
+        try:
+            code, out = cli_out(settings, ["restore", str(files[-1])])
+            check(code != 0 and "stop it first" in out, "restore refuses while a server runs on the data folder")
+        finally:
+            release_lock(lock)
+    finally:
+        stop()
+    code, out = cli_out(settings, ["restore", str(files[-1])])
+    aside = list(settings.data_dir.glob("before-restore-*"))
+    check(code == 0 and aside and (aside[-1] / "secretbroker.db").exists(), "restore keeps the previous files aside")
+    base, stop, _ = start(data_dir=settings.data_dir)
+    try:
+        alice.http = httpx.Client(base_url=base + "/api/v1", timeout=30)
+        alice.token = alice.login().json()["token"]
+        names = [o["name"] for o in alice.ok("GET", "/orgs")]
+        check(names == ["Antes"], f"the restored server has the data of the backup ({names})")
+    finally:
+        stop()
+    bogus = backups / "nope.zip"
+    bogus.write_bytes(b"not a zip")
+    check(cli_out(settings, ["restore", str(bogus)])[0] != 0, "a file that is not a backup is refused")
+
+
 def test_migration():
     print("Upgrading a database from 0.15")
     import sqlite3
@@ -721,6 +987,90 @@ def test_migration():
     db.close()
 
 
+# What the first SecretBroker Server (schema 1, before 0.16) created: no e-mail verification, no signed lists or
+# deletions, no account data, invites that never expire, no disabled accounts.
+SCHEMA_1 = """
+CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL, kdf TEXT NOT NULL,
+    auth_salt TEXT NOT NULL, auth_verifier TEXT NOT NULL, public_key TEXT NOT NULL, signing_public_key TEXT NOT NULL,
+    private_blob TEXT NOT NULL, is_admin INTEGER NOT NULL DEFAULT 0, created TEXT NOT NULL);
+CREATE TABLE sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), token_hash TEXT NOT NULL UNIQUE,
+    device_name TEXT NOT NULL, created TEXT NOT NULL, last_seen TEXT NOT NULL, touched INTEGER NOT NULL,
+    expires INTEGER NOT NULL);
+CREATE INDEX sessions_user ON sessions(user_id);
+CREATE TABLE signup_tokens (token_hash TEXT PRIMARY KEY, created TEXT NOT NULL, created_by TEXT,
+    expires INTEGER NOT NULL, used_by TEXT);
+CREATE TABLE orgs (id TEXT PRIMARY KEY, name TEXT NOT NULL, created TEXT NOT NULL);
+CREATE TABLE org_members (org_id TEXT NOT NULL REFERENCES orgs(id), user_id TEXT NOT NULL REFERENCES users(id),
+    role TEXT NOT NULL, status TEXT NOT NULL, created TEXT NOT NULL, PRIMARY KEY (org_id, user_id));
+CREATE TABLE invites (id TEXT PRIMARY KEY, org_id TEXT NOT NULL REFERENCES orgs(id), email TEXT NOT NULL,
+    role TEXT NOT NULL, invited_by TEXT NOT NULL, created TEXT NOT NULL);
+CREATE TABLE collections (id TEXT PRIMARY KEY, org_id TEXT NOT NULL REFERENCES orgs(id), encrypted_name TEXT NOT NULL,
+    key_version INTEGER NOT NULL, revision INTEGER NOT NULL, needs_rekey INTEGER NOT NULL DEFAULT 0,
+    created TEXT NOT NULL);
+CREATE TABLE collection_members (collection_id TEXT NOT NULL REFERENCES collections(id),
+    user_id TEXT NOT NULL REFERENCES users(id), permission TEXT NOT NULL, grant_json TEXT NOT NULL,
+    key_version INTEGER NOT NULL, PRIMARY KEY (collection_id, user_id));
+CREATE TABLE items (collection_id TEXT NOT NULL REFERENCES collections(id), id TEXT NOT NULL,
+    revision INTEGER NOT NULL, key_version INTEGER NOT NULL, ciphertext TEXT, deleted INTEGER NOT NULL DEFAULT 0,
+    updated_by TEXT NOT NULL, updated TEXT NOT NULL, PRIMARY KEY (collection_id, id));
+CREATE TABLE events (id INTEGER PRIMARY KEY, org_id TEXT, time TEXT NOT NULL, actor TEXT, action TEXT NOT NULL,
+    target TEXT);
+INSERT INTO meta VALUES ('schema_version', '1');
+"""
+
+
+def test_schema_1_upgrade():
+    print("Upgrading a schema-1 database (the first server) and using it")
+    import json as _json
+    import sqlite3
+    from secretbroker_server import security
+    data = Path(tempfile.mkdtemp(prefix="sb-server-schema1-"))
+    auth_hash, salt = rand(32), security.new_salt()
+    uid, oid, cid, iid, invite_id = (str(uuid.uuid4()) for _ in range(5))
+    conn = sqlite3.connect(data / "secretbroker.db")
+    conn.executescript(SCHEMA_1)
+    conn.execute("INSERT INTO users VALUES (?, 'old@example.com', 'Old', ?, ?, ?, ?, ?, ?, 1, '2025-01-01T00:00:00+00:00')",
+                 (uid, _json.dumps(kdf()), salt, security.verifier(auth_hash, salt), rand(32), rand(32),
+                  _json.dumps(box(200))))
+    conn.execute("INSERT INTO orgs VALUES (?, 'Vieja', '2025-01-01T00:00:00+00:00')", (oid,))
+    conn.execute("INSERT INTO org_members VALUES (?, ?, 'owner', 'confirmed', '2025-01-01T00:00:00+00:00')", (oid, uid))
+    conn.execute("INSERT INTO invites VALUES (?, ?, 'new@example.com', 'member', ?, '2025-01-02T00:00:00+00:00')",
+                 (invite_id, oid, uid))
+    conn.execute("INSERT INTO collections VALUES (?, ?, ?, 1, 1, 0, '2025-01-01T00:00:00+00:00')",
+                 (cid, oid, _json.dumps(box())))
+    grant = {"sealed": {"epk": rand(32), "nonce": rand(12), "ciphertext": rand(48)}, "granted_by": uid,
+             "signature": rand(64)}
+    conn.execute("INSERT INTO collection_members VALUES (?, ?, 'manage', ?, 1)", (cid, uid, _json.dumps(grant)))
+    conn.execute("INSERT INTO items VALUES (?, ?, 1, 1, ?, 0, ?, '2025-01-03T00:00:00+00:00')",
+                 (cid, iid, _json.dumps(box()), uid))
+    conn.commit()
+    conn.close()
+    base, stop, settings = start(data_dir=data)
+    try:
+        old = Api(base)
+        old.id, old.email, old.auth_hash = uid, "old@example.com", auth_hash
+        login = old.login()
+        check(login.status_code == 200 and login.json()["user"]["verified"] and login.json()["user"]["admin"],
+              "its accounts sign in, verified, with their admin flag")
+        old.token = login.json()["token"]
+        check([o["name"] for o in old.ok("GET", "/orgs")] == ["Vieja"], "organizations are there")
+        invite = next(m for m in old.ok("GET", f"/orgs/{oid}/members") if m["status"] == "invited")
+        check(invite["invite_id"] == invite_id and invite["expired"] is False and invite["expires"],
+              "pending invites get an expiry from the upgrade on")
+        items = old.ok("GET", f"/collections/{cid}/items?since=0")
+        check([i["id"] for i in items["items"]] == [iid], "collections and items are there")
+        put = old.ok("PUT", f"/collections/{cid}/items/{iid}", {"ciphertext": box(), "key_version": 1, "base_revision": 1})
+        check(put["revision"] == 2, "and can be written")
+        check(old.ok("POST", f"/orgs/{oid}/invites", {"email": "other@example.com", "role": "member"})["id"],
+              "new invites work")
+        version = server_db(settings, "SELECT value FROM meta WHERE key = 'schema_version'")[0][0]
+        check(version == "3", f"the schema is now 3 ({version})")
+        check(cli_out(settings, ["users"])[1].count("old@example.com") == 1, "the admin commands work on it")
+    finally:
+        stop()
+
+
 def main():
     test_config()
     base, stop, settings = start()
@@ -738,6 +1088,11 @@ def main():
     test_signed_lists_and_deletions()
     test_account_data()
     test_migration()
+    test_schema_1_upgrade()
+    test_invite_lifecycle()
+    test_versions_and_health()
+    test_admin_cli()
+    test_backup_restore()
     print("\nAll good." if not failures else f"\n{failures} check(s) failed.")
     sys.exit(1 if failures else 0)
 

@@ -1,6 +1,7 @@
 """Server settings, read once from the environment."""
 
 import os
+import re
 import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -9,10 +10,25 @@ from urllib.parse import urlparse
 SIGNUP_MODES = ("open", "invite", "closed")
 VERIFICATION_MODES = ("required", "off")
 SMTP_SECURITY = ("starttls", "ssl", "none")
+VERSION_RE = re.compile(r"^\s*v?(\d{1,6})\.(\d{1,6})(?:\.(\d{1,6}))?")
+
+# The protocol this server speaks (GET /info `api`): 1 = 0.16 (signed member lists and deletions, e-mail
+# verification), 2 = invites that expire and are e-mailed, the client version header, /health. Additive: a client
+# made for api 1 works unchanged.
+API_VERSION = 2
+# The oldest desktop app that works with this server: 0.16 is the first that signs member lists, which this server
+# requires once a collection has one. Apps that don't send their version (before 0.17) are served as before.
+MIN_CLIENT = "0.16.0"
 
 
 class ConfigError(Exception):
     pass
+
+
+def parse_version(text):
+    """(major, minor, patch) from "0.17.0", "0.17.0-beta1" or "0.17"; None if it is not a version."""
+    match = VERSION_RE.match(str(text or ""))
+    return tuple(int(n or 0) for n in match.groups()) if match else None
 
 
 @dataclass
@@ -37,10 +53,22 @@ class Settings:
     smtp_security: str = "starttls"
     # Item deletions one account may make in an hour (a stolen session or a broken client wiping a team).
     max_deletes_per_hour: int = 100
+    # Organization invites: how long one stays valid, and how many an organization (or an account) may create,
+    # renew or re-send in an hour (each may send an e-mail: nobody uses the server to flood inboxes).
+    invite_days: int = 14
+    max_invites_per_hour: int = 30
+    # The oldest desktop app this server serves (it says so with 426 client_too_old). Never below MIN_CLIENT.
+    min_client: str = ""
 
     @property
     def db_path(self):
         return self.data_dir / "secretbroker.db"
+
+    @property
+    def oldest_client(self):
+        """The minimum app version, as text: SB_MIN_CLIENT if it is newer than the built-in MIN_CLIENT."""
+        mine = parse_version(self.min_client)
+        return self.min_client if mine and mine > parse_version(MIN_CLIENT) else MIN_CLIENT
 
     @property
     def https(self):
@@ -71,6 +99,12 @@ class Settings:
             raise ConfigError("SB_MAX_DELETES_PER_HOUR must be at least 1")
         if self.session_days < 1:
             raise ConfigError("SB_SESSION_DAYS must be at least 1")
+        if not 1 <= self.invite_days <= 365:
+            raise ConfigError("SB_INVITE_DAYS must be between 1 and 365")
+        if self.max_invites_per_hour < 1:
+            raise ConfigError("SB_MAX_INVITES_PER_HOUR must be at least 1")
+        if self.min_client and parse_version(self.min_client) is None:
+            raise ConfigError("SB_MIN_CLIENT must be a version such as 0.17.0")
         if self.public_url:
             parsed = urlparse(self.public_url)
             if parsed.scheme not in ("http", "https") or not parsed.netloc:
@@ -91,9 +125,11 @@ def from_env(env=None):
         max_body = int(env.get("SB_MAX_BODY", str(8 * 1024 * 1024)))
         smtp_port = int(env.get("SB_SMTP_PORT", "587"))
         max_deletes = int(env.get("SB_MAX_DELETES_PER_HOUR", "100"))
+        invite_days = int(env.get("SB_INVITE_DAYS", "14"))
+        max_invites = int(env.get("SB_MAX_INVITES_PER_HOUR", "30"))
     except ValueError as exc:
-        raise ConfigError("SB_SESSION_DAYS, SB_MAX_BODY, SB_SMTP_PORT and SB_MAX_DELETES_PER_HOUR must be "
-                          "numbers") from exc
+        raise ConfigError("SB_SESSION_DAYS, SB_MAX_BODY, SB_SMTP_PORT, SB_MAX_DELETES_PER_HOUR, SB_INVITE_DAYS and "
+                          "SB_MAX_INVITES_PER_HOUR must be numbers") from exc
     emails = frozenset(e.strip().lower() for e in env.get("SB_ADMIN_EMAILS", "").split(",") if e.strip())
     return Settings(
         data_dir=Path(env.get("SB_DATA_DIR", "./data")).resolve(),
@@ -113,6 +149,9 @@ def from_env(env=None):
         smtp_from=env.get("SB_SMTP_FROM", "").strip(),
         smtp_security=env.get("SB_SMTP_SECURITY", "starttls").strip().lower(),
         max_deletes_per_hour=max_deletes,
+        invite_days=invite_days,
+        max_invites_per_hour=max_invites,
+        min_client=env.get("SB_MIN_CLIENT", "").strip(),
     )
 
 

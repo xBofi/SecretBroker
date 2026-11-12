@@ -1,9 +1,10 @@
-# SecretBroker Server behind Caddy, which gets and renews the TLS certificate automatically.
+# SecretBroker Server behind Caddy, which gets and renews the TLS certificate automatically, plus a daily backup.
 # Usage: put SB_DOMAIN (and optionally the other SB_* values) in a .env file next to this one, then
 #   docker compose up -d
 services:
   server:
     build: .
+    image: secretbroker-server:local
     restart: unless-stopped
     environment:
       SB_PUBLIC_URL: "https://${SB_DOMAIN:?Set SB_DOMAIN in .env}"
@@ -12,9 +13,10 @@ services:
       SB_SESSION_DAYS: "${SB_SESSION_DAYS:-30}"
       SB_SERVER_NAME: "${SB_SERVER_NAME:-SecretBroker}"
       SB_TRUST_PROXY: "1"  # only Caddy can reach the server, so its X-Forwarded-For is trustworthy
-      # E-mail verification codes. Without SMTP, verify accounts with
+      # E-mail: verification codes and invites. Without SMTP, verify accounts with
       #   docker compose exec server secretbroker-server verify-email someone@example.com
-      # or set SB_EMAIL_VERIFICATION=off (then anyone who registers an address receives its invites).
+      # and pass invites on by hand (the app gives you the instructions), or set SB_EMAIL_VERIFICATION=off
+      # (then anyone who registers an address receives its invites).
       SB_EMAIL_VERIFICATION: "${SB_EMAIL_VERIFICATION:-required}"
       SB_SMTP_HOST: "${SB_SMTP_HOST:-}"
       SB_SMTP_PORT: "${SB_SMTP_PORT:-587}"
@@ -23,10 +25,36 @@ services:
       SB_SMTP_PASSWORD: "${SB_SMTP_PASSWORD:-}"
       SB_SMTP_FROM: "${SB_SMTP_FROM:-}"
       SB_MAX_DELETES_PER_HOUR: "${SB_MAX_DELETES_PER_HOUR:-100}"
+      SB_INVITE_DAYS: "${SB_INVITE_DAYS:-14}"
+      SB_MAX_INVITES_PER_HOUR: "${SB_MAX_INVITES_PER_HOUR:-30}"
+      SB_MIN_CLIENT: "${SB_MIN_CLIENT:-}"
     volumes:
       - sb-data:/data
     expose:
       - "8080"
+    read_only: true  # only the volumes (and /tmp) are writable
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  # A consistent backup of the database and the server secret once a day, keeping the last SB_BACKUP_KEEP (14).
+  # They land in the sb-backups volume: copy them off this machine too (see README, "Backups").
+  backup:
+    build: .
+    image: secretbroker-server:local
+    restart: unless-stopped
+    depends_on:
+      - server
+    command: ["secretbroker-server", "backup", "--dir", "/backups", "--keep", "${SB_BACKUP_KEEP:-14}", "--every", "24"]
+    volumes:
+      - sb-data:/data
+      - sb-backups:/backups
+    read_only: true  # only the volumes (and /tmp) are writable
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      disable: true
 
   caddy:
     image: caddy:2
@@ -46,5 +74,6 @@ services:
 
 volumes:
   sb-data:
+  sb-backups:
   caddy-data:
   caddy-config:
