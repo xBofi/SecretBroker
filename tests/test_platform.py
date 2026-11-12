@@ -232,6 +232,11 @@ for url in ("http://127.0.0.1:43123/index.html", "http://127.0.0.1:43123/index.h
         results.append("refused")
 check(results == [True, True] + ["refused"] * 6 and len(calls) == 2,
       f"only the app's own page may call it; any other page, or none, is refused ({results})")
+
+# pywebview's page server: room for every file the page asks for at once (its default queue of 5 refused one).
+import socketserver  # noqa: E402
+app._roomy_page_server()
+check(socketserver.TCPServer.request_queue_size >= 32, f"the page server queues every request ({socketserver.TCPServer.request_queue_size})")
 window.gui.get_current_url = lambda uid: (_ for _ in ()).throw(RuntimeError("closing"))
 try:
     page.has_presence()

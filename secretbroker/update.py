@@ -30,7 +30,7 @@ LATEST_API = f"https://api.github.com/repos/{REPO}/releases/latest"
 PUBLIC_KEY = "Y54EWQu13b79ilylP/cAvqFDvzxjkwiYkEq/puedHos="  # base64 raw Ed25519; the private half is the UPDATE_SIGNING_KEY secret
 SIGNED_PREFIX = b"SecretBroker release\0"
 INSTALLER_RE = re.compile(platform.INSTALLER_RE)
-CHECK_EVERY_SECONDS = 6 * 3600
+CHECK_EVERY_SECONDS = 3600  # one request an hour; GitHub allows 60 an hour per address
 TIMEOUT = 30
 MAX_INSTALLER_BYTES = 200 * 1024 * 1024
 

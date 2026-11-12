@@ -250,7 +250,7 @@ async function boot() {
   window.onJoinLink();
   setInterval(tick, 1500);
   checkUpdate(false);
-  setInterval(() => checkUpdate(false), 3 * 3600 * 1000);
+  setInterval(() => checkUpdate(false), 3600 * 1000);
 }
 
 // A link or a file dropped on the window would open in it, and that page would get the bridge to the app (app.py,
@@ -331,6 +331,9 @@ async function refreshStatus() {
   const response = await api().status();
   if (!response.ok) { renderUnavailable(response.error); return; }
   state.status = response.result;
+  // The setup is only for a PC without a vault. If the service has one that this setup did not create (it was
+  // shown while the service restarted after an update, say), the app goes to that vault instead of staying here.
+  if (state.setupActive && !state.setupCreated && state.status.state !== 'no_vault') state.setupActive = false;
   const target = state.setupActive ? 'setup' : { no_vault: 'setup', locked: 'lock', unlocked: 'main' }[state.status.state];
   if (target !== state.screen) {
     state.screen = target;
@@ -508,6 +511,7 @@ async function withProof(fn, reason) {
 
 function renderSetup() {
   state.setupActive = true;
+  state.setupCreated = false;
   const status = state.status;
   let importLegacy = !!status.legacy_vault;
   let masterPassword = null;
@@ -573,6 +577,7 @@ function renderSetup() {
       busy(button, false);
       if (!result.ok) { errorText.textContent = result.error; return; }
       masterPassword = pw.input.value;
+      state.setupCreated = true;
       unlockStep();
     };
     button.addEventListener('click', submit);
@@ -613,6 +618,9 @@ function renderSetup() {
     const button = el('button', { class: 'btn primary lg' }, t('common.continue'));
     button.addEventListener('click', async () => {
       errorText.textContent = '';
+      if (!masterPassword) {  // never a proof with no password: this setup did not create the vault, open it as usual
+        state.setupActive = false; state.screen = null; refreshStatus(); return;
+      }
       const proof = { kind: 'master_password', value: masterPassword };
       busy(button, true);
       const result = choice === 'hello' ? await api().enroll_hello(proof)
@@ -641,6 +649,7 @@ function renderSetup() {
   const done = () => {
     if (thenImport) state.afterUnlock = 'import';
     state.setupActive = false;
+    state.setupCreated = false;
     state.screen = null;
     refreshStatus();
   };
@@ -6021,8 +6030,11 @@ function renderUpdateSlot() {
     : '');
 }
 
-function openUpdate() {
+// Asks GitHub again first: the version shown and installed is the newest one now, not the one an earlier check found.
+async function openUpdate() {
+  await checkUpdate(true);
   const u = state.update;
+  if (!u || !u.available) { if (u && !u.error) toast(t('settings.you_have_latest_version')); return; }
   const install = el('button', { class: 'btn primary' }, t('common.refresh'));
   const errorText = el('div', { class: 'error-text' });
   const modal = openModal({

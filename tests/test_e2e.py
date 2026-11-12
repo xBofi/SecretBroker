@@ -1146,12 +1146,24 @@ def main():
     update._download = lambda client, url: served[url]
     latest = {"version": "99.0.0", "notes": "", "url": "", "signature": "https://github.com/x/sig",
               "installer": {"name": "SecretBroker-Setup-99.0.0.exe", "url": "https://github.com/x/exe"}}
+    published = {"latest": latest}  # what GitHub answers now (update.fetch_latest)
+    update.fetch_latest = lambda: published["latest"]
     service.updates._latest = latest
     service.updates._checked = time.monotonic()
     status = client.request("update_status")
     check(status["available"] and status["latest"] == "99.0.0", "a newer signed release is offered")
     path = Path(client.request("update_download")["path"])
     check(path.read_bytes() == installer and path.parent == HOME / "public" / "updates", "the service downloads it into its public folder")
+    # A newer release came out after the check that found 99.0.0: the download takes the newest one, not the old find.
+    newer = b"MZ newer installer " * 1000
+    served.update({"https://github.com/x/sig2": update.sign(private_b64, "99.0.1", newer).encode(),
+                   "https://github.com/x/exe2": newer})
+    published["latest"] = {"version": "99.0.1", "notes": "", "url": "", "signature": "https://github.com/x/sig2",
+                           "installer": {"name": "SecretBroker-Setup-99.0.1.exe", "url": "https://github.com/x/exe2"}}
+    got = client.request("update_download")
+    check(got["version"] == "99.0.1" and Path(got["path"]).read_bytes() == newer,
+          f"installing asks GitHub again and takes the newest release, not an earlier find ({got['version']})")
+    published["latest"] = latest
     served["https://github.com/x/exe"] = installer + b"tampered"
     expect_error(lambda: client.request("update_download"), "update_failed", "a tampered download is not installed")
     check(not update._allowed_download("https://evil.example.com/SecretBroker-Setup-99.0.0.exe"), "downloads only from GitHub")

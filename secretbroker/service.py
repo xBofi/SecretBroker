@@ -370,7 +370,7 @@ class Service:
             message = f"Contraseña de {platform.OS_LABEL} incorrecta"
         else:
             ok = self.vault.exists() and self.vault.verify_master(value)
-            message = "Contraseña maestra incorrecta"
+            message = tr("service.wrong_master_password")
         if not ok:
             self._failures += 1
             raise ServiceError(message, "proof_invalid")
@@ -1451,10 +1451,9 @@ class Service:
     def op_update_download(self, params):
         """Download the newest release into the public folder and verify its signature.
         Installing it is up to the desktop app, which needs the user's consent (UAC)."""
+        # Always the newest release right now, never the one a check found hours ago: a newer one may be out since.
+        self.updates.status(force=True)
         latest = self.updates.latest()
-        if not latest:
-            self.updates.status(force=True)
-            latest = self.updates.latest()
         if not latest:
             raise ServiceError(tr("service.there_no_new_version"), "not_found")
         try:

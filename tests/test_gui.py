@@ -80,6 +80,14 @@ def diagnose():
                 toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => t.innerText),
                 scan: state.scan || null })"""))
             show("text", PAGE.text()[:1200])
+            # Which of the page's scripts ran, and how each file loaded (a script that never loaded leaves its
+            # functions undefined: «renderConnectAi is not defined»).
+            show("scripts", PAGE.js("""JSON.stringify({
+                defined: { app: typeof boot, personal: typeof openGenerator, connect: typeof renderConnectAi },
+                tags: [...document.scripts].map((s) => s.src.split('/').pop()),
+                loads: performance.getEntriesByType('resource').filter((r) => r.name.endsWith('.js'))
+                  .map((r) => [r.name.split('/').pop(), r.responseStatus, Math.round(r.duration)]),
+                nav: performance.getEntriesByType('navigation').map((n) => [n.type, n.responseStatus]) })"""))
             if PAGE.errors:
                 show("errors", PAGE.errors[-5:])
         except Exception as exc:  # the page may be gone (a crash, «Salir»)
@@ -369,6 +377,8 @@ def run(app, env, devtools, api_port, client, integrations):
     pid = desktop.app_pid(app)
     hwnd = wait_for(lambda: desktop.find_window(pid))
     check(hwnd and desktop.visible(hwnd), "the window opens")
+    check(wait_for(lambda: page.js("[typeof boot, typeof openGenerator, typeof renderConnectAi].every((t) => t === 'function')"), 10),
+          "every script of the page loaded (the local server once refused the last one asked for)")
     check(wait_for(lambda: "Tus claves, usadas sin ser vistas" in page.text()), "first screen: create a vault")
     welcome = page.text()
     check("Apruebas con un clic, una vez o para todo el día" in welcome and "este equipo" not in welcome
@@ -398,6 +408,11 @@ def run(app, env, devtools, api_port, client, integrations):
     check(wait_for(lambda: "Credenciales" in page.text(), 15), "and the vault is open")
     page.js(f"api().call('unlock', {{}}, {{ kind: 'master_password', value: {json.dumps(MASTER)} }})")
     check(wait_for(lambda: "Credenciales" in page.text()), "main screen after unlocking")
+    # The setup shown while a vault exists (the service was restarting after an update): the app leaves it by
+    # itself, and its last step never checks an empty master password («Contraseña maestra incorrecta»).
+    page.js("state.screen = 'setup'; renderSetup()")
+    check(wait_for(lambda: "Credenciales" in page.text() and "Tus claves, usadas sin ser vistas" not in page.text(), 10),
+          "a setup shown over an existing vault goes away by itself, to the vault")
     check(wait_for(lambda: "Conectar tu IA" in page.text(), 10)
           and all(t in page.text() for t in ("Añadir una credencial", "Importar de otro gestor", "Importar un .env de un proyecto")),
           "an empty vault offers three ways to start, and connecting the AI while none is connected")
@@ -1003,7 +1018,7 @@ def other_languages(page, client):
     for lang in LAYOUT_LANGUAGES:
         print(f"The app in {lang}")
         page.js(f"api().set_pref('language', {json.dumps(lang)}).then(() => applyLanguage({json.dumps(lang)}))"
-                f".then(() => loadEntries()).then(renderSetup)")  # like the picker: the service's texts come again
+                f".then(() => loadEntries()).then(() => {{ renderSetup(); state.setupCreated = true; }})")  # like the picker: the service's texts come again; shown over the vault only for its picture, so the app keeps it
         check(wait_for(lambda: page.js("document.documentElement.lang") == lang, 10), f"the welcome switches to {lang}")
         time.sleep(0.8)
         calm_shot(page, f"{lang}-01-welcome")
@@ -1130,7 +1145,8 @@ def connect_ai_flow(page, client):
     page.settled()
     shown = None
     for attempt in range(3):
-        page.js("""(() => { state.setupActive = true; state.screen = 'setup'; const box = el('div', { class: 'auth wide connect-step' });
+        # As the setup draws it right after creating the vault (setupCreated: else the app leaves the setup at once).
+        page.js("""(() => { state.setupActive = true; state.setupCreated = true; state.screen = 'setup'; const box = el('div', { class: 'auth wide connect-step' });
           $app().replaceChildren(el('div', { class: 'center-screen' }, box));
           renderConnectAi(box, () => { state.setupActive = false; state.screen = null; state.view = 'access'; refreshStatus(); }); })()""")
         # Listing the AI apps reads the disk and asks the service: slow under load, so wait for the rows, not a time.

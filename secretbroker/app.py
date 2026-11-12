@@ -151,6 +151,17 @@ def page_api(api, window=None):
     return type("PageApi", (), methods)()
 
 
+# The page's files (styles and five scripts) are asked for all at once from pywebview's own local server, a
+# socketserver whose listen queue holds 5 connections by default. On Windows a full queue refuses the next one at
+# once: that file never loads and whatever it defines is missing (the setup's last steps, the .env import...).
+PAGE_SERVER_QUEUE = 64
+
+
+def _roomy_page_server():
+    import socketserver
+    socketserver.TCPServer.request_queue_size = max(socketserver.TCPServer.request_queue_size, PAGE_SERVER_QUEUE)
+
+
 def _back_to_the_app(window):
     """A page that is not the app's loaded anyway (the web view let a navigation through): show the app again."""
     if window.real_url and not _shows_the_app(window):
@@ -1130,6 +1141,7 @@ def main():
     window.events.shown += lambda: _on_shown(window, api, background)
     # Closing the window keeps the app next to the clock, where it can answer the AI; "Salir" quits.
     window.events.closing += lambda: True if api._quitting else (api.hide() or False)
+    _roomy_page_server()
     # WebView2 would otherwise try to write next to python.exe (read-only under Program Files).
     storage = paths.user_dir() / "webview"
     if platform.NAME == "macos":
