@@ -1113,6 +1113,15 @@ def main():
     github.shutdown()
 
     print("Updates")
+    # tools/sign_release.py signs in the release job without importing secretbroker: it must read update.py's key
+    # and prefix and build the same message, or the updater would refuse every release.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("sign_release", Path(__file__).resolve().parent.parent / "tools" / "sign_release.py")
+    sign_release = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sign_release)
+    release_key, release_prefix = sign_release.update_constants()
+    check(release_key == update.PUBLIC_KEY and release_prefix == update.SIGNED_PREFIX,
+          "the release signer reads update.py's public key and signed prefix")
     signing = Ed25519PrivateKey.generate()
     private_b64 = base64.b64encode(signing.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw,
                                                          serialization.NoEncryption())).decode()
@@ -1122,6 +1131,8 @@ def main():
     signature = update.sign(private_b64, "99.0.0", installer)
     update.verify("99.0.0", installer, signature)
     check(True, "a signed installer verifies")
+    update.verify("99.0.0", installer, sign_release.sign(private_b64, "99.0.0", installer, release_prefix))
+    check(True, "a signature from tools/sign_release.py verifies in the updater")
     for label, args in [("another version's signature is refused", ("99.0.1", installer, signature)),
                         ("a modified installer is refused", ("99.0.0", installer + b"x", signature)),
                         ("a signature from another key is refused", ("99.0.0", installer, update.sign(
@@ -1163,6 +1174,9 @@ def main():
 
     print("MCP over HTTP (served by the desktop app)")
     asyncio.run(check_http())
+
+    print("The installer's language")
+    check_installer_language()
 
     print("Following the Windows session (Win+L simulated)")
     from secretbroker import resident
@@ -1271,6 +1285,30 @@ async def check_http():
                 text = " ".join(getattr(c, "text", "") for c in result.content)
                 check("echo-api" in text and API_KEY not in text, "MCP over HTTP works through the service")
     server.should_exit = True
+
+
+def check_installer_language():
+    """integrations.adopt_language (run by the Windows installer): it never overwrites a language chosen in the app."""
+    from secretbroker import i18n, integrations
+    saved = integrations.PREFS_FILE
+    integrations.PREFS_FILE = HOME / "installer-prefs.json"
+    try:
+        other = next(code for code in ("de", "fr") if code != i18n.system_language())
+        check(not integrations.adopt_language(i18n.system_language()) and not integrations.PREFS_FILE.exists(),
+              "the system's own language is not saved (the app keeps following the system)")
+        check(not integrations.adopt_language("xx") and not integrations.PREFS_FILE.exists(), "an unknown language is ignored")
+        check(integrations.adopt_language(other) and integrations.load_prefs().get("language") == other,
+              "another language chosen in the installer becomes the app's")
+        integrations.set_pref("language", "es")
+        integrations.set_pref("palette", "dark")
+        check(not integrations.adopt_language(other) and integrations.load_prefs() == {"language": "es", "palette": "dark"},
+              "a language chosen in the app is never overwritten")
+        integrations.PREFS_FILE.write_text("{broken", encoding="utf-8")
+        check(not integrations.adopt_language(other) and integrations.PREFS_FILE.read_text(encoding="utf-8") == "{broken",
+              "an unreadable preferences file is left alone")
+    finally:
+        integrations.PREFS_FILE.unlink(missing_ok=True)
+        integrations.PREFS_FILE = saved
 
 
 async def check_stdio():

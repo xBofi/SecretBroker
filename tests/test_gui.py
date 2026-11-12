@@ -47,11 +47,45 @@ def email_code(address):
     return re.search(r"\b(\d{8})\b", found[-1].get_content()).group(1) if found else ""
 
 
+PAGE = None  # the page being driven, for diagnose()
+
+
 def check(condition, message):
     global failures
     print(f"  {'OK  ' if condition else 'FAIL'} {message}", flush=True)
     if not condition:
         failures += 1
+        diagnose()
+
+
+def diagnose():
+    """After a failed step: what the page shows and where it is, its errors, and the end of the app's log. A flaky
+    step is then explained by its own run, not guessed at."""
+    def show(label, value):
+        text = str(value).strip().replace("\n", " | ")
+        print(f"       {label}: {text[:1500]}", flush=True)
+    if PAGE is not None:
+        try:
+            PAGE.ws.settimeout(10)
+            show("page", PAGE.js("""JSON.stringify({ screen: state.screen, view: state.view, lang: I18N.lang,
+                html_lang: document.documentElement.lang, info: !!state.info, url: location.href,
+                modals: [...document.querySelectorAll('.modal')].map((m) => m.innerText.slice(0, 200)),
+                toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => t.innerText),
+                scan: state.scan || null })"""))
+            show("text", PAGE.text()[:1200])
+            if PAGE.errors:
+                show("errors", PAGE.errors[-5:])
+        except Exception as exc:  # the page may be gone (a crash, «Salir»)
+            show("page", f"unreadable ({exc!r})")
+        finally:
+            try:
+                PAGE.ws.settimeout(60)
+            except Exception:
+                pass
+    log = HOME / "user" / "app.log"
+    if log.exists():
+        tail = log.read_text(encoding="utf-8", errors="replace").splitlines()[-25:]
+        print("       app.log:\n" + "\n".join(f"         {line}" for line in tail), flush=True)
 
 
 def free_port():
@@ -261,6 +295,7 @@ def main():
     fake_profile()
     env = {**os.environ, "SECRETBROKER_HOME": str(HOME), "SECRETBROKER_MCP_PORT": str(mcp_port),
            "SECRETBROKER_PROFILE": str(PROFILE), "PATH": f"{fake_psql()}{os.pathsep}{os.environ.get('PATH', '')}",
+           "SECRETBROKER_THREAD_DUMPS": "1",  # Linux, macOS: SIGUSR1 dumps the app's threads (see dump_threads)
            **desktop.browser_env(devtools)}
     if desktop.NAME == "linux":  # «start with the session» writes its .desktop file here, not in the user's own
         env["XDG_CONFIG_HOME"] = str(HOME / "xdg-config")
@@ -322,7 +357,8 @@ def foreign_page_flow(page):
 
 def run(app, env, devtools, api_port, client, integrations):
     print("Window")
-    page = Page(devtools)
+    global PAGE
+    page = PAGE = Page(devtools)
     pid = desktop.app_pid(app)
     hwnd = wait_for(lambda: desktop.find_window(pid))
     check(hwnd and desktop.visible(hwnd), "the window opens")
@@ -773,7 +809,26 @@ def run(app, env, devtools, api_port, client, integrations):
         page.js("api().quit()")
     except websocket.WebSocketException:
         pass  # the page goes away with the app
-    check(wait_for(lambda: app.poll() is not None, 10), "«Salir» quits the app")
+    quit_ok = wait_for(lambda: app.poll() is not None, 10)
+    if not quit_ok:
+        dump_threads(app)
+    check(quit_ok, "«Salir» quits the app")
+
+
+def dump_threads(app):
+    """Where the app's threads are while it fails to quit (Linux, macOS: SIGUSR1, faulthandler in app.py)."""
+    import signal
+    if not hasattr(signal, "SIGUSR1") or not (HOME / "user" / "app-threads.log").exists():
+        return
+    try:
+        os.kill(desktop.app_pid(app), signal.SIGUSR1)
+    except OSError:
+        return
+    time.sleep(1)
+    dump = HOME / "user" / "app-threads.log"
+    if dump.exists():
+        lines = dump.read_text(encoding="utf-8").splitlines()
+        print("       app threads:\n" + "\n".join(f"         {line}" for line in lines), flush=True)
 
 
 # ----------------------------------------------------------------- the desktop around the page
@@ -2042,8 +2097,14 @@ def teams_flow(page, env):
 
     print("Offline")
     TEAM_SERVER.should_exit = True
-    wait_for(lambda: not TEAM_SERVER.started or TEAM_SERVER.should_exit, 5)
-    time.sleep(1)
+
+    def refused():  # the server has stopped listening (should_exit is only the request to stop)
+        try:
+            socket.create_connection(("127.0.0.1", int(TEAM_URL.rsplit(":", 1)[1])), timeout=1).close()
+            return False
+        except OSError:
+            return True
+    check(wait_for(refused, 10, 0.1), "the team server is down")
     page.js("api().call('team_sync')")
     check(wait_for(lambda: page.js("(document.querySelector('.nav button[data-view=\"team\"] .count') || {}).textContent") == "!", 15),
           "the sidebar warns when the team server can't be reached")

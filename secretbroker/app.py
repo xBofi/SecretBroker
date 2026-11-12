@@ -9,6 +9,7 @@ import logging.handlers
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import threading
@@ -380,10 +381,19 @@ class Api:
     # ----- exposure
 
     def exposure_report(self, background=False):
-        result = self.call("exposure_report", {"session": self._scan_session, **({"_poll": True} if background else {})})
+        session = self._scan_session
+        result = self.call("exposure_report", {"session": session, **({"_poll": True} if background else {})})
         if result["ok"] and not result["result"]["details"]:
-            self._scan_session = None
+            self._forget_scan_session(session)
         return result
+
+    def _forget_scan_session(self, session):
+        """The service no longer knows `session`: forget it, unless it has been replaced meanwhile. A scan renews
+        the session as it begins (scanner.Scan, on_session), so a report or a scan that went out with the old one
+        and answers late must not clear the new one: the page would then ask who you are again, and anything done
+        in Salud meanwhile («Borrar de este archivo», «Ignorar») would be refused."""
+        if session is not None and self._scan_session == session:
+            self._scan_session = None
 
     def open_exposure_session(self, proof=None):
         """Prove identity to see where secrets were found (the session from unlocking expired)."""
@@ -409,7 +419,7 @@ class Api:
         def run():
             scan.run()
             if scan.progress.get("code") == "session_expired":
-                self._scan_session = None
+                self._forget_scan_session(scan.session)
 
         threading.Thread(target=run, daemon=True, name="scan").start()
         return {"ok": True}
@@ -1085,6 +1095,19 @@ def main():
         webview.start(private_mode=True, storage_path=str(storage), gui="qt", icon=str(ICON))
     else:
         webview.start(private_mode=True, storage_path=str(storage))
+    _exit_after_window()
+
+
+def _exit_after_window():
+    """The window loop is over («Salir», or the system ending the session): end the process now. pywebview runs
+    every call from the page in a thread of its own that is not a daemon, and such a call (a status poll, «Salir»
+    itself handing back its answer) may be waiting for the window's UI thread, which is gone (Qt: get_current_url
+    and evaluate_js wait on a semaphore only the UI thread releases). Python would wait for those threads forever
+    at exit, leaving the app running with no window: «Salir» sometimes did not quit on Linux."""
+    stuck = [t.name for t in threading.enumerate() if t is not threading.current_thread() and not t.daemon and t.is_alive()]
+    log.info("window closed: quitting%s", f" ({len(stuck)} page calls left unanswered)" if stuck else "")
+    logging.shutdown()
+    os._exit(0)
 
 
 def _start_logging():
@@ -1099,6 +1122,12 @@ def _start_logging():
         logger.setLevel(logging.INFO)
     args = ["invite-link" if a.lower().startswith("secretbroker:") else a for a in sys.argv[1:]]  # no codes in logs
     log.info("SecretBroker %s started (%s)", __version__, " ".join(args) or "window")
+    if os.environ.get("SECRETBROKER_THREAD_DUMPS") and hasattr(signal, "SIGUSR1"):
+        # Tests: SIGUSR1 writes every thread's stack to app-threads.log (tests/test_gui.py, when the app hangs).
+        import faulthandler
+        global _thread_dumps
+        _thread_dumps = open(LOG_FILE.with_name("app-threads.log"), "w", encoding="utf-8")
+        faulthandler.register(signal.SIGUSR1, file=_thread_dumps, all_threads=True)
 
 
 def _step(name, action):
