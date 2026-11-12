@@ -1592,6 +1592,14 @@ def teams_flow(page, env):
     calm_shot(page, "14-team-people")
     tab(page, "Tu cuenta")
     check(wait_for(lambda: "Tu código de seguridad" in page.text() and "Desconectar" in page.text(), 5), "Tu cuenta: code and disconnect")
+    check(wait_for(lambda: "Este dispositivo" in page.text() and "Cambiar contraseña" in page.text(), 10),
+          "Tu cuenta: the account's devices and changing its password")
+    calm_shot(page, "14-team-account")
+    page.click("Cambiar contraseña", ".team-panel .btn")
+    check(wait_for(lambda: "Contraseña actual" in page.text() and "Contraseña nueva" in page.text(), 5),
+          "changing the password asks for the current one and a new one")
+    calm_shot(page, "14-team-password")
+    page.js("document.querySelector('.modal .modal-foot .btn:not(.primary)').click()")
     tab(page, "Actividad")
     check(wait_for(lambda: "Creó la colección Producción" in page.text(), 10), "Actividad: what the server recorded")
 

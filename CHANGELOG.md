@@ -2,6 +2,37 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
+## Unreleased
+
+### Security
+Fixes from an independent review of team sharing. Update every desktop of a team and the server together.
+- **Automatic key checks.** A teammate could empty a shared API key's web hosts (which looked like narrowing) and
+  point its address and test request at their own server: the automatic check sent the key there, also after the
+  team rotated it. Every host a credential's fields, test request or way of sending the key imply now counts as a
+  destination, so such a change waits for review like a new web; until it is accepted the credential keeps its old
+  address and test, and the check of a shared key only ever calls hosts the credential's own list names.
+- **Database names.** The database name is quoted in `{{connection_url}}`, so a name like `app?host=…` can't send
+  the password to another server, and a teammate's change to it waits for review.
+- **A server hiding a collection.** A malicious server could hide a collection from a manager's PC for one sync and
+  then show it with an old member list, and the manager's app re-keyed it to someone already removed. The app now
+  never forgets a member list it verified, nor who it saw removed (both travel encrypted to the account's other
+  devices), never re-keys from an unverified list, and never gives a new key to someone it saw removed unless a
+  manager adds them again.
+- **Forks and stale lists.** Items name the member list their writer had verified. A PC that sees a list it was not
+  shown, or a different one with the same number, stops writing to that collection and says so: the server is
+  showing people different lists.
+- **Invites.** The invite shows the inviter's security code, to compare if you can (accepting is still one click).
+  An owner trusted only by accepting their invite no longer gets recovery access to your collections until you
+  verify their code («Por verificar»).
+- **One odd item no longer stops a sync**: it is refused and reported, the rest syncs (re-keys after a removal
+  included).
+- **Member lists.** Someone who does not manage a collection may only take themselves out of it, nothing else; and
+  someone downgraded to read can no longer write, even before the next re-key.
+- **Account password.** The app refuses a server that asks for weaker password hashing than it uses (scrypt
+  2^17), unless this PC already logged in to that account with it. The server no longer says whether an e-mail
+  has an account when someone signs up with it.
+- **Tu cuenta** lists the account's devices, logs out any of them with one click and changes the account password.
+
 ## 0.16.2 (2026-10-31)
 
 The first public build of everything in 0.16.0 below (the 0.16.0 and 0.16.1 tags never produced a release).

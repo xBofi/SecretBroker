@@ -3545,6 +3545,7 @@ async function refreshTeam(content, again = true) {
   if (confirmed) calls.push(api().call('team_members', { org: org.id }));
   if (confirmed && ['owner', 'admin'].includes(org.role)) calls.push(api().call('team_events', { org: org.id }));
   if (state.openCollection) calls.push(api().call('team_collection_members', { collection: state.openCollection }));
+  if (!org || state.teamTab === 'account') calls.push(api().call('team_devices'));
   const results = await Promise.all(calls);
   const fresh = await api().call('team_overview');
   if (ticket !== state.teamRefresh || state.view !== 'team') return;
@@ -3628,7 +3629,7 @@ function drawTeam(content) {
       el('span', { id: 'team-sync', class: `state-text ${kind}`, title: detail }, text), syncButton),
     org ? el('div', { class: 'team-tabs', role: 'tablist' }, tabs.map(([id, label, count]) => el('button', {
       class: state.teamTab === id ? 'active' : '', role: 'tab', 'aria-selected': state.teamTab === id ? 'true' : 'false',
-      onclick: () => { state.teamTab = id; drawTeam(content); },
+      onclick: () => { state.teamTab = id; drawTeam(content); if (id === 'account') refreshTeam(content, false); },
     }, label, count !== null && count !== undefined ? el('span', { class: 'tab-count' }, count) : null,
     id === 'people' && peopleAlert ? el('span', { class: 'tab-dot', title: tn('team.people_to_verify', peopleAlert) }) : null))) : null);
 
@@ -3804,15 +3805,21 @@ function teamInvitesGroup(invites, rerender) {
     invites.map((invite) => {
       const button = el('button', { class: 'btn primary', 'data-mutates': '1' }, t('team_invites_group.accept'));
       button.addEventListener('click', async () => {
-        const result = await teamAct('team_accept_invite', { id: invite.id }, t('team_invites_group.join', { org_name: invite.org_name }), button);
+        const result = await teamAct('team_accept_invite', { id: invite.id, fingerprint: invite.invited_by_fingerprint || undefined }, t('team_invites_group.join', { org_name: invite.org_name }), button);
         if (!result.ok) return;
         state.teamOrg = invite.org_id;
         toast(t('team_invites_group.accepted_admin_still_needs_confirm'));
         rerender();
       });
       const by = invite.invited_by_name || invite.invited_by_email;
-      return el('div', { class: 'access-row' }, el('div', { class: 'meta' }, el('div', { class: 'title' }, invite.org_name),
+      const row = el('div', { class: 'access-row' }, el('div', { class: 'meta' }, el('div', { class: 'title' }, invite.org_name),
         el('div', { class: 'subtitle' }, t('team_invites_group.as_by_accepting_you_trust', { value: by ? t('team_invites_group.invites_you', { by }) : t('team_invites_group.you_re_invited'), value2: lowerFirst(ROLE_LABELS[invite.role] || invite.role) }))), button);
+      // Their code, to compare with the one they read out if you can: accepting stays one click.
+      if (!invite.invited_by_fingerprint) return row;
+      return el('div', { class: 'member' }, row, el('div', { class: 'fingerprint-box' },
+        el('div', { class: 'k' }, t('common.code', { label: by || invite.org_name })),
+        el('div', { class: 'fingerprint selectable' }, invite.invited_by_fingerprint),
+        el('p', { class: 'help' }, t('team_invites_group.compare_code_if_you_can'))));
     }));
 }
 
@@ -3884,7 +3891,51 @@ function teamAccountPanel(org, rerender) {
       el('p', {}, el('span', { class: 'fingerprint big selectable' }, team.fingerprint)),
       el('p', {}, t('team_account_panel.whoever_confirms_or_verifies_you'))),
     copyButton(team.fingerprint)),
+    teamDevicesSetting(rerender),
+    setting(t('team_password.title'), t('team_password.help'),
+      el('button', { class: 'btn', 'data-mutates': '1', onclick: changeTeamPassword }, t('team_password.change'))),
     org ? setting(org.name, t('team_account_panel.your_role', { value: lowerFirst(ROLE_LABELS[org.role] || org.role) }), leave) : null));
+}
+
+// The account's devices (sessions on the server): a lost or old PC is logged out from here.
+function teamDevicesSetting(rerender) {
+  const devices = (state.teamData && state.teamData.devices) || [];
+  const rows = devices.map((device) => {
+    const out = device.current ? null : el('button', { class: 'btn ghost', 'data-mutates': '1' }, t('team_devices.log_out'));
+    if (out) out.addEventListener('click', async () => {
+      const result = await teamAct('team_revoke_device', { id: device.id }, t('team_devices.log_out_reason'), out);
+      if (!result.ok) return;
+      state.teamData.devices = devices.filter((d) => d.id !== device.id);
+      toast(t('team_devices.logged_out', { name: device.name || '' }));
+      rerender();
+    });
+    return el('div', { class: 'access-row' }, el('div', { class: 'meta' },
+      el('div', { class: 'title' }, device.name || '—'),
+      el('div', { class: 'subtitle' }, device.current ? t('team_devices.this_device') : t('team_devices.last_seen', { when: whenText(device.last_seen) }))), out);
+  });
+  return el('div', { class: 'setting' }, el('div', { class: 'meta' }, el('h3', {}, t('team_devices.title')),
+    el('p', {}, t('team_devices.help')), ...rows));
+}
+
+function changeTeamPassword() {
+  const current = passwordInput({ autocomplete: 'current-password' });
+  const next = passwordInput();
+  const save = el('button', { class: 'btn primary', 'data-mutates': '1' }, t('team_password.change'));
+  const modal = openModal({
+    title: t('team_password.title'),
+    body: [el('p', { class: 'muted' }, t('team_password.other_devices_log_out')),
+      el('div', { class: 'field' }, el('label', {}, t('team_password.current')), current),
+      el('div', { class: 'field' }, el('label', {}, t('team_password.new')), next, strengthMeter(next.input))],
+    footer: [el('button', { class: 'btn', onclick: () => modal.close() }, t('common.cancel')), save],
+  });
+  save.addEventListener('click', async () => {
+    if (!current.input.value) { current.input.focus(); return; }
+    const result = await teamAct('team_change_password', { current: current.input.value, password: next.input.value }, t('team_password.title'), save);
+    if (!result.ok) return;
+    modal.close();
+    toast(t('team_password.changed'));
+  });
+  current.input.focus();
 }
 
 function teamPeoplePanel(org, members, admin, rerender) {

@@ -68,6 +68,7 @@ TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_i
                    "team_confirm_member", "team_set_role", "team_remove_member", "team_create_collection", "team_grant",
                    "team_revoke", "team_share_entry", "team_share_entries", "team_unshare_entry", "team_accept_change",
                    "team_verify_email", "team_send_code", "team_resolve_deletions")
+TEAM_CHANGE_OPS += ("team_revoke_device", "team_change_password")
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
                 "import_file", "import_env_file", "export_vault") + TEAM_CHANGE_OPS  # what the app that unlocked may do with one click
 # Operations that can send credentials or keys out of the vault (to someone else's account, or a file in clear).
@@ -2715,8 +2716,25 @@ class Service:
         return self._team_call("team_invites", params, self.team.invites, change=False)
 
     def op_team_accept_invite(self, params):
-        result = self._team_call("team_accept_invite", params, lambda: self.team.accept_invite(params.get("id")))
+        result = self._team_call("team_accept_invite", params, lambda: self.team.accept_invite(
+            params.get("id"), params.get("fingerprint")))
         self._audit("vault", "team_join", "invitación aceptada", "ok")
+        return result
+
+    def op_team_devices(self, params):
+        """This team account's devices («Tu cuenta»)."""
+        return self._team_call("team_devices", params, self.team.devices, change=False)
+
+    def op_team_revoke_device(self, params):
+        result = self._team_call("team_revoke_device", params, lambda: self.team.revoke_device(params.get("id")))
+        self._audit("vault", "team_device", "sesión cerrada en otro dispositivo", "ok")
+        return result
+
+    def op_team_change_password(self, params):
+        """A new team account password (the current one is needed). Keys stay the same; other devices log out."""
+        result = self._team_call("team_change_password", params, lambda: self.team.change_password(
+            str(params.get("current") or ""), str(params.get("password") or "")))
+        self._audit("vault", "team_password", "contraseña de la cuenta del equipo cambiada", "ok")
         return result
 
     def op_team_members(self, params):
@@ -3032,8 +3050,10 @@ def _clean_test_request(entry, test):
         if not base:
             raise ValueError(tr("service.type_full_address_https_credential"))
         url = (base if "://" in base else "https://" + base) + url
-    hosts = ((entry.get("policy") or {}).get("http") or {}).get("allowed_hosts") or \
-        templates.default_policy(entry["template"], entry["fields"]).get("http", {}).get("allowed_hosts") or []
+    # The hosts the policy names; a personal credential's own fields may stand in for them, a shared one's never
+    # (exposure._check_test_request).
+    hosts = ((entry.get("policy") or {}).get("http") or {}).get("allowed_hosts") or ([] if entry.get("shared") else
+        templates.default_policy(entry["template"], entry["fields"]).get("http", {}).get("allowed_hosts") or [])
     try:
         actions._check_destination({"id": entry["id"], "policy": {"http": {"allowed_hosts": hosts}}}, {"url": url})
     except ActionError as exc:

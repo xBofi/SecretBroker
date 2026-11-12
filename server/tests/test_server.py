@@ -142,7 +142,11 @@ def test_accounts(base):
 
     alice = Api(base)
     check(alice.register("Alice@Example.com").status_code == 200, "alice registers")
-    check(Api(base).register("alice@example.com").status_code == 409, "same e-mail cannot register twice")
+    twice = Api(base)
+    again = twice.register("alice@example.com")
+    check(again.status_code == 200 and set(again.json()) == {"user_id", "verified"},
+          "registering a taken e-mail answers like a new account (it tells nobody the address has one)")
+    check(twice.login().status_code == 401, "but nothing was created: that login fails")
     alice.email = "alice@example.com"
     real = anon.ok("POST", "/accounts/prelogin", {"email": "alice@example.com"})["kdf"]
     fake1 = anon.ok("POST", "/accounts/prelogin", {"email": "ghost@example.com"})["kdf"]
@@ -234,6 +238,8 @@ def test_orgs_and_items(base, alice):
     invites = bob.ok("GET", "/invites")
     check(len(invites) == 1 and invites[0]["org_name"] == "Equipo" and invites[0]["invited_by"] == alice.id,
           "bob sees his invite")
+    check(invites[0]["invited_by_public_key"] and invites[0]["invited_by_signing_public_key"],
+          "with the inviter's public keys, so the app can show their security code before accepting")
     check(carol.call("POST", f"/invites/{invites[0]['id']}/accept").status_code == 404,
           "someone else cannot accept bob's invite")
     bob.ok("POST", f"/invites/{invites[0]['id']}/accept")

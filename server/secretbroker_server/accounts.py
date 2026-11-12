@@ -87,10 +87,13 @@ def register(ctx):
     conn = ctx.conn
     if conn.execute("SELECT 1 FROM users WHERE id = ?", (data["user_id"],)).fetchone():
         raise ApiError(409, "exists", "Ese id de usuario ya existe.")
-    if conn.execute("SELECT 1 FROM users WHERE email = ?", (data["email"],)).fetchone():
-        raise ApiError(409, "email_taken", "Ya hay una cuenta con ese e-mail.")
-    first = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
     verified = ctx.settings.verification == "off"
+    if conn.execute("SELECT 1 FROM users WHERE email = ?", (data["email"],)).fetchone():
+        # The same answer as a new account (nothing is created; the client's login then fails), so a sign-up
+        # does not tell anyone which addresses have an account here (prelogin doesn't either), nor sooner.
+        security.verifier(data["auth_hash"], security.new_salt())
+        return {"user_id": data["user_id"], "verified": verified}
+    first = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
     invited_to = None if verified or not data["invite_token"] else _org_invite(ctx, data["email"], data["invite_token"])
     salt = security.new_salt()
     conn.execute(
