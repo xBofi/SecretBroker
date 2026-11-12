@@ -518,7 +518,9 @@
   "teams.account_keys_don_match_server": "Cheile contului nu corespund cu cele de pe server",
   "teams.account_password_must_have_at": "Parola contului trebuie să aibă cel puțin {MIN_ACCOUNT_PASSWORD} caractere",
   "teams.add_key_before_sharing_it": "Adaugă cheia înainte s-o partajezi",
+  "teams.admin_backup_failed": "Serverul nu a putut face copia. Verifică spațiul de pe discul serverului și încearcă din nou.",
   "teams.admin_bad_signups": "Alege dacă înregistrarea conturilor e deschisă, doar cu invitație sau închisă.",
+  "teams.admin_last_admin": "Este singurul cont care administrează serverul: nu poate fi dezactivat sau șters.",
   "teams.admin_last_manager": {
     "one": "{person} e singura persoană care gestionează o colecție: cineva din organizație trebuie să primească „Manager” în ea (sau s-o șteargă) înainte de ștergerea contului.",
     "few": "{person} e singura persoană care gestionează {count} colecții: cineva din organizație trebuie să primească „Manager” în ele (sau să le șteargă) înainte de ștergerea contului.",
@@ -528,6 +530,7 @@
   "teams.admin_last_owner_some": "{person} e singura persoană proprietară într-o organizație: fă pe altcineva proprietar înainte de a șterge contul.",
   "teams.admin_not_yourself": "Propriul cont nu poate fi dezactivat sau șters de aici.",
   "teams.admin_only": "Doar cine administrează serverul echipei poate face asta.",
+  "teams.admin_owner_disabled": "Acel cont este dezactivat: alege pe cineva care se poate conecta.",
   "teams.admin_quoted": "„{name}”",
   "teams.admin_server_too_old": "Serverul echipei nu poate fi încă administrat din aplicație: actualizează-l la cea mai nouă versiune.",
   "teams.another_team_account_is_already": "Alt cont de echipă e deja conectat. Deconectează-l mai întâi.",

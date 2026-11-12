@@ -497,7 +497,9 @@
   "teams.account_keys_don_match_server": "Les clés du compte ne correspondent pas à celles du serveur",
   "teams.account_password_must_have_at": "Le mot de passe du compte doit comporter au moins {MIN_ACCOUNT_PASSWORD} caractères",
   "teams.add_key_before_sharing_it": "Ajoute la clé avant de la partager",
+  "teams.admin_backup_failed": "Le serveur n’a pas pu faire la sauvegarde. Vérifie l’espace disque du serveur et réessaie.",
   "teams.admin_bad_signups": "Choisis si les inscriptions sont ouvertes, sur invitation uniquement ou fermées.",
+  "teams.admin_last_admin": "C’est le seul compte qui gère le serveur : il ne peut être ni désactivé ni supprimé.",
   "teams.admin_last_manager": {
     "one": "{person} est l’unique gestionnaire d’une collection : quelqu’un de l’organisation doit y recevoir « Gestionnaire » (ou la supprimer) avant la suppression du compte.",
     "many": "{person} est l’unique gestionnaire de {count} collections : quelqu’un de l’organisation doit y recevoir « Gestionnaire » (ou les supprimer) avant la suppression du compte.",
@@ -507,6 +509,7 @@
   "teams.admin_last_owner_some": "{person} est l’unique propriétaire d’une organisation : rends quelqu’un d’autre propriétaire avant de supprimer le compte.",
   "teams.admin_not_yourself": "Ton propre compte ne peut être ni désactivé ni supprimé d’ici.",
   "teams.admin_only": "Seule la personne qui gère le serveur de l’équipe peut faire cela.",
+  "teams.admin_owner_disabled": "Ce compte est désactivé : choisis quelqu’un qui peut se connecter.",
   "teams.admin_quoted": "« {name} »",
   "teams.admin_server_too_old": "Le serveur de l’équipe ne peut pas encore être administré depuis l’app : mets-le à jour vers la dernière version.",
   "teams.another_team_account_is_already": "Un autre compte d’équipe est déjà connecté. Déconnecte-le d’abord.",

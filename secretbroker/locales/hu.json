@@ -496,7 +496,9 @@
   "teams.account_keys_don_match_server": "A fiók kulcsai nem egyeznek a szerverével",
   "teams.account_password_must_have_at": "A fiókjelszónak legalább {MIN_ACCOUNT_PASSWORD} karakterből kell állnia",
   "teams.add_key_before_sharing_it": "Megosztás előtt add hozzá a kulcsot",
+  "teams.admin_backup_failed": "A szerver nem tudta elkészíteni a mentést. Nézd meg a szerver szabad lemezterületét, és próbáld újra.",
   "teams.admin_bad_signups": "Válaszd ki, hogy a regisztráció nyitott, csak meghívóval lehetséges vagy zárt.",
+  "teams.admin_last_admin": "Ez az egyetlen fiók, amely a szervert üzemelteti: nem tiltható le és nem törölhető.",
   "teams.admin_last_manager": {
     "one": "{person} egyedül kezel egy gyűjteményt: a fiók törlése előtt valakinek a szervezetből „Kezelő” jogot kell kapnia benne (vagy törölnie kell).",
     "other": "{person} egyedül kezel {count} gyűjteményt: a fiók törlése előtt valakinek a szervezetből „Kezelő” jogot kell kapnia bennük (vagy törölnie kell őket)."
@@ -505,6 +507,7 @@
   "teams.admin_last_owner_some": "{person} egy szervezet egyetlen tulajdonosa: a fiók törlése előtt tegyél meg valaki mást tulajdonosnak.",
   "teams.admin_not_yourself": "A saját fiókodat innen nem tilthatod le és nem törölheted.",
   "teams.admin_only": "Ezt csak az teheti meg, aki a csapatszervert üzemelteti.",
+  "teams.admin_owner_disabled": "Ez a fiók le van tiltva: válassz valakit, aki be tud jelentkezni.",
   "teams.admin_quoted": "„{name}”",
   "teams.admin_server_too_old": "A csapatszerver még nem kezelhető az alkalmazásból: frissítsd a legújabb verzióra.",
   "teams.another_team_account_is_already": "Már csatlakoztatva van egy másik csapatfiók. Előbb válaszd le.",

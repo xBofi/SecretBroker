@@ -540,7 +540,9 @@
   "teams.account_keys_don_match_server": "Klucze konta nie zgadzają się z kluczami na serwerze",
   "teams.account_password_must_have_at": "Hasło konta musi mieć co najmniej {MIN_ACCOUNT_PASSWORD} znaków",
   "teams.add_key_before_sharing_it": "Dodaj klucz przed udostępnieniem",
+  "teams.admin_backup_failed": "Serwer nie mógł zrobić kopii. Sprawdź miejsce na dysku serwera i spróbuj ponownie.",
   "teams.admin_bad_signups": "Wybierz, czy rejestracja kont jest otwarta, tylko na zaproszenie czy zamknięta.",
+  "teams.admin_last_admin": "To jedyne konto, które administruje serwerem: nie można go wyłączyć ani usunąć.",
   "teams.admin_last_manager": {
     "one": "{person} to jedyna osoba, która zarządza kolekcją: ktoś z organizacji musi otrzymać w niej uprawnienie „Menedżer” (albo ją usunąć), zanim konto zostanie usunięte.",
     "few": "{person} to jedyna osoba, która zarządza {count} kolekcjami: ktoś z organizacji musi otrzymać w nich uprawnienie „Menedżer” (albo je usunąć), zanim konto zostanie usunięte.",
@@ -551,6 +553,7 @@
   "teams.admin_last_owner_some": "{person} to jedyny właściciel organizacji: ustaw kogoś innego jako właściciela, zanim usuniesz konto.",
   "teams.admin_not_yourself": "Własnego konta nie można stąd wyłączyć ani usunąć.",
   "teams.admin_only": "Może to zrobić tylko osoba, która administruje serwerem zespołu.",
+  "teams.admin_owner_disabled": "To konto jest wyłączone: wybierz kogoś, kto może się zalogować.",
   "teams.admin_quoted": "„{name}”",
   "teams.admin_server_too_old": "Serwerem zespołu nie można jeszcze administrować z aplikacji: zaktualizuj go do najnowszej wersji.",
   "teams.another_team_account_is_already": "Połączono już inne konto zespołu. Najpierw je odłącz.",

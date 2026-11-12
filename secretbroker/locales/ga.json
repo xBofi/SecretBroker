@@ -562,7 +562,9 @@
   "teams.account_keys_don_match_server": "Ní mheaitseálann eochracha an chuntais iad siúd an fhreastalaí",
   "teams.account_password_must_have_at": "Caithfidh {MIN_ACCOUNT_PASSWORD} carachtar ar a laghad a bheith i bpasfhocal an chuntais",
   "teams.add_key_before_sharing_it": "Cuir an eochair leis sula gcomhroinneann tú é",
+  "teams.admin_backup_failed": "Níorbh fhéidir leis an bhfreastalaí an cúltaca a dhéanamh. Seiceáil an spás diosca ar an bhfreastalaí agus bain triail eile as.",
   "teams.admin_bad_signups": "Roghnaigh an bhfuil na clárúcháin oscailte, le cuireadh amháin nó dúnta.",
+  "teams.admin_last_admin": "Is é an t-aon chuntas a ritheann an freastalaí é: ní féidir é a dhíchumasú ná a scriosadh.",
   "teams.admin_last_manager": {
     "one": "Níl de bhainisteoir ar bhailiúchán amháin ach {person}: caithfidh duine éigin san eagraíocht “Bainisteoir” a fháil ann (nó é a scriosadh) sula scriosfar an cuntas.",
     "two": "Níl de bhainisteoir ar {count} bhailiúchán ach {person}: caithfidh duine éigin san eagraíocht “Bainisteoir” a fháil iontu (nó iad a scriosadh) sula scriosfar an cuntas.",
@@ -574,6 +576,7 @@
   "teams.admin_last_owner_some": "Níl d'úinéir ar eagraíocht amháin ach {person}: déan úinéir de dhuine eile sula scriosfar an cuntas.",
   "teams.admin_not_yourself": "Ní féidir do chuntas féin a dhíchumasú ná a scriosadh as seo.",
   "teams.admin_only": "Ní féidir é seo a dhéanamh ach ag an duine a ritheann freastalaí na foirne.",
+  "teams.admin_owner_disabled": "Tá an cuntas sin díchumasaithe: roghnaigh duine éigin atá in ann síniú isteach.",
   "teams.admin_quoted": "“{name}”",
   "teams.admin_server_too_old": "Ní féidir freastalaí na foirne a riar ón aip fós: nuashonraigh é go dtí an leagan is déanaí.",
   "teams.another_team_account_is_already": "Tá cuntas foirne eile ceangailte cheana. Dícheangail é ar dtús.",

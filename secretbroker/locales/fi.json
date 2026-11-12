@@ -496,7 +496,9 @@
   "teams.account_keys_don_match_server": "Tilin avaimet eivät vastaa palvelimen avaimia",
   "teams.account_password_must_have_at": "Tilin salasanassa on oltava vähintään {MIN_ACCOUNT_PASSWORD} merkkiä",
   "teams.add_key_before_sharing_it": "Lisää avain ennen kuin jaat sen",
+  "teams.admin_backup_failed": "Palvelin ei voinut tehdä varmuuskopiota. Tarkista palvelimen levytila ja yritä uudelleen.",
   "teams.admin_bad_signups": "Valitse, onko rekisteröityminen avoin, vain kutsulla vai suljettu.",
+  "teams.admin_last_admin": "Tämä on ainoa tili, joka ylläpitää palvelinta: sitä ei voi poistaa käytöstä eikä poistaa.",
   "teams.admin_last_manager": {
     "one": "{person} on erään kokoelman ainoa hallinnoija: jonkun organisaatiossa on saatava siihen Hallinnoija-oikeus (tai poistettava se) ennen kuin tili poistetaan.",
     "other": "{person} on {count} kokoelman ainoa hallinnoija: jonkun organisaatiossa on saatava niihin Hallinnoija-oikeus (tai poistettava ne) ennen kuin tili poistetaan."
@@ -505,6 +507,7 @@
   "teams.admin_last_owner_some": "{person} on erään organisaation ainoa omistaja: tee joku muu omistajaksi ennen tilin poistamista.",
   "teams.admin_not_yourself": "Omaa tiliäsi ei voi poistaa käytöstä eikä poistaa täältä.",
   "teams.admin_only": "Vain tiimipalvelimen ylläpitäjä voi tehdä tämän.",
+  "teams.admin_owner_disabled": "Tili on poistettu käytöstä: valitse joku, joka voi kirjautua sisään.",
   "teams.admin_quoted": "”{name}”",
   "teams.admin_server_too_old": "Tiimipalvelinta ei voi vielä hallita sovelluksesta: päivitä se uusimpaan versioon.",
   "teams.another_team_account_is_already": "Toinen tiimitili on jo yhdistetty. Katkaise sen yhteys ensin.",

@@ -540,7 +540,9 @@
   "teams.account_keys_don_match_server": "Ključi računa se ne ujemajo s ključi na strežniku",
   "teams.account_password_must_have_at": "Geslo računa mora imeti vsaj {MIN_ACCOUNT_PASSWORD} znakov",
   "teams.add_key_before_sharing_it": "Pred deljenjem dodajte ključ",
+  "teams.admin_backup_failed": "Strežnik ni mogel narediti kopije. Preverite prostor na disku strežnika in poskusite znova.",
   "teams.admin_bad_signups": "Izberite, ali je registracija odprta, samo s povabilom ali zaprta.",
+  "teams.admin_last_admin": "To je edini račun, ki upravlja strežnik: ni ga mogoče onemogočiti ali izbrisati.",
   "teams.admin_last_manager": {
     "one": "{person} je edina oseba, ki upravlja zbirko: nekdo iz organizacije mora v njej dobiti »Upravitelj« (ali jo izbrisati), preden se račun izbriše.",
     "two": "{person} je edina oseba, ki upravlja {count} zbirki: nekdo iz organizacije mora v njiju dobiti »Upravitelj« (ali ju izbrisati), preden se račun izbriše.",
@@ -551,6 +553,7 @@
   "teams.admin_last_owner_some": "{person} je edina oseba z vlogo lastnika v eni od organizacij: pred izbrisom računa nastavite za lastnika nekoga drugega.",
   "teams.admin_not_yourself": "Svojega računa od tukaj ne morete onemogočiti ali izbrisati.",
   "teams.admin_only": "To lahko naredi samo, kdor upravlja strežnik ekipe.",
+  "teams.admin_owner_disabled": "Ta račun je onemogočen: izberite nekoga, ki se lahko prijavi.",
   "teams.admin_quoted": "»{name}«",
   "teams.admin_server_too_old": "Strežnika ekipe iz aplikacije še ni mogoče upravljati: posodobite ga na najnovejšo različico.",
   "teams.another_team_account_is_already": "Povezan je že drug račun ekipe. Najprej prekinite povezavo z njim.",

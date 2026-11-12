@@ -51,20 +51,24 @@ def last_admin(conn, settings, user):
 
 def users(conn, settings):
     """Every account: id, e-mail, name, verified, admin, disabled, organizations (id, name, role, status) and when
-    it was last seen (newest session use or login). Never keys, verifiers or blobs."""
+    it was last seen (newest session use or login). Never keys, verifiers or blobs. A new account waiting to take
+    the place of one whose owner lost access is listed under the address it will take, with `replacing`: the id of
+    the account it replaces (its own e-mail is a placeholder until then, accounts._pending_replacement)."""
     rows = conn.execute(
-        "SELECT u.id, u.email, u.name, u.verified, u.is_admin, u.disabled, u.created, "
+        "SELECT u.id, COALESCE(u.replacing_email, u.email) AS email, u.replaces, u.replacing_email, u.name, "
+        "u.verified, u.is_admin, u.disabled, u.created, "
         "(SELECT MAX(s.last_seen) FROM sessions s WHERE s.user_id = u.id) AS session_seen, "
         "(SELECT MAX(e.time) FROM events e WHERE e.actor = u.id AND e.action = 'login') AS login_seen "
-        "FROM users u ORDER BY u.email").fetchall()
+        "FROM users u ORDER BY COALESCE(u.replacing_email, u.email), u.replacing_email IS NOT NULL").fetchall()
     orgs = {}
     for r in conn.execute("SELECT m.user_id, o.id, o.name, m.role, m.status FROM org_members m JOIN orgs o "
                           "ON o.id = m.org_id ORDER BY o.name, o.id"):
         orgs.setdefault(r["user_id"], []).append({"id": r["id"], "name": r["name"], "role": r["role"],
                                                   "status": r["status"]})
     return [{"id": r["id"], "email": r["email"], "name": r["name"], "verified": bool(r["verified"]),
-             "admin": is_admin(settings, r), "disabled": bool(r["disabled"]),
+             "admin": is_admin(settings, r) and not r["replacing_email"], "disabled": bool(r["disabled"]),
              "orgs": orgs.get(r["id"], []), "created": r["created"],
+             **({"replacing": r["replaces"]} if r["replacing_email"] else {}),
              "last_seen": max(filter(None, (r["session_seen"], r["login_seen"])), default=None)} for r in rows]
 
 

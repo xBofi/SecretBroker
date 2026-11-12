@@ -132,7 +132,8 @@ def list_users(args):
     db.close()
     for r in rows:
         flags = ", ".join(f for f, on in (("admin", r["admin"]), ("unverified", not r["verified"]),
-                                           ("DISABLED", r["disabled"])) if on)
+                                           ("DISABLED", r["disabled"]),
+                                           ("replaces the account whose owner lost access, once verified", r.get("replacing"))) if on)
         print(f"{r['email']}  {r['name']}" + (f"  [{flags}]" if flags else ""))
         orgs = [f"{o['name']} ({o['role']}" + (f", {o['status']})" if o["status"] != "confirmed" else ")")
                 for o in r["orgs"]]

@@ -1823,6 +1823,13 @@ def test_replace_account():
         answer = fresh.register("frank@example.com", invite_token=invite["id"]).json()
         check(answer.get("replacing") and answer.get("mail") is False and fresh.login().status_code == 401
               and frank.call("GET", "/me").status_code == 200, "it waits, and the old account carries on")
+        accounts = admin.ok("GET", "/admin/users")
+        waiting = next((u for u in accounts if u["id"] == fresh.id), {})
+        check(waiting.get("email") == "frank@example.com" and waiting.get("replacing") == frank.id
+              and waiting["verified"] is False and waiting["admin"] is False
+              and not any("replacing.invalid" in u["email"] for u in accounts)
+              and "replacing" not in next(u for u in accounts if u["id"] == frank.id),
+              "/admin/users lists the waiting account under the address it will take, naming the account it replaces")
         code, listed = cli_out(settings, ["unverified"])
         check("frank@example.com" in listed and "lost access" in listed, "`unverified` lists it as a replacement")
         code, said = cli_out(settings, ["verify-email", "frank@example.com"])

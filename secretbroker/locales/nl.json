@@ -496,7 +496,9 @@
   "teams.account_keys_don_match_server": "De accountsleutels komen niet overeen met die van de server",
   "teams.account_password_must_have_at": "Het accountwachtwoord moet minstens {MIN_ACCOUNT_PASSWORD} tekens hebben",
   "teams.add_key_before_sharing_it": "Voeg de sleutel toe voordat je hem deelt",
+  "teams.admin_backup_failed": "De server kon de back-up niet maken. Controleer de schijfruimte van de server en probeer het opnieuw.",
   "teams.admin_bad_signups": "Kies of de registratie open is, alleen op uitnodiging of gesloten.",
+  "teams.admin_last_admin": "Het is het enige account dat de server beheert: het kan niet worden uitgeschakeld of verwijderd.",
   "teams.admin_last_manager": {
     "one": "{person} is de enige die een collectie beheert: iemand in de organisatie moet daarin ‘Beheerder’ krijgen (of de collectie verwijderen) voordat het account wordt verwijderd.",
     "other": "{person} is de enige die {count} collecties beheert: iemand in de organisatie moet daarin ‘Beheerder’ krijgen (of ze verwijderen) voordat het account wordt verwijderd."
@@ -505,6 +507,7 @@
   "teams.admin_last_owner_some": "{person} is de enige eigenaar van een organisatie: maak iemand anders eigenaar voordat je het account verwijdert.",
   "teams.admin_not_yourself": "Je eigen account kan hier niet worden uitgeschakeld of verwijderd.",
   "teams.admin_only": "Alleen wie de teamserver beheert, kan dit doen.",
+  "teams.admin_owner_disabled": "Dat account is uitgeschakeld: kies iemand die zich kan aanmelden.",
   "teams.admin_quoted": "‘{name}’",
   "teams.admin_server_too_old": "De teamserver kan nog niet vanuit de app worden beheerd: werk hem bij naar de nieuwste versie.",
   "teams.another_team_account_is_already": "Er is al een ander teamaccount gekoppeld. Ontkoppel dat eerst.",

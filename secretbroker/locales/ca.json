@@ -496,7 +496,9 @@
   "teams.account_keys_don_match_server": "Les claus del compte no coincideixen amb les del servidor",
   "teams.account_password_must_have_at": "La contrasenya del compte ha de tenir almenys {MIN_ACCOUNT_PASSWORD} caràcters",
   "teams.add_key_before_sharing_it": "Afegeix la clau abans de compartir-la",
+  "teams.admin_backup_failed": "El servidor no ha pogut fer la còpia. Mira l'espai en disc del servidor i torna-ho a provar.",
   "teams.admin_bad_signups": "Tria si el registre de comptes és obert, només amb invitació o tancat.",
+  "teams.admin_last_admin": "És l'únic compte que administra el servidor: no es pot desactivar ni eliminar.",
   "teams.admin_last_manager": {
     "one": "{person} és l'única persona que gestiona una col·lecció: algú de l'organització hi ha de rebre «Gestor» (o eliminar-la) abans d'eliminar el compte.",
     "many": "{person} és l'única persona que gestiona {count} col·leccions: algú de l'organització hi ha de rebre «Gestor» (o eliminar-les) abans d'eliminar el compte.",
@@ -506,6 +508,7 @@
   "teams.admin_last_owner_some": "{person} és l'única persona propietària d'una organització: fes propietària una altra persona abans d'eliminar el compte.",
   "teams.admin_not_yourself": "El teu propi compte no es pot desactivar ni eliminar des d'aquí.",
   "teams.admin_only": "Només qui administra el servidor de l'equip pot fer això.",
+  "teams.admin_owner_disabled": "Aquest compte està desactivat: tria algú que pugui entrar.",
   "teams.admin_quoted": "«{name}»",
   "teams.admin_server_too_old": "El servidor de l'equip encara no es pot administrar des de l'app: actualitza'l a l'última versió.",
   "teams.another_team_account_is_already": "Ja hi ha un altre compte d'equip connectat. Primer desconnecta'l.",
