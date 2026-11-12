@@ -747,8 +747,10 @@ backup. Only for an account whose `user.admin` is true (the first account of an 
   `{version, latest, updates: {auto, last_check, last_result}, uptime_s, counts: {users, orgs, collections, items},
   db_bytes, backups: {last, count, keep}, mail, signups, verification, restore, install: systemd | docker | other,
   restore_command?: [lines with <file>]}` (`restore_command` is pasted into a root shell on the server, so the
-  service keeps it only if every line is a plain `systemctl` / `docker compose` / `secretbroker-server` line with no
-  shell metacharacters, `teams.restore_lines`); `GET users` → `[{id, email, name,
+  service keeps it only if every line is `systemctl`, `docker compose` or `secretbroker-server` (by name or full
+  path), optionally after a bare `sudo ` (no sudo options), with plain arguments, `<file>` at most once a line and no
+  shell metacharacters or `..`, `teams.restore_lines`; the systemd install sends the single line `sudo
+  secretbroker-server restore /var/lib/secretbroker-server/backups/<file>`, which stops and starts the service); `GET users` → `[{id, email, name,
   verified, admin, disabled, created, last_seen, orgs: [{id, name, role}]}]`; `POST users/{uid}/disable` → `{left:
   [{org, name, collections}], held?: [{org, name}]}`; `POST users/{uid}/enable | verify` → `{}`; `DELETE users/{uid}`
   → `{}` or `400 last_owner {orgs}` / `400 last_manager {collections}` (ids, or `{id, name}` objects); `POST
@@ -777,7 +779,7 @@ backup. Only for an account whose `user.admin` is true (the first account of an 
   accounts, organizations, collections and credentials; «Actualizaciones automáticas» as a switch; «Copias de
   seguridad» with the last one, how many are kept and «Hacer copia ahora»; «Restaurar una copia»: done on the server,
   one line plus «Ver los comandos»: the server's `restore_command`, else the commands for its `install` (systemd: the
-  one-command installer's paths, said to be so; Docker: `docker compose`), else a link to the server guide's
+  one-command installer's single `sudo secretbroker-server restore …` line, its paths said to be the installer's; Docker: `docker compose`), else a link to the server guide's
   «Backups and restore», with the newest backup filled in and a copy button (a backup name that is not plain letters,
   digits, `.`, `-`, `_` is never put in a command); «Registro de cuentas» Abierto / Solo con invitación / Cerrado with
   what each means, Abierto in the warning colour suggesting «Solo con invitación»; in invitation mode

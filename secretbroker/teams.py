@@ -679,10 +679,12 @@ def connected(state):
     return bool(state.get("token") and state.get("keys") and state.get("user"))
 
 
-# The restore commands a server suggests are pasted by its admin into a root shell on that server: only plain
-# service, compose and secretbroker-server lines, without anything a shell would treat specially (; | & $ ` > …).
-RESTORE_LINE = re.compile(r"^[A-Za-z0-9_./:=@ -]*(<file>)?[A-Za-z0-9_./:=@ -]*$")
-RESTORE_PROGRAMS = ("systemctl ", "docker compose ", "secretbroker-server ")
+# The restore commands a server suggests are pasted by its admin into a root shell on that server: each line is
+# `systemctl`, `docker compose` or `secretbroker-server` (by name or full path), optionally after a bare `sudo `
+# (no sudo options), with plain arguments only: nothing a shell would treat specially (; | & $ ` > …).
+_ARG = r"[A-Za-z0-9_./:=@-]+"
+RESTORE_LINE = re.compile(r"^(?:sudo )?(?:systemctl|docker compose|secretbroker-server|(?:/[A-Za-z0-9_.-]+)+/secretbroker-server)"
+                          rf"(?: (?:(?:{_ARG})?<file>(?:{_ARG})?|{_ARG}))+$")
 
 
 def restore_lines(lines):
@@ -691,7 +693,7 @@ def restore_lines(lines):
         return None
     for line in lines:
         if not (isinstance(line, str) and 0 < len(line) <= 300 and RESTORE_LINE.match(line)
-                and any(p in line for p in RESTORE_PROGRAMS) and ".." not in line):
+                and line.count("<file>") <= 1 and ".." not in line):
             return None
     return list(lines) if any("<file>" in line for line in lines) else None
 

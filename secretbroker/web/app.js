@@ -4858,9 +4858,8 @@ function restoreCommands(overview, file) {
   const own = overview.restore_command;
   if (Array.isArray(own) && own.length) return { where: 'server_admin.restore_where_server', lines: own.map((line) => line.replace('<file>', file)) };
   if (overview.install === 'systemd') {
-    return { where: 'server_admin.restore_where_systemd', lines: ['sudo systemctl stop secretbroker-server',
-      `sudo -u secretbroker /opt/secretbroker-server/bin/secretbroker-server restore /var/lib/secretbroker-server/backups/${file}`,
-      'sudo systemctl start secretbroker-server'] };
+    // The installer's command stops and starts the service itself.
+    return { where: 'server_admin.restore_where_systemd', lines: [`sudo secretbroker-server restore /var/lib/secretbroker-server/backups/${file}`] };
   }
   if (overview.install === 'docker') {
     return { where: 'server_admin.restore_where', lines: ['sudo docker compose stop server backup',

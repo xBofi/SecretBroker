@@ -16,9 +16,7 @@ STARTED = time.time()
 UPDATES = {"auto": True, "last_check": None, "last_result": None}
 LATEST = {"version": None}  # a test sets it to show «Hay una versión nueva»
 # What the one-command install (systemd, /opt/secretbroker-server) will answer.
-RESTORE = ["sudo systemctl stop secretbroker-server",
-           "sudo -u secretbroker /opt/secretbroker-server/bin/secretbroker-server restore /var/lib/secretbroker-server/backups/<file>",
-           "sudo systemctl start secretbroker-server"]
+RESTORE = ["sudo secretbroker-server restore /var/lib/secretbroker-server/backups/<file>"]  # it stops and starts the service
 KEEP = 14
 installed = False
 

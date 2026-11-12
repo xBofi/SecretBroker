@@ -2183,14 +2183,14 @@ def server_admin_flow(page, bob, act, carol, carol_act):
     check(wait_for(lambda: "Copia de seguridad hecha" in page.text() and "Última: " in page.text(), 15), "«Hacer copia ahora»: one click")
     check(wait_for(lambda: "Ver los comandos" in page.text(), 10), "restoring is done on the server: one line, the commands one click away")
     page.click("Ver los comandos")
-    check(wait_for(lambda: "sudo systemctl stop secretbroker-server" in page.text()
-                   and "restore /var/lib/secretbroker-server/backups/secretbroker-backup-" in page.text()
+    check(wait_for(lambda: "sudo secretbroker-server restore /var/lib/secretbroker-server/backups/secretbroker-backup-" in page.text()
+                   and "systemctl" not in page.text()
                    and "En el servidor, ejecuta:" in page.text(), 10)
           and page.js("!!document.querySelector('.command-box .btn')"),
-          "restoring is done on the server: the server's own commands, the newest backup filled in, with a button to copy them")
+          "restoring is done on the server: the server's own command (one line: it stops and starts the service), the newest backup filled in, with a copy button")
     fallback = page.js("""[restoreCommands({ install: 'systemd' }, 'b.zip'), restoreCommands({ install: 'docker' }, 'b.zip'),
       restoreCommands({ install: 'other' }, 'b.zip'), restoreCommands({}, 'b.zip')]""")
-    check("sudo systemctl stop secretbroker-server" in fallback[0]["lines"] and "rutas que usa el instalador" in page.js(f"t({json.dumps(fallback[0]['where'])})")
+    check(fallback[0]["lines"] == ["sudo secretbroker-server restore /var/lib/secretbroker-server/backups/b.zip"] and "rutas que usa el instalador" in page.js(f"t({json.dumps(fallback[0]['where'])})")
           and "sudo docker compose stop server backup" in fallback[1]["lines"] and fallback[2] is None and fallback[3] is None,
           "without them: the commands for systemd (the installer's paths, said so) or Docker, else the server's guide")
     calm_shot(page, "24-server-backup")
