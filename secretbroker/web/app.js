@@ -4779,22 +4779,25 @@ function serverOverview(admin, rerender) {
   const updates = o.updates || {};
   const backups = o.backups || {};
   const since = Number(o.uptime_s) > 0 ? new Date(Date.now() - Number(o.uptime_s) * 1000).toISOString() : null;
-  const fresh = o.latest && o.latest !== o.version
-    ? el('span', { class: 'chip is-warning' }, t('server_admin.new_version', { version: o.latest }))
-    : o.latest ? el('span', { class: 'chip is-ok' }, t('server_admin.up_to_date')) : null;
+  // Whether it is up to date: only when the server knows the latest version.
+  const fresh = !o.latest ? null : o.latest === o.version
+    ? el('div', { class: 'state-text ok server-version' }, icon('check', 'sm'), t('server_admin.up_to_date'))
+    : el('div', { class: 'state-text warn server-version' }, icon('alert', 'sm'),
+      t(updates.auto ? 'server_admin.new_version_auto' : 'server_admin.new_version_manual', { version: o.latest }));
   const head = el('div', { class: 'server-head' },
     el('div', { class: 'start-icon' }, icon('server')),
     el('div', { class: 'meta' },
-      el('div', { class: 'title' }, hostOf(state.team.server_url), fresh),
+      el('div', { class: 'title' }, hostOf(state.team.server_url)),
       el('div', { class: 'subtitle' }, [t('server_admin.version', { version: o.version || '?' }),
         since ? t('server_admin.running_since', { when: whenText(since) }) : null,
-        o.db_bytes ? t('server_admin.database_size', { size: fmtBytes(o.db_bytes) }) : null].filter(Boolean).join(' · '))));
+        o.db_bytes ? t('server_admin.database_size', { size: fmtBytes(o.db_bytes) }) : null].filter(Boolean).join(' · ')),
+      fresh));
   const stats = el('div', { class: 'server-stats' }, [['users', t('server_admin.stat_accounts')], ['orgs', t('server_admin.stat_orgs')],
     ['collections', t('server_admin.stat_collections')], ['items', t('server_admin.stat_credentials')]]
     .map(([key, label]) => el('div', { class: 'stat' }, el('div', { class: 'stat-value' }, fmtNumber(Number(counts[key]) || 0)),
       el('div', { class: 'stat-label' }, label))));
 
-  const auto = el('input', { type: 'checkbox', checked: !!updates.auto, 'data-mutates': '1', 'aria-label': t('server_admin.auto_updates') });
+  const auto = el('input', { type: 'checkbox', role: 'switch', class: 'switch', checked: !!updates.auto, 'data-mutates': '1', 'aria-label': t('server_admin.auto_updates') });
   auto.addEventListener('change', async () => {
     const result = await teamAct('team_admin_settings', { auto_update: auto.checked }, t('server_admin.settings_reason'));
     if (!result.ok) { auto.checked = !auto.checked; return; }
@@ -4839,24 +4842,47 @@ function serverOverview(admin, rerender) {
       setting(t('server_admin.auto_updates'), autoHelp, auto),
       setting(t('server_admin.backups'), backupHelp, backupNow),
       serverRestore(admin),
-      setting(t('server_admin.signups'), SIGNUP_HELP[o.signups] || '', signups),
+      o.signups === 'open'  // anyone who finds the address can sign up: said in the warning colour, with what to choose
+        ? el('div', { class: 'setting' }, el('div', { class: 'meta' }, el('h3', {}, t('server_admin.signups')),
+          el('p', { class: 'warn-text' }, `${SIGNUP_HELP.open} ${t('server_admin.signups_open_suggest')}`)), el('div', { class: 'control' }, signups))
+        : setting(t('server_admin.signups'), SIGNUP_HELP[o.signups] || '', signups),
       o.signups === 'invite' ? setting(t('server_admin.signup_code_title'), t('server_admin.signup_code_help'), code) : null,
       setting(t('server_admin.mail'), o.mail ? t('server_admin.mail_on_help') : t('server_admin.mail_off_help'), mail)));
 }
 
 // Restoring puts the whole team back in time, so it is done on the server, by hand: the exact commands to paste.
+// The server's own lines when it sends them (checked by the service), else those of how it was installed, else its guide.
+const SERVER_README = 'https://github.com/xBofi/SecretBroker/blob/main/server/README.md#backups-and-restore';
+
+function restoreCommands(overview, file) {
+  const own = overview.restore_command;
+  if (Array.isArray(own) && own.length) return { where: 'server_admin.restore_where_server', lines: own.map((line) => line.replace('<file>', file)) };
+  if (overview.install === 'systemd') {
+    return { where: 'server_admin.restore_where_systemd', lines: ['sudo systemctl stop secretbroker-server',
+      `sudo -u secretbroker /opt/secretbroker-server/bin/secretbroker-server restore /var/lib/secretbroker-server/backups/${file}`,
+      'sudo systemctl start secretbroker-server'] };
+  }
+  if (overview.install === 'docker') {
+    return { where: 'server_admin.restore_where', lines: ['sudo docker compose stop server backup',
+      `sudo docker compose run --rm --no-deps backup secretbroker-server restore /backups/${file}`, 'sudo docker compose up -d'] };
+  }
+  return null;
+}
+
 function serverRestore(admin) {
   const newest = ((admin.backups || [])[0] || {}).file;
   const file = safeFileName(newest);
   const meta = el('div', { class: 'meta' }, el('h3', {}, t('server_admin.restore')),
     el('p', {}, file ? t('server_admin.restore_help') : t('server_admin.restore_none')));
   if (!file) return el('div', { class: 'setting' }, meta);
-  const command = ['sudo docker compose stop server backup',
-    `sudo docker compose run --rm --no-deps backup secretbroker-server restore /backups/${file}`,
-    'sudo docker compose up -d'].join('\n');
-  const steps = el('div', { class: 'restore-steps hidden' }, el('p', {}, t('server_admin.restore_where')),
-    el('div', { class: 'command-box' }, el('pre', { class: 'instructions selectable' }, command), copyButton(command)),
-    el('p', {}, t('server_admin.restore_after')));
+  const how = restoreCommands(admin.overview || {}, file);
+  const command = how ? how.lines.join('\n') : '';
+  const steps = how
+    ? el('div', { class: 'restore-steps hidden' }, el('p', {}, t(how.where)),
+      el('div', { class: 'command-box' }, el('pre', { class: 'instructions selectable' }, command), copyButton(command)),
+      el('p', {}, t('server_admin.restore_after')))
+    : el('div', { class: 'restore-steps hidden' }, el('p', {}, t('server_admin.restore_readme')),
+      el('button', { class: 'link small restore-show', onclick: () => api().open_link(SERVER_README) }, t('server_admin.restore_readme_open')));
   const show = el('button', { class: 'link small restore-show' }, t('server_admin.restore_show'));
   show.addEventListener('click', () => { steps.classList.remove('hidden'); show.remove(); });
   meta.append(show, steps);

@@ -745,7 +745,10 @@ backup. Only for an account whose `user.admin` is true (the first account of an 
   anyone else.
 * **Server API used** (`/api/v1/admin/*`, server admin only, `403 forbidden` otherwise): `GET overview` →
   `{version, latest, updates: {auto, last_check, last_result}, uptime_s, counts: {users, orgs, collections, items},
-  db_bytes, backups: {last, count, keep}, mail, signups, verification, restore}`; `GET users` → `[{id, email, name,
+  db_bytes, backups: {last, count, keep}, mail, signups, verification, restore, install: systemd | docker | other,
+  restore_command?: [lines with <file>]}` (`restore_command` is pasted into a root shell on the server, so the
+  service keeps it only if every line is a plain `systemctl` / `docker compose` / `secretbroker-server` line with no
+  shell metacharacters, `teams.restore_lines`); `GET users` → `[{id, email, name,
   verified, admin, disabled, created, last_seen, orgs: [{id, name, role}]}]`; `POST users/{uid}/disable` → `{left:
   [{org, name, collections}], held?: [{org, name}]}`; `POST users/{uid}/enable | verify` → `{}`; `DELETE users/{uid}`
   → `{}` or `400 last_owner {orgs}` / `400 last_manager {collections}` (ids, or `{id, name}` objects); `POST
@@ -768,12 +771,16 @@ backup. Only for an account whose `user.admin` is true (the first account of an 
   `team_admin_signup_token {days?}` (→ `{token, expires}`). The admin's own account can't be disabled or deleted
   here. Ids go into server paths only as UUIDs. Errors are the app's own sentences (`teams.SERVER_MESSAGES`;
   `forbidden` → «Solo quien administra el servidor del equipo puede hacer esto.»).
-* **GUI.** «Servidor» has four parts (a segmented control): **Resumen** (the server's address, version and «Al día» /
-  «Versión nueva: X», running since, data size; counts of accounts, organizations, collections and credentials;
-  «Actualizaciones automáticas» on/off; «Copias de seguridad» with the last one, how many are kept and «Hacer copia
-  ahora»; «Restaurar una copia»: done on the server, with the exact `docker compose` commands for the newest backup
-  in a box with a copy button (a backup name that is not plain letters, digits, `.`, `-`, `_` is never put in a
-  command); «Registro de cuentas» Abierto / Solo con invitación / Cerrado with what each means; in invitation mode
+* **GUI.** «Servidor» has four parts (a segmented control): **Resumen** (the server's address, version, running
+  since, data size, and under them «Al día» (green) or «Hay una versión nueva (X): se instalará sola esta noche» /
+  «… actualízala desde el servidor» depending on automatic updates (nothing while `latest` is unknown); counts of
+  accounts, organizations, collections and credentials; «Actualizaciones automáticas» as a switch; «Copias de
+  seguridad» with the last one, how many are kept and «Hacer copia ahora»; «Restaurar una copia»: done on the server,
+  one line plus «Ver los comandos»: the server's `restore_command`, else the commands for its `install` (systemd: the
+  one-command installer's paths, said to be so; Docker: `docker compose`), else a link to the server guide's
+  «Backups and restore», with the newest backup filled in and a copy button (a backup name that is not plain letters,
+  digits, `.`, `-`, `_` is never put in a command); «Registro de cuentas» Abierto / Solo con invitación / Cerrado with
+  what each means, Abierto in the warning colour suggesting «Solo con invitación»; in invitation mode
   «Crear código de registro» (a single-use code and instructions to pass on, with a `secretbroker://join` link
   without e-mail); «E-mail» configured or not, and what that means: invitations passed on by hand, accounts verified
   by the admin), **Cuentas** (one row each: «Verificada» / «Sin verificar» / «Desactivada», «Admin del servidor»,

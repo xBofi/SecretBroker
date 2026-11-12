@@ -14,6 +14,11 @@ from secretbroker_server.validate import ApiError
 
 STARTED = time.time()
 UPDATES = {"auto": True, "last_check": None, "last_result": None}
+LATEST = {"version": None}  # a test sets it to show «Hay una versión nueva»
+# What the one-command install (systemd, /opt/secretbroker-server) will answer.
+RESTORE = ["sudo systemctl stop secretbroker-server",
+           "sudo -u secretbroker /opt/secretbroker-server/bin/secretbroker-server restore /var/lib/secretbroker-server/backups/<file>",
+           "sudo systemctl start secretbroker-server"]
 KEEP = 14
 installed = False
 
@@ -46,7 +51,7 @@ def overview(ctx):
     count = lambda table: ctx.conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]  # noqa: E731
     found = _backups(ctx)
     db = ctx.settings.db_path
-    return {"version": __version__, "latest": None, "updates": dict(UPDATES), "uptime_s": int(time.time() - STARTED),
+    return {"version": __version__, "latest": LATEST["version"], "install": "systemd", "restore_command": RESTORE, "updates": dict(UPDATES), "uptime_s": int(time.time() - STARTED),
             "counts": {"users": count("users"), "orgs": count("orgs"), "collections": count("collections"),
                        "items": ctx.conn.execute("SELECT COUNT(*) FROM items WHERE deleted = 0").fetchone()[0]},
             "db_bytes": db.stat().st_size if db.exists() else 0,

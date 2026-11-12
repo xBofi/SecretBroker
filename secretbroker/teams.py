@@ -679,6 +679,23 @@ def connected(state):
     return bool(state.get("token") and state.get("keys") and state.get("user"))
 
 
+# The restore commands a server suggests are pasted by its admin into a root shell on that server: only plain
+# service, compose and secretbroker-server lines, without anything a shell would treat specially (; | & $ ` > …).
+RESTORE_LINE = re.compile(r"^[A-Za-z0-9_./:=@ -]*(<file>)?[A-Za-z0-9_./:=@ -]*$")
+RESTORE_PROGRAMS = ("systemctl ", "docker compose ", "secretbroker-server ")
+
+
+def restore_lines(lines):
+    """The server's `restore_command` (lines with `<file>` for the backup), or None if anything in it looks off."""
+    if not isinstance(lines, list) or not 1 <= len(lines) <= 8:
+        return None
+    for line in lines:
+        if not (isinstance(line, str) and 0 < len(line) <= 300 and RESTORE_LINE.match(line)
+                and any(p in line for p in RESTORE_PROGRAMS) and ".." not in line):
+            return None
+    return list(lines) if any("<file>" in line for line in lines) else None
+
+
 def _uuid(value):
     """An id that goes into a server path: a UUID, or it is no one this server has."""
     try:
@@ -1442,8 +1459,11 @@ class Team:
         def clean(data, state):
             if not isinstance(data, dict):
                 raise TeamError(tr("teams.team_server_answered_something_unexpecte"), "bad_server")
-            return {k: data.get(k) for k in ("version", "latest", "updates", "uptime_s", "counts", "db_bytes", "backups",
-                                             "mail", "signups", "verification", "restore")}
+            found = {k: data.get(k) for k in ("version", "latest", "updates", "uptime_s", "counts", "db_bytes", "backups",
+                                              "mail", "signups", "verification", "restore")}
+            found["install"] = data.get("install") if data.get("install") in ("systemd", "docker", "other") else None
+            found["restore_command"] = restore_lines(data.get("restore_command"))
+            return found
         return self._admin_read("/overview", "overview", clean)
 
     def admin_users(self):

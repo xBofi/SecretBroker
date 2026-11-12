@@ -2091,6 +2091,8 @@ def server_admin_flow(page, bob, act, carol, carol_act):
     The server is the real one of this tree; its admin pages come from tests/fake_admin.py (on the server's own
     functions) while this tree's server has none."""
     print("The team server's admin: Equipo › Servidor")
+    import fake_admin
+    fake_admin.LATEST["version"] = "0.18.1"  # the server knows of a newer version
     page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
     page.js("state.view = 'team'; state.teamTab = 'people'; renderMain()")
     check(wait_for(lambda: page.js("[...document.querySelectorAll('.team-tabs button')].some((b) => b.firstChild.textContent === 'Servidor')"), 10),
@@ -2099,19 +2101,37 @@ def server_admin_flow(page, bob, act, carol, carol_act):
     check(wait_for(lambda: "Actualizaciones automáticas" in page.text() and "Hacer copia ahora" in page.text()
                    and "SecretBroker Server" in page.text(), 15), "Resumen: version, automatic updates, backups")
     text = page.text()
+    check("Hay una versión nueva (0.18.1): se instalará sola esta noche" in text
+          and page.js("!!document.querySelector('.server-version.warn')"), "a newer version: said under the server's name, in the warning colour")
+    check(page.js("getComputedStyle(document.querySelector('.server-overview input.switch')).appearance") == "none",
+          "automatic updates: a switch, not a bare checkbox")
     check("Registro de cuentas" in text and page.js("document.querySelector('select[aria-label=\"Registro de cuentas\"]').value") == "open"
-          and "Cualquiera que tenga la dirección" in text, "sign-ups: Abierto, and what it means")
+          and "mejor «Solo con invitación»" in text and page.js("!!document.querySelector('.server-overview p.warn-text')"),
+          "sign-ups Abierto: what it means in the warning colour, suggesting «Solo con invitación»")
     check("Configurado" in text and "El servidor envía las invitaciones" in text, "e-mail: set up, and what that means")
     check("Aún no hay ninguna copia" in text and "Cuando haya una copia" in text, "no backup yet: it says so, and how restoring goes")
     check(page.js("document.querySelectorAll('.server-stats .stat').length") == 4, "the counts: accounts, organizations, collections, credentials")
     calm_shot(page, "24-server-overview")
+    page.js("document.querySelector('.server-overview input.switch').click()")
+    check(wait_for(lambda: "Hay una versión nueva (0.18.1): actualízala desde el servidor" in page.text()
+                   and not page.js("document.querySelector('.server-overview input.switch').checked"), 15),
+          "automatic updates off: the new version is to be installed on the server")
+    page.js("document.querySelector('.server-overview input.switch').click()")
+    check(wait_for(lambda: "se instalará sola esta noche" in page.text(), 15), "and on again")
     page.click("Hacer copia ahora")
     check(wait_for(lambda: "Copia de seguridad hecha" in page.text() and "Última: " in page.text(), 15), "«Hacer copia ahora»: one click")
     check(wait_for(lambda: "Ver los comandos" in page.text(), 10), "restoring is done on the server: one line, the commands one click away")
     page.click("Ver los comandos")
-    check(wait_for(lambda: "secretbroker-server restore /backups/secretbroker-backup-" in page.text(), 10)
+    check(wait_for(lambda: "sudo systemctl stop secretbroker-server" in page.text()
+                   and "restore /var/lib/secretbroker-server/backups/secretbroker-backup-" in page.text()
+                   and "En el servidor, ejecuta:" in page.text(), 10)
           and page.js("!!document.querySelector('.command-box .btn')"),
-          "restoring is done on the server: the exact command, with a button to copy it")
+          "restoring is done on the server: the server's own commands, the newest backup filled in, with a button to copy them")
+    fallback = page.js("""[restoreCommands({ install: 'systemd' }, 'b.zip'), restoreCommands({ install: 'docker' }, 'b.zip'),
+      restoreCommands({ install: 'other' }, 'b.zip'), restoreCommands({}, 'b.zip')]""")
+    check("sudo systemctl stop secretbroker-server" in fallback[0]["lines"] and "rutas que usa el instalador" in page.js(f"t({json.dumps(fallback[0]['where'])})")
+          and "sudo docker compose stop server backup" in fallback[1]["lines"] and fallback[2] is None and fallback[3] is None,
+          "without them: the commands for systemd (the installer's paths, said so) or Docker, else the server's guide")
     calm_shot(page, "24-server-backup")
     signups(page, "invite")
     check(wait_for(lambda: "Registro de cuentas: solo con invitación" in page.text() and "Crear código de registro" in page.text(), 15),
@@ -2222,6 +2242,8 @@ def server_admin_flow(page, bob, act, carol, carol_act):
     wait_for(lambda: "Hacer copia ahora" in page.text(), 10)
     page.send("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": "light"}])
     calm_shot(page, "24-server-overview-light")
+    page.click("Ver los comandos")
+    calm_shot(page, "24-server-restore-light")
     page.send("Emulation.setEmulatedMedia", features=[])
     page.send("Emulation.setDeviceMetricsOverride", width=880, height=600, deviceScaleFactor=1, mobile=False)
     try:
@@ -2244,7 +2266,14 @@ def server_admin_flow(page, bob, act, carol, carol_act):
           "the overview in English")
     leaks = spanish_leaks(page)
     check(not leaks, f"no Spanish in Team › Server ({leaks[:6]})")
+    check("A new version is out (0.18.1): it will install itself tonight" in page.text()
+          and "“By invitation only” is safer" in page.text(), "the version line and the sign-up advice in English")
     calm_shot(page, "en-24-server-overview")
+    page.send("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": "light"}])
+    page.click("Show the commands")
+    check(wait_for(lambda: "On the server, run:" in page.text(), 5), "the restore commands in English")
+    calm_shot(page, "en-24-server-overview-light")
+    page.send("Emulation.setEmulatedMedia", features=[])
     server_pane(page, "Accounts")
     check(wait_for(lambda: account_row(page, "Bob", "chip") == "Verified" and "Server admin" in page.text(), 10), "the accounts in English")
     leaks = spanish_leaks(page)
