@@ -25,7 +25,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
 from . import autofill, crypto, templates
 from .crypto import b64, unb64
-from .vault import ID_RE, SHARE_PERMISSIONS, SHARE_WRITE, ValidationError, secret_fields, shared_content
+from .vault import ID_RE, LOCAL_ONLY_KEYS, SHARE_PERMISSIONS, SHARE_WRITE, ValidationError, secret_fields, shared_content
 from .i18n import tr
 
 API = "/api/v1"
@@ -44,6 +44,8 @@ DATA_AAD = b"secretbroker/account-data/v1|"
 # half of it or more) waits for the user instead (2.7): a stolen account, a broken client or the server itself.
 MASS_DELETE = 5
 MASS_DELETE_MIN = 3
+# What someone shared with one person may get (never `manage`: the direct share stays the sharer's).
+DIRECT_PERMISSIONS = ("edit", "view", "use")
 TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 # What the user is looking at (the Equipo view): answer soon, from what is known, rather than hang.
 READ_TIMEOUT = httpx.Timeout(8.0, connect=5.0)
@@ -401,6 +403,12 @@ def _set_fill_part(entry, part):
         entry["autofill"] = copy.deepcopy(part["autofill"])
 
 
+def rotate_info(entry):
+    """Who had access to a credential and may have kept it ('rotate because…'): the team block's record, or the
+    one a credential keeps after it stopped being shared with someone (`team_rotate`, local only)."""
+    return (entry.get("shared") or {}).get("rotate") or entry.get("team_rotate")
+
+
 def secret_fp(vault, entry):
     """Keyed fingerprint of an entry's secret: a 'rotate because…' flag ends when the secret changes."""
     return vault.mac(b"team/rotate\0" + _canonical(secret_fields(entry)))
@@ -422,6 +430,12 @@ def server_base(url):
     if parts.scheme != "https" and not (parts.scheme == "http" and host in LOCAL_HOSTS):
         raise TeamError(tr("teams.team_server_must_use_https"), "invalid")
     return url
+
+
+# Answers of the server a user can meet when managing people and sharing, in the app's language (the server
+# writes Spanish). Other messages are shown as the server wrote them.
+SERVER_MESSAGES = {"last_owner": "teams.org_needs_an_owner", "last_manager": "teams.collection_needs_a_manager",
+                   "not_confirmed": "teams.not_confirmed_yet", "direct_full": "teams.direct_is_for_two"}
 
 
 class Client:
@@ -463,6 +477,8 @@ class Client:
         code = error.get("code") if isinstance(error.get("code"), str) else "server_error"
         if response.status_code == 401 and auth:
             code, message = "reconnect", "La sesión del equipo ha caducado. Vuelve a entrar en Equipo para seguir recibiendo cambios."
+        elif code in SERVER_MESSAGES:
+            message = tr(SERVER_MESSAGES[code])
         raise TeamError(message[:300], code, response.status_code, error)
 
 
@@ -899,7 +915,12 @@ class Team:
 
     def set_role(self, oid, uid, role):
         with self._api(self.vault.team()) as api:
-            return api.call("PATCH", f"/orgs/{oid}/members/{uid}", {"role": role})
+            try:
+                return api.call("PATCH", f"/orgs/{oid}/members/{uid}", {"role": role})
+            except TeamError as exc:
+                if exc.code == "forbidden":
+                    raise TeamError(tr("teams.role_forbidden"), "forbidden", exc.status) from None
+                raise
 
     def remove_member(self, oid, uid):
         """Take someone out of the organization, then re-key every collection they could read that this user
@@ -911,7 +932,19 @@ class Team:
         state = self.vault.team()
         with self._api(state) as api:
             person = self._person(api, state, oid, uid)
-            result = api.call("DELETE", f"/orgs/{oid}/members/{uid}")
+            try:
+                result = api.call("DELETE", f"/orgs/{oid}/members/{uid}")
+            except TeamError as exc:
+                if exc.code == "forbidden":
+                    raise TeamError(tr("teams.remove_forbidden"), "forbidden", exc.status) from None
+                if exc.code == "last_manager":
+                    # Name the collections, so the user knows where to give someone else «Gestor» first.
+                    names = [(state["collections"].get(c) or {}).get("name") for c in (exc.data or {}).get("collections") or []]
+                    names = [n for n in names if n]
+                    raise TeamError(tr("teams.only_manager_of", person=person, names=", ".join(names[:5]))
+                                    if names else tr("teams.only_manager_of_some", person=person),
+                                    "last_manager", exc.status, exc.data) from None
+                raise
             if uid == state["user"]["id"]:
                 # Leaving on purpose: its credentials go now (a sync would hold them as a mass deletion, 2.7).
                 for cid in [c for c, coll in state["collections"].items() if coll.get("org") == oid]:
@@ -923,16 +956,34 @@ class Team:
             # must not leave them with a working key.
             known = [cid for cid, c in sorted(state["collections"].items())
                      if c.get("org") == oid and uid in (c.get("members") or {})]
-            cids = list(dict.fromkeys([*(result.get("needs_rekey") or []), *known]))
+            # Direct shares only they managed were deleted with them (`deleted`): they leave at the next sync.
+            cids = [cid for cid in dict.fromkeys([*(result.get("needs_rekey") or []), *known])
+                    if cid not in (result.get("deleted") or [])]
+            # What this user shared with that one person ends: nothing to re-key, nobody left to share it with.
+            direct = [cid for cid in cids if (state["collections"].get(cid) or {}).get("direct")
+                      and state["collections"][cid].get("permission") == "manage"]
+            cids = [cid for cid in cids if cid not in direct]
+            ended, ended_ids, failed_direct = 0, [], []
             try:
+                for cid in direct:
+                    try:
+                        ended += len(self._end_direct(api, state, cid, [person]))
+                        ended_ids.append(cid)
+                    except TeamError as exc:  # the next sync ends it (the server no longer lists them in it)
+                        print(f"team direct share after removal: {cid} {detail(exc)}", file=sys.stderr)
+                        state["collections"][cid]["needs_rekey"] = True
+                        failed_direct.append((cid, exc.code))
                 rekeyed, pending, failed = self._rekey_after(api, state, cids, [person], [uid])
+                failed = failed_direct + failed
+                cids += [cid for cid, _ in failed_direct]
             finally:
                 self.vault.set_team(state)
+                self._flush_removed()
         for cid in cids:
             if cid not in rekeyed and cid in state["collections"]:
                 self._flag(cid, [person])  # re-keyed ones were flagged by _rekey
-        flagged = sum(1 for e in self.vault.entries() if (e.get("shared") or {}).get("collection") in cids)
-        return {"rekeyed": rekeyed, "pending": pending, "failed": [cid for cid, _ in failed],
+        flagged = ended + sum(1 for e in self.vault.entries() if (e.get("shared") or {}).get("collection") in cids)
+        return {"rekeyed": rekeyed, "pending": pending, "failed": [cid for cid, _ in failed], "ended": ended_ids,
                 "offline": any(code in ("offline", "reconnect") for _, code in failed),
                 "person": person, "credentials": flagged}
 
@@ -993,9 +1044,11 @@ class Team:
                         "name": c.get("name", ""), "permission": c.get("permission"),
                         "key_version": c.get("key_version"), "needs_rekey": bool(c.get("needs_rekey")),
                         "entries": counts.get(cid, 0), "managers": managers(c),
-                        # Only one person can re-key it or let others in: if they go, it is stuck (2.6).
-                        "single_manager": managers(c) == 1, "signed": bool(c.get("manifest")),
-                        "gone": bool(c.get("gone"))}
+                        # Only one person can re-key it or let others in: if they go, it is stuck (2.6). A direct
+                        # share is the sharer's alone on purpose: it goes away with them.
+                        "single_manager": managers(c) == 1 and not c.get("direct"), "signed": bool(c.get("manifest")),
+                        "gone": bool(c.get("gone")), "direct": bool(c.get("direct")),
+                        "with": self._direct_with(state, c)}
                        for cid, c in (state.get("collections") or {}).items()),
                       key=lambda c: (c["org_name"].lower(), c["name"].lower()))
 
@@ -1006,18 +1059,8 @@ class Team:
         if not name:
             raise TeamError(tr("teams.give_collection_name"), "invalid")
         state = self.vault.team()
-        cid, key, me = str(uuid.uuid4()), os.urandom(32), state["user"]["id"]
-        record = make_members_record(state["keys"], me, cid, None, {me: "manage"}, 1)
         with self._api(state) as api:
-            grant = make_grant(state["keys"], me, cid, 1, me, state["public_key"], key)
-            api.call("POST", f"/orgs/{oid}/collections",
-                     {"id": cid, "encrypted_name": seal_name(key, cid, {"name": name}), "grant": grant,
-                      "members_record": record})
-            state["collections"][cid] = {
-                "org": oid, "name": name, "keys": {"1": b64(key)}, "key_version": 1, "permission": "manage",
-                "revision": 0, "needs_rekey": False, "items": {},
-                "members": {me: {"name": _label(state["user"]), "permission": "manage"}},
-                "manifest": self._head(record)}
+            cid = self._new_collection(api, state, oid, name)
             self.vault.set_team(state)
             try:
                 self._recover_access(api, state, {"recovery": []}, {}, only=[cid])
@@ -1025,6 +1068,34 @@ class Team:
                 print(f"team owners' access: {detail(exc)}", file=sys.stderr)  # the next sync tries again
         self.vault.set_team(state)
         return {"id": cid}
+
+    def _new_collection(self, api, state, oid, name, direct=False):
+        cid, key, me = str(uuid.uuid4()), os.urandom(32), state["user"]["id"]
+        record = make_members_record(state["keys"], me, cid, None, {me: "manage"}, 1)
+        info = {"name": name, **({"direct": True} if direct else {})}
+        body = {"id": cid, "encrypted_name": seal_name(key, cid, info),
+                "grant": make_grant(state["keys"], me, cid, 1, me, state["public_key"], key), "members_record": record}
+        if direct:
+            body["direct"] = True
+        try:
+            api.call("POST", f"/orgs/{oid}/collections", body)
+        except TeamError as exc:
+            if not (direct and exc.code == "invalid" and "direct" in str(exc)):
+                raise
+            # A server from before direct shares: only an admin can make the collection there.
+            body.pop("direct")
+            try:
+                api.call("POST", f"/orgs/{oid}/collections", body)
+            except TeamError as inner:
+                if inner.code == "forbidden":
+                    raise TeamError(tr("teams.server_too_old_to_share_with"), "forbidden") from None
+                raise
+        state["collections"][cid] = {
+            "org": oid, "name": name, "keys": {"1": b64(key)}, "key_version": 1, "permission": "manage",
+            "revision": 0, "needs_rekey": False, "items": {}, "direct": bool(direct),
+            "members": {me: {"name": _label(state["user"]), "permission": "manage"}},
+            "manifest": self._head(record)}
+        return cid
 
     def collection_members(self, cid):
         with self._read() as api:
@@ -1069,13 +1140,15 @@ class Team:
         (`shared.rotate`, see _flag). A credential counts as changed once its secret is not the one they saw."""
         people = {}
         for entry in self.vault.entries():
-            rotate = (entry.get("shared") or {}).get("rotate")
+            rotate = rotate_info(entry)
             if not rotate:
                 continue
             current = rotate.get("fp") == secret_fp(self.vault, entry)
             for name in sorted(set(rotate.get("people") or []) | set(rotate.get("seen") or [])):
                 person = people.setdefault(name, {"person": name, "since": rotate.get("since"), "total": 0,
-                                                  "pending": []})
+                                                  "pending": [], "unshared": True})
+                # Still on the team, only no longer shared with: "ya no tiene acceso", not "se fue".
+                person["unshared"] = person["unshared"] and bool(rotate.get("unshared"))
                 person["total"] += 1
                 person["since"] = min(filter(None, (person["since"], rotate.get("since"))), default=None)
                 if current and name in (rotate.get("people") or []):
@@ -1265,7 +1338,7 @@ class Team:
         me = state["user"]["id"]
         mine = {cid: c for cid, c in (state.get("collections") or {}).items()
                 if (only is None or cid in only) and c.get("permission") == "manage" and c.get("manifest")
-                and not c.get("gone") and not c.get("needs_rekey")}
+                and not c.get("gone") and not c.get("needs_rekey") and not c.get("direct")}
         for oid in sorted({c.get("org") for c in mine.values()}):
             try:
                 rows = api.call("GET", f"/orgs/{oid}/members")
@@ -1346,7 +1419,8 @@ class Team:
                     live[iid] = sign_item(state["keys"], me, cid, iid, plain)
             body = {"key_version": version, "grants": grants, "members_record": record,
                     "encrypted_name": seal_name(key, cid, {"name": coll.get("name", ""), "removed": people,
-                                                           "version": version}),
+                                                           "version": version,
+                                                           **({"direct": True} if coll.get("direct") else {})}),
                     "items": {iid: seal_item(key, cid, iid, version, plain) for iid, plain in live.items()}}
             try:
                 api.call("POST", f"/collections/{cid}/rotate", body)
@@ -1443,6 +1517,103 @@ class Team:
                 failed.append({"id": entry_id, "error": str(exc)})
         return {"shared": shared, "failed": failed, "collection_name": name}
 
+    # ------------------------------------------------------------------ sharing with one person
+
+    def share_with(self, entry_ids, oid, uid, permission="view"):
+        """Share credentials with one teammate in one step: into the private collection of this user and that
+        person (a direct share), made the first time and reused afterwards. Their key must be verified here:
+        nothing is ever sealed to a key this user has not confirmed (2.2). The permission applies to everything
+        this user shares with them. Returns {shared, failed, collection, collection_name, person}."""
+        if permission not in DIRECT_PERMISSIONS:
+            raise TeamError(tr("service.invalid_permission"), "invalid")
+        state = self.vault.team()
+        me = state["user"]["id"]
+        if uid == me:
+            raise TeamError(tr("teams.choose_someone_else"), "invalid")
+        with self._api(state) as api:
+            row = next((r for r in api.call("GET", f"/orgs/{oid}/members") if r.get("user_id") == uid), None)
+            if row is None or row.get("status") != "confirmed":
+                raise TeamError(tr("teams.that_person_isn_in_organization"), "not_found")
+            self._peer_keys(api, state, uid)  # verified here, and with the same key: else "untrusted"/"key_changed"
+            person = _label(row)
+            cid = self._direct_collection(state, oid, uid)
+            if cid is None:
+                name = tr("teams.direct_collection_name", me=_label(state["user"]), other=person)
+                cid = self._new_collection(api, state, oid, name, direct=True)
+                self.vault.set_team(state)
+            coll = state["collections"][cid]
+            if coll.get("needs_rekey"):
+                self._rekey(api, state, cid, *self._gone(api, state, cid))
+            if (coll.get("manifest") or {}).get("members", {}).get(uid) != permission:
+                self._grant(api, state, cid, uid, permission)
+            coll.setdefault("members", {})[uid] = {"name": person, "permission": permission}
+        self.vault.set_team(state)
+        self._refresh_entries(state, cid)
+        result = self.share_entries([i for i in entry_ids or []], cid) if entry_ids else \
+            {"shared": [], "failed": [], "collection_name": coll.get("name", "")}
+        return {**result, "collection": cid, "collection_name": coll.get("name", ""), "person": person}
+
+    def _direct_collection(self, state, oid, uid):
+        """The direct share of this user with that person that this user manages, if there is one: its signed
+        member list is exactly the two of them."""
+        me = state["user"]["id"]
+        for cid, coll in sorted((state.get("collections") or {}).items()):
+            members = (coll.get("manifest") or {}).get("members") or {}
+            if coll.get("org") == oid and coll.get("direct") and coll.get("permission") == "manage" \
+                    and not coll.get("gone") and set(members) == {me, uid} and members.get(me) == "manage":
+                return cid
+        return None
+
+    def unshare_with(self, cid):
+        """Stop sharing with that person everything shared with them (the direct share ends). The credentials
+        stay here as this user's own, flagged to rotate: that person could see them (2.4)."""
+        state = self.vault.team()
+        coll = self._collection(state, cid, ("manage",))
+        if not coll.get("direct"):
+            raise TeamError(tr("teams.not_shared_with_one_person"), "invalid")
+        other = self._direct_with(state, coll)
+        person = (other or {}).get("name") or SOMEONE
+        with self._api(state) as api:
+            self._pull(api, state, cid, {"added": [], "updated": [], "removed": [], "conflicts": [],
+                                         "quarantined": [], "errors": [], "changes": []})
+            kept = self._end_direct(api, state, cid, [person], unshared=True)
+        self.vault.set_team(state)
+        self._flush_removed()
+        return {"person": person, "credentials": len(kept), "ids": kept}
+
+    def _end_direct(self, api, state, cid, people, unshared=False):
+        """A direct share ends: the collection is deleted on the server (nobody keeps a key that works for it),
+        and every credential in it stays on this PC as a personal one, flagged 'rotate: <people> had access'
+        until its secret changes (`unshared`: they are still on the team, it is just no longer shared with them).
+        Returns the ids kept."""
+        kept = []
+        with self.vault.mutex:
+            for entry in self.vault.entries():
+                if (entry.get("shared") or {}).get("collection") != cid:
+                    continue
+                entry["team_rotate"] = self._rotate_record(entry, people, unshared)
+                self.vault.put(entry, replaces=entry["id"])
+                kept.append(entry["id"])
+        try:
+            api.call("DELETE", f"/collections/{cid}")
+        except TeamError as exc:
+            if exc.code != "not_found":
+                raise
+        self._drop_collection(state, cid, keep=True)
+        return kept
+
+    def _rotate_record(self, entry, people, unshared=False):
+        """{people, since, fp, seen, unshared}: who had access and may have kept the secret, until it changes."""
+        fp = secret_fp(self.vault, entry)
+        previous = rotate_info(entry) or {}
+        current = previous.get("fp") == fp
+        known = previous.get("people", []) if current else []
+        # `seen`: everyone who ever had access, so "Bob pudo ver 3 · 2 cambiadas" survives a rotation.
+        seen = sorted(set(previous.get("seen") or []) | set(previous.get("people") or []) | set(people))
+        return {"people": sorted(set(known) | set(people)), "since": now_iso(), "fp": fp, "seen": seen,
+                # Only "no longer shared with" (they are still on the team) if every reason is that one.
+                "unshared": bool(unshared and (not known or previous.get("unshared")))}
+
     def unshare_entry(self, entry_id):
         """Take a credential out of its collection for everyone; this PC keeps it as a personal one."""
         entry = self.vault.get(entry_id)
@@ -1463,12 +1634,23 @@ class Team:
                 if exc.code != "not_found":
                     raise
         coll["items"].pop(shared["item"], None)
+        other = self._direct_with(state, coll)
         with self.vault.mutex:
             entry = self.vault.get(entry_id)
+            if other and coll.get("permission") == "manage":  # shared with one person, who may have kept it
+                entry["team_rotate"] = self._rotate_record(entry, [other["name"]], unshared=True)
             entry.pop("shared", None)
             self.vault.put(entry, replaces=entry_id)
+        if other and coll.get("permission") == "manage" and not coll["items"] \
+                and not any((e.get("shared") or {}).get("collection") == cid for e in self.vault.entries()):
+            try:  # nothing left shared with them: the direct share ends (made again when needed)
+                with self._api(state) as api:
+                    api.call("DELETE", f"/collections/{cid}")
+                state["collections"].pop(cid, None)
+            except TeamError as exc:
+                print(f"team direct share: {detail(exc)}", file=sys.stderr)  # an empty one does no harm
         self.vault.set_team(state)
-        return {"collection_name": coll.get("name", "")}
+        return {"collection_name": coll.get("name", ""), "with": (other or {}).get("name")}
 
     def accept_change(self, entry_id, accept=True):
         """Apply (or turn down) a teammate's change to where a shared key can go (2.5)."""
@@ -1493,7 +1675,27 @@ class Team:
         coll = state["collections"][cid]
         return {"org": coll["org"], "org_name": ((state.get("orgs") or {}).get(coll["org"]) or {}).get("name", ""),
                 "collection": cid, "collection_name": coll.get("name", ""), "item": iid, "revision": revision,
-                "permission": coll["permission"], "author": author, "changed": changed}
+                "permission": coll["permission"], "author": author, "changed": changed, **self._direct_view(state, coll)}
+
+    def _direct_view(self, state, coll):
+        """For a credential shared with one person: who (`with`, their name) and whether this user shared it
+        (`by_me`: «Compartida con Bob») or received it («Compartida por Alicia»)."""
+        other = self._direct_with(state, coll)
+        if not other:
+            return {"with": None, "by_me": None, "with_permission": None}
+        return {"with": other["name"], "by_me": coll.get("permission") == "manage", "with_permission": other["permission"]}
+
+    def _direct_with(self, state, coll):
+        """The other person of a direct share: {user_id, name, permission}, or None."""
+        if not coll.get("direct"):
+            return None
+        me = state["user"]["id"]
+        signed = (coll.get("manifest") or {}).get("members")
+        listed = signed if signed is not None else {u: m.get("permission") for u, m in (coll.get("members") or {}).items()}
+        for uid, permission in sorted(listed.items()):
+            if uid != me:
+                return {"user_id": uid, "name": self._name_of(state, coll, uid), "permission": permission}
+        return None
 
     # ------------------------------------------------------------------ sync (3)
 
@@ -1571,12 +1773,22 @@ class Team:
         if head and head["members"].get(state["user"]["id"]) != row["permission"]:
             raise TeamError(tr("teams.own_permission_that_nobody_has"), "bad_members")
         coll.update(org=row["org_id"], name=str(info.get("name") or ""), key_version=row["key_version"],
-                    permission=row["permission"], needs_rekey=bool(row["needs_rekey"]))
+                    permission=row["permission"], needs_rekey=bool(row["needs_rekey"]),
+                    direct=info.get("direct") is True)
         if coll.pop("gone", None):  # listed again: what was held because it had disappeared stays
             self._release_held(state, cid, coll)
         state["collections"][cid] = coll
         signed_gone = bool(head) and any(uid not in {r["user_id"] for r in rows} for uid in head["members"])
         rekeyed = False
+        if coll["permission"] == "manage" and coll["direct"] and (coll["needs_rekey"] or signed_gone) \
+                and all(r["user_id"] == state["user"]["id"] for r in rows):
+            # Shared with one person who is no longer in it (removed from the organization, or left): it ends
+            # here. Its credentials stay as this user's own, flagged to rotate because that person had them.
+            self._pull(api, state, cid, notes)
+            people = self._gone(api, state, cid)[0]
+            self._end_direct(api, state, cid, people)
+            notes["rotate"].append({"collection": coll["name"], "people": people})
+            return
         if coll["permission"] == "manage" and (coll["needs_rekey"] or signed_gone):
             # Someone left (the server says so, or the signed list has someone the server no longer lists). Safe
             # even if the server asked for it falsely: the new key only goes to people trusted here.
@@ -1778,7 +1990,7 @@ class Team:
                 # Every live item is re-encrypted at a re-key: an older key is someone who left (or the server).
                 raise TeamError(tr("teams.is_encrypted_with_old_key"), "old_key")
             plain = open_item(self._key(coll, item["key_version"]), cid, iid, item["key_version"], item["ciphertext"])
-            content = {k: v for k, v in dict(plain["entry"]).items() if k not in ("shared", "updated", "secret_since")}
+            content = {k: v for k, v in dict(plain["entry"]).items() if k not in LOCAL_ONLY_KEYS}
             for local_only in ("approval", "ai_totp"):  # the user's own choices on this PC, never a teammate's
                 (content.get("policy") or {}).pop(local_only, None)
             if not ID_RE.match(str(content.get("id", ""))):
@@ -1819,6 +2031,8 @@ class Team:
                 for key in ("rotate", "own"):
                     if local["shared"].get(key):
                         shared[key] = local["shared"][key]
+                if local.get("team_rotate"):
+                    entry["team_rotate"] = local["team_rotate"]
                 # A local edit that lost was kept as a copy: the text in force is the last one synced.
                 basis = {**local, "description": known["content"].get("description", "")} if edited else local
                 lines = widening_changes(local, content)
@@ -1990,13 +2204,7 @@ class Team:
             for entry in self.vault.entries():
                 if (entry.get("shared") or {}).get("collection") != cid:
                     continue
-                fp = secret_fp(self.vault, entry)
-                previous = entry["shared"].get("rotate") or {}
-                known = previous.get("people", []) if previous.get("fp") == fp else []
-                # `seen`: everyone who ever had access, so "Bob pudo ver 3 · 2 cambiadas" survives a rotation.
-                seen = sorted(set(previous.get("seen") or []) | set(previous.get("people") or []) | set(people))
-                entry["shared"]["rotate"] = {"people": sorted(set(known) | set(people)), "since": now_iso(), "fp": fp,
-                                             "seen": seen}
+                entry["shared"]["rotate"] = self._rotate_record(entry, people)
                 self.vault.put(entry, replaces=entry["id"])
 
     def _refresh_entries(self, state, cid):
@@ -2008,7 +2216,8 @@ class Team:
                 shared = entry.get("shared") or {}
                 if shared.get("collection") != cid:
                     continue
-                wanted = {"org_name": org_name, "collection_name": coll.get("name", ""), "permission": coll["permission"]}
+                wanted = {"org_name": org_name, "collection_name": coll.get("name", ""), "permission": coll["permission"],
+                          **self._direct_view(state, coll)}
                 if any(shared.get(k) != v for k, v in wanted.items()):
                     shared.update(wanted)
                     self.vault.put(entry, replaces=entry["id"])

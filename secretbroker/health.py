@@ -26,6 +26,8 @@ def _left_team(reminder):
     names = [str(n) for n in reminder.get("people") or []]
     who = (names[0] if len(names) == 1 else tr("health.list_and", names=", ".join(names[:-1]), last=names[-1])) if names \
         else tr("health.a_person")
+    if reminder.get("unshared"):  # still on the team: it is no longer shared with them
+        return tr("health.unshared_rotate", count=max(len(names), 1), who=who)
     return tr("health.left_team_rotate" if reminder.get("can_rotate") else "health.left_team_ask", count=max(len(names), 1), who=who)
 
 
