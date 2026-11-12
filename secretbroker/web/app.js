@@ -3932,7 +3932,7 @@ function teamPeoplePanel(org, members, admin, rerender) {
         el('div', { class: 'meta' }, el('div', { class: 'title' }, label, m.me ? el('span', { class: 'faint' }, t('common.you')) : null,
           waiting ? el('span', { class: 'draft-badge', style: 'margin-left:8px' },
             m.status === 'accepted' ? t('team_people_panel.waiting_for_confirmation') : t('team_people_panel.verify')) : null),
-          el('div', { class: 'subtitle' }, [m.name && !invited ? m.email : null, status].filter(Boolean).join(' · '))),
+          el('div', { class: 'subtitle', style: invited && m.expired ? 'color:var(--warning)' : null },[m.name && !invited ? m.email : null, status].filter(Boolean).join(' · '))),
         controls),
       verify ? el('div', { class: 'fingerprint-box' }, el('div', { class: 'k' }, t('common.code', { label })),
         el('div', { class: 'fingerprint selectable' }, m.fingerprint),

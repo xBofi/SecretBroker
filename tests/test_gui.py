@@ -40,7 +40,7 @@ OUTBOX = []  # what the team server would e-mail (verification codes)
 
 def email_code(address):
     import re
-    found = wait_for(lambda: [m for m in OUTBOX if m["To"] == address], 10, 0.05)
+    found = wait_for(lambda: [m for m in OUTBOX if m["To"] == address and "código" in m["Subject"]], 10, 0.05)
     return re.search(r"\b(\d{8})\b", found[-1].get_content()).group(1) if found else ""
 
 
@@ -1534,11 +1534,15 @@ def teams_flow(page, env):
     bob_status = act("team_connect", server_url=TEAM_URL, email="bob@example.com", password=ACCOUNT, mode="register", name="Bob")["result"]
     act("team_verify_email", code=email_code("bob@example.com"))
     check(tab(page, "Personas"), "the Personas tab")
-    check(wait_for(lambda: "SecretBroker no envía las invitaciones por e-mail" in page.text(), 10), "inviting says honestly that no e-mail is sent")
+    check(wait_for(lambda: "El servidor le enviará la invitación por e-mail" in page.text(), 10),
+          "a server with e-mail: inviting says the server e-mails the invitation")
     fill(page, "E-mail de la persona", "bob@example.com")
     page.click("Invitar")
     check(wait_for(lambda: "Invitación creada para bob@example.com" in page.text() and "secretbroker://join?server=" in page.text(), 15),
           "invited: instructions with a link to pass on")
+    check("Se ha enviado la invitación por e-mail a bob@example.com" in page.text()
+          and any(m["To"] == "bob@example.com" and "invita" in m["Subject"] for m in OUTBOX),
+          "and it says the invitation was e-mailed (it was)")
     instructions = page.js("document.querySelector('.instructions').textContent")
     check("bob%40example.com" in instructions and TEAM_URL in instructions and "Código de invitación" in instructions,
           "the instructions carry the server, the e-mail and the sign-up code")
@@ -1546,7 +1550,33 @@ def teams_flow(page, env):
     page.click("Copiar instrucciones", ".modal button")
     check(wait_for(lambda: "Instrucciones copiadas" in page.text(), 5), "one click copies them")
     page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
-    check(wait_for(lambda: "Invitada · aún no ha entrado" in page.text(), 10), "the person shows as invited, not in yet")
+    check(wait_for(lambda: "Invitada · aún no ha entrado" in page.text() and "Reenviar" in page.text()
+                   and "Retirar" in page.text(), 10), "the person shows as invited, not in yet; it can be re-sent or withdrawn")
+
+    print("An invitation that expired")
+    fill(page, "E-mail de la persona", "carla@example.com")
+    page.click("Invitar")
+    wait_for(lambda: "Invitación creada para carla@example.com" in page.text(), 15)
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    import sqlite3
+    db = sqlite3.connect(HOME / "server" / "secretbroker.db")
+    db.execute("UPDATE invites SET expires = 1 WHERE email = 'carla@example.com'")
+    db.commit()
+    db.close()
+    page.js("renderView()")
+    check(wait_for(lambda: "Invitación caducada" in page.text() and "Renovar" in page.text(), 15),
+          "an expired invitation says so, with «Renovar» and «Retirar»")
+    calm_shot(page, "13-team-invite-expired")
+    page.click("Renovar")
+    check(wait_for(lambda: "Se ha enviado la invitación por e-mail a carla@example.com" in page.text(), 15)
+          and len([m for m in OUTBOX if m["To"] == "carla@example.com" and "invita" in m["Subject"]]) == 2,
+          "«Renovar» makes a new code and e-mails it again")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
+    check(wait_for(lambda: "Invitación caducada" not in page.text(), 10), "it is pending again")
+    page.js("""[...document.querySelectorAll('.member')].find((m) => m.textContent.includes('carla@example.com'))
+      .querySelector('button.ghost').click()""")
+    check(wait_for(lambda: "Invitación retirada" in page.text() and "carla@example.com" not in page.text(), 15),
+          "«Retirar» withdraws it")
     invite = bob.handle("team_invites", {})["result"][0]
     act("team_accept_invite", id=invite["id"])
     page.js("renderView()")
