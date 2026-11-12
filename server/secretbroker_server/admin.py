@@ -52,9 +52,9 @@ def _holds(conn, user):
         last_owner, orphans = blockers(conn, oid, user["id"])
         name = _org_name(conn, oid)
         if last_owner:
-            held.append((oid, name, f"they are the only owner of «{name}»: someone has to make another member owner "
-                                    "(in the app, Equipo › Personas; only an owner can, so if they can't sign in, "
-                                    "`enable-user` them for that)"))
+            held.append((oid, name, f"they are the only owner of «{name}»: make another confirmed member owner "
+                                    f"with `secretbroker-server transfer-owner {oid} <their e-mail>` (or the owner "
+                                    "does it in the app, Equipo › Personas)"))
         if orphans:
             held.append((oid, name, f"they are the only manager of {len(orphans)} collection(s) of «{name}» "
                                     f"({', '.join(orphans)}): a manager or org admin gives «Gestor» to someone else in "
@@ -73,6 +73,38 @@ def _leave_orgs(conn, user, action, skip=()):
         event(conn, oid, None, action, user["email"])
         left.append((_org_name(conn, oid), len(cids)))
     return left
+
+
+def find_org(conn, which):
+    """An organization by id, or by name when only one has it."""
+    row = conn.execute("SELECT id, name FROM orgs WHERE id = ?", (which,)).fetchone()
+    if row:
+        return row
+    rows = conn.execute("SELECT id, name FROM orgs WHERE name = ?", (which,)).fetchall()
+    if len(rows) == 1:
+        return rows[0]
+    if rows:
+        raise AdminError(f"{len(rows)} organizations are called «{which}»: use its id ("
+                         + ", ".join(r["id"] for r in rows) + ")")
+    raise AdminError(f"no organization «{which}» (an id or an exact name; `users` lists them)")
+
+
+def transfer_owner(conn, which, address):
+    """Make a confirmed member of an organization its owner (the current owners stay owners): for an organization
+    whose only owner can't sign in any more. → (org name, already owner)"""
+    org, user = find_org(conn, which), find(conn, address)
+    member = conn.execute("SELECT role, status FROM org_members WHERE org_id = ? AND user_id = ?",
+                          (org["id"], user["id"])).fetchone()
+    if member is None or member["status"] != "confirmed":
+        raise AdminError(f"{address} is not a confirmed member of «{org['name']}»: invite them and confirm them "
+                         "in the app first")
+    if user["disabled"]:
+        raise AdminError(f"{address} is disabled: pick someone who can sign in")
+    if member["role"] == "owner":
+        return org["name"], True
+    conn.execute("UPDATE org_members SET role = 'owner' WHERE org_id = ? AND user_id = ?", (org["id"], user["id"]))
+    event(conn, org["id"], None, "member.role", f"{user['id']}:owner")
+    return org["name"], False
 
 
 def disable(conn, address):

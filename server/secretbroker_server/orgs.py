@@ -104,8 +104,10 @@ def _new_invite(ctx, conn, oid, address, role):
 
 
 def _email_invite(ctx, oid, invite_id, address, expires):
-    """E-mail the invite if this server has SMTP; True once the SMTP server took it (and that time is recorded)."""
-    if not ctx.settings.smtp:
+    """E-mail the invite if this server has SMTP and the inviter verified their own address (so a throwaway
+    account can't make the server e-mail strangers); True once the SMTP server took it (and that time is recorded).
+    Otherwise the invite still exists and the app gives the admin the instructions to pass on."""
+    if not ctx.settings.smtp or not ctx.user["verified"]:
         return False
     org = ctx.db.conn().execute("SELECT name FROM orgs WHERE id = ?", (oid,)).fetchone()
     inviter = f"{ctx.user['name']} ({ctx.user['email']})" if ctx.user["name"] else ctx.user["email"]
@@ -173,7 +175,7 @@ def resend_invite(ctx):
         row = _org_invite_row(conn, oid, ctx)
         if _expired(row):
             raise ApiError(410, "invite_expired", "Esta invitación ha caducado: renuévala.")
-        if not ctx.settings.smtp:
+        if not ctx.settings.smtp or not ctx.user["verified"]:
             return {"emailed": False}
         wait = (row["sent"] or 0) + mail.INVITE_RESEND_SECONDS - now_epoch()
         if wait > 0:

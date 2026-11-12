@@ -181,6 +181,13 @@ def delete_user(args):
     _left(left)
 
 
+def transfer_owner(args):
+    from . import admin
+
+    name, already = _admin(lambda conn, address: admin.transfer_owner(conn, args.org, address), args)
+    print(f"{args.email} {'was already' if already else 'is now'} an owner of «{name}».")
+
+
 def run_backup(args):
     from .backup import BackupError, backup
 
@@ -239,6 +246,11 @@ def main(argv=None):
         if name == "delete-user":
             command.add_argument("--yes", action="store_true", help="confirm: it can't be undone")
         command.set_defaults(func=func)
+    owner = sub.add_parser("transfer-owner", help="make a confirmed member of an organization its owner (for an "
+                                                  "organization whose only owner can't sign in)")
+    owner.add_argument("org", help="the organization's id, or its exact name")
+    owner.add_argument("email")
+    owner.set_defaults(func=transfer_owner)
     save = sub.add_parser("backup", help="write a consistent backup (database + server secret) and prune old ones")
     save.add_argument("--dir", help="where to write it (default: SB_DATA_DIR/backups)")
     save.add_argument("--keep", type=int, default=14, help="how many backups to keep (default 14)")

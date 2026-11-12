@@ -550,7 +550,12 @@ def test_email_verification():
             # But any account can make an org and invite any address: its own invite code must not verify the
             # address for everybody else's invites (Mallory takes Dave's address with an invite she wrote).
             mallory_org = mallory.ok("POST", "/orgs", {"name": "Mallory"})["id"]
-            own_code = mallory.ok("POST", f"/orgs/{mallory_org}/invites", {"email": "dave@example.com", "role": "member"})["id"]
+            unverified_invite = mallory.ok("POST", f"/orgs/{mallory_org}/invites", {"email": "dave@example.com", "role": "member"})
+            own_code = unverified_invite["id"]
+            check(unverified_invite["emailed"] is False and not outbox.invites("dave@example.com"),
+                  "an account that has not verified its e-mail can invite, but the server e-mails nothing for it")
+            check(mallory.ok("POST", f"/orgs/{mallory_org}/invites/{own_code}/send", {}) == {"emailed": False},
+                  "nor when re-sending")
             fake = Api(base)
             check(fake.register("dave@example.com", own_code).json()["verified"] is False,
                   "an invite code a stranger wrote does not verify the address")
@@ -904,7 +909,18 @@ def test_admin_cli():
         check(code != 0 and "only manager of 1 collection(s) of «Acme»" in out and carol.login().status_code == 200,
               "delete-user refuses the only manager of a collection, says what to do, changes nothing")
         code, out = cli_out(settings, ["delete-user", "dave@example.com", "--yes"])
-        check(code != 0 and "only owner of «Solo de Dave»" in out, "and the last owner of an organization")
+        check(code != 0 and "only owner of «Solo de Dave»" in out and "secretbroker-server transfer-owner" in out,
+              "and the last owner of an organization, naming transfer-owner")
+        code, out = cli_out(settings, ["transfer-owner", "Solo de Dave", "alice@example.com"])
+        check(code != 0 and "not a confirmed member" in out, "transfer-owner needs a confirmed member")
+        check(cli_out(settings, ["transfer-owner", "Nadie", "alice@example.com"])[0] != 0, "and an existing organization")
+        code, out = cli_out(settings, ["transfer-owner", "Acme", "carol@example.com"])
+        role = next(m["role"] for m in alice.ok("GET", f"/orgs/{oid}/members") if m["user_id"] == carol.id)
+        events = [(e["action"], e["target"], e["actor"]) for e in alice.ok("GET", f"/orgs/{oid}/events")]
+        check(code == 0 and "is now an owner of «Acme»" in out and role == "owner"
+              and ("member.role", f"{carol.id}:owner", None) in events,
+              "transfer-owner makes a confirmed member owner (by name or id), in Actividad")
+        check("was already" in cli_out(settings, ["transfer-owner", oid, "carol@example.com"])[1], "by id too")
         code, out = cli_out(settings, ["delete-user", "bob@example.com"])
         check(code != 0 and "--yes" in out and bob.login().status_code == 200, "it asks for --yes")
         code, out = cli_out(settings, ["delete-user", "bob@example.com", "--yes"])
