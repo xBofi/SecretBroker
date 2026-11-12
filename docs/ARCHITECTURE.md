@@ -447,7 +447,8 @@ Implementation notes (`server/`, binding for clients):
   expired id no longer works as a signup token. With SMTP, creating or renewing an invite e-mails the join link
   (`secretbroker://join?server=SB_PUBLIC_URL&email=…&code=<invite id>`), where to download SecretBroker and the same
   steps in plain words (`mail.invite_message`); nothing secret: the id is the sign-up code for that e-mail and
-  organization that the admin could already copy. The e-mail is sent after the transaction commits and `emailed`
+  organization that the admin could already copy. Only an inviter whose own e-mail is verified makes the server
+  send it (otherwise the invite is created with `emailed: false`). The e-mail is sent after the transaction commits and `emailed`
   says whether the SMTP server took it. Creating, renewing and re-sending count against `SB_MAX_INVITES_PER_HOUR`
   (30) per organization and per account (`429`). Audit events `invite.renew`, `invite.send` (target: the e-mail).
 * **Versions.** `GET /info` has `api` (the protocol: 1 = 0.16 with signed member lists and deletions; 2 = invites by
@@ -462,7 +463,8 @@ Implementation notes (`server/`, binding for clients):
   right password), existing tokens are refused; it leaves every organization exactly like `DELETE
   /orgs/{oid}/members/{uid}` (collections `needs_rekey`, so managers' apps re-key and flag "rotate: X had access"),
   except where it is the last owner or a collection's only manager, where it stays a member until that is handed
-  over. Deleting refuses those cases outright. Org audit events `member.disable` / `member.delete` (actor none,
+  over (`secretbroker-server transfer-owner <org> <e-mail>` makes a confirmed member owner: Actividad shows it as
+  `member.role` by nobody). Deleting refuses those cases outright. Org audit events `member.disable` / `member.delete` (actor none,
   target the e-mail); server-wide `user.disable`, `user.enable`, `user.delete`.
 * **Operations.** `secretbroker-server backup [--dir] [--keep N] [--every HOURS]` (SQLite online backup of the
   database plus `server_secret` in one zip, pruned to the newest N) and `restore <file>` (refused while `serve` holds
@@ -591,7 +593,9 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   este PC» and «Borrarlas también aquí»), and the change review names a new description («… ha cambiado las
   instrucciones que lee la IA», with the text quoted). Collections that only one person manages say «Un solo gestor».
 * Invites: on a server with e-mail (`team_status.mail`) the server e-mails the invite and the dialog says so
-  («Se ha enviado la invitación por e-mail a …»); otherwise no e-mail is sent. Either way the admin gets the
+  («Se ha enviado la invitación por e-mail a …», «Hecho»; the instructions fold behind «Ver instrucciones para
+  pasárselas»); otherwise no e-mail is sent. Pending invites say «caduca el <fecha>», in the warning colour in their
+  last two days. Either way the admin gets the
   instructions to pass on with a link
   `secretbroker://join?server=…&email=…&code=…` (the code is the invite id, which works as a sign-up code). Personas
   shows pending invites with «Copiar instrucciones», «Reenviar» (if it was e-mailed) and «Retirar»; expired ones as

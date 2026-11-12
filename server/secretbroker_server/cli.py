@@ -10,6 +10,8 @@ import time
 from . import __version__, config
 from .db import Database, now_epoch
 
+RETRY_SECONDS = 600  # a scheduled backup that failed is tried again this soon
+
 
 def _settings():
     try:
@@ -198,13 +200,17 @@ def run_backup(args):
             path, pruned = backup(data_dir, dest, args.keep)
             print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} backup written: {path}"
                   + (f" ({len(pruned)} old one(s) deleted)" if pruned else ""), flush=True)
+            wait = args.every * 3600
         except (BackupError, OSError) as exc:
             if not args.every:
                 sys.exit(f"secretbroker-server: backup failed: {exc}")
-            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} backup failed: {exc}", file=sys.stderr, flush=True)
+            # The first start of a new server: the database may not exist yet. Try again soon, not tomorrow.
+            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} backup failed, retrying in 10 minutes: {exc}",
+                  file=sys.stderr, flush=True)
+            wait = min(args.every * 3600, RETRY_SECONDS)
         if not args.every:
             return
-        time.sleep(args.every * 3600)
+        time.sleep(wait)
 
 
 def run_restore(args):

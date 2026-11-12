@@ -132,6 +132,8 @@ With the `SB_SMTP_*` variables set, the server e-mails two things, and nothing e
   the app. An invite lasts `SB_INVITE_DAYS` (14); expired ones show in Equipo › Personas as «Invitación caducada»
   with «Renovar» (a new code, e-mailed again) and «Retirar»; pending ones can be re-sent (once every 10 minutes).
   An organization, and an account, may create, renew or re-send `SB_MAX_INVITES_PER_HOUR` (30) invites an hour.
+  Only accounts that verified their own e-mail make the server send invites: an unverified one can still invite,
+  and the app gives it the instructions to pass on.
 
 Without SMTP nothing is e-mailed: the app gives the admin the instructions to pass on, and accounts are verified
 either by registering with the organization's invite code (it proves the address to that organization only) or by
@@ -157,6 +159,7 @@ With the default `SB_SIGNUPS=invite`, people join through an organization invite
 | `secretbroker-server disable-user <e-mail>` | Revokes all its sessions and blocks its sign-in; its data stays. It leaves every organization, as if an org admin removed it: each collection it could read waits for a re-key, which the managers' apps do on their next sync, flagging its credentials «rotate: <person> had access». Where it is an organization's last owner or a collection's only manager it stays a member (unable to sign in) and the command says what to hand over first. |
 | `secretbroker-server enable-user <e-mail>` | Lets it sign in again. It is not back in the organizations it left: invite it. |
 | `secretbroker-server delete-user <e-mail> --yes` | Takes it out of its organizations (same re-keying) and deletes the account. Refused, changing nothing, while it is an organization's last owner or a collection's only manager: the command says what to do. |
+| `secretbroker-server transfer-owner <org> <e-mail>` | Makes a confirmed member of an organization (its id, or its exact name) an owner, for an organization whose only owner can't sign in any more. The other owners stay owners. |
 | `secretbroker-server create-invite [--days N]` | A single-use signup token (needed with `SB_SIGNUPS=invite` for someone without an org invite, and always for `SB_ADMIN_EMAILS`). |
 | `secretbroker-server stats` | Counts, never contents. |
 
@@ -168,7 +171,8 @@ re-keying protects every future change. What that person already saw is theirs: 
 
 Everything lives in `secretbroker.db` plus `server_secret` in the data volume. The Compose file runs a `backup`
 service that writes a consistent copy of both (SQLite's online backup, safe while the server runs) once a day to the
-`sb-backups` volume and keeps the last `SB_BACKUP_KEEP` (14). By hand, at any time:
+`sb-backups` volume and keeps the last `SB_BACKUP_KEEP` (14); a backup that fails (on a brand-new server the
+database may not exist yet) is retried in 10 minutes. By hand, at any time:
 
 ```sh
 docker compose exec backup secretbroker-server backup --dir /backups --keep 14

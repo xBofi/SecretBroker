@@ -3895,7 +3895,12 @@ function teamPeoplePanel(org, members, admin, rerender) {
     const label = m.name || m.email;
     const invited = m.status === 'invited';
     const waiting = verifying.has(m.user_id);
-    const status = invited ? (m.expired ? t('team_people_panel.invitation_expired') : t('team_people_panel.invited_hasn_joined_yet'))
+    // A pending invite says until when it works, in the warning colour in its last two days.
+    const expiresIn = invited && m.expires ? Date.parse(m.expires) - Date.now() : NaN;
+    const warn = invited && (m.expired || expiresIn < 2 * 86400000);
+    const pending = [t('team_people_panel.invited_hasn_joined_yet'),
+      m.expires ? t('team_people_panel.expires_on', { date: fmtDate(m.expires, { day: 'numeric', month: 'short' }) }) : null].filter(Boolean).join(' · ');
+    const status = invited ? (m.expired ? t('team_people_panel.invitation_expired') : pending)
       : m.status === 'accepted' && !waiting ? t('team_people_panel.waiting_for_confirmation') : ROLE_LABELS[m.role] || m.role;
     const controls = [];
     // Someone already in the org not verified on this PC: one click, after comparing their code.
@@ -3932,7 +3937,7 @@ function teamPeoplePanel(org, members, admin, rerender) {
         el('div', { class: 'meta' }, el('div', { class: 'title' }, label, m.me ? el('span', { class: 'faint' }, t('common.you')) : null,
           waiting ? el('span', { class: 'draft-badge', style: 'margin-left:8px' },
             m.status === 'accepted' ? t('team_people_panel.waiting_for_confirmation') : t('team_people_panel.verify')) : null),
-          el('div', { class: 'subtitle', style: invited && m.expired ? 'color:var(--warning)' : null },[m.name && !invited ? m.email : null, status].filter(Boolean).join(' · '))),
+          el('div', { class: 'subtitle', style: warn ? 'color:var(--warning)' : null }, [m.name && !invited ? m.email : null, status].filter(Boolean).join(' · '))),
         controls),
       verify ? el('div', { class: 'fingerprint-box' }, el('div', { class: 'k' }, t('common.code', { label })),
         el('div', { class: 'fingerprint selectable' }, m.fingerprint),
@@ -4025,10 +4030,27 @@ function inviteInstructions(org, email, code, justInvited = false, emailed = fal
     t('invite_instructions.3_create_your_account_and'),
     t('invite_instructions.4_i_ll_confirm_you'),
   ].filter((line) => line !== null).join('\n');
-  const copy = el('button', { class: 'btn primary' }, icon('copy', 'sm'), t('common.copy_instructions'));
+  const copy = el('button', { class: `btn ${justInvited && emailed ? '' : 'primary'}` }, icon('copy', 'sm'), t('common.copy_instructions'));
   copy.addEventListener('click', async () => { await api().copy_text(text); toast(t('invite_instructions.instructions_copied')); });
   const copyLink = el('button', { class: 'btn' }, t('invite_instructions.copy_only_link'));
   copyLink.addEventListener('click', async () => { await api().copy_text(link); toast(t('invite_instructions.link_copied')); });
+  if (justInvited && emailed) {
+    // The server sent it: nothing to do but close. The instructions stay one click away, for another channel.
+    const more = el('div', { class: 'hidden' },el('pre', { class: 'instructions selectable' }, text),
+      el('div', { style: 'display:flex;gap:8px;margin-top:10px' }, copy, copyLink));
+    const toggle = el('button', { class: 'link small', style: 'margin-top:14px;align-self:flex-start;text-align:left;padding:0' },
+      t('invite_instructions.show_instructions'));
+    toggle.addEventListener('click', () => { more.classList.remove('hidden'); toggle.remove(); });
+    const done = el('button', { class: 'btn primary', onclick: () => modal.close() }, t('common.done'));
+    const modal = openModal({
+      title: t('invite_instructions.invitation_created_for', { email }),
+      wide: true,
+      body: [el('div', { class: 'notice' }, icon('check', 'sm'), el('span', { class: 'notice-text' }, t('invite_instructions.sent_to', { email }))),
+        toggle, more],
+      footer: [el('div', { class: 'spacer' }), done],
+    });
+    return;
+  }
   const modal = openModal({
     title: justInvited ? t('invite_instructions.invitation_created_for', { email }) : t('invite_instructions.instructions_for', { email }),
     wide: true,

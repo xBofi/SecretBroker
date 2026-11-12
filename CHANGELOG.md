@@ -6,8 +6,9 @@ What changed for people who use SecretBroker. The commit history has the details
 
 ### Teams
 - **Invitations by e-mail.** On a team server with e-mail, inviting someone e-mails them the join link and plain
-  steps, including where to download SecretBroker; the invite dialog says it was sent and still offers «Copiar
-  instrucciones». Without e-mail nothing changes: you pass the instructions on.
+  steps, including where to download SecretBroker; the invite dialog says it was sent, with «Hecho», and keeps the
+  instructions one click away. Without e-mail nothing changes: you pass the instructions on. Pending invites say
+  when they expire, in the warning colour in their last two days.
 - **Invitations expire** after 14 days. Equipo › Personas shows «Invitación caducada» with «Renovar» (a new code,
   e-mailed again) and «Retirar»; pending ones can be re-sent («Reenviar») or withdrawn.
 - **App and server versions.** If the team server is too old for this app, Equipo says «El servidor del equipo es
@@ -20,7 +21,9 @@ What changed for people who use SecretBroker. The commit history has the details
 - Account management from the command line: `secretbroker-server users`, `disable-user` (revokes its sessions,
   blocks sign-in, takes it out of its organizations: the managers' apps re-key what it could read and flag it to
   rotate), `enable-user`, `delete-user` (refused while it is an organization's last owner or a collection's only
-  manager, saying what to do). Each removal is in the organization's Actividad.
+  manager, saying what to do), `transfer-owner` (makes a confirmed member owner of an organization whose only owner
+  can't sign in). Each change is in the organization's Actividad. Only accounts with a verified e-mail make the
+  server send invites.
 - `GET /api/v1/health` (the Docker `HEALTHCHECK`), `secretbroker-server backup` (consistent, timestamped, prunes old
   ones) and `restore` (refused while the server runs). The Compose file adds a daily backup service keeping 14, and
   runs the containers read-only, unprivileged and without capabilities; data files are readable by the server only.

@@ -179,9 +179,10 @@ A member of an organization, with some permission on a collection.
   `SB_EMAIL_VERIFICATION=off` gives invites to whoever registered the address.
 - With SMTP the server e-mails invites, and the inviter writes the organization name they carry. Anyone who can
   create an account (`SB_SIGNUPS=open`) can make the server send an invite with a misleading organization name to
-  any address. The e-mail never asks for a password (and says so), its link only fills in the app's form, and invites
-  are limited per organization and per account each hour; with `SB_SIGNUPS=invite` (the default) only people the
-  admins let in can send them. A compromised server can send whatever e-mails it likes from its SMTP account.
+  any address, once it has verified its own address (unverified accounts never make the server send one). The
+  e-mail never asks for a password (and says so), its link only fills in the app's form, and invites are limited per
+  organization and per account each hour; with `SB_SIGNUPS=invite` (the default) only people the admins let in can
+  send them. A compromised server can send whatever e-mails it likes from its SMTP account.
 - Whoever terminates TLS in front of the server sees what the server sees: a Cloudflare Tunnel (TLS ends at
   Cloudflare) or another TLS-terminating proxy is part of this actor. Tailscale `serve` / `funnel` and Caddy keep TLS
   on the operator's machine. Payloads stay end-to-end encrypted either way.
