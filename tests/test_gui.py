@@ -270,7 +270,7 @@ def fake_psql():
 def start_team_server():
     import uvicorn
     from secretbroker_server import config, mail
-    from secretbroker_server.web import create_app
+    from fake_admin import create_app  # the server's admin pages, faked on its own functions until this tree has them
 
     mail.deliver = lambda settings, msg: OUTBOX.append(msg)
 
@@ -1678,7 +1678,8 @@ def teams_flow(page, env):
     fill(page, "Nombre del equipo o la empresa", "Acme")
     page.click("Crear organización")
     check(wait_for(lambda: page.js("[...document.querySelectorAll('.team-tabs button')].map((b) => b.firstChild.textContent).join('|')")
-                   == "Colecciones|Personas|Actividad|Tu cuenta", 15), "organization created: tabs Colecciones · Personas · Actividad · Tu cuenta")
+                   == "Colecciones|Personas|Actividad|Tu cuenta|Servidor", 15),
+          "organization created: tabs Colecciones · Personas · Actividad · Tu cuenta, and Servidor for the server's admin")
     check(page.js("document.querySelector('.org-picker').selectedOptions[0].textContent") == "Acme", "the organization in the header")
     fill(page, "Nombre, p. ej. Producción", "Producción")
     page.click("Crear colección")
@@ -2070,6 +2071,8 @@ def teams_flow(page, env):
     page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
     wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
 
+    server_admin_flow(page, bob, act, carol, carol_act)
+
     print("A pending invitation, in English")
     import uuid as _uuid
     org = page.js("state.teamOrg")
@@ -2112,6 +2115,244 @@ def teams_flow(page, env):
           "changes are disabled while offline")
     check("Exception" not in page.text() and "Error:" not in page.text(), "no technical error names")
     calm_shot(page, "19-team-offline")
+
+
+def server_pane(page, name):
+    """Open a part of Equipo › Servidor (its label, without the count)."""
+    return page.js(f"""(() => {{ const b = [...document.querySelectorAll('.server-nav button')]
+      .find((x) => x.firstChild && x.firstChild.textContent.trim() === {json.dumps(name)});
+      if (!b) return false; b.click(); return true; }})()""")
+
+
+def account_row(page, who, what="text"):
+    """Servidor › Cuentas: the row of `who` ("text": what it says; "chip": its status)."""
+    selector = ".chip" if what == "chip" else ".access-row"
+    return page.js(f"""(() => {{ const row = [...document.querySelectorAll('.server-account')]
+      .find((r) => r.querySelector('.name').textContent === {json.dumps(who)});
+      return row ? row.querySelector({json.dumps(selector)}).innerText.trim() : null; }})()""")
+
+
+def signups(page, mode):
+    """Servidor › Resumen: choose who may create an account."""
+    page.js(f"""(() => {{ const s = document.querySelector('select[aria-label="Registro de cuentas"]');
+      s.value = {json.dumps(mode)}; s.dispatchEvent(new Event('change')); }})()""")
+
+
+def account_click(page, who, label):
+    return page.js(f"""(() => {{ const row = [...document.querySelectorAll('.server-account')]
+      .find((r) => r.querySelector('.name').textContent === {json.dumps(who)});
+      const b = row && [...row.querySelectorAll('button')].find((x) => (x.innerText.trim() || x.title) === {json.dumps(label)});
+      if (!b) return false; b.click(); return true; }})()""")
+
+
+def server_admin_flow(page, bob, act, carol, carol_act):
+    """Alicia, the first account of an open server, runs it from Equipo › Servidor: overview, a backup, a sign-up
+    code, deleting an account that still owns an organization (the fix offered inline), disabling Bob and seeing
+    the effects, re-enabling him, and the log; in Spanish and English, dark and light, and at the smallest window.
+    The server is the real one of this tree; its admin pages come from tests/fake_admin.py (on the server's own
+    functions) while this tree's server has none."""
+    print("The team server's admin: Equipo › Servidor")
+    import fake_admin
+    fake_admin.LATEST["version"] = "0.18.1"  # the server knows of a newer version
+    page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
+    page.js("state.view = 'team'; state.teamTab = 'people'; renderMain()")
+    check(wait_for(lambda: page.js("[...document.querySelectorAll('.team-tabs button')].some((b) => b.firstChild.textContent === 'Servidor')"), 10),
+          "the server's admin has a «Servidor» tab")
+    check(tab(page, "Servidor"), "it opens")
+    check(wait_for(lambda: "Actualizaciones automáticas" in page.text() and "Hacer copia ahora" in page.text()
+                   and "SecretBroker Server" in page.text(), 15), "Resumen: version, automatic updates, backups")
+    text = page.text()
+    check("Hay una versión nueva (0.18.1): se instalará sola esta noche" in text
+          and page.js("!!document.querySelector('.server-version.warn')"), "a newer version: said under the server's name, in the warning colour")
+    check(page.js("getComputedStyle(document.querySelector('.server-overview input.switch')).appearance") == "none",
+          "automatic updates: a switch, not a bare checkbox")
+    check("Registro de cuentas" in text and page.js("document.querySelector('select[aria-label=\"Registro de cuentas\"]').value") == "open"
+          and "mejor «Solo con invitación»" in text and page.js("!!document.querySelector('.server-overview p.warn-text')"),
+          "sign-ups Abierto: what it means in the warning colour, suggesting «Solo con invitación»")
+    check("Configurado" in text and "El servidor envía las invitaciones" in text, "e-mail: set up, and what that means")
+    check("Aún no hay ninguna copia" in text and "Cuando haya una copia" in text, "no backup yet: it says so, and how restoring goes")
+    check(page.js("document.querySelectorAll('.server-stats .stat').length") == 4, "the counts: accounts, organizations, collections, credentials")
+    calm_shot(page, "24-server-overview")
+    page.js("document.querySelector('.server-overview input.switch').click()")
+    check(wait_for(lambda: "Hay una versión nueva (0.18.1): actualízala desde el servidor" in page.text()
+                   and not page.js("document.querySelector('.server-overview input.switch').checked"), 15),
+          "automatic updates off: the new version is to be installed on the server")
+    page.js("document.querySelector('.server-overview input.switch').click()")
+    check(wait_for(lambda: "se instalará sola esta noche" in page.text(), 15), "and on again")
+    page.click("Hacer copia ahora")
+    check(wait_for(lambda: "Copia de seguridad hecha" in page.text() and "Última: " in page.text(), 15), "«Hacer copia ahora»: one click")
+    check(wait_for(lambda: "Ver los comandos" in page.text(), 10), "restoring is done on the server: one line, the commands one click away")
+    page.click("Ver los comandos")
+    check(wait_for(lambda: "sudo secretbroker-server restore /var/lib/secretbroker-server/backups/secretbroker-backup-" in page.text()
+                   and "systemctl" not in page.text()
+                   and "En el servidor, ejecuta:" in page.text(), 10)
+          and page.js("!!document.querySelector('.command-box .btn')"),
+          "restoring is done on the server: the server's own command (one line: it stops and starts the service), the newest backup filled in, with a copy button")
+    fallback = page.js("""[restoreCommands({ install: 'systemd' }, 'b.zip'), restoreCommands({ install: 'docker' }, 'b.zip'),
+      restoreCommands({ install: 'other' }, 'b.zip'), restoreCommands({}, 'b.zip')]""")
+    check(fallback[0]["lines"] == ["sudo secretbroker-server restore /var/lib/secretbroker-server/backups/b.zip"] and "rutas que usa el instalador" in page.js(f"t({json.dumps(fallback[0]['where'])})")
+          and "sudo docker compose stop server backup" in fallback[1]["lines"] and fallback[2] is None and fallback[3] is None,
+          "without them: the commands for systemd (the installer's paths, said so) or Docker, else the server's guide")
+    calm_shot(page, "24-server-backup")
+    signups(page, "invite")
+    check(wait_for(lambda: "Registro de cuentas: solo con invitación" in page.text() and "Crear código de registro" in page.text(), 15),
+          "sign-ups «Solo con invitación» with one click, and then sign-up codes are offered")
+    page.click("Crear código de registro")
+    check(wait_for(lambda: "Código de registro: sbi_" in page.js("(document.querySelector('.modal .instructions') || {}).textContent || ''")
+                   and "Sirve una sola vez y caduca el" in page.text(), 10), "a sign-up code, with instructions to pass on")
+    calm_shot(page, "24-server-signup-code")
+    page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
+    signups(page, "open")
+    check(wait_for(lambda: "Crear código de registro" not in page.text(), 15), "and open again")
+
+    print("Accounts")
+    # Carol has an organization with Bob in it, and a collection Bob can read.
+    carla_org = carol_act("team_create_org", name="Estudio Carol")["result"]["id"]
+    bob_id = bob.handle("team_status", {})["result"]["user"]["id"]
+
+    def bob_joins():
+        carol_act("team_invite", org=carla_org, email="bob@example.com", role="member")
+        act("team_accept_invite", id=next(i["id"] for i in bob.handle("team_invites", {})["result"] if i["org_id"] == carla_org))
+        carol_act("team_confirm_member", org=carla_org, user_id=bob_id)
+    bob_joins()
+    studio = carol_act("team_create_collection", org=carla_org, name="Estudio")["result"]["id"]
+    carol_act("team_grant", collection=studio, user_id=bob_id, permission="view")
+    server_pane(page, "Cuentas")
+    check(wait_for(lambda: account_row(page, "Bob") and account_row(page, "Carol"), 15), "Cuentas: every account")
+    check(wait_for(lambda: account_row(page, "Alicia", "chip") == "Verificada" and "Admin del servidor" in account_row(page, "Alicia")
+                   and "Estudio Carol (propietario)" in account_row(page, "Carol")
+                   and "Estudio Carol (miembro)" in account_row(page, "Bob"), 15),
+          "with status, the server admin, organizations and roles (asked again when the part opens)")
+    check(not account_click(page, "Alicia", "Desactivar"), "nothing to disable or delete on one's own row")
+    calm_shot(page, "24-server-accounts")
+
+    print("Disabling Bob")
+    account_click(page, "Bob", "Desactivar")
+    check(wait_for(lambda: "¿Desactivar la cuenta de Bob?" in page.text() and "se cierran sus sesiones" in page.text()
+                   and "Sale de «Estudio Carol»" in page.text() and "se vuelven a cifrar" in page.text()
+                   and "marcadas para cambiarlas" in page.text(), 5),
+          "the dialog says what happens: sessions closed, out of his teams, collections re-encrypted, keys to change")
+    calm_shot(page, "24-server-disable")
+    page.click("Desactivar", ".modal-foot button")
+    check(wait_for(lambda: "Cuenta de Bob desactivada: ha salido de «Estudio Carol»" in page.text(), 20), "done: he left his organization")
+    check(wait_for(lambda: account_row(page, "Bob", "chip") == "Desactivada" and "En ninguna organización" in account_row(page, "Bob"), 15),
+          "his row says «Desactivada», in no organization")
+    calm_shot(page, "24-server-disabled")
+    rotate = carol.handle("team_sync", {})["result"]["result"]["rotate"]
+    check({"collection": "Estudio", "people": ["Bob"]} in rotate,
+          f"Carol's app re-encrypts the collection he could read and flags it «rotate: Bob had access» ({rotate})")
+    check(bob.handle("team_sync", {})["result"]["state"] == "reconnect", "his app is signed out")
+    response = act("team_connect", server_url=TEAM_URL, email="bob@example.com", password=ACCOUNT, mode="login")
+    check(response.get("code") == "account_disabled", f"and can't sign in ({response.get('code')})")
+    account_click(page, "Bob", "Reactivar")
+    check(wait_for(lambda: "Bob puede volver a entrar" in page.text() and account_row(page, "Bob", "chip") == "Verificada", 15),
+          "«Reactivar»: one click")
+    check(act("team_connect", server_url=TEAM_URL, email="bob@example.com", password=ACCOUNT, mode="login")["ok"],
+          "Bob signs in again (in no team until invited again)")
+
+    print("Deleting an account that still owns an organization")
+    bob_joins()
+    server_pane(page, "Cuentas")
+    wait_for(lambda: "Estudio Carol" in (account_row(page, "Bob") or ""), 15)
+    account_click(page, "Carol", "Borrar la cuenta")
+    check(wait_for(lambda: "¿Borrar la cuenta de Carol?" in page.text() and "No se puede deshacer" in page.text(), 5),
+          "deleting asks first, and says it can't be undone")
+    check(page.js("document.querySelector('.modal-foot .solid-danger').disabled"), "until her e-mail is typed")
+    fill(page, "Escribe carol@example.com para confirmar", "carol@example.com", ".modal")
+    page.click("Borrar", ".modal-foot button")
+    check(wait_for(lambda: "Carol es la única persona propietaria de «Estudio Carol»" in page.text(), 15),
+          "the server says no: one sentence, the organization named")
+    check(wait_for(lambda: page.js("[...document.querySelectorAll('.fix-line select option')].map((o) => o.textContent).join('|')") == "Bob", 5)
+          and "Nuevo propietario de «Estudio Carol»:" in page.text(), "with the fix next to it: who can be made owner")
+    calm_shot(page, "24-server-delete-refused")
+    page.click("Hacer propietario", ".fix-line button")
+    check(wait_for(lambda: "Bob es ahora propietario de «Estudio Carol»" in page.text(), 15), "one click hands it over")
+    page.click("Volver a intentar", ".modal-foot button")
+    check(wait_for(lambda: "Carol es la única persona que gestiona una colección" in page.text()
+                   and "recibir «Gestor»" in page.text(), 15),
+          "then: she alone manages a collection (Alicia isn't in it, so no name): what has to happen, in one sentence")
+    calm_shot(page, "24-server-delete-manager")
+    carol_act("team_grant", collection=studio, user_id=bob_id, permission="manage")
+    page.click("Volver a intentar", ".modal-foot button")
+    check(wait_for(lambda: "Cuenta de Carol borrada" in page.text() and not account_row(page, "Carol"), 15),
+          "once Bob manages it too, the account goes")
+    check(carol.handle("team_sync", {})["result"]["state"] == "reconnect", "and Carol's app is signed out")
+
+    print("Organizations")
+    server_pane(page, "Organizaciones")
+    check(wait_for(lambda: "Estudio Carol" in page.text() and "Propietarios: Bob" in page.text() and "1 colección" in page.text()
+                   and "Cambiar propietario" in page.text(), 15),
+          "Organizaciones: each with its owners, people and collections")
+    calm_shot(page, "24-server-orgs")
+    server_pane(page, "Cuentas")
+    wait_for(lambda: "Estudio Carol (propietario)" in (account_row(page, "Bob") or ""), 15)
+    account_click(page, "Bob", "Desactivar")
+    check(wait_for(lambda: "Seguirá en «Estudio Carol» hasta que tenga otro propietario" in page.text()
+                   and "Sale de" not in page.text(), 5),
+          "disabling the only owner of an organization says he stays in it until it has another owner")
+    page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
+
+    print("The server's log")
+    server_pane(page, "Registro")
+    check(wait_for(lambda: "Desactivó la cuenta de Bob" in page.text() and "Reactivó la cuenta de Bob" in page.text()
+                   and "Hizo una copia de seguridad" in page.text(), 15), "Registro: what was done to accounts and settings")
+    calm_shot(page, "24-server-log")
+
+    print("Servidor, in the light theme and at the smallest window")
+    server_pane(page, "Resumen")
+    wait_for(lambda: "Hacer copia ahora" in page.text(), 10)
+    page.send("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": "light"}])
+    calm_shot(page, "24-server-overview-light")
+    page.click("Ver los comandos")
+    calm_shot(page, "24-server-restore-light")
+    page.send("Emulation.setEmulatedMedia", features=[])
+    page.send("Emulation.setDeviceMetricsOverride", width=880, height=600, deviceScaleFactor=1, mobile=False)
+    try:
+        for pane, name in (("Resumen", "24-server-overview-small"), ("Cuentas", "24-server-accounts-small")):
+            server_pane(page, pane)
+            page.settled()
+            overflow = page.js("""(() => { const edge = document.querySelector('.content-body.team-view').getBoundingClientRect().right + 1;
+              return [...document.querySelectorAll('.server-panel *')].filter((n) => n.offsetParent !== null
+                && !n.closest('.command-box pre') && n.getBoundingClientRect().right > edge)
+                .map((n) => String(n.className || n.tagName)).slice(0, 5); })()""")
+            check(not overflow, f"{pane} fits the smallest window ({overflow})")
+            calm_shot(page, name)
+    finally:
+        page.send("Emulation.clearDeviceMetricsOverride")
+
+    print("Servidor, in English")
+    page.js("document.getElementById('toasts').replaceChildren()")
+    page.js("api().set_pref('language', 'en').then(() => applyLanguage('en')).then(() => { state.serverPane = 'overview'; renderMain(); })")
+    check(wait_for(lambda: "Automatic updates" in page.text() and "Back up now" in page.text() and "Restore a backup" in page.text(), 15),
+          "the overview in English")
+    leaks = spanish_leaks(page)
+    check(not leaks, f"no Spanish in Team › Server ({leaks[:6]})")
+    check("A new version is out (0.18.1): it will install itself tonight" in page.text()
+          and "“By invitation only” is safer" in page.text(), "the version line and the sign-up advice in English")
+    calm_shot(page, "en-24-server-overview")
+    page.send("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": "light"}])
+    page.click("Show the commands")
+    check(wait_for(lambda: "On the server, run:" in page.text(), 5), "the restore commands in English")
+    calm_shot(page, "en-24-server-overview-light")
+    page.send("Emulation.setEmulatedMedia", features=[])
+    server_pane(page, "Accounts")
+    check(wait_for(lambda: account_row(page, "Bob", "chip") == "Verified" and "Server admin" in page.text(), 10), "the accounts in English")
+    leaks = spanish_leaks(page)
+    check(not leaks, f"no Spanish in Team › Server › Accounts ({leaks[:6]})")
+    calm_shot(page, "en-24-server-accounts")
+    account_click(page, "Bob", "Disable")
+    check(wait_for(lambda: "Disable Bob's account?" in page.text(), 5), "the disable dialog in English")
+    leaks = spanish_leaks(page)
+    check(not leaks, f"no Spanish in the disable dialog ({leaks[:6]})")
+    calm_shot(page, "en-24-server-disable")
+    page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
+    server_pane(page, "Log")
+    check(wait_for(lambda: "Disabled Bob's account" in page.text(), 10), "the log in English")
+    leaks = spanish_leaks(page)
+    check(not leaks, f"no Spanish in the server's log ({leaks[:6]})")
+    calm_shot(page, "en-24-server-log")
+    page.js("api().set_pref('language', 'es').then(() => applyLanguage('es')).then(() => { state.teamTab = 'people'; renderMain(); })")
+    check(wait_for(lambda: "Personas" in page.text(), 10), "and back to Spanish")
 
 
 if __name__ == "__main__":

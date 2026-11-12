@@ -4,6 +4,27 @@ What changed for people who use SecretBroker. The commit history has the details
 
 ## Unreleased
 
+### Run the team server from the app
+- **Equipo › Servidor**, only for whoever runs the team server: everything that used to need a terminal on the
+  server, with clicks. The team server needs the version that adds these pages.
+- **Resumen**: the server's version and whether it is up to date, automatic updates on or off, the last backup and
+  «Hacer copia ahora», how many accounts, organizations, collections and credentials it holds, whether it sends
+  e-mail (and what to do when it doesn't), and who may create an account: Abierto, Solo con invitación or Cerrado.
+  With invitations only, «Crear código de registro» gives a single-use code with instructions to pass on.
+- It says plainly whether the server is up to date, and if not, whether it will update itself tonight or needs you.
+  An open sign-up is shown as a risk, suggesting «Solo con invitación».
+- Restoring a backup stays on the server, on purpose (it takes the whole team back in time): the app shows the exact
+  commands for the newest backup, ready to copy, for the way the server was installed (the one-command install or
+  Docker), or points to the server's guide.
+- **Cuentas**: every account, verified or not, disabled, its organizations and when it was last seen. «Verificar
+  e-mail» for a server without e-mail, «Desactivar» (sessions closed, out of its teams; the collections it could open
+  are re-encrypted and their credentials flagged to change, as when someone is removed), «Reactivar», and «Borrar la
+  cuenta» with the e-mail typed to confirm. If the account is still the only owner of an organization, the dialog
+  says so and lets you pick the new owner there and then.
+- **Organizaciones** with their owners, people and collections, and «Cambiar propietario»; **Registro**, what was
+  done to accounts and settings.
+- In every language the app speaks, in the light and dark themes.
+
 ### Windows installer
 - **The installer speaks the app's 32 languages**, not only Spanish and English: it opens in the language of Windows
   without asking, and lists the languages only when Windows speaks one SecretBroker doesn't. Its own texts say «PC»
