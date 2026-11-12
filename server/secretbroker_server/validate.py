@@ -99,6 +99,12 @@ def integer(low, high):
     return check
 
 
+def boolean(value):
+    if not isinstance(value, bool):
+        raise invalid("debe ser true o false.")
+    return value
+
+
 def one_of(*choices):
     def check(value):
         if value not in choices:

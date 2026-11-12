@@ -67,8 +67,8 @@ SLUG_RE = re.compile(r"[^a-z0-9]+")
 TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_invite", "team_accept_invite",
                    "team_confirm_member", "team_set_role", "team_remove_member", "team_create_collection", "team_grant",
                    "team_revoke", "team_share_entry", "team_share_entries", "team_unshare_entry", "team_accept_change",
-                   "team_verify_email", "team_send_code", "team_resolve_deletions")
-TEAM_CHANGE_OPS += ("team_revoke_device", "team_change_password")
+                   "team_verify_email", "team_send_code", "team_resolve_deletions", "team_share_with",
+                   "team_unshare_with", "team_revoke_device", "team_change_password")
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
                 "import_file", "import_env_file", "export_vault") + TEAM_CHANGE_OPS  # what the app that unlocked may do with one click
 # Operations that can send credentials or keys out of the vault (to someone else's account, or a file in clear).
@@ -76,7 +76,7 @@ PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai
 # it to get a one-click token, so after such an unlock these need Hello or a password once; from then on they are
 # one click again.
 TEAM_EXPORT_OPS = ("team_connect", "team_invite", "team_accept_invite", "team_confirm_member", "team_set_role",
-                   "team_grant", "team_share_entry", "team_share_entries", "export_vault")
+                   "team_grant", "team_share_entry", "team_share_entries", "team_share_with", "export_vault")
 # Operations that may change a shared credential: the team sync runs soon after them to push it.
 TEAM_PUSH_OPS = {"save_entry", "delete_entry", "replace_key", "rotate", "update_credential", "ai_rotate", "ai_delete"}
 # Rotations from the app: one click. Copying a new password not applied yet gives it out, like exporting.
@@ -714,6 +714,8 @@ class Service:
         entry["fields"] = {k: v for k, v in fields.items() if v not in (None, "")}
         if replaces and "rotation_guide" not in entry and old.get("rotation_guide"):
             entry["rotation_guide"] = old["rotation_guide"]  # written by the AI; the editor doesn't show it
+        if replaces and old.get("team_rotate"):
+            entry["team_rotate"] = old["team_rotate"]  # who had it when it was shared: until its secret changes
         if replaces and old.get("shared"):
             entry = self._shared_edit(old, entry)
         if replaces and old.get("draft") and not all(
@@ -1839,12 +1841,13 @@ class Service:
         for entry in self.vault.entries():
             if entry.get("draft"):
                 continue
-            rotate = (entry.get("shared") or {}).get("rotate")
+            rotate = teams.rotate_info(entry)
             if rotate and rotate.get("fp") == teams.secret_fp(self.vault, entry):
-                # Someone left a team collection with this credential in it: they may have seen it.
+                # Someone left a team collection with this credential in it, or it is no longer shared with
+                # them (`unshared`): they may have seen it.
                 found.append({"id": entry["id"], "name": entry.get("name"), "kind": "team_access",
                               "people": rotate.get("people") or [], "since": rotate.get("since"),
-                              "can_rotate": can_write_shared(entry)})
+                              "can_rotate": can_write_shared(entry), "unshared": bool(rotate.get("unshared"))})
                 continue
             if retired.get(entry["id"], {}).get("status") == "alive":
                 found.append({"id": entry["id"], "name": entry.get("name"), "kind": "old_alive",
@@ -2802,10 +2805,29 @@ class Service:
             self._audit(entry_id, "share", f"Compartida en {result['collection_name']}", "ok")
         return result
 
+    def op_team_share_with(self, params):
+        """Share credentials with one teammate in one step (a direct share, docs/ARCHITECTURE.md 5)."""
+        ids = [str(i) for i in (params.get("ids") or [])][:500]
+        for entry_id in ids:
+            self.vault.get(entry_id)
+        result = self._team_call("team_share_with", params, lambda: self.team.share_with(
+            ids, params.get("org"), params.get("user_id"), params.get("permission") or "view"))
+        for entry_id in result["shared"]:
+            self._audit(entry_id, "share", f"Compartida con {result['person']}", "ok")
+        return result
+
+    def op_team_unshare_with(self, params):
+        """Stop sharing with that person: the direct share ends, its credentials are flagged to rotate."""
+        result = self._team_call("team_unshare_with", params, lambda: self.team.unshare_with(params.get("collection")))
+        for entry_id in result["ids"]:
+            self._audit(entry_id, "unshare", f"Ya no compartida con {result['person']}", "ok")
+        return result
+
     def op_team_unshare_entry(self, params):
         entry = self.vault.get(params.get("id"))
         result = self._team_call("team_unshare_entry", params, lambda: self.team.unshare_entry(entry["id"]))
-        self._audit(entry["id"], "unshare", f"Ya no está en {result['collection_name']}", "ok")
+        self._audit(entry["id"], "unshare", f"Ya no compartida con {result['with']}" if result.get("with")
+                    else f"Ya no está en {result['collection_name']}", "ok")
         return {**result, "entry": self._summary(self.vault.get(entry["id"]))}
 
     def op_team_accept_change(self, params):

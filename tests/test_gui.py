@@ -1606,6 +1606,15 @@ def teams_flow(page, env):
     print("Sharing a credential")
     page.js("state.view = 'credentials'; state.selected = 'echo-api'; renderMain()")
     check(wait_for(lambda: page.click("Compartir"), 10), "the credential offers «Compartir»")
+    check(wait_for(lambda: "Con quién" in page.text() and "Compartir con Bob" in page.text(), 10),
+          "it opens on «Con una persona»: Bob, verified here, is one step away")
+    check(page.js("[...document.querySelectorAll('.share-modes button')].map((b) => b.innerText.trim()).join('|')")
+          == "Con una persona|En una colección", "or «En una colección»")
+    check(page.js("[...document.querySelectorAll('.modal .segmented:not(.share-modes) button')].map((b) => b.innerText.trim()).join('|')")
+          == "Editor|Lector|Solo uso" and page.js("document.querySelector('.modal .segmented:not(.share-modes) button.active').innerText.trim()") == "Lector",
+          "with the permission Bob gets: Editor, Lector or Solo uso (Lector by default)")
+    calm_shot(page, "15-share-person")
+    page.click("En una colección", ".share-modes button")
     check(wait_for(lambda: "Les llegará cifrada" in page.text() and "Nueva colección…" in page.text(), 10),
           "choose the collection, or a new one")
     calm_shot(page, "15-share")
@@ -1627,11 +1636,13 @@ def teams_flow(page, env):
     for name in ("Otra API", "BD tienda"):
         page.js(f"""(() => {{ const row = [...document.querySelectorAll('.row')].find((r) => r.querySelector('.title').firstChild.textContent === {json.dumps(name)});
           row.querySelector('.pick').click(); }})()""")
-    check(wait_for(lambda: "2 seleccionadas" in page.text() and "Compartir 2 en…" in page.text(), 5),
-          "ticking two credentials offers «Compartir 2 en…»")
+    check(wait_for(lambda: "2 seleccionadas" in page.text() and "Compartir 2…" in page.text(), 5),
+          "ticking two credentials offers «Compartir 2…»")
     calm_shot(page, "15-share-several")
-    page.click("Compartir 2 en…")
+    page.click("Compartir 2…")
     check(wait_for(lambda: "Compartir 2 credenciales" in page.text(), 10), "one dialog for both")
+    check(page.js("document.querySelector('.share-modes button.active').innerText.trim()") == "En una colección",
+          "it opens where the last share was made (a collection)")
     page.js("document.querySelector('.modal input[type=radio][value=new]').click()")
     fill(page, "Nombre, p. ej. Producción", "Pruebas", ".modal")
     page.click("Compartir 2", ".modal-foot button")
@@ -1698,6 +1709,145 @@ def teams_flow(page, env):
           "an edit held for a re-encryption is marked «Sin enviar», with why")
     page.js("loadEntries().then(renderMain)")
 
+
+    print("Sharing with one person")
+    spare = {"id": "spare-api", "name": "Clave suelta", "template": "api_key", "description": "",
+             "fields": {"value": "sk-spare-FAKE-1"}, "policy": {"approval": "session"}}
+    page.js(f"api().call('save_entry', {{ entry: {json.dumps(spare)} }}, {{ kind: 'master_password', value: {json.dumps(MASTER)} }}).then(() => loadEntries())")
+    page.js("state.view = 'team'; state.teamTab = 'people'; renderMain()")
+    check(wait_for(lambda: "Compartir con Bob…" in page.text(), 15), "Personas: «Compartir con Bob…» on his row")
+    calm_shot(page, "20-people-share")
+    page.click("Compartir con Bob…")
+    check(wait_for(lambda: "Elige qué credenciales" in page.text() and "Postgres API" in page.text(), 10),
+          "it opens a list of my credentials to pick from")
+    check("Echo API" not in page.js("document.querySelector('.pick-list').innerText"),
+          "credentials already in a team collection are not offered")
+    check(page.js("document.querySelector('.modal-foot .btn.primary').disabled"), "nothing ticked yet: nothing to share")
+    page.js("""[...document.querySelectorAll('.pick-row')].find((r) => r.innerText.includes('Postgres API')).querySelector('input').click()""")
+    check(wait_for(lambda: page.js("document.querySelector('.modal-foot .btn.primary').innerText.trim()") == "Compartir 1", 5),
+          "ticking one: «Compartir 1»")
+    calm_shot(page, "20-share-with-person")
+    page.click("Compartir 1", ".modal-foot button")
+    check(wait_for(lambda: page.js("((state.entries.find((e) => e.id === 'pg-api') || {}).shared || {}).with") == "Bob", 20),
+          "shared with Bob in one step")
+    check(wait_for(lambda: "Compartida con Bob" in page.text(), 5), "«Compartida con Bob»")
+    added = bob.handle("team_sync", {})["result"]["result"]["added"]
+    shared = (bob.vault.get("pg-api").get("shared") or {}) if added else {}
+    check(added == ["Postgres API"] and shared.get("with") == "Alicia" and shared.get("permission") == "view",
+          f"Bob gets it, «Compartida por Alicia», as Lector ({added})")
+    check(page.js("sharedText({ with: 'Alicia', by_me: false })") == "Compartida por Alicia", "his badge says who shared it")
+    page.js("state.view = 'credentials'; state.selected = 'pg-api'; state.collection = null; renderMain()")
+    check(wait_for(lambda: "Compartida con Bob" in page.js("(document.querySelector('.head-sub') || {}).innerText || ''")
+                   and "La compartes con Bob, como Lector." in page.text() and "Dejar de compartir con Bob" in page.text(), 10),
+          "the credential: «Compartida con Bob», as Lector, and «Dejar de compartir con Bob»")
+    calm_shot(page, "20-shared-with-bob")
+
+    page.js("state.selected = 'g-oauth'; renderMain()")
+    check(wait_for(lambda: page.click("Compartir"), 10), "another one from its own «Compartir»")
+    wait_for(lambda: "Con una persona" in page.text(), 10)
+    page.click("Con una persona", ".share-modes button")
+    check(wait_for(lambda: "Ya compartes 1 credencial con Bob" in page.text(), 10),
+          "the dialog says what is already shared with Bob, and that the permission applies to all of it")
+    calm_shot(page, "21-share-dialog-person")
+    page.click("Compartir con Bob", ".modal-foot button")
+    check(wait_for(lambda: page.js("((state.entries.find((e) => e.id === 'g-oauth') || {}).shared || {}).with") == "Bob", 20),
+          "into the same private collection")
+    page.js("state.view = 'team'; state.teamTab = 'collections'; renderMain()")
+    check(wait_for(lambda: "Con una persona" in page.text() and "Con Bob" in page.text() and "2 credenciales · Bob: Lector" in page.text(), 15),
+          "Colecciones: «Con Bob», apart from the team collections, with what Bob can do")
+    check(page.js("[...document.querySelectorAll('details.collection:not(.direct) > summary .title')].map((n) => n.innerText).join('|')")
+          == "Producción|Pruebas", "team collections stay as they were")
+    page.js("document.querySelectorAll('details.collection[open]').forEach((d) => { d.open = false; })")
+    page.js("document.querySelector('details.collection.direct summary').click()")
+    check(wait_for(lambda: "Dejar de compartir con Bob" in page.text(), 5), "opening it: Bob's permission and «Dejar de compartir con Bob»")
+    page.js("document.querySelector('details.collection.direct').scrollIntoView({ block: 'center' })")
+    calm_shot(page, "21-collections-direct")
+
+    print("Someone not verified on this PC")
+    made = page.js(f"api().call('team_set_role', {{ org: state.teamOrg, user_id: {json.dumps(bob_status['user']['id'])}, role: 'admin' }})")
+    check(made and made["ok"], f"Alicia makes Bob an admin ({made})")
+    carol = Service(HOME / "carol", owner="test\\carol", isolated=False)
+    carol_presence = carol.handle("create_vault", {"master_password": MASTER})["result"]["presence"]
+    carol_act = lambda op, **params: carol.handle(op, {**params, "proof": {"kind": "presence", "token": carol_presence}})
+    carol_act("team_connect", server_url=TEAM_URL, email="carol@example.com", password=ACCOUNT, mode="register", name="Carol")
+    carol_act("team_verify_email", code=email_code("carol@example.com"))
+    oid = page.js("state.teamOrg")
+    bob.handle("team_sync", {})
+    act("team_invite", org=oid, email="carol@example.com", role="member")
+    carol_act("team_accept_invite", id=carol.handle("team_invites", {})["result"][0]["id"])
+    carol_id = carol.handle("team_status", {})["result"]["user"]["id"]
+    confirmed = act("team_confirm_member", org=oid, user_id=carol_id)
+    check(confirmed["ok"], f"Bob (now an admin) confirms Carol ({confirmed.get('error')})")
+    page.js("state.view = 'credentials'; state.selected = 'spare-api'; renderMain()")
+    page.js("shareEntries([state.entries.find((e) => e.id === 'spare-api')])")
+    wait_for(lambda: "Con una persona" in page.text(), 10)
+    page.click("Con una persona", ".share-modes button")
+    check(wait_for(lambda: page.js("[...document.querySelectorAll('.modal select option')].some((o) => o.textContent.startsWith('Carol'))"), 15),
+          "Carol, confirmed by Bob, is offered too")
+    page.js("""(() => { const s = document.querySelector('.modal .share-panel select');
+      s.value = [...s.options].find((o) => o.textContent.startsWith('Carol')).value; s.dispatchEvent(new Event('change')); })()""")
+    check(wait_for(lambda: "Aún no has verificado a Carol en este PC" in page.text() and "Verificar a Carol" in page.text(), 5),
+          "but she is not verified here: it says so, with her code to compare, and one click to verify")
+    check(page.js("document.querySelector('.modal-foot .btn.primary').disabled"), "and nothing can be shared with her until then")
+    calm_shot(page, "22-share-verify-first")
+    page.click("Verificar a Carol")
+    check(wait_for(lambda: "Has verificado a Carol" in page.text() and "Su permiso" in page.text()
+                   and not page.js("document.querySelector('.modal-foot .btn.primary').disabled"), 15),
+          "one click verifies her, and the dialog goes on")
+    page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+
+    print("Sharing with one person, in English")
+    page.js("document.getElementById('toasts').replaceChildren()")  # what was said in Spanish a moment ago
+    page.js("api().set_pref('language', 'en').then(() => applyLanguage('en')).then(() => { state.view = 'credentials'; state.selected = 'pg-api'; renderMain(); })")
+    check(wait_for(lambda: "Shared with Bob" in page.text() and "You share it with Bob, as Viewer." in page.text(), 10),
+          "«Shared with Bob», as Viewer")
+    leaks = spanish_leaks(page)
+    check(not leaks, f"no Spanish in the shared credential ({leaks[:6]})")
+    calm_shot(page, "en-20-shared-with-bob")
+    page.js("shareEntries([state.entries.find((e) => e.id === 'spare-api')])")
+    wait_for(lambda: "With a person" in page.text(), 10)
+    page.click("With a person", ".share-modes button")
+    check(wait_for(lambda: "With whom" in page.text() and "Their permission" in page.text(), 10), "the dialog in English")
+    leaks = spanish_leaks(page)
+    check(not leaks, f"no Spanish in the share dialog ({leaks[:6]})")
+    calm_shot(page, "en-21-share-person")
+    page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+    page.js("state.view = 'team'; state.teamTab = 'collections'; state.openCollection = null; renderMain()")
+    check(wait_for(lambda: "With one person" in page.text() and "With Bob" in page.text(), 10), "Collections in English")
+    leaks = spanish_leaks(page)
+    check(not leaks, f"no Spanish in Collections ({leaks[:6]})")
+    calm_shot(page, "en-21-collections-direct")
+    page.js("api().set_pref('language', 'es').then(() => applyLanguage('es')).then(renderMain)")
+    check(wait_for(lambda: "Colecciones" in page.text(), 10), "and back to Spanish")
+
+    print("Stopping sharing with one person")
+    page.js("state.view = 'team'; state.teamTab = 'collections'; renderMain()")
+    wait_for(lambda: "Con Bob" in page.text(), 10)
+    page.js("const d = document.querySelector('details.collection.direct'); if (!d.open) d.querySelector('summary').click()")
+    check(wait_for(lambda: page.click("Dejar de compartir con Bob"), 5), "«Dejar de compartir con Bob»")
+    check(wait_for(lambda: "Bob dejará de recibir las 2 credenciales que le compartes" in page.text()
+                   and "te recordaremos cambiarlas" in page.text(), 5),
+          "it says what happens: he stops receiving them, they stay mine, and I'll be reminded to change them")
+    calm_shot(page, "23-stop-sharing-with")
+    page.click("Dejar de compartir", ".modal-foot button")
+    check(wait_for(lambda: "Cambiar lo que pudo ver Bob" in page.text() and "Ya no compartes estas claves con Bob" in page.text(), 15),
+          "then the list of what he could see opens, worded for someone still on the team")
+    calm_shot(page, "23-unshared-offboarding")
+    page.click("Más tarde")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+    check(wait_for(lambda: "Con Bob" not in page.text() and "Bob pudo ver 2 credenciales · 0 cambiadas" in page.text(), 10),
+          "the direct share is gone, and Equipo keeps what to change at the top")
+    check(page.js("['pg-api', 'g-oauth'].every((id) => !(state.entries.find((e) => e.id === id) || {}).shared)"),
+          "both stay as my own credentials")
+    page.js("state.view = 'credentials'; state.selected = 'pg-api'; renderMain()")
+    check(wait_for(lambda: "Bob tenía acceso a esta credencial y ya no lo tiene" in page.text() and "Cambiar: la tenía Bob" in page.text(), 10),
+          "the credential says Bob had it (not that he left the team), and the list badge too")
+    calm_shot(page, "23-unshared-credential")
+    gone = bob.handle("team_sync", {})["result"]["result"]["removed"]
+    check(sorted(gone) == ["Google OAuth", "Postgres API"], f"Bob loses them at his next sync ({gone})")
+
     print("Removing a teammate")
     page.js("state.view = 'team'; state.teamTab = 'people'; renderMain()")
     check(wait_for(lambda: page.js("!!document.querySelector('button[title=\"Quitar de la organización\"]')"), 15), "admins can remove people")
@@ -1706,16 +1856,17 @@ def teams_flow(page, env):
           "removing warns: collections re-encrypted, keys to change")
     calm_shot(page, "17-team-remove")
     page.click("Quitar", ".modal-foot button")
-    check(wait_for(lambda: "Cambiar lo que pudo ver Bob" in page.text() and "0 de 1 cambiada" in page.text(), 15),
-          "then the list of what he could see opens, to change it one after the other")
+    check(wait_for(lambda: "Cambiar lo que pudo ver Bob" in page.text() and "0 de 3 cambiadas" in page.text()
+                   and "ya no está en el equipo" in page.text(), 15),
+          "then the list of what he could see opens (the collection and what I had shared with him), to change it one after the other")
     calm_shot(page, "17-team-offboarding")
     page.click("Más tarde")
-    check(wait_for(lambda: "Bob pudo ver 1 credencial · 0 cambiadas" in page.text(), 10), "Equipo keeps it at the top")
-    check(page.js("(document.querySelector('.nav button[data-view=\"team\"] .count') || {}).textContent") == "1",
+    check(wait_for(lambda: "Bob pudo ver 3 credenciales · 0 cambiadas" in page.text(), 10), "Equipo keeps it at the top")
+    check(page.js("(document.querySelector('.nav button[data-view=\"team\"] .count') || {}).textContent") == "3",
           "and the sidebar counts it")
     calm_shot(page, "18-team-offboarding-banner")
     page.js("state.view = 'exposure'; renderMain()")
-    check(wait_for(lambda: "Bob ya no está: 1 credencial por cambiar" in page.text(), 10), "Salud shows it too")
+    check(wait_for(lambda: "Bob ya no está: 3 credenciales por cambiar" in page.text(), 10), "Salud shows it too")
     calm_shot(page, "18-salud-offboarding")
     page.js("state.view = 'credentials'; state.selected = 'echo-api'; renderMain()")
     check(wait_for(lambda: "Bob tenía acceso a esta credencial del equipo y ya no está" in page.text() and "Cámbiala por si la vio" in page.text(), 10),

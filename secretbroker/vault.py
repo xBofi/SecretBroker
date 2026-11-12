@@ -40,7 +40,8 @@ ROTATE_EVERY_DAYS = (0, 30, 60, 90, 180, 365)  # per credential; 0: never remind
 CHECK_ONCE, MAX_CHECK_HOURS = -1, 10 * 8760  # how often to test that a key works: hours, -1 once per value, 0 never
 SHARE_PERMISSIONS = ("manage", "edit", "view", "use")  # in a team collection (see docs/ARCHITECTURE.md 2.3)
 SHARE_WRITE = ("manage", "edit")
-LOCAL_ONLY_KEYS = ("shared", "updated", "secret_since")  # never sent to the team
+# Never sent to the team. `team_rotate`: who had a credential that is no longer shared with them (teams.rotate_info).
+LOCAL_ONLY_KEYS = ("shared", "updated", "secret_since", "team_rotate")
 
 
 def valid_check_hours(hours):
@@ -253,7 +254,9 @@ def _shared_summary(shared):
                                "description": pending.get("description")} if pending else None,
             # Deleted for the team in a batch too large to apply unasked: it waits for the user (Equipo).
             "pending_delete": shared.get("pending_delete"),
-            "rotate_because": (shared.get("rotate") or {}).get("people") or []}
+            "rotate_because": (shared.get("rotate") or {}).get("people") or [],
+            # Shared with one person: «Compartida con Bob» (this user shared it) or «Compartida por Alicia».
+            "with": shared.get("with"), "by_me": shared.get("by_me"), "with_permission": shared.get("with_permission")}
 
 
 def agent_view(entry):

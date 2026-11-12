@@ -975,7 +975,7 @@ function renderCredentials(content) {
   if (state.tag && !allTags.includes(state.tag)) state.tag = null;
   // Team collections the credentials are in: a filter like the tags, marked with the team icon.
   const collections = [...new Map(state.entries.filter((e) => e.shared)
-    .map((e) => [e.shared.collection, e.shared.collection_name || t('credentials.collection')])).entries()]
+    .map((e) => [e.shared.collection, collectionLabel(e.shared) || t('credentials.collection')])).entries()]
     .sort((a, b) => a[1].localeCompare(b[1]));
   if (state.collection && !collections.some(([cid]) => cid === state.collection)) state.collection = null;
   const tagBar = allTags.length || collections.length ? el('div', { class: 'tag-bar' }) : null;
@@ -1005,7 +1005,7 @@ function renderCredentials(content) {
         class: 'btn primary', disabled: !shareable.length || teamOffline(),
         title: shareable.length < picked.length ? t('credentials.ones_already_shared_or_missing') : null,
         onclick: () => shareEntries(shareable, () => { state.picked.clear(); }),
-      }, icon('share', 'sm'), t('credentials.share_in', { length: shareable.length })),
+      }, icon('share', 'sm'), t('credentials.share_count', { length: shareable.length })),
       el('button', { class: 'btn icon-only', title: t('credentials.clear_selection_esc'), onclick: () => { state.picked.clear(); renderList(); } }, icon('x', 'sm')));
   };
   const toggle = (entry, items, range) => {
@@ -1036,7 +1036,7 @@ function renderCredentials(content) {
     const items = sortEntries(state.entries.filter((e) => (!state.tag || (e.tags || []).includes(state.tag))
       && (!state.collection || (e.shared && e.shared.collection === state.collection)) && (!query
       || [e.name, e.id, e.description, subtitleOf(e), TEMPLATES[e.template].label, ...(e.tags || []),
-        e.shared ? e.shared.collection_name : ''].join(' ').toLowerCase().includes(query))), sortSelect.value);
+        e.shared ? collectionLabel(e.shared) : ''].join(' ').toLowerCase().includes(query))), sortSelect.value);
     shown = items;
     if (pickFirst && items.length && !items.some((e) => e.id === state.selected)) {
       state.selected = items[0].id;
@@ -1060,7 +1060,7 @@ function renderCredentials(content) {
       el('input', { type: 'checkbox', class: 'pick', checked: state.picked.has(entry.id), title: t('credentials.select_shift_click_several_in'),
         'aria-label': t('credentials.select', { name: entry.name }), onclick: (event) => { event.stopPropagation(); event.preventDefault(); toggle(entry, items, event.shiftKey); } }))
       : glyph(entry.template), el('div', { class: 'meta' },
-      el('div', { class: 'title' }, el('span', { class: 'name' }, entry.name), entry.shared ? el('span', { class: 'shared-mark', title: t('credentials.shared', { collection_name: entry.shared.collection_name }) }, icon('users', 'sm')) : null),
+      el('div', { class: 'title' }, el('span', { class: 'name' }, entry.name), entry.shared ? el('span', { class: 'shared-mark', title: sharedText(entry.shared) }, icon('users', 'sm')) : null),
       el('div', { class: 'subtitle' }, subtitleOf(entry))),
     listBadge(entry))));
     if (!items.length) list.append(el('p', { class: 'muted', style: 'padding:12px 10px' }, t('credentials.nothing_matches')));
@@ -1132,6 +1132,7 @@ function reminderTone(r) {
 function reminderShort(r) {
   if (r.kind === 'team_access') {
     const people = r.people || [];
+    if (r.unshared) return people.length > 2 ? t('reminder_short.change_had_it', { length: people.length }) : tn('reminder.change_people_had_it', people.length, { names: listJoin(people) });
     return people.length > 2 ? t('reminder_short.change_left', { length: people.length }) : tn('reminder.change_people_left', people.length, { names: listJoin(people) });
   }
   return { expired: t('reminder_short.expired'), expiring: t('reminder_short.expires_in_d', { days: r.days }), old: t('reminder_short.old_key'), old_alive: t('common.revoke_old_one') }[r.kind];
@@ -1140,7 +1141,7 @@ function reminderShort(r) {
 function reminderText(r) {
   if (r.kind === 'team_access') {
     const count = (r.people || []).length;
-    return `${tn('reminder.team_access_left', count, { names: listJoin(r.people) })} ${
+    return `${tn(r.unshared ? 'reminder.unshared_access' : 'reminder.team_access_left', count, { names: listJoin(r.people) })} ${
       r.can_rotate ? tn('reminder.change_in_case', count) : tn('reminder.ask_manager_in_case', count)}`;
   }
   if (r.kind === 'old_alive') return t('reminder_text.you_rotated_key_but_old', { value: r.provider || t('common.provider_website') });
@@ -2162,7 +2163,9 @@ async function deleteEntry(entry) {
     title: t('delete_entry.delete', { name: entry.name }),
     body: [el('p', { class: 'muted' }, t('delete_entry.will_be_removed_from_vault')),
       entry.shared ? el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {},
-        t('delete_entry.belongs_team_will_be_deleted', { collection_name: entry.shared.collection_name }))) : null],
+        entry.shared.with
+          ? (entry.shared.by_me ? t('delete_entry.shared_with_will_be_deleted', { name: entry.shared.with }) : t('delete_entry.shared_by_will_be_deleted', { name: entry.shared.with }))
+          : t('delete_entry.belongs_team_will_be_deleted', { collection_name: entry.shared.collection_name }))) : null],
     footer: [
       el('button', { class: 'btn', onclick: () => modal.close() }, t('common.cancel')),
       el('button', { class: 'btn solid-danger', onclick: async () => {
@@ -2798,6 +2801,12 @@ function eventDetail(e) {
     const count = detail.match(/^(\d+) credenciales$/);
     if (count && (e.action === 'create' || e.action === 'restore')) return tn('activity_detail.credentials', Number(count[1]));
   }
+  const sharing = [[/^Compartida en (.+)$/, 'activity_detail.in_collection'], [/^Compartida con (.+)$/, 'activity_detail.with_person'],
+    [/^Ya no está en (.+)$/, 'activity_detail.from_collection'], [/^Ya no compartida con (.+)$/, 'activity_detail.with_person']];
+  for (const [pattern, key] of sharing) {
+    const found = ['share', 'unshare'].includes(e.action) && detail.match(pattern);
+    if (found) return t(key, { name: found[1] });
+  }
   const saved = { creada: t('activity_detail.created'), modificada: t('activity_detail.changed'), 'clave añadida': t('activity_detail.key_added') };
   if (e.action === 'save' && saved[detail]) return saved[detail];
   if (e.action === 'edit') return aiEditLines({ detail })[0];  // the first line of an AI's edit, in the app's words
@@ -3045,9 +3054,23 @@ function teamOffline() {
   return !!state.team && ['offline', 'reconnect'].includes(state.team.state);
 }
 
+// A shared credential in a few words: «Compartida · Producción», or for a direct share «Compartida con Bob»
+// (this user shared it) / «Compartida por Alicia» (received).
+function sharedText(shared) {
+  if (shared.with) return shared.by_me ? t('shared_badge.shared_with', { name: shared.with }) : t('shared_badge.shared_by', { name: shared.with });
+  return t('shared_badge.shared', { value: shared.collection_name || t('common.team') });
+}
+
+// Where a shared credential lives, as a name: the collection, or «Con Bob» for a direct share.
+function collectionLabel(shared) {
+  return shared.with ? t('direct_share.with_name', { name: shared.with }) : shared.collection_name;
+}
+
 function sharedBadge(shared) {
-  return el('span', { class: 'shared-badge', title: t('shared_badge.your_permission', { value: PERMISSION_LABELS[shared.permission], value2: PERMISSION_HELP[shared.permission].split(': ')[1] }) },
-    icon('users', 'sm'), t('shared_badge.shared', { value: shared.collection_name || t('common.team') }));
+  const title = shared.with && shared.by_me && shared.with_permission
+    ? t('shared_badge.their_permission', { name: shared.with, value: PERMISSION_LABELS[shared.with_permission] })
+    : t('shared_badge.your_permission', { value: PERMISSION_LABELS[shared.permission], value2: PERMISSION_HELP[shared.permission].split(': ')[1] });
+  return el('span', { class: 'shared-badge', title }, icon('users', 'sm'), sharedText(shared));
 }
 
 // Why a shared credential's edit has not reached the team yet (null: nothing waiting, or it goes out now).
@@ -3202,30 +3225,42 @@ function sharedSection(entry) {
   if (!shared) return null;
   const author = shared.author && typeof shared.author === 'object' ? shared.author.name : shared.author;
   const unsent = unsentText(entry);
+  const direct = !!shared.with;
   const unshare = () => confirmModal({
-    title: t('shared_section.stop_sharing', { name: entry.name }),
-    text: t('shared_section.removed_from_for_whole_team', { collection_name: shared.collection_name }),
-    warning: t('shared_section.anyone_who_had_may_have'),
+    title: direct ? t('shared_section.stop_sharing_with', { name: entry.name, person: shared.with }) : t('shared_section.stop_sharing', { name: entry.name }),
+    text: direct ? t('shared_section.direct_removed', { person: shared.with })
+      : t('shared_section.removed_from_for_whole_team', { collection_name: shared.collection_name }),
+    warning: direct ? t('shared_section.direct_may_have_copied', { person: shared.with }) : t('shared_section.anyone_who_had_may_have'),
     action: t('shared_section.stop_sharing_2'),
     onConfirm: async (button) => {
       const result = await teamAct('team_unshare_entry', { id: entry.id }, t('shared_section.stop_sharing_3', { name: entry.name }), button);
       if (!result.ok) return false;
       await loadEntries();
       renderMain();
-      toast(t('common.no_longer_shared'));
+      toast(direct ? t('shared_section.no_longer_shared_with', { person: shared.with }) : t('common.no_longer_shared'));
       return true;
     },
   });
+  let where;
+  if (direct && shared.by_me) {
+    where = [el('p', {}, t('shared_section.shared_with_person', { name: shared.with }), el('b', {}, PERMISSION_LABELS[shared.with_permission] || ''), t('shared_section.end')),
+      el('p', { class: 'help' }, t('shared_section.only_the_two_of_you', { name: shared.with }))];
+  } else if (direct) {
+    where = [el('p', {}, t('shared_section.shared_by_person', { name: shared.with }), el('b', {}, PERMISSION_LABELS[shared.permission]), t('shared_section.end')),
+      el('p', { class: 'help' }, PERMISSION_HELP[shared.permission].split(': ')[1])];
+  } else {
+    where = [el('p', {}, t('shared_section.shared_in'), el('b', {}, shared.collection_name || t('common.collection')), shared.org_name ? t('shared_section.of_org', { org: shared.org_name }) : '',
+      t('shared_section.your_permission'), el('b', {}, PERMISSION_LABELS[shared.permission]), t('shared_section.end')),
+    el('p', { class: 'help' }, PERMISSION_HELP[shared.permission].split(': ')[1])];
+  }
   return el('div', { class: 'section' },
     el('h3', {}, t('common.team')),
-    el('p', {}, t('shared_section.shared_in'), el('b', {}, shared.collection_name || t('common.collection')), shared.org_name ? t('shared_section.of_org', { org: shared.org_name }) : '',
-      t('shared_section.your_permission'), el('b', {}, PERMISSION_LABELS[shared.permission]), t('shared_section.end')),
-    el('p', { class: 'help' }, PERMISSION_HELP[shared.permission].split(': ')[1]),
+    where,
     author ? el('p', { class: 'help' }, t('shared_section.last_change', { author, value: shared.changed ? ` · ${formatTime(shared.changed)}` : '' })) : null,
     unsent ? el('p', { class: 'help unsent-line' }, icon('clock', 'sm'), el('span', {}, el('b', {}, t('shared_section.not_sent')), unsent)) : null,
-    canWrite(entry) ? el('div', { style: 'margin-top:6px' }, el('button', {
+    canWrite(entry) && (!direct || shared.by_me) ? el('div', { style: 'margin-top:6px' }, el('button', {
       class: 'btn ghost', onclick: unshare, disabled: teamOffline(), title: teamOffline() ? t('common.no_connection_team_server') : null,
-    }, t('shared_section.stop_sharing_2'))) : null);
+    }, direct ? t('shared_section.stop_sharing_with_person', { person: shared.with }) : t('shared_section.stop_sharing_2'))) : null);
 }
 
 // A change waiting for review comes from teams.widening_changes as {kind, field?, template?, old?, new?, values?}
@@ -3346,24 +3381,116 @@ function pendingChangeBox(entry) {
     el('div', { style: 'margin-top:8px;display:flex;gap:8px;flex-wrap:wrap' }, reject, allow));
 }
 
-// ----- sharing one credential or several
+// ----- sharing one credential or several: with one person, or in a collection
 
 async function shareEntry(entry) {
   return shareEntries([entry]);
 }
 
-async function shareEntries(entries, onDone) {
-  const result = await api().call('team_collections');
-  if (!result.ok) { toast(result.error, 'error'); return; }
-  const writable = result.result.filter((c) => ['manage', 'edit'].includes(c.permission));
+// The confirmed teammates (not this user) of the organizations this user is in, with whether they are verified
+// on this PC (`trusted`). From what this PC knows; `refresh` asks the server for the latest (codes, newcomers).
+async function teamPeople(refresh) {
   if (!state.teamData) {  // Equipo not opened yet: what this PC knows of the organizations is enough here
     const known = await api().call('team_overview');
     if (known.ok) state.teamData = known.result;
   }
+  const data = state.teamData || {};
+  const orgs = (data.orgs || []).filter((o) => !o.status || o.status === 'confirmed');
+  if (refresh) {
+    await Promise.all(orgs.map(async (o) => {
+      const result = await api().call('team_members', { org: o.id });
+      if (result.ok) (data.members = data.members || {})[o.id] = result.result;
+    }));
+  }
+  return orgs.flatMap((o) => ((data.members || {})[o.id] || [])
+    .filter((m) => !m.me && m.user_id && m.status === 'confirmed')
+    .map((m) => ({ ...m, org: o.id, org_name: o.name, label: m.name || m.email })))
+    .sort((a, b) => compareText(a.label, b.label));
+}
+
+// What this user already shares with each person: {`${org}|${user}`: collection}.
+function directShares(collections) {
+  return Object.fromEntries((collections || []).filter((c) => c.direct && c.permission === 'manage' && c.with)
+    .map((c) => [`${c.org}|${c.with.user_id}`, c]));
+}
+
+const DIRECT_PERMISSIONS = ['edit', 'view', 'use'];
+
+// Editor / Lector / Solo uso for someone a credential is shared with, and one line on what it allows.
+function directPermissionPicker(value, onChange) {
+  const help = el('p', { class: 'help' });
+  const buttons = DIRECT_PERMISSIONS.map((p) => el('button', { type: 'button', 'data-permission': p }, PERMISSION_LABELS[p]));
+  const picker = { value, touched: false };
+  const show = () => {
+    buttons.forEach((b) => {
+      b.classList.toggle('active', b.dataset.permission === picker.value);
+      b.setAttribute('aria-pressed', b.dataset.permission === picker.value ? 'true' : 'false');
+    });
+    help.textContent = t(`direct_share.permission_${picker.value}`);
+  };
+  // What a share with that person already has, until the user picks one here.
+  picker.suggest = (permission) => { if (!picker.touched && permission) { picker.value = permission; show(); } };
+  buttons.forEach((b) => b.addEventListener('click', () => {
+    picker.value = b.dataset.permission;
+    picker.touched = true;
+    show();
+    if (onChange) onChange(picker.value);
+  }));
+  show();
+  picker.node = el('div', { class: 'field' }, el('label', {}, t('direct_share.they_can')),
+    el('div', { class: 'segmented', role: 'group', 'aria-label': t('permission_select.permission') }, buttons), help);
+  return picker;
+}
+
+// Someone not verified on this PC: nothing is sealed to their key until this user compares their code. One click.
+function verifyFirstBox(person, onVerified) {
+  if (person.key_changed) {
+    return el('div', { class: 'warning' }, icon('alert', 'sm'), el('span', {},
+      t('direct_share.key_changed', { name: person.label }), ' ',
+      el('button', { class: 'link', onclick: () => { closeAllModals(); state.view = 'team'; state.teamTab = 'people'; state.teamOrg = person.org; renderMain(); } },
+        t('direct_share.go_to_people'))));
+  }
+  const button = el('button', { class: 'btn primary' }, t('direct_share.verify_name', { name: person.label }));
+  button.addEventListener('click', async () => {
+    const result = await teamAct('team_confirm_member', { org: person.org, user_id: person.user_id }, t('common.verify_2', { label: person.label }), button);
+    if (!result.ok) return;
+    person.trusted = true;
+    toast(t('verify_row.verified', { label: person.label }));
+    onVerified();
+  });
+  return el('div', { class: 'verify-first' },
+    el('p', {}, el('b', {}, t('direct_share.not_verified_yet', { name: person.label }))),
+    el('p', { class: 'muted small' }, t('direct_share.compare_code', { name: person.label })),
+    el('div', { class: 'fingerprint selectable' }, person.fingerprint || ''),
+    el('div', { style: 'margin-top:8px' }, button));
+}
+
+function closeAllModals() {
+  document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')));
+}
+
+// The result of team_share_with, said once.
+function sharedWithToast(result, entries) {
+  const { shared: done, failed, person } = result;
+  if (failed.length) toast(`${tn('share.shared_with_count', done.length, { name: person })}; ${tn('share.not_shared', failed.length, { error: failed[0].error })}`, 'error');
+  else if (entries.length === 1) toast(t('share.shared_with_one', { name: person }));
+  else toast(tn('share.shared_with_count', done.length, { name: person }));
+}
+
+async function shareEntries(entries, onDone) {
+  const result = await api().call('team_collections');
+  if (!result.ok) { toast(result.error, 'error'); return; }
+  const collections = result.result;
+  const writable = collections.filter((c) => ['manage', 'edit'].includes(c.permission) && !c.direct);
+  // Who this PC knows; nobody known yet (Equipo never opened here): ask the server before drawing.
+  let people = await teamPeople(false);
+  const asked = !people.length;
+  if (asked) people = await teamPeople(true);
   const overview = state.teamData || {};
   const adminOrgs = (overview.orgs || []).filter((o) => ['owner', 'admin'].includes(o.role) && (!o.status || o.status === 'confirmed'));
+  const inOrg = (overview.orgs || []).some((o) => !o.status || o.status === 'confirmed');
   const what = entries.length === 1 ? entries[0].name : tn('common.credentials_count', entries.length);
-  if (!writable.length && !adminOrgs.length) {
+  if (!writable.length && !adminOrgs.length && !inOrg) {
     const modal = openModal({
       title: t('share_entries.share', { what }),
       body: el('p', { class: 'muted' }, t('share_entries.you_don_have_any_collection')),
@@ -3372,34 +3499,117 @@ async function shareEntries(entries, onDone) {
     });
     return;
   }
+  const canCollection = writable.length > 0 || adminOrgs.length > 0;
+  let mode = !canCollection ? 'person' : state.shareMode || 'person';
+  const shares = directShares(collections);
   let chosen = writable.length === 1 ? writable[0].id : writable.length ? null : 'new';
+  let personKey = state.sharePerson && people.some((p) => `${p.org}|${p.user_id}` === state.sharePerson) ? state.sharePerson
+    : people.length ? `${people[0].org}|${people[0].user_id}` : null;
   const errorText = el('div', { class: 'error-text' });
-  const button = el('button', { class: 'btn primary' }, entries.length === 1 ? t('common.share') : t('share_entries.share_2', { length: entries.length }));
+  const button = el('button', { class: 'btn primary' });
+  const personPanel = el('div', { class: 'share-panel' });
+  const permission = directPermissionPicker('view');
+  const multiOrg = new Set(people.map((p) => p.org)).size > 1;
+  const current = () => people.find((p) => `${p.org}|${p.user_id}` === personKey) || null;
+  const label = () => {
+    const person = current();
+    button.textContent = mode === 'person'
+      ? (person ? t('direct_share.share_with', { name: person.label }) : t('common.share'))
+      : entries.length === 1 ? t('common.share') : t('share_entries.share_2', { length: entries.length });
+    button.disabled = mode === 'person' && !(person && person.trusted);
+  };
+  const drawPerson = () => {
+    errorText.textContent = '';
+    const person = current();
+    if (!people.length) {
+      personPanel.replaceChildren(el('p', { class: 'muted' }, t('direct_share.nobody_yet')),
+        el('button', { class: 'btn', onclick: () => { modal.close(); state.view = 'team'; state.teamTab = 'people'; renderMain(); } }, t('direct_share.go_to_people')));
+      label();
+      return;
+    }
+    const select = el('select', { class: 'input', 'aria-label': t('collection_block.person') },
+      people.map((p) => el('option', { value: `${p.org}|${p.user_id}` },
+        [p.label, p.name && p.email ? ` (${p.email})` : '', multiOrg ? ` · ${p.org_name}` : ''].join(''))));
+    select.value = personKey;
+    select.addEventListener('change', () => { personKey = select.value; drawPerson(); });
+    const existing = person && shares[`${person.org}|${person.user_id}`];
+    if (existing && existing.with) permission.suggest(existing.with.permission);
+    personPanel.replaceChildren(
+      el('p', { class: 'muted' }, t('direct_share.lead')),
+      el('div', { class: 'field' }, el('label', {}, t('direct_share.with_whom')), select),
+      person && !person.trusted ? verifyFirstBox(person, () => { drawPerson(); }) : [
+        permission.node,
+        existing ? el('p', { class: 'help' }, tn('direct_share.already_sharing', existing.entries, { name: person.label })) : null]);
+    label();
+  };
+  // Collections: the existing choice, or a new one (admins).
   const newName = el('input', { class: 'input', placeholder: t('common.name_e_g_production') });
   const newOrg = el('select', { class: 'input compact' }, adminOrgs.map((o) => el('option', { value: o.id }, o.name)));
   if (adminOrgs.some((o) => o.id === state.teamOrg)) newOrg.value = state.teamOrg;
   const newForm = el('div', { class: `inline-form ${chosen === 'new' ? '' : 'hidden'}`, style: 'margin:4px 0 0 34px' },
     newName, adminOrgs.length > 1 ? newOrg : null);
   const pick = (id) => { chosen = id; errorText.textContent = ''; newForm.classList.toggle('hidden', id !== 'new'); if (id === 'new') newName.focus(); };
+  const collectionPanel = el('div', { class: 'share-panel' },
+    el('p', { class: 'muted' }, t('share_entries.choose_collection_reaches_people_in')),
+    el('div', { class: 'choice-list' }, writable.map((c) => el('label', { class: 'choice' },
+      el('input', { type: 'radio', name: 'share-collection', value: c.id, checked: chosen === c.id, onchange: () => pick(c.id) }),
+      el('div', { class: 'meta' }, el('div', { class: 'title' }, c.name),
+        el('div', { class: 'subtitle' }, `${c.org_name} · ${tn('common.credentials_count', c.entries)}${c.needs_rekey ? t('share_entries.will_be_re_encrypted') : ''}`)))),
+    adminOrgs.length ? el('label', { class: 'choice' },
+      el('input', { type: 'radio', name: 'share-collection', value: 'new', checked: chosen === 'new', onchange: () => pick('new') }),
+      el('div', { class: 'meta' }, el('div', { class: 'title' }, t('share_entries.new_collection')),
+        el('div', { class: 'subtitle' }, t('share_entries.new_shared_folder_then_you')))) : null),
+    newForm);
+  const modes = el('div', { class: 'share-modes', role: 'tablist' },
+    [['person', t('direct_share.with_a_person')], ['collection', t('direct_share.in_a_collection')]].map(([id, text]) =>
+      el('button', { type: 'button', role: 'tab', 'data-mode': id }, text)));
+  const setMode = (value) => {
+    mode = value;
+    state.shareMode = value;
+    modes.querySelectorAll('button').forEach((b) => {
+      b.classList.toggle('active', b.dataset.mode === mode);
+      b.setAttribute('aria-selected', b.dataset.mode === mode ? 'true' : 'false');
+    });
+    personPanel.classList.toggle('hidden', mode !== 'person');
+    collectionPanel.classList.toggle('hidden', mode !== 'collection');
+    errorText.textContent = '';
+    label();
+  };
+  modes.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
   const modal = openModal({
     title: t('share_entries.share', { what }),
-    body: [
-      el('p', { class: 'muted' }, t('share_entries.choose_collection_reaches_people_in')),
-      el('div', { class: 'choice-list' }, writable.map((c) => el('label', { class: 'choice' },
-        el('input', { type: 'radio', name: 'share-collection', value: c.id, checked: chosen === c.id, onchange: () => pick(c.id) }),
-        el('div', { class: 'meta' }, el('div', { class: 'title' }, c.name),
-          el('div', { class: 'subtitle' }, `${c.org_name} · ${tn('common.credentials_count', c.entries)}${c.needs_rekey ? t('share_entries.will_be_re_encrypted') : ''}`)))),
-      adminOrgs.length ? el('label', { class: 'choice' },
-        el('input', { type: 'radio', name: 'share-collection', value: 'new', checked: chosen === 'new', onchange: () => pick('new') }),
-        el('div', { class: 'meta' }, el('div', { class: 'title' }, t('share_entries.new_collection')),
-          el('div', { class: 'subtitle' }, t('share_entries.new_shared_folder_then_you')))) : null),
-      newForm,
+    body: [canCollection ? modes : null, personPanel, collectionPanel,
       el('p', { class: 'help' }, t('share_entries.shared_whole_key_notes_and')),
       errorText],
     footer: [el('button', { class: 'btn', onclick: () => modal.close() }, t('common.cancel')), button],
+    className: 'share-dialog',
+  });
+  drawPerson();
+  setMode(mode);
+  // The latest from the server (who joined, who is verified here) without making the dialog wait for it.
+  (asked ? Promise.resolve(people) : teamPeople(true)).then((fresh) => {
+    if (JSON.stringify(fresh) === JSON.stringify(people) || !document.body.contains(personPanel)) return;
+    if (personPanel.contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;
+    people = fresh;
+    if (!people.some((p) => `${p.org}|${p.user_id}` === personKey)) personKey = people.length ? `${people[0].org}|${people[0].user_id}` : null;
+    drawPerson();
   });
   newName.addEventListener('keydown', (e) => { if (e.key === 'Enter') button.click(); });
   button.addEventListener('click', async () => {
+    if (mode === 'person') {
+      const person = current();
+      if (!person || !person.trusted) return;
+      state.sharePerson = personKey;
+      const shared = await teamAct('team_share_with', { ids: entries.map((e) => e.id), org: person.org, user_id: person.user_id, permission: permission.value },
+        t('direct_share.proof', { what, name: person.label }), button);
+      if (!shared.ok) return;
+      modal.close();
+      sharedWithToast(shared.result, entries);
+      if (onDone) onDone();
+      await loadEntries();
+      renderMain();
+      return;
+    }
     if (!chosen) { errorText.textContent = t('share_entries.choose_collection'); return; }
     let cid = chosen;
     if (chosen === 'new') {
@@ -3428,21 +3638,81 @@ async function shareEntries(entries, onDone) {
   });
 }
 
+// From Equipo › Personas: pick which of this user's own credentials to share with that person.
+async function shareWithPerson(person) {
+  const result = await api().call('team_collections');
+  if (!result.ok) { toast(result.error, 'error'); return; }
+  const existing = directShares(result.result)[`${person.org}|${person.user_id}`];
+  const already = state.entries.filter((e) => existing && e.shared && e.shared.collection === existing.id);
+  const mine = state.entries.filter((e) => !e.shared && !e.draft).sort((a, b) => compareText(a.name, b.name));
+  const picked = new Set();
+  const search = el('input', { class: 'input', type: 'search', placeholder: t('share_with_person.search'), 'aria-label': t('share_with_person.search') });
+  const list = el('div', { class: 'pick-list' });
+  const button = el('button', { class: 'btn primary' });
+  const permission = directPermissionPicker(existing && existing.with ? existing.with.permission : 'view');
+  const label = () => {
+    button.textContent = picked.size ? tn('share_with_person.share_count', picked.size) : t('common.share');
+    button.disabled = !picked.size;
+  };
+  const row = (entry, done) => el('label', { class: `pick-row ${done ? 'done' : ''}` },
+    el('input', { type: 'checkbox', checked: done || picked.has(entry.id), disabled: done, onchange: (event) => {
+      if (event.target.checked) picked.add(entry.id); else picked.delete(entry.id);
+      label();
+    } }),
+    glyph(entry.template, 'sm'),
+    el('span', { class: 'meta' }, el('span', { class: 'title' }, entry.name),
+      done ? el('span', { class: 'subtitle' }, t('share_with_person.already_shared')) : null));
+  const draw = () => {
+    const query = search.value.trim().toLowerCase();
+    const match = (e) => !query || e.name.toLowerCase().includes(query);
+    const rows = [...already.filter(match).map((e) => row(e, true)), ...mine.filter(match).map((e) => row(e, false))];
+    list.replaceChildren(...(rows.length ? rows : [el('p', { class: 'muted small', style: 'padding:8px 4px' },
+      mine.length || already.length ? t('share_with_person.nothing_matches') : t('share_with_person.nothing_to_share'))]));
+  };
+  search.addEventListener('input', draw);
+  const modal = openModal({
+    title: t('direct_share.share_with', { name: person.label }),
+    body: [
+      el('p', { class: 'muted' }, t('share_with_person.choose', { name: person.label })),
+      search, list, permission.node,
+      existing ? el('p', { class: 'help' }, tn('direct_share.already_sharing', existing.entries, { name: person.label })) : null],
+    footer: [el('button', { class: 'btn', onclick: () => modal.close() }, t('common.cancel')), button],
+    className: 'share-dialog',
+  });
+  draw();
+  label();
+  search.focus();
+  button.addEventListener('click', async () => {
+    const entries = mine.filter((e) => picked.has(e.id));
+    const shared = await teamAct('team_share_with', { ids: entries.map((e) => e.id), org: person.org, user_id: person.user_id, permission: permission.value },
+      t('direct_share.proof', { what: entries.length === 1 ? entries[0].name : tn('common.credentials_count', entries.length), name: person.label }), button);
+    if (!shared.ok) return;
+    modal.close();
+    sharedWithToast(shared.result, entries);
+    await loadEntries();
+    renderMain();
+  });
+}
+
 // ----- after someone leaves: change, one after the other, what they could see
 
 function offboardingPeople() {
   // From the reminders: who left and how many of their credentials are still to change (Salud, Equipo).
   const people = {};
+  const unshared = {};
   for (const r of Object.values(state.reminders || {})) {
     if (r.kind !== 'team_access') continue;
-    for (const name of r.people || []) (people[name] = people[name] || []).push(r.id);
+    for (const name of r.people || []) {
+      (people[name] = people[name] || []).push(r.id);
+      unshared[name] = (unshared[name] !== false) && !!r.unshared;
+    }
   }
-  return Object.entries(people).map(([person, ids]) => ({ person, pending: ids }));
+  return Object.entries(people).map(([person, ids]) => ({ person, pending: ids, unshared: unshared[person] }));
 }
 
 function offboardingSummary(person) {
   const total = person.total === undefined ? null : person.total;
-  if (total === null) return tn('offboarding.gone_to_change', person.pending.length, { person: person.person });
+  if (total === null) return tn(person.unshared ? 'offboarding.unshared_to_change' : 'offboarding.gone_to_change', person.pending.length, { person: person.person });
   return `${tn('offboarding.could_see', total, { person: person.person })} · ${tn('offboarding.changed', total - person.pending.length)}`;
 }
 
@@ -3488,12 +3758,12 @@ async function openOffboarding(name) {
       change.addEventListener('click', () => { skipped.delete(entry.id); rotateGuided(entry, async () => { await draw(); }); });
       return el('div', { class: `access-row ${skipped.has(entry.id) ? 'skipped' : ''}` }, glyph(entry.template),
         el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name),
-          el('div', { class: 'subtitle' }, [entry.shared ? entry.shared.collection_name : null,
+          el('div', { class: 'subtitle' }, [entry.shared ? collectionLabel(entry.shared) : null,
             !mine ? t('open_offboarding.whoever_manages_changes_will_reach') : skipped.has(entry.id) ? t('open_offboarding.skipped') : null].filter(Boolean).join(' · '))),
         mine ? [skipped.has(entry.id) ? null : el('button', { class: 'btn ghost', onclick: () => { skipped.add(entry.id); draw(); } }, t('open_offboarding.skip')), change] : null);
     };
     body.replaceChildren(
-      el('p', { class: 'muted' }, t('open_offboarding.is_no_longer_on_team', { name })),
+      el('p', { class: 'muted' }, person.unshared ? t('open_offboarding.no_longer_shared_with', { name }) : t('open_offboarding.is_no_longer_on_team', { name })),
       el('div', { class: 'offboard-progress' },
         el('div', { class: 'progress' }, el('span', { style: `width:${person.total ? Math.round(100 * done / person.total) : 100}%` })),
         el('span', { class: 'muted small' }, tn('offboarding.done_of_total', person.total, { done }))),
@@ -3973,8 +4243,13 @@ function teamPeoplePanel(org, members, admin, rerender) {
       });
       controls.push(roles);
     }
+    // Verified here: pass them a credential in one step (a direct share).
+    if (!m.me && m.user_id && m.status === 'confirmed' && m.trusted) {
+      controls.unshift(el('button', { class: 'btn ghost', 'data-mutates': '1', onclick: () => shareWithPerson({ ...m, org: org.id, label }) },
+        icon('share', 'sm'), t('team_people_panel.share_with', { name: label })));
+    }
     if (admin && !m.me && m.user_id && (iAmOwner || m.role !== 'owner')) {
-      controls.push(el('button', { class: 'btn icon-only', 'data-mutates': '1', title: t('team_people_panel.remove_from_organization'), onclick: () => removeMember(org, m, rerender) }, icon('trash', 'sm')));
+      controls.push(el('button', { class: 'btn icon-only', 'data-mutates': '1', title: t('team_people_panel.remove_from_organization'), 'aria-label': t('team_people_panel.remove_from_organization'), onclick: () => removeMember(org, m, rerender) }, icon('trash', 'sm')));
     }
     return el('div', { class: 'member' },
       el('div', { class: 'access-row' },
@@ -4064,9 +4339,13 @@ function inviteInstructions(org, email, code, justInvited = false) {
 function removeMember(org, member, rerender) {
   const label = member.name || member.email;
   const self = member.me;
+  // What this user shares only with them (a direct share) ends too: say so.
+  const direct = !self && ((state.teamData || {}).collections || []).some((c) => c.direct && c.permission === 'manage'
+    && c.org === org.id && c.with && c.with.user_id === member.user_id);
   confirmModal({
     title: self ? t('common.leave', { name: org.name }) : t('remove_member.remove', { label }),
-    text: self ? t('remove_member.credentials_in_its_collections_will') : t('remove_member.they_ll_lose_access_and', { name: org.name }),
+    text: self ? t('remove_member.credentials_in_its_collections_will')
+      : [t('remove_member.they_ll_lose_access_and', { name: org.name }), direct ? t('remove_member.direct_shares_end', { name: label }) : null].filter(Boolean).join(' '),
     warning: self ? null : t('remove_member.collections_they_could_open_will'),
     action: self ? t('common.leave_2') : t('common.remove'),
     danger: true,
@@ -4107,14 +4386,95 @@ function teamCollectionsPanel(org, collections, members, admin, content) {
   };
   create.addEventListener('click', submit);
   name.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  // A credential shared with one person lives in a private collection of the two: listed apart, as «Con Bob».
+  const team = collections.filter((c) => !c.direct);
+  const direct = collections.filter((c) => c.direct).sort((a, b) => compareText((a.with || {}).name || '', (b.with || {}).name || ''));
   return el('div', { class: 'settings-group team-panel' },
     el('div', { class: 'panel-head' },
-      el('p', { class: 'muted small' }, collections.length
+      el('p', { class: 'muted small' }, team.length
         ? t('team_collections_panel.each_collection_is_shared_folder')
         : t('team_collections_panel.collection_is_shared_folder_you')),
       permissionHelp()),
-    collections.map((c) => collectionBlock(c, members, content)),
-    admin ? el('div', { class: 'inline-form', style: 'margin-top:12px' }, name, create) : null);
+    team.map((c) => collectionBlock(c, members, content)),
+    admin ? el('div', { class: 'inline-form', style: 'margin-top:12px' }, name, create) : null,
+    direct.length ? [el('h3', { class: 'muted sub-head direct-head' }, t('team_collections_panel.with_one_person')),
+      el('p', { class: 'help' }, t('team_collections_panel.with_one_person_help')),
+      direct.map((c) => directBlock(c, content))] : null);
+}
+
+// A direct share: what this user shares with one person (or what that person shares with this user).
+function directBlock(collection, content) {
+  const other = collection.with || {};
+  const name = other.name || t('common.someone_2');
+  const mine = collection.permission === 'manage';
+  const shown = state.entries.filter((e) => e.shared && e.shared.collection === collection.id);
+  const subtitle = [tn('common.credentials_count', collection.entries),
+    mine ? t('direct_block.their_permission', { name, value: PERMISSION_LABELS[other.permission] || '' })
+      : t('direct_block.shared_by_your_permission', { name, value: PERMISSION_LABELS[collection.permission] })].join(' · ');
+  const body = el('div', { class: 'collection-members' });
+  const block = el('details', { class: 'collection direct', open: state.openCollection === collection.id },
+    el('summary', {}, el('span', { class: 'chev' }, icon('chevronRight', 'sm')),
+      el('div', { class: 'avatar small' }, name.trim().charAt(0).toUpperCase()),
+      el('div', { class: 'meta' }, el('div', { class: 'title' }, t('direct_share.with_name', { name })), el('div', { class: 'subtitle' }, subtitle)),
+      collection.needs_rekey ? el('span', { class: 'draft-badge', title: t('collection_block.someone_left_whoever_manages_re') }, t('collection_block.will_be_re_encrypted')) : null),
+    body);
+  block.addEventListener('toggle', () => {
+    if (block.open) state.openCollection = collection.id;
+    else if (state.openCollection === collection.id) state.openCollection = null;
+  });
+  const links = shown.length ? el('p', { class: 'help' }, t('collection_block.credentials'),
+    shown.map((e, i) => [i ? ', ' : '', el('button', { class: 'link small', onclick: () => {
+      state.view = 'credentials'; state.selected = e.id; state.tag = null; state.collection = collection.id; renderMain();
+    } }, e.name)])) : null;
+  let controls;
+  if (mine) {
+    const select = el('select', { class: 'input compact', 'data-mutates': '1', 'aria-label': t('direct_block.permission_of', { name }) },
+      DIRECT_PERMISSIONS.map((p) => el('option', { value: p, title: t(`direct_share.permission_${p}`) }, PERMISSION_LABELS[p])));
+    select.value = other.permission || 'view';
+    select.addEventListener('change', async () => {
+      const changed = await teamAct('team_grant', { collection: collection.id, user_id: other.user_id, permission: select.value },
+        t('collection_block.change_permission', { label: name }));
+      if (!changed.ok) { select.value = other.permission; return; }
+      toast(`${name}: ${PERMISSION_LABELS[select.value]}`);
+      renderTeam(content);
+    });
+    const stop = el('button', { class: 'btn danger', 'data-mutates': '1' }, t('direct_block.stop_sharing_with', { name }));
+    stop.addEventListener('click', () => confirmModal({
+      title: t('direct_block.stop_title', { name }),
+      text: tn('direct_block.stop_text', collection.entries, { name }),
+      warning: tn('direct_block.stop_warning', collection.entries, { name }),
+      action: t('shared_section.stop_sharing_2'), danger: true,
+      onConfirm: async (button) => {
+        const ended = await teamAct('team_unshare_with', { collection: collection.id }, t('direct_block.stop_proof', { name }), button);
+        if (!ended.ok) return false;
+        state.openCollection = null;
+        await loadEntries();
+        toast(t('direct_block.stopped', { name }));
+        renderTeam(content);
+        if (ended.result.credentials) setTimeout(() => openOffboarding(ended.result.person), 50);
+        return true;
+      },
+    }));
+    controls = el('div', { class: 'direct-controls' },
+      el('label', { class: 'small muted' }, t('direct_block.can', { name })), select, el('div', { class: 'spacer' }), stop);
+  } else {
+    controls = el('button', { class: 'link small muted-link', 'data-mutates': '1', onclick: () => confirmModal({
+      title: t('direct_block.leave_title', { name }),
+      text: t('direct_block.leave_text', { name }),
+      action: t('common.leave_2'), danger: true,
+      onConfirm: async (button) => {
+        const left = await teamAct('team_revoke', { collection: collection.id, user_id: state.team.user.id }, t('direct_block.leave_proof', { name }), button);
+        if (!left.ok) return false;
+        await loadEntries();
+        toast(t('direct_block.left', { name }));
+        renderTeam(content);
+        return true;
+      },
+    }) }, t('direct_block.leave', { name }));
+  }
+  body.replaceChildren(links, controls);
+  if (teamOffline()) body.querySelectorAll('[data-mutates]').forEach((node) => { node.disabled = true; });
+  return block;
 }
 
 

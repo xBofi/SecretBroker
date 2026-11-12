@@ -76,12 +76,15 @@
     "=0": "空",
     "other": "{count} 个凭据"
   },
+  "activity_detail.from_collection": "来自 {name}",
   "activity_detail.idle_minutes": "已 {minutes} 分钟未使用",
+  "activity_detail.in_collection": "在 {name} 中",
   "activity_detail.key_added": "已添加密钥",
   "activity_detail.session_locked": "因 Windows 会话锁定",
   "activity_detail.turned_off": "已关闭",
   "activity_detail.turned_on": "已开启",
   "activity_detail.with_master_password": "使用主密码",
+  "activity_detail.with_person": "与 {name}",
   "activity_detail.with_windows_hello": "使用 Windows Hello",
   "activity_detail.with_windows_password": "使用你的 Windows 密码",
   "activity_detail.with_windows_session": "使用 Windows 会话",
@@ -435,8 +438,7 @@
   "credentials.search_credentials": "搜索凭据",
   "credentials.select": "选择 {name}",
   "credentials.select_shift_click_several_in": "选择（Shift+点击：连续选择多个）",
-  "credentials.share_in": "将 {length} 个共享到…",
-  "credentials.shared": "已共享 · {collection_name}",
+  "credentials.share_count": "共享 {length} 个…",
   "credentials.sort": "排序",
   "credentials.team_collection": "团队集合",
   "day_label.today": "今天",
@@ -444,6 +446,8 @@
   "delete_entry.belongs_team_will_be_deleted": "它属于团队：将为“{collection_name}”中的所有人删除。如果你只想停止共享，请使用“停止共享”。",
   "delete_entry.delete": "删除 {name}？",
   "delete_entry.delete_2": "用于删除 {name}。",
+  "delete_entry.shared_by_will_be_deleted": "{name} 与你共享了它：你们两人之间将不再共享它。",
+  "delete_entry.shared_with_will_be_deleted": "你与 {name} 共享了它：它也会从对方的电脑上删除。",
   "delete_entry.will_be_removed_from_vault": "它将从保险库中移除，AI 也将无法再使用它。此操作无法撤销。",
   "describe_permissions.asks_you_every_time": "每次都询问你",
   "describe_permissions.asks_you_once_per_session": "每次会话询问你一次",
@@ -462,6 +466,45 @@
   "detail.its_collection_no_longer_appears": "它所在的集合已不在服务器上。这里尚未删除任何内容：",
   "detail.nothing_yet_edit_credential_and": "暂无。编辑凭据并打开“AI 权限”。",
   "detail.show": "用于显示 {name} 的“{label}”。",
+  "direct_block.can": "{name} 的权限",
+  "direct_block.leave": "停止接收",
+  "direct_block.leave_proof": "用于停止接收 {name} 与你共享的内容。",
+  "direct_block.leave_text": "{name} 与你共享的凭据将从这台电脑上移除。{name} 仍会保留它们。",
+  "direct_block.leave_title": "停止接收 {name} 与你共享的内容？",
+  "direct_block.left": "你已不再接收 {name} 与你共享的内容",
+  "direct_block.permission_of": "{name} 的权限",
+  "direct_block.shared_by_your_permission": "由 {name} 共享 · 你的权限：{value}",
+  "direct_block.stop_proof": "用于停止与 {name} 共享。",
+  "direct_block.stop_sharing_with": "停止与 {name} 共享",
+  "direct_block.stop_text": {
+    "other": "{name} 将不再收到你共享给对方的 {count} 个凭据。在这台电脑上，它们仍归你所有。"
+  },
+  "direct_block.stop_title": "停止与 {name} 共享？",
+  "direct_block.stop_warning": {
+    "other": "对方可能看到或复制过：我们会提醒你更改。"
+  },
+  "direct_block.stopped": "你已不再与 {name} 共享任何内容",
+  "direct_block.their_permission": "{name}：{value}",
+  "direct_share.already_sharing": {
+    "other": "你已与 {name} 共享 {count} 个凭据。你选择的权限适用于你与对方共享的所有内容。"
+  },
+  "direct_share.compare_code": "请对方把他们的安全码念给你听（通过电话或当面），并与这个进行比较。这样任何人，包括服务器，都无法偷换成另一个密钥。",
+  "direct_share.go_to_people": "前往人员",
+  "direct_share.in_a_collection": "在集合中",
+  "direct_share.key_changed": "{name} 的密钥已更改。共享前请重新验证对方的安全码。",
+  "direct_share.lead": "仅限此人：内容以加密形式送达对方，服务器无法读取任何内容。",
+  "direct_share.nobody_yet": "你的团队中还没有其他已确认的人。在“团队 › 人员”中邀请他人。",
+  "direct_share.not_verified_yet": "你还没有在这台电脑上验证 {name}",
+  "direct_share.permission_edit": "可以查看、使用和更改它，并轮换其密钥。",
+  "direct_share.permission_use": "对方的 AI 和程序可以使用它；对方无法查看或复制。",
+  "direct_share.permission_view": "可以查看和复制它，对方的 AI 也可以使用它。无法更改。",
+  "direct_share.proof": "用于与 {name} 共享 {what}。",
+  "direct_share.share_with": "与 {name} 共享",
+  "direct_share.they_can": "对方的权限",
+  "direct_share.verify_name": "验证 {name}",
+  "direct_share.with_a_person": "与某个人",
+  "direct_share.with_name": "与 {name}",
+  "direct_share.with_whom": "与谁",
   "draft_inputs.paste_key_here": "在此粘贴密钥",
   "draft_section.ai_prepared_this_credential_paste": "AI 已准备好这个凭据。粘贴密钥即可使用。",
   "draw_team.collections": "集合",
@@ -835,6 +878,9 @@
   "offboarding.gone_to_change": {
     "other": "{person} 已离开：{count} 个凭据需要更改"
   },
+  "offboarding.unshared_to_change": {
+    "other": "{person} 已无访问权限：{count} 个凭据需要更改"
+  },
   "offboarding_card.they_could_see_or_copy": "对方能看到或复制它。请更改它；如果不是你管理的，由管理者更改。",
   "offboarding_card.they_could_see_or_copy_2": "对方能看到或复制它们。请逐个更改；不是你管理的，由各自的管理者更改。",
   "open_connect_ai.with_one_click_ai_will": "一键连接后，AI 就能通过 SecretBroker 使用你的密钥，而看不到它们。",
@@ -871,6 +917,7 @@
   "open_offboarding.continue_with": "继续处理 {name}",
   "open_offboarding.done_no_longer_has_any": "完成：{name} 已经没有任何有效的密钥了。",
   "open_offboarding.is_no_longer_on_team": "{name} 已不在团队中，但看到过或复制过这些密钥。只有更改它们，才能让对方无法再使用。",
+  "open_offboarding.no_longer_shared_with": "你已不再与 {name} 共享这些密钥，但对方可能看到或复制过它们。只有更改它们，才能确保对方无法再使用。",
   "open_offboarding.skip": "跳过",
   "open_offboarding.skipped": "已跳过",
   "open_offboarding.whoever_manages_changes_will_reach": "由管理者更改；更改会自动同步给你",
@@ -940,6 +987,9 @@
   "reminder.change_in_case": {
     "other": "更改它，以防对方看到过。"
   },
+  "reminder.change_people_had_it": {
+    "other": "更改：{names} 曾拥有它"
+  },
   "reminder.change_people_left": {
     "other": "更改：{names} 已离开"
   },
@@ -955,6 +1005,10 @@
   "reminder.team_access_left": {
     "other": "{names} 曾有权访问此团队凭据，现已不在团队中。"
   },
+  "reminder.unshared_access": {
+    "other": "{names} 曾有权访问此凭据，现已不再拥有。"
+  },
+  "reminder_short.change_had_it": "更改：{length} 人曾拥有它",
   "reminder_short.change_left": "更改：{length} 人已离开",
   "reminder_short.expired": "已过期",
   "reminder_short.expires_in_d": "{days} 天后过期",
@@ -962,6 +1016,7 @@
   "reminder_text.you_rotated_key_but_old": "你已轮换密钥，但旧密钥仍然有效。请在 {value} 吊销它。",
   "remove_member.collections_they_could_open_will": "对方能打开的集合将被重新加密，然后我们会引导你更改对方能看到或复制的密钥。",
   "remove_member.credentials_in_its_collections_will": "其集合中的凭据将从这台电脑上移除。",
+  "remove_member.direct_shares_end": "你只与 {name} 共享的内容将不再发送给对方，并重新仅归你所有。",
   "remove_member.remove": "移除 {label}？",
   "remove_member.removed": "已移除。",
   "remove_member.they_ll_lose_access_and": "对方将失去对 {name} 及其集合的访问权限。",
@@ -1247,6 +1302,10 @@
   "share.shared_in": {
     "other": "已在 {name} 中共享 {count} 个"
   },
+  "share.shared_with_count": {
+    "other": "{count} 个已与 {name} 共享"
+  },
+  "share.shared_with_one": "已与 {name} 共享",
   "share_entries.choose_collection": "选择一个集合。",
   "share_entries.choose_collection_reaches_people_in": "选择集合。它会以加密形式发送给集合中的人；服务器无法读取。",
   "share_entries.give_collection_name": "给集合起个名字。",
@@ -1261,18 +1320,37 @@
   "share_entries.shared_whole_key_notes_and": "会完整共享：密钥、备注以及它可以发送到的位置。AI 何时请求批准，由每个人在自己的电脑上决定。",
   "share_entries.will_be_re_encrypted": " · 将重新加密",
   "share_entries.you_don_have_any_collection": "你还没有可以添加凭据的集合。请在“团队”中创建一个，或请某个集合的管理者给你编辑者权限。",
+  "share_with_person.already_shared": "已共享",
+  "share_with_person.choose": "选择要共享的凭据。它们会以加密形式发送给对方；服务器无法读取。",
+  "share_with_person.nothing_matches": "没有匹配项。",
+  "share_with_person.nothing_to_share": "你没有可以共享的自有凭据。",
+  "share_with_person.search": "搜索",
+  "share_with_person.share_count": {
+    "other": "共享 {count} 个"
+  },
   "shared_badge.shared": "已共享 · {value}",
+  "shared_badge.shared_by": "由 {name} 共享",
+  "shared_badge.shared_with": "已与 {name} 共享",
+  "shared_badge.their_permission": "{name} 的权限：{value}",
   "shared_badge.your_permission": "你的权限：{value}。{value2}",
   "shared_section.anyone_who_had_may_have": "拥有过它的人可能看到或复制过它。如果你担心，请更改它。",
+  "shared_section.direct_may_have_copied": "{person} 可能看到或复制过它：我们会提醒你更改。",
+  "shared_section.direct_removed": "{person} 将不再收到它。在这台电脑上，它仍归你所有。",
   "shared_section.end": "。",
   "shared_section.last_change": "最近更改：{author}{value}。",
+  "shared_section.no_longer_shared_with": "已不再与 {person} 共享",
   "shared_section.not_sent": "未发送。",
   "shared_section.of_org": " ({org})",
+  "shared_section.only_the_two_of_you": "只有你和 {name} 拥有它。在“团队 › 集合”中更改对方的权限。",
   "shared_section.removed_from_for_whole_team": "它将为整个团队从“{collection_name}”中移除。在这台电脑上，它会保留为你自己的凭据。",
+  "shared_section.shared_by_person": "{name} 与你共享了它。你的权限：",
   "shared_section.shared_in": "共享于 ",
+  "shared_section.shared_with_person": "你与 {name} 共享了它，权限为",
   "shared_section.stop_sharing": "停止共享 {name}？",
   "shared_section.stop_sharing_2": "停止共享",
   "shared_section.stop_sharing_3": "用于停止共享 {name}。",
+  "shared_section.stop_sharing_with": "停止与 {person} 共享 {name}？",
+  "shared_section.stop_sharing_with_person": "停止与 {person} 共享",
   "shared_section.your_permission": "。你的权限：",
   "show_approval.allow": "允许",
   "show_approval.allow_all_for_this_task": "为此任务允许全部 {length} 个",
@@ -1440,6 +1518,8 @@
   "team_collections_panel.collection_is_shared_folder_you": "集合就是一个共享文件夹：由你选择谁加入以及拥有什么权限。然后在每个凭据上点击“共享”。",
   "team_collections_panel.create_collection": "创建集合",
   "team_collections_panel.each_collection_is_shared_folder": "每个集合都是一个共享文件夹：由你选择谁加入以及拥有什么权限。",
+  "team_collections_panel.with_one_person": "与一个人",
+  "team_collections_panel.with_one_person_help": "你与某个特定的人共享的内容，以及对方与你共享的内容。只有你们两人拥有。",
   "team_connect.create_collections_and_decide_who": "创建集合，决定谁加入以及拥有什么权限。有人轮换密钥时，其他人会自动收到。",
   "team_connect.encrypted_on_this_pc_before": "离开前就在这台电脑上加密：密钥及其名称都不会以明文传输。",
   "team_connect.if_someone_leaves": "如果有人离开，",
@@ -1520,6 +1600,7 @@
   "team_people_panel.role_2": "角色",
   "team_people_panel.role_changed": "角色已更改",
   "team_people_panel.secretbroker_doesn_send_invitations_by": "SecretBroker 不会通过电子邮件发送邀请：之后我们会给你说明和一个链接，由你转交。对方加入后，会带着安全码显示在这里，等你确认。",
+  "team_people_panel.share_with": "与 {name} 共享…",
   "team_people_panel.verify": "待验证",
   "team_people_panel.waiting_for_confirmation": "等待确认",
   "team_people_panel.you_haven_verified_them_on": "你还没有在这台电脑上验证对方：你不会给对方任何访问权限，对方签名的密钥也不会被使用。请通过电话或当面与对方的安全码（团队 › 你的账户）进行比较。",

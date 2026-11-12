@@ -259,6 +259,11 @@ fork). Apps before 0.17 rewrite the blob without `heads`; the next 0.17 device p
   service: a malicious modified client of a member *could* extract it, exactly like "hide passwords" in other managers.
   The UI says so.
 * **Collection name**: encrypted with the collection key (`AES-GCM`, aad `secretbroker/collection-name/v1|cid`).
+* **Direct share** (sharing with one person): a collection of exactly two people, made by the sharer (`manage`) for
+  one teammate (`edit`, `view` or `use`), with `"direct": true` in its encrypted name and in the server's row (so the
+  server lets any confirmed member make one, keeps it to two members and knows it goes with its sharer). Same keys,
+  grants, signed member lists and items as any collection: no new cryptography. The owners get no recovery grant on
+  it (2.7): it is private to the two, and the sharer keeps the credentials as their own anyway.
 * **Item**: one credential. Plaintext is the vault entry JSON (without local-only data: approvals, destinations,
   exposure, used_in stays shared), encrypted with the collection key:
   `aad = b"secretbroker/item/v1|" + cid + "|" + item_id + "|" + str(key_version)`. The plaintext includes
@@ -279,9 +284,18 @@ removed; if the server lists anyone else, the re-key stops and asks the user to 
 re-key comes from the server's answer *and* from the members this client last saw in each collection. Removing from
 the organization the only `manage` member of a collection is refused (`400 last_manager`, with `collections`).
 
+A direct share has nobody left to share with once its other person is gone, so it is not re-keyed: it **ends**
+(the sharer's app deletes the collection on the server and keeps its credentials as personal ones). That happens
+when the sharer stops sharing with that person, when an admin who is the sharer removes them, or at the sharer's
+next sync after they were removed or left. If the sharer is removed from the organization, the server deletes the
+direct collections only they manage instead of refusing with `last_manager`.
+
 Re-keying protects *future* changes only: the removed person may have seen the secrets. Every credential in those
 collections is flagged **"rotate: <person> had access"** and appears in the reminders and in the guided rotation
-wizard. This is the main team pain point other managers leave to the admin's memory.
+wizard. This is the main team pain point other managers leave to the admin's memory. A credential that stops being
+shared with someone (a direct share that ends, or one credential taken out of it) keeps that flag as a personal one
+(`entry.team_rotate`, local only, same shape as `shared.rotate`, with `unshared: true` when the person is still on
+the team), until its secret changes.
 
 ### 2.5 Incoming changes that widen where a key can go
 
@@ -445,13 +459,13 @@ item says and what is deleted is signed with the author's Ed25519 key and checke
 | `POST /invites/{id}/accept` | → `{}` (status accepted; an admin must confirm, see fingerprints; `403 email_unverified` until verified) |
 | `POST /orgs/{oid}/members/{uid}/confirm` | → `{}` (admin) |
 | `PATCH /orgs/{oid}/members/{uid}` | `{role}` → `{}` (owner/admin rules) |
-| `DELETE /orgs/{oid}/members/{uid}` | → `{needs_rekey: [cid…]}` (admin, or self to leave; `400 last_manager {collections}` if they are a collection's only manager) |
-| `POST /orgs/{oid}/collections` | `{id, encrypted_name, grant, members_record?}` → `{}` (admin; creator gets `manage`; the first signed list, 2.6) |
-| `GET /collections` | → my collections `[{id, org_id, encrypted_name, key_version, permission, grant, needs_rekey, revision}]` |
+| `DELETE /orgs/{oid}/members/{uid}` | → `{needs_rekey: [cid…], deleted?: [cid…]}` (admin, or self to leave; `400 last_manager {collections}` if they are a collection's only manager, except direct shares: those are deleted and listed in `deleted`) |
+| `POST /orgs/{oid}/collections` | `{id, encrypted_name, grant, members_record?, direct?}` → `{}` (admin; with `direct: true` any confirmed member: a direct share; creator gets `manage`; the first signed list, 2.6) |
+| `GET /collections` | → my collections `[{id, org_id, encrypted_name, key_version, permission, grant, needs_rekey, revision, direct}]` |
 | `DELETE /collections/{cid}` | → `{}` (manage) |
 | `GET /collections/{cid}/members` | → `[{user_id, email, name, permission}]` |
 | `GET /collections/{cid}/manifest?since=N` | → `{records: [{body, signature}]}` (the signed member lists after `seq` N, oldest first) |
-| `PUT /collections/{cid}/members/{uid}` | `{permission, grant?, members_record?}` → `{}` (manage; `grant` required when adding; member must be confirmed in the org; `members_record` required once the collection has one) |
+| `PUT /collections/{cid}/members/{uid}` | `{permission, grant?, members_record?}` → `{}` (manage; `grant` required when adding; member must be confirmed in the org; `members_record` required once the collection has one; a direct share takes no third member: `400 direct_full`) |
 | `DELETE /collections/{cid}/members/{uid}` | `{members_record?}` → `{}` (manage, or self to leave; sets `needs_rekey`) |
 | `POST /collections/{cid}/rotate` | `{key_version, encrypted_name, grants: {uid: grant}, items: {iid: ciphertext}, members_record?}` → `{revision}` (manage; atomic; must cover every member and every live item) |
 | `GET /collections/{cid}/items?since=N` | → `{revision, items: [{id, revision, key_version, ciphertext, deleted, updated_by, updated, deletion?}]}` |
@@ -510,7 +524,8 @@ Added to `secretbroker/service.py` (GUI only, never reachable from the AI unless
 `team_orgs`, `team_create_org`, `team_invite`, `team_invites`, `team_accept_invite`, `team_members`,
 `team_confirm_member`, `team_set_role`, `team_remove_member`, `team_collections`, `team_create_collection`,
 `team_collection_members`, `team_grant`, `team_revoke`, `team_share_entry`, `team_share_entries`,
-`team_unshare_entry`, `team_accept_change`, `team_events`, `team_overview`, `team_offboarding`,
+`team_unshare_entry`, `team_share_with`, `team_unshare_with`, `team_accept_change`, `team_events`, `team_overview`,
+`team_offboarding`,
 `team_verify_email {code}`, `team_send_code` (→ `{sent, verified, verification}`), `team_resolve_deletions
 {collection, apply}` (→ `{applied, count, collection_name}`; a proven op like `delete_entry`), `team_devices` (→ the
 account's devices, `GET /me`), `team_revoke_device {id}`, `team_change_password {current, password}`. Client
@@ -521,12 +536,29 @@ The AI sees shared credentials like any other (with `shared: {org, collection, p
 
 Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI):
 
+* **Sharing with one person.** `team_share_with {ids, org, user_id, permission}` (`edit`, `view` or `use`; `view`
+  by default) → `{shared, failed: [{id, error}], collection, collection_name, person}`: it finds this user's direct
+  share with that person (`direct`, this user `manage`, signed member list exactly the two of them) or makes one
+  (named «Alicia y Bob» in the user's language, `{"name", "direct": true}`), sets that person's permission (it applies
+  to everything shared with them) and shares the credentials into it. The person must be a confirmed member of the
+  organization and verified on this PC with the same key (`untrusted` / `key_changed` otherwise: the app shows their
+  code and one-click «Verificar»); nothing is sealed to an unpinned key. In `TEAM_EXPORT_OPS` like
+  `team_share_entry` (`proof_required` once after a Windows-session unlock). `team_unshare_with {collection}` →
+  `{person, credentials, ids}` ends a direct share this user manages (2.4). `team_unshare_entry` of a credential in a
+  direct share this user manages flags it for that person and ends the share when nothing is left in it. Against a
+  server from before direct shares, an admin's app makes the collection without the server flag; anyone else gets
+  one sentence asking to update the server. `team_collections` rows add `direct` and `with: {user_id, name,
+  permission}` (the other person); entries add `shared.with` (their name), `shared.by_me` (this user shared it) and
+  `shared.with_permission`; reminders of kind `team_access` add `unshared`, and `team_offboarding` rows add
+  `unshared` (every flag for that person is from a share that ended while they are still on the team).
+  `team_remove_member` adds `ended` (direct shares ended at once).
 * **Plaintext formats.** Item plaintext is `{"entry": <entry without shared/updated/secret_since and without
   policy.approval>, "author": {id, name}, "updated", "seq", "sig": {by, signature}, "head": {seq, hash, signature}}`
   (`head` since 0.17, 2.6); a decrypted entry whose shape is not what the app relies on (fields, policy, hosts,
   commands…) or that `validate_entry` refuses is refused on its own (`invalid_item`) and never stops the sync; the author shown is the signer
   (`shared.author.verified`), else the server's `updated_by` (the plaintext `author` is informative). The collection name plaintext is JSON `{"name"}`, plus `{"removed": [names], "version": n}`
-  after a re-key, which is how members who did not re-key learn who to "rotate because" of.
+  after a re-key, which is how members who did not re-key learn who to "rotate because" of, and `"direct": true` for
+  a direct share (kept through re-keys).
 * **Local state.** Vault section `team`: `server_url, token, user {id, email, name, verified}, verification, device,
   kdf_n, keys {x25519, ed25519}, public_key, signing_public_key, pinned {uid: {fp, public_key, signing_public_key,
   email, name, at, origin?}}, data_counter, heads {cid: {head, hashes, removed, forked?}}, orgs, collections {cid:
@@ -562,13 +594,16 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   team_collection_members, team_events` only need an unlocked vault; every other team op needs a proof and accepts
   the presence token (one click). After an unlock with the Windows session (no proof; anything running as the user
   could do it), the ops that can send credentials or keys to another account (`team_connect, team_invite,
-  team_accept_invite, team_confirm_member, team_set_role, team_grant, team_share_entry`) answer `proof_required`
+  team_accept_invite, team_confirm_member, team_set_role, team_grant, team_share_entry, team_share_entries, team_share_with`) answer `proof_required`
   once; a real proof returns a full presence token in the result (`presence`), and they are one click again. `team_sync` and the background sync never raise: `team_status.state` is
   `off | idle | syncing | ok | error | offline | reconnect`, with `error` and counts of the `last` round.
   The general `status` op also carries `team` (that state) and `team_sync` (time of the last finished round), so
   the GUI's 1.5 s poll notices a finished round and reloads only when `team_status.last` says something arrived.
   `error` is always one sentence for the user with what to do (`teams.explain`); codes and exception types only go
-  to the service log. A session that expires raises one Windows notice.
+  to the service log. The server writes its messages in Spanish; the ones a user meets when managing people and sharing
+  (`last_owner`, `last_manager`, `not_confirmed`, `direct_full`, and `forbidden` when removing someone or changing a
+  role) are said in the app's language (`teams.SERVER_MESSAGES`), and `team_remove_member` names the collections the
+  person is the only manager of. A session that expires raises one Windows notice.
 * **Op parameters.** `team_connect {server_url, email, password, mode: register|login, name?, device_name?,
   invite_token?}`, `team_invite {org, email, role}`, `team_accept_invite {id, fingerprint?}`, `team_members {org}` (rows add
   `fingerprint`, `key_changed`, `trusted`, `me`), `team_confirm_member {org, user_id, fingerprint?}`, `team_set_role {org,
@@ -605,13 +640,28 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   into the server field does the same.
 * Removing someone opens the **offboarding queue**: what they could see, the guided rotation for each one back to
   back, with «Saltar» and progress. Also reachable from Salud and the Equipo banner.
-* Credential detail: «Compartir» (choose a writable collection or «Nueva colección…»), a «Compartida · <colección>»
+* **Sharing with one person.** The «Compartir» dialog (one credential, or «Compartir N…» from the list) has two
+  tabs, «Con una persona» and «En una colección», and opens on the last one used (a person at first). With a person:
+  «Con quién» (confirmed teammates of the user's organizations) and «Su permiso» (Editor / Lector / Solo uso, Lector
+  by default, or what that person already has), one line on what it allows, and, when something is already shared
+  with them, that the permission applies to all of it; the button says «Compartir con Bob». Someone not verified on
+  this PC shows their security code and «Verificar a Bob» (one click) instead, and nothing can be shared until then;
+  a changed key sends the user to Personas to type the code. In **Personas**, every verified person has «Compartir
+  con Bob…»: a searchable list of the user's own credentials to tick (those already shared with them shown as done),
+  the permission and «Compartir N». In **Colecciones**, direct shares are listed under «Con una persona», after the
+  team collections, as «Con Bob» (count · «Bob: Lector»; the sharer changes the permission or «Dejar de compartir con
+  Bob», which opens the queue of what to change; the other person may «Dejar de recibirlas»). The credential's badge
+  says «Compartida con Bob» / «Compartida por Alicia» and the detail «La compartes con Bob, como Lector» with «Dejar de
+  compartir con Bob»; its reminders say «Bob tenía acceso a esta credencial y ya no lo tiene» and «Cambiar: la tenía
+  Bob» when Bob is still on the team.
+* Credential detail: «Compartir» (with a person or in a collection, above), a «Compartida · <colección>»
   badge (permission in its tooltip and in the detail), «Dejar de compartir», the change review box («<Persona>
   quiere que la IA pueda enviar esta clave a: <hosts>»; «Rechazar y mantener como estaba», only with edit permission,
   undoes it for the whole team; «Permitir <host>»), reveal and copy hidden for `use`, and edit / delete / rotate
   limited to what the permission allows. Deleting a shared credential warns that it is deleted for the whole collection.
-* Credential list: a team mark on shared rows, collection chips next to the tag filter, «Sin enviar» / «Cambiar:
-  salió Bob» badges, and with a team account a checkbox on hover (shift-click for a range) to «Compartir N en…».
+* Credential list: a team mark on shared rows, collection chips next to the tag filter («Con Bob» for a direct
+  share), «Sin enviar» / «Cambiar: salió Bob» badges, and with a team account a checkbox on hover (shift-click for a
+  range) to «Compartir N…».
 
 ## 6. Platforms
 

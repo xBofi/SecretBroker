@@ -30,7 +30,7 @@ import uvicorn  # noqa: E402
 from cryptography.exceptions import InvalidTag  # noqa: E402
 
 from secretbroker import platform, teams  # noqa: E402
-from secretbroker.service import AI_OPS, Service  # noqa: E402
+from secretbroker.service import AI_OPS, TEAM_CHANGE_OPS, Service  # noqa: E402
 from secretbroker_server import config, mail  # noqa: E402
 from secretbroker_server.web import create_app  # noqa: E402
 
@@ -821,6 +821,196 @@ def downgrades_and_recovery():
     state["pinned"][owner]["origin"] = "verified"
     team._recover_access(api, state, empty_notes(), {})
     check(granted == [owner], "once verified, they get it")
+def joined(alice, base, oid, label, name):
+    """A new teammate: account, verified e-mail, invite accepted, confirmed by Alice (the owner)."""
+    person = Person(label)
+    address = f"{label}@example.com"
+    person.act("team_connect", server_url=base, email=address, password=ACCOUNT, mode="register", name=name)
+    person.act("team_verify_email", code=email_code(address))
+    alice.act("team_invite", org=oid, email=address, role="member")
+    person.act("team_accept_invite", id=person.ok("team_invites")[0]["id"])
+    uid = next(m["user_id"] for m in alice.ok("team_members", org=oid) if m["email"] == address)
+    alice.act("team_confirm_member", org=oid, user_id=uid)
+    person.id = uid
+    return person
+
+
+def personal(person, entry_id, name, value):
+    person.save({"id": entry_id, "name": name, "template": "api_key", "description": "",
+                 "fields": {"value": value}, "policy": {"approval": "session"}})
+
+
+def direct_sharing(base, alice, oid):
+    print("Sharing with one person")
+    fran, gus = joined(alice, base, oid, "fran", "Fran"), joined(alice, base, oid, "gus", "Gus")
+    for n in range(1, 5):
+        personal(fran, f"f{n}", f"Directa {n}", f"sk-direct-FAKE-{n}")
+    response = fran.call("team_share_with", ids=["f1"], org=oid, user_id=gus.id, permission="view",
+                         proof={"kind": "presence", "token": fran.presence})
+    check(not response["ok"] and response["code"] == "untrusted" and "Gus" in response["error"]
+          and not fran.service.vault.team()["collections"],
+          "someone not verified on this PC: it says so, and nothing is sealed to their key")
+    response = fran.call("team_share_with", ids=["f1"], org=oid, user_id=gus.id, permission="view")
+    check(response["code"] == "proof_required", "sharing with a person needs the user (one click)")
+    fran.act("team_confirm_member", org=oid, user_id=gus.id)  # Fran compares Gus's code: one click
+    result = fran.act("team_share_with", ids=["f1"], org=oid, user_id=gus.id, permission="view")
+    cid = result["collection"]
+    check(result["shared"] == ["f1"] and result["person"] == "Gus" and result["collection_name"] == "Fran y Gus",
+          "a member (not an admin) shares a credential with one teammate in one step")
+    second = fran.act("team_share_with", ids=["f2", "f1"], org=oid, user_id=gus.id, permission="view")
+    check(second["collection"] == cid and second["shared"] == ["f2"] and second["failed"][0]["id"] == "f1"
+          and len(fran.service.vault.team()["collections"]) == 1, "the next one goes to the same private collection")
+    listed = next(c for c in fran.ok("team_collections") if c["id"] == cid)
+    check(listed["direct"] and listed["with"]["name"] == "Gus" and listed["with"]["permission"] == "view"
+          and not listed["single_manager"] and listed["entries"] == 2,
+          "Colecciones knows it is a direct share with Gus («Con Gus»), not a team collection with one manager")
+    summary = fran.summary("f1")["shared"]
+    check(summary["with"] == "Gus" and summary["by_me"] is True, "the credential says «Compartida con Gus»")
+    signed = fran.service.vault.team()["collections"][cid]["manifest"]["members"]
+    check(signed == {fran.id: "manage", gus.id: "view"}, "only the two of them: the owners get no recovery access")
+    state = fran.service.vault.team()
+    with teams.Client(state["server_url"], state["token"]) as api:
+        row = next(c for c in api.call("GET", "/collections") if c["id"] == cid)
+    key = teams.unb64(state["collections"][cid]["keys"][str(row["key_version"])])
+    check(teams.open_name(key, cid, row["encrypted_name"]) == {"name": "Fran y Gus", "direct": True},
+          "it is marked as direct inside the encrypted name")
+
+    result = gus.sync()
+    waiting = gus.ok("team_status")["waiting"]
+    check(not result["result"]["added"] and any(p["user_id"] == fran.id for p in waiting),
+          "Gus has not verified Fran yet: he is asked to, nothing is taken on trust")
+    gus.act("team_confirm_member", org=oid, user_id=fran.id)
+    result = gus.sync()
+    check(sorted(result["result"]["added"]) == ["Directa 1", "Directa 2"], "then they arrive like any shared credential")
+    summary = gus.summary("f1")["shared"]
+    check(summary["with"] == "Fran" and summary["by_me"] is False and summary["permission"] == "view",
+          "his copy says «Compartida por Fran», as Lector")
+    listed = next(c for c in gus.ok("team_collections") if c["id"] == cid)
+    check(listed["direct"] and listed["with"]["name"] == "Fran", "and Colecciones shows it as «Con Fran»")
+    response = gus.call("save_entry", entry={**gus.entry("f1"), "name": "Otro"}, replaces="f1",
+                        proof={"kind": "master_password", "value": MASTER})
+    check(not response["ok"] and response["code"] == "forbidden", "Lector: he cannot change it")
+
+    fran.act("team_share_with", ids=["f3"], org=oid, user_id=gus.id, permission="edit")
+    gus.sync()
+    check(gus.summary("f1")["shared"]["permission"] == "edit" and gus.summary("f3")["shared"]["permission"] == "edit",
+          "the permission chosen applies to everything shared with him")
+    alice.sync()
+    check(cid not in alice.service.vault.team()["collections"], "the organization's owner does not get it")
+
+    print("Stopping sharing with a person")
+    fran.act("team_unshare_entry", id="f3")
+    reminder = next((r for r in fran.ok("reminders") if r["id"] == "f3"), {})
+    check(not fran.entry("f3").get("shared") and reminder.get("kind") == "team_access"
+          and reminder.get("people") == ["Gus"] and reminder.get("unshared"),
+          "unsharing one credential: it stays hers, flagged to change because Gus could see it")
+    gus.sync()
+    check(not any(e["id"] == "f3" for e in gus.service.vault.entries()), "and leaves Gus's PC")
+    edited = fran.entry("f1")
+    edited.pop("shared")
+    edited["fields"]["value"] = None
+    ended = fran.act("team_unshare_with", collection=cid)
+    check(ended["person"] == "Gus" and ended["credentials"] == 2 and not fran.service.vault.team()["collections"],
+          "«Dejar de compartir con Gus» ends the direct share")
+    reminders = {r["id"]: r for r in fran.ok("reminders")}
+    check(all(reminders.get(i, {}).get("people") == ["Gus"] for i in ("f1", "f2"))
+          and not fran.entry("f1").get("shared") and fran.entry("f1")["fields"]["value"] == "sk-direct-FAKE-1",
+          "everything she shared with him stays hers, each one flagged «Cambiar: Gus»")
+    person = next(p for p in fran.ok("team_offboarding") if p["person"] == "Gus")
+    check(person["total"] == 3 and sorted(person["pending"]) == ["f1", "f2", "f3"] and person["unshared"],
+          "the list of what Gus could see has all three (he is still on the team: «ya no tiene acceso»)")
+    health = next((h for h in fran.ok("health")["items"] if h["id"] == "f2"), {})
+    check("ya no lo tiene" in json.dumps(health, ensure_ascii=False) and "ya no está en el equipo" not in json.dumps(health, ensure_ascii=False),
+          "Salud says Gus no longer has access, not that he left the team")
+    edit = fran.call("save_entry", entry={**edited, "description": "editada"}, replaces="f1",
+                     proof={"kind": "master_password", "value": MASTER})
+    check(edit["ok"] and any(r["id"] == "f1" for r in fran.ok("reminders")), "editing it keeps the reminder")
+    fran.act("replace_key", id="f1", value="sk-direct-ROTATED-1")
+    check(not any(r["id"] == "f1" for r in fran.ok("reminders")), "changing the key clears it")
+    gus.sync()
+    check(not any(e["id"] in ("f1", "f2") for e in gus.service.vault.entries()) and not gus.service.vault.team()["collections"],
+          "Gus loses them at his next sync")
+
+    print("Removing someone a credential was shared with")
+    again = fran.act("team_share_with", ids=["f4"], org=oid, user_id=gus.id, permission="use")
+    check(again["collection"] != cid, "sharing with him again makes a new private collection")
+    gus.sync()
+    check(gus.entry("f4")["fields"]["value"] == "sk-direct-FAKE-4", "and he gets it")
+    removed = alice.act("team_remove_member", org=oid, user_id=gus.id)
+    check(removed["pending"] == [again["collection"]], "an admin who is not in it leaves it to whoever shared it")
+    result = fran.sync()["result"]
+    reminder = next((r for r in fran.ok("reminders") if r["id"] == "f4"), {})
+    check(not fran.entry("f4").get("shared") and reminder.get("people") == ["Gus"] and not reminder.get("unshared")
+          and {"collection": "Fran y Gus", "people": ["Gus"]} in result["rotate"],
+          "Fran's next sync ends it: f4 stays hers, flagged «Cambiar: salió Gus»")
+    state = alice.service.vault.team()
+    with teams.Client(state["server_url"], state["token"]) as api:
+        check(not any(c["id"] == again["collection"] for c in api.call("GET", "/collections")), "and it is gone from the server")
+    gus.sync()
+    check(not any(e.get("shared") for e in gus.service.vault.entries()), "Gus has nothing left")
+
+    print("Removing someone who shared")
+    hal = joined(alice, base, oid, "hal", "Hal")
+    fran.act("team_confirm_member", org=oid, user_id=hal.id)
+    hal.act("team_confirm_member", org=oid, user_id=fran.id)
+    personal(fran, "f5", "Directa 5", "sk-direct-FAKE-5")
+    fran.act("team_share_with", ids=["f5"], org=oid, user_id=hal.id, permission="view")
+    hal.sync()
+    check(hal.entry("f5")["shared"]["with"] == "Fran", "Hal has what Fran shared with him")
+    removed = alice.act("team_remove_member", org=oid, user_id=fran.id)
+    check(not removed["failed"], "removing Fran is not blocked by what she shared directly (nobody else manages it)")
+    hal.sync()
+    check(not any(e["id"] == "f5" for e in hal.service.vault.entries()), "and what she shared goes with her")
+
+    print("An admin removes someone they shared with")
+    personal(alice, "a1", "De Alice para Hal", "sk-direct-FAKE-A1")
+    shared = alice.act("team_share_with", ids=["a1"], org=oid, user_id=hal.id, permission="view")
+    hal.sync()
+    check(hal.entry("a1")["shared"]["with"] == "Alice", "Alice shares with Hal")
+    removed = alice.act("team_remove_member", org=oid, user_id=hal.id)
+    check(removed["ended"] == [shared["collection"]] and removed["credentials"] == 1 and removed["person"] == "Hal",
+          "removing him ends it at once and counts it in what he could see")
+    person = next(p for p in alice.ok("team_offboarding") if p["person"] == "Hal")
+    check(person["pending"] == ["a1"] and not person["unshared"], "the offboarding queue has it")
+    alice.ok("delete_entry", id="a1", proof={"kind": "master_password", "value": MASTER})
+
+
+def member_errors(base, alice, oid):
+    print("Removing people: what the user reads when the server says no")
+    from secretbroker import i18n
+    kim = joined(alice, base, oid, "kim", "Kim")
+    alice_id = alice.service.vault.team()["user"]["id"]
+    alice.act("team_set_role", org=oid, user_id=kim.id, role="admin")
+    state = kim.service.vault.team()
+    state["pinned"].pop(alice_id, None)  # Kim has not verified Alice: no recovery grant for her
+    kim.service.vault.set_team(state)
+    kim.act("team_create_collection", org=oid, name="Solo de Kim")
+    with i18n.using("en"):
+        response = alice.call("team_remove_member", org=oid, user_id=kim.id, proof={"kind": "presence", "token": alice.presence})
+        refused = alice.call("team_set_role", org=oid, user_id=alice_id, role="member", proof={"kind": "presence", "token": alice.presence})
+    check(response["code"] == "last_manager" and response["error"].startswith("Kim is the only manager of a collection you're not in"),
+          f"removing the only manager of a collection says who and what to do, in the app's language ({response['error']})")
+    check(refused["code"] == "last_owner" and refused["error"] == "The organization needs at least one owner.",
+          f"so does demoting the last owner ({refused['error']})")
+
+
+def weak_unlock_share(base, alice, oid):
+    print("Sharing with a person after opening with the Windows session")
+    ivy = joined(alice, base, oid, "ivy", "Ivy")
+    personal(ivy, "i1", "De Ivy", "sk-direct-FAKE-I1")
+    alice_id = alice.service.vault.team()["user"]["id"]
+    token = ivy.ok("enable_session_unlock", proof={"kind": "master_password", "value": MASTER})["token"]
+    ivy.ok("lock")
+    weak = ivy.ok("unlock", proof={"kind": "session", "token": token})["presence"]
+    response = ivy.call("team_share_with", ids=["i1"], org=oid, user_id=alice_id, permission="view",
+                        proof={"kind": "presence", "token": weak})
+    check(response["code"] == "proof_required", "it asks for Hello or the password once, like any share")
+    result = ivy.ok("team_share_with", ids=["i1"], org=oid, user_id=alice_id, permission="view",
+                    proof={"kind": "master_password", "value": MASTER, "presence": weak})
+    check(result["shared"] == ["i1"] and result.get("presence"), "then it goes ahead, and is one click again")
+    alice.sync()
+    check(alice.entry("i1")["shared"]["with"] == "Ivy" and alice.entry("i1")["shared"]["by_me"] is False,
+          "the inviter was pinned by accepting: Alice gets it «Compartida por Ivy» at once")
 
 
 def weak_approvals():
@@ -931,6 +1121,11 @@ def main():
     check(second["fingerprint"] == status["fingerprint"] and second["user"]["id"] == status["user"]["id"],
           "a second device logs in and recovers the same keys")
     check(not any(op.startswith("team_") for op in AI_OPS), "no team operation is reachable by the AI")
+    import ast
+    tree = ast.parse((Path(__file__).resolve().parents[1] / "secretbroker" / "app.py").read_text(encoding="utf-8"))
+    app_ops = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign)
+                   and getattr(n.targets[0], "id", "") == "TEAM_CHANGE_OPS")
+    check(set(app_ops) == set(TEAM_CHANGE_OPS), "the app passes its one-click token to every team change the service has")
 
     print("Organization, invites and fingerprints")
     oid = alice.act("team_create_org", name="Acme")["id"]
@@ -1248,6 +1443,10 @@ def main():
     check(alice.service.vault.team()["collections"][c5]["key_version"] == 2, "the next sync re-encrypts the one left")
     check(not any(c in json.dumps(teams.explain(exc, "Prod")) for exc in (KeyError("x"), ValueError("y"), InvalidTag())
                   for c in ("KeyError", "ValueError", "InvalidTag")), "sync errors never show exception names")
+
+    direct_sharing(base, alice, oid)
+    member_errors(base, alice, oid)
+    weak_unlock_share(base, alice, oid)
 
     db = b"".join(p.read_bytes() for p in Path(settings.data_dir).glob("secretbroker.db*"))
     leaks = [w for w in (API_KEY, NEW_KEY, NAME, COLLECTION, "echo-api", "API compartida", "Notas de Bob")

@@ -211,6 +211,44 @@ def test_accounts(base):
     return alice
 
 
+def test_direct_collections(base, alice):
+    print("Sharing with one person (direct collections)")
+    frank, gina, hugo = (Api(base).signup(f"{n}@direct.example") for n in ("frank", "gina", "hugo"))
+    oid = alice.ok("POST", "/orgs", {"name": "Directo"})["id"]
+    for person in (frank, gina, hugo):
+        alice.ok("POST", f"/orgs/{oid}/invites", {"email": person.email, "role": "member"})
+        person.ok("POST", f"/invites/{person.ok('GET', '/invites')[0]['id']}/accept")
+        alice.ok("POST", f"/orgs/{oid}/members/{person.id}/confirm", {})
+    cid = str(uuid.uuid4())
+    body = {"id": cid, "encrypted_name": box(), "grant": frank.grant()}
+    check(frank.call("POST", f"/orgs/{oid}/collections", body).status_code == 403,
+          "a plain member still cannot create a team collection")
+    check(frank.call("POST", f"/orgs/{oid}/collections", {**body, "direct": "yes"}).status_code == 400,
+          "direct must be a boolean")
+    frank.ok("POST", f"/orgs/{oid}/collections", {**body, "direct": True})
+    listed = next(c for c in frank.ok("GET", "/collections") if c["id"] == cid)
+    check(listed["direct"] and listed["permission"] == "manage", "but may share with one person: a direct collection")
+    frank.ok("PUT", f"/collections/{cid}/members/{gina.id}", {"permission": "view", "grant": frank.grant()})
+    refused = frank.call("PUT", f"/collections/{cid}/members/{hugo.id}", {"permission": "view", "grant": frank.grant()})
+    check(refused.status_code == 400 and refused.json()["code"] == "direct_full", "it never has more than two members")
+    team = str(uuid.uuid4())
+    alice.ok("POST", f"/orgs/{oid}/collections", {"id": team, "encrypted_name": box(), "grant": alice.grant()})
+    check(not next(c for c in alice.ok("GET", "/collections") if c["id"] == team)["direct"],
+          "team collections are not direct")
+    removed = alice.ok("DELETE", f"/orgs/{oid}/members/{frank.id}")
+    check(removed.get("deleted") == [cid] and cid not in removed["needs_rekey"]
+          and not any(c["id"] == cid for c in gina.ok("GET", "/collections")),
+          "removing the person who shared deletes what they shared directly (nobody else could manage it)")
+    cid2 = str(uuid.uuid4())
+    gina.ok("POST", f"/orgs/{oid}/collections", {"id": cid2, "encrypted_name": box(), "grant": gina.grant(),
+                                                 "direct": True})
+    gina.ok("PUT", f"/collections/{cid2}/members/{hugo.id}", {"permission": "edit", "grant": gina.grant()})
+    removed = alice.ok("DELETE", f"/orgs/{oid}/members/{hugo.id}")
+    check(removed["needs_rekey"] == [cid2] and not removed.get("deleted")
+          and next(c for c in gina.ok("GET", "/collections") if c["id"] == cid2)["needs_rekey"],
+          "removing the person it was shared with leaves it to its manager to re-key (or end)")
+
+
 def test_rate_limit(base):
     print("Login rate limiting")
     victim = Api(base).signup("victim@example.com")
@@ -724,6 +762,8 @@ def test_migration():
     row = db.conn().execute("SELECT verified FROM users WHERE id = 'u1'").fetchone()
     columns = {r[1] for r in db.conn().execute("PRAGMA table_info(items)").fetchall()}
     check(row["verified"] == 1 and "deletion" in columns, "accounts that existed count as verified; tombstones get signatures")
+    columns = {r[1] for r in db.conn().execute("PRAGMA table_info(collections)").fetchall()}
+    check("direct" in columns, "collections can be direct shares")
     db.close()
 
 
@@ -734,6 +774,7 @@ def main():
         alice = test_accounts(base)
         test_rate_limit(base)
         test_orgs_and_items(base, alice)
+        test_direct_collections(base, alice)
         secret_file = settings.data_dir / "server_secret"
         check(secret_file.exists() and len(secret_file.read_text().strip()) == 64, "server secret is persisted")
     finally:
