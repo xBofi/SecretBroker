@@ -193,6 +193,8 @@ jobs:
             sleep 2
           done
           $PY -I -c "from secretbroker import client; s = client.request('status'); print(s['state'], s['gui_connected']); assert s['gui_connected']"
+          sleep 2
+          screencapture -x "$RUNNER_TEMP/macos-app-welcome.png"
           cat "$log"
           grep -q "tray icon: ok" "$log" && grep -q "MCP over HTTP: ok" "$log"
           if grep -q "ERROR" "$log"; then exit 1; fi
@@ -222,7 +224,7 @@ jobs:
         if: always()
         with:
           name: macos-app-screenshot
-          path: ${{ runner.temp }}/macos-app.png
+          path: ${{ runner.temp }}/macos-app*.png
           if-no-files-found: ignore
           retention-days: 7
 

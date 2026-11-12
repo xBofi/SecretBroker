@@ -1055,9 +1055,13 @@ def _reopen_from_dock(api):
 
     delegate = NSApplication.sharedApplication().delegate()
     if delegate is not None:
-        objc.classAddMethods(type(delegate), [
-            objc.selector(reopen, selector=b"applicationShouldHandleReopen:hasVisibleWindows:", signature=b"Z@:@Z"),
-            objc.selector(terminate, selector=b"applicationShouldTerminate:", signature=b"Q@:@")])
+        cls = type(delegate)
+        objc.classAddMethods(cls, [
+            objc.selector(reopen, selector=b"applicationShouldHandleReopen:hasVisibleWindows:", signature=b"Z@:@Z")])
+        # The same signature as pywebview's own method (its type encoding differs between PyObjC versions).
+        existing = getattr(cls, "applicationShouldTerminate_", None)
+        signature = getattr(existing, "signature", None) or b"Q@:@"
+        objc.classAddMethods(cls, [objc.selector(terminate, selector=b"applicationShouldTerminate:", signature=signature)])
 
 
 _link_handler = None  # macOS: kept alive for as long as the app runs

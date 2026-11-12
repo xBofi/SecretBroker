@@ -273,7 +273,7 @@ def run(app, env, devtools, api_port, client, integrations):
     hello = page.js("!!state.info.hello_supported")
     first = page.js("document.querySelector('.choice input:checked').value")
     check(first == ("hello" if hello else "session") and "Recomendado" in page.js("document.querySelector('.choice.active').innerText"),
-          f"preselected: {'Windows Hello' if hello else 'Abrir con mi sesión de Windows'} ({first})")
+          f"preselected: {'Windows Hello' if hello else desktop.os_text('Abrir con mi sesión de Windows')} ({first})")
     check(desktop.os_text("no de alguien que use tu sesión de Windows") in page.text(), "the session unlock is explained honestly")
     page.shot("01-setup-unlock")
     page.js("document.querySelector('.choice input[value=master]').click()")  # this test types the password on purpose
@@ -332,7 +332,7 @@ def run(app, env, devtools, api_port, client, integrations):
     page.click("Revisar ahora")
     check(wait_for(lambda: "Expuesta" in page.text() and "búsqueda: hoy" in page.text() and "proveedores: hoy" in page.text(), 60),
           "it searches for copies and tests the keys: the key the AI saw is found, and Salud says when it looked")
-    check("Una IA la ha visto" in page.text() and page.click("Rotar con ayuda", ".exposure-card button") is not None,
+    check(wait_for(lambda: "Una IA la ha visto" in page.text(), 10) and page.click("Rotar con ayuda", ".exposure-card button") is not None,
           "the exposed credential's card says an AI saw it")
     page.js("document.querySelector('.modal') && document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
     page.click("Descartar")
