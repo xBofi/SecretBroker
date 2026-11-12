@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 HOME = Path(tempfile.mkdtemp(prefix="secretbroker-personal-"))
@@ -261,7 +262,10 @@ def check_service():
         code = call("totp_code", {"id": hosting["id"]}, one_click)
         check(re.fullmatch(r"\d{6}", code["code"]) and 0 < code["remaining"] <= 30 and code["period"] == 30,
               f"one click: the current code and the seconds left ({code['remaining']} s)")
-        check(code["code"] == totp.code("otpauth://totp/Example?secret=FAKEFAKEFAKE")["code"], "computed by the service from the seed")
+        # The 30-second window may turn between the service's code and this one: either side of it counts.
+        now = time.time()
+        expected = {totp.code("otpauth://totp/Example?secret=FAKEFAKEFAKE", now=now - back)["code"] for back in (0, 30)}
+        check(code["code"] in expected, "computed by the service from the seed")
         view = next(s for s in client.request("list_secrets") if s["id"] == hosting["id"])
         check("{{totp_code}}" not in view["placeholders"] and "FAKEFAKE" not in json.dumps(view), "by default the AI has no 2FA code")
         stored = next(e for e in client.request("entries") if e["id"] == hosting["id"])

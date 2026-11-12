@@ -220,6 +220,17 @@ for url in ("http://127.0.0.1:43123/index.html", "http://127.0.0.1:43123/index.h
         results.append("refused")
 check(results == [True, True] + ["refused"] * 6 and len(calls) == 2,
       f"only the app's own page may call it; any other page, or none, is refused ({results})")
+# Linux (Qt): the address the view last reported is what counts, without asking the UI thread (which may be busy).
+window.gui.url = "http://127.0.0.1:43123/index.html"
+tracked = []
+for url in ("http://evil.example/index.html", "http://127.0.0.1:43123/index.html"):
+    window._sb_url = url
+    try:
+        tracked.append(page.has_presence())
+    except PermissionError:
+        tracked.append("refused")
+del window._sb_url
+check(tracked == ["refused", True], f"the address the view reported decides, not an older answer ({tracked})")
 window.gui.get_current_url = lambda uid: (_ for _ in ()).throw(RuntimeError("closing"))
 try:
     page.has_presence()

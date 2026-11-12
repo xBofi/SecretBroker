@@ -122,7 +122,13 @@ def _shows_the_app(window):
     """Whether the window shows the app's page now. Asks the web view itself (each backend's own get_current_url;
     pywebview's Window.get_current_url would wait for a page load)."""
     try:
-        return _same_page(window.gui.get_current_url(window.uid), window.real_url)
+        # Linux (Qt): the address the view last reported (_track_qt_url). pywebview's own get_current_url waits on
+        # the UI thread through one lock shared by every caller, and a call made while the page is still loading
+        # could wait there for as long as the UI thread is busy.
+        shown = getattr(window, "_sb_url", None)
+        if shown is None:
+            shown = window.gui.get_current_url(window.uid)
+        return _same_page(shown, window.real_url)
     except Exception:
         return False
 
@@ -167,6 +173,8 @@ def _guard_qt_navigation(window):
         if main_frame and not _same_page(url.toString(), window.real_url):
             log.warning("a navigation away from the app was refused")
             return False
+        if main_frame:
+            window._sb_url = url.toString()  # what _shows_the_app compares; urlChanged keeps it current after
         return original(self, url, kind, main_frame)
 
     page_class.acceptNavigationRequest = accept
@@ -190,6 +198,10 @@ def _refuse_drops(window):
         native = window.native
         for widget in [native, native.webview, *native.webview.findChildren(QWidget)]:
             widget.setAcceptDrops(False)
+        # Whatever the view shows from now on, as it reports it (also a page that got past the navigation filter).
+        native.webview.urlChanged.connect(lambda url: setattr(window, "_sb_url", url.toString()))
+        if native.webview.url().toString():
+            window._sb_url = native.webview.url().toString()
     elif platform.NAME == "macos":
         from webview.platforms.cocoa import BrowserView
         BrowserView.instances[window.uid].webview.unregisterDraggedTypes()
