@@ -15,26 +15,42 @@ A release is one version tag, `v<version>` matching `pyproject.toml`. Pushing it
    | Ubuntu 22.04 / 24.04 | `tools/build_deb.sh` (`ubuntu-22.04`) | `secretbroker_<v>_amd64.deb` |
    | macOS 12+ (Apple silicon) | `tools/build_macos.sh` (`macos-latest`) | `SecretBroker-<v>-macos-arm64.pkg` |
    | macOS 12+ (Intel) | `tools/build_macos.sh` (`macos-15-intel`) | `SecretBroker-<v>-macos-x86_64.pkg` |
+   | Team server (Ubuntu 22.04 / 24.04 / 26.04, x86-64) | `tools/build_server.sh` (`ubuntu-22.04`) | `secretbroker-server-<v>-linux-x86_64.tar.gz` and `install-server.sh` |
 
    Each build job uploads its installer **unsigned** (artifacts `unsigned-windows`, `unsigned-ubuntu`,
-   `unsigned-macos-<arch>`); none of them sees the release key;
+   `unsigned-macos-<arch>`, `unsigned-server`); none of them sees the release key. The `server` job first runs
+   `server/tests/test_install.sh` on its archive: `install-server.sh --local`, the admin API, a signed update, a
+   refused one and a rollback, with a throwaway key the test tells the installer to trust (`SB_UPDATE_TRUST`);
 4. `sign`, the only job with the secret `UPDATE_SIGNING_KEY`, takes each installer from the artifact of the job that
    built it and signs it for the in-app updater (`tools/sign_release.py`): a `<asset>.sig` next to each one, an
    Ed25519 signature over the version and the installer's SHA-256, checked against the public key built into
    `secretbroker/update.py`. That job installs nothing but `cryptography`, hash-pinned (`requirements/sign.txt`),
    and `tools/sign_release.py` imports nothing else (it reads the key and prefix out of `update.py` as text);
-5. `publish` checks all the signatures again (`tools/sign_release.py --verify`) and publishes the eight files as
-   the latest GitHub Release.
+5. `publish` checks all the signatures again (`tools/sign_release.py --verify`), checks that the server's updater
+   and `install-server.sh` carry the same release key as `secretbroker/update.py`, and publishes the twelve files
+   as the latest GitHub Release.
 
 ```
 version ─ test (3 systems) ─┬─ windows ────────┬─ sign ─ publish
                             ├─ ubuntu ─────────┤
-                            └─ macos (2 archs) ┘
+                            ├─ macos (2 archs) ┤
+                            └─ server ─────────┘
 ```
 
 Nothing is published if any test, build or signature check fails. The
 updater only looks at published releases (`/releases/latest`), picks the asset of its own system (and on a Mac,
 of its processor: `platform.INSTALLER_RE`) and installs it only if its `.sig` verifies.
+
+Team servers installed with `install-server.sh` update themselves from the same releases
+(`server/secretbroker_server/updater.py`, a daily systemd timer): they take `secretbroker-server-<v>-linux-x86_64.tar.gz`,
+check its `.sig` with the same key (their own copy, `updater.PUBLIC_KEY`), back up, install, restart, and roll back
+if `/api/v1/health` does not answer with the new version within a minute. So a release reaches self-hosted servers
+within a day: the server must stay compatible with the apps of the previous release (`MIN_CLIENT`, `API_VERSION`),
+and its database migrations must be additive (a rollback restores the backup taken just before, but older code may
+meet a newer schema if someone downgrades by hand).
+`https://github.com/xBofi/SecretBroker/releases/latest/download/install-server.sh` is the one-command install; it
+always installs the latest release's archive. CI's `server-install` job runs the same test as the `server` job on
+every push, plus Caddy.
 
 Before tagging, run `tests/test_gui.py` and `tests/test_browser.py` on a Windows desktop (they open the real app and a
 real browser; CI cannot on Windows). CI runs `test_gui.py` on Ubuntu (job `desktop-gui-ubuntu`, screenshots in the
@@ -53,8 +69,8 @@ macOS) carry markers, and pip skips the lines that are not for the system it run
 | `app.txt` | the installers: `tools/build_installer.ps1`, `tools/build_deb.sh`, `tools/build_macos.sh` |
 | `build.txt` | setuptools, installed before `app.txt`; builds run with `--no-build-isolation`, so pip never fetches an unpinned build backend (SecretBroker itself, and proxy-tools, which has no wheel) |
 | `dev.txt` | the suites in `ci.yml` and `release.yml` (app + `dev` extra + server + setuptools) |
-| `server.txt` | `ci.yml` › `linux-server` |
-| `sign.txt` | `cryptography` alone, for `release.yml` › `sign` and `publish` |
+| `server.txt` | `ci.yml` › `linux-server`, the Docker image (`server/Dockerfile`, built from the repository root) and the server archive (`tools/build_server.sh`) |
+| `sign.txt` | `cryptography` alone, for `release.yml` › `sign` and `publish`, and in the server archive for the updater's signature checks |
 | `tools.txt` | `uv`, for the lock check |
 
 After changing a dependency in `pyproject.toml` or `server/pyproject.toml`, run `python tools/update_locks.py`
@@ -68,7 +84,8 @@ compiled from. `requirements/constraints.txt` holds what one system needs differ
 
 `release.yml` also runs, without the release key and without publishing, on pull requests and pushes to `main` that
 change the release path (the workflow, `requirements/`, `pyproject.toml`, the build scripts, `installer/`,
-`packaging/`, `tools/sign_release.py`, `secretbroker/update.py`): every installer is built unsigned from the locks,
+`packaging/`, `tools/sign_release.py`, `secretbroker/update.py`, `server/install-server.sh`, `server/packaging/`,
+the server's updater): every installer is built unsigned from the locks,
 installed and checked as in a release, signed by `sign` with a throwaway key and verified by `publish`. A dry run
 that passes means the next tag only adds the suites (which `ci.yml` already runs), the release key and the
 `gh release create`.

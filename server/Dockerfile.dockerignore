@@ -1,0 +1,7 @@
+# The image is built from the repository root (server/Dockerfile): only what it copies goes to the builder.
+*
+!requirements/build.txt
+!requirements/server.txt
+!server/pyproject.toml
+!server/secretbroker_server/
+**/__pycache__

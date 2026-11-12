@@ -3,7 +3,9 @@
 #   docker compose up -d
 services:
   server:
-    build: .
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
     image: secretbroker-server:local
     restart: unless-stopped
     environment:
@@ -28,8 +30,12 @@ services:
       SB_INVITE_DAYS: "${SB_INVITE_DAYS:-14}"
       SB_MAX_INVITES_PER_HOUR: "${SB_MAX_INVITES_PER_HOUR:-30}"
       SB_MIN_CLIENT: "${SB_MIN_CLIENT:-}"
+      # The app's server panel lists the backups and makes one on demand, in the same volume as the daily ones.
+      SB_BACKUP_DIR: /backups
+      SB_BACKUP_KEEP: "${SB_BACKUP_KEEP:-14}"
     volumes:
       - sb-data:/data
+      - sb-backups:/backups
     expose:
       - "8080"
     read_only: true  # only the volumes (and /tmp) are writable
@@ -40,7 +46,9 @@ services:
   # A consistent backup of the database and the server secret once a day, keeping the last SB_BACKUP_KEEP (14).
   # They land in the sb-backups volume: copy them off this machine too (see README, "Backups").
   backup:
-    build: .
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
     image: secretbroker-server:local
     restart: unless-stopped
     depends_on:

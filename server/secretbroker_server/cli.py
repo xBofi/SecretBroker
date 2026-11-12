@@ -49,37 +49,29 @@ def serve(args):
 
 
 def create_invite(args):
-    """Print a single-use signup token (needed when SB_SIGNUPS=invite). Only its hash is stored."""
+    """Print a single-use signup token (needed when SB_SIGNUPS=invite). Only its hash is stored. With --email, only
+    that address can use it (the installer makes the admin's this way)."""
     from .accounts import create_token
+    from .db import admin_event
 
     settings = _settings()
+    address = _email_arg(args.email) if args.email else None
     db = Database(settings.db_path)
     with db.tx(write=True) as conn:
-        token, _ = create_token(conn, None, args.days)
+        token, _ = create_token(conn, None, args.days, address)
+        admin_event(conn, None, "cli", "signup_token.create", None, {"email": address, "days": args.days})
     db.close()
     print(token)
-    print(f"Valid for {args.days} days, once. Give it to the person who will register.", file=sys.stderr)
+    print(f"Valid for {args.days} days, once" + (f", only for {address}" if address else "")
+          + ". Give it to the person who will register.", file=sys.stderr)
 
 
 def verify_email(args):
     """Mark an account's e-mail as verified: for servers without SMTP, after checking who the person is."""
-    from .accounts import mark_verified
-    from .validate import ApiError, email
+    from . import admin
 
-    settings = _settings()
-    try:
-        address = email(args.email)
-    except ApiError:
-        sys.exit(f"secretbroker-server: not an e-mail address: {args.email}")
-    db = Database(settings.db_path)
-    with db.tx(write=True) as conn:
-        row = conn.execute("SELECT id, verified FROM users WHERE email = ?", (address,)).fetchone()
-        if row and not row["verified"]:
-            mark_verified(conn, row["id"], None)
-    db.close()
-    if row is None:
-        sys.exit(f"secretbroker-server: no account with the e-mail {address}")
-    print(f"{address} {'was already verified' if row['verified'] else 'is verified now'}.")
+    changed = _admin(admin.verify, args)
+    print(f"{args.email} {'is verified now' if changed else 'was already verified'}.")
 
 
 def unverified(args):
@@ -120,7 +112,7 @@ def _admin(action, args):
     db = Database(settings.db_path)
     try:
         with db.tx(write=True) as conn:
-            return action(conn, _email_arg(args.email))
+            return action(conn, admin.find(conn, _email_arg(args.email)))
     except admin.AdminError as exc:
         sys.exit(f"secretbroker-server: {exc}")
     finally:
@@ -139,13 +131,16 @@ def list_users(args):
         flags = ", ".join(f for f, on in (("admin", r["admin"]), ("unverified", not r["verified"]),
                                            ("DISABLED", r["disabled"])) if on)
         print(f"{r['email']}  {r['name']}" + (f"  [{flags}]" if flags else ""))
-        print(f"    orgs: {'; '.join(r['orgs']) or '-'}")
+        orgs = [f"{o['name']} ({o['role']}" + (f", {o['status']})" if o["status"] != "confirmed" else ")")
+                for o in r["orgs"]]
+        print(f"    orgs: {'; '.join(orgs) or '-'}")
         print(f"    created {r['created']}, last seen {r['last_seen'] or 'never'}")
     print(f"{len(rows)} account(s).", file=sys.stderr)
 
 
 def _left(left):
-    for name, count in left:
+    for org in left:
+        name, count = org["name"], org["collections"]
         print(f"  left «{name}»" + (f": {count} collection(s) will be re-keyed by their managers' apps on their next "
                                     "sync, and their credentials flagged to rotate" if count else ""))
 
@@ -158,8 +153,8 @@ def disable_user(args):
     _left(left)
     if held:
         print("It stays a member (unable to sign in) where it can't leave yet:")
-        for _, _, why in held:
-            print(f"  - {why}")
+        for hold in held:
+            print(f"  - {hold['why']}")
         print("Once that is done, run disable-user again to take it out.")
 
 
@@ -186,18 +181,23 @@ def delete_user(args):
 def transfer_owner(args):
     from . import admin
 
-    name, already = _admin(lambda conn, address: admin.transfer_owner(conn, args.org, address), args)
+    name, already = _admin(lambda conn, user: admin.transfer_owner(conn, admin.find_org(conn, args.org), user), args)
     print(f"{args.email} {'was already' if already else 'is now'} an owner of «{name}».")
 
 
 def run_backup(args):
     from .backup import BackupError, backup
 
-    data_dir = _data_dir()
-    dest = args.dir or str(data_dir / "backups")
+    try:
+        settings = config.from_env()
+    except config.ConfigError as exc:
+        sys.exit(f"secretbroker-server: {exc}")
+    data_dir = settings.data_dir
+    dest = args.dir or str(settings.backups_path)
+    keep = args.keep or settings.backup_keep
     while True:
         try:
-            path, pruned = backup(data_dir, dest, args.keep)
+            path, pruned = backup(data_dir, dest, keep)
             print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} backup written: {path}"
                   + (f" ({len(pruned)} old one(s) deleted)" if pruned else ""), flush=True)
             wait = args.every * 3600
@@ -235,6 +235,7 @@ def main(argv=None):
     run.set_defaults(func=serve)
     invite = sub.add_parser("create-invite", help="print a single-use signup token")
     invite.add_argument("--days", type=int, default=7, choices=range(1, 91), metavar="1-90")
+    invite.add_argument("--email", help="only this e-mail can register with it")
     invite.set_defaults(func=create_invite)
     verify = sub.add_parser("verify-email", help="mark an account's e-mail as verified (servers without SMTP)")
     verify.add_argument("email")
@@ -258,8 +259,8 @@ def main(argv=None):
     owner.add_argument("email")
     owner.set_defaults(func=transfer_owner)
     save = sub.add_parser("backup", help="write a consistent backup (database + server secret) and prune old ones")
-    save.add_argument("--dir", help="where to write it (default: SB_DATA_DIR/backups)")
-    save.add_argument("--keep", type=int, default=14, help="how many backups to keep (default 14)")
+    save.add_argument("--dir", help="where to write it (default: SB_BACKUP_DIR, or SB_DATA_DIR/backups)")
+    save.add_argument("--keep", type=int, default=0, help="how many backups to keep (default: SB_BACKUP_KEEP, 14)")
     save.add_argument("--every", type=float, default=0, metavar="HOURS",
                       help="keep running and make one every HOURS (the Compose backup service uses 24)")
     save.set_defaults(func=run_backup)

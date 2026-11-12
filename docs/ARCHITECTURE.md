@@ -438,7 +438,8 @@ item says and what is deleted is signed with the author's Ed25519 key and checke
 
 * Python, Starlette + uvicorn (already dependencies of `mcp`), stdlib `sqlite3` in WAL mode. Plain SQL kept
   Postgres-compatible for a later backend. Package `server/secretbroker_server`, its own `pyproject.toml`, no Windows
-  dependencies. Docker image + `docker-compose.yml` with Caddy for TLS.
+  dependencies. Two ways to run it: `server/install-server.sh` (one command on a headless Ubuntu 22.04/24.04,
+  systemd, Caddy, signed automatic updates; below) or the Docker image + `docker-compose.yml` with Caddy for TLS.
 * Configuration by environment: `SB_DATA_DIR`, `SB_SIGNUPS` (`open` | `invite` | `closed`), `SB_PUBLIC_URL`,
   `SB_ADMIN_EMAILS`, `SB_SESSION_DAYS` (30), `SB_INVITE_DAYS` (14), `SB_MAX_INVITES_PER_HOUR` (30), `SB_MIN_CLIENT`;
   the rest in 4.1 and `server/README.md`, which also covers hosting (VPS, own PC through a tunnel), backups and
@@ -446,6 +447,34 @@ item says and what is deleted is signed with the author's Ed25519 key and checke
 * Hosting: the image runs as an unprivileged user; Compose runs it read-only, without capabilities, with a daily
   `backup` service (14 kept) and `GET /api/v1/health` as the healthcheck. Data files are created `600` in `700`
   folders.
+* **Headless install** (`install-server.sh`, `curl -fsSL …/releases/latest/download/install-server.sh | sudo bash`).
+  It installs one self-contained archive, `secretbroker-server-<v>-linux-x86_64.tar.gz` (`tools/build_server.sh`:
+  python-build-standalone with the server and the hash-pinned `requirements/server.txt` and `sign.txt` installed into it; Ubuntu 22.04's
+  python3 is 3.10, and nothing is fetched from PyPI on the server), only after its Ed25519 signature verifies with
+  the release key (`openssl pkeyutl`; the same key and message as the desktop updater). Layout:
+  `/opt/secretbroker-server/versions/<v>/` with the links `current` and `previous`; settings in
+  `/etc/secretbroker-server/server.env` (root, `600`); data in `/var/lib/secretbroker-server` (`StateDirectory`,
+  `700`, account `secretbroker-server`). Units: `secretbroker-server.service` (listens on `127.0.0.1:SB_PORT`,
+  sandboxed: `ProtectSystem=strict`, `NoNewPrivileges`, no capabilities, `@system-service` system calls, private
+  /tmp and devices; `systemd-analyze security` rates it 1.4), `secretbroker-server-backup.{service,timer}` (daily,
+  `SB_BACKUP_KEEP` kept) and `secretbroker-server-update.{service,timer}`. Caddy from its official apt repository
+  proxies `SB_DOMAIN` with automatic HTTPS; `--local` leaves Caddy out (a tunnel, or tests). It prints a signup
+  token bound to the admin's e-mail (`create-invite --email`), so nobody else can register that address first.
+  Running it again repairs and upgrades; `--uninstall [--purge]` removes it. `sudo secretbroker-server <command>`
+  runs the command line as the server's account with its settings (`restore` stops and starts the service around it).
+* **Signed automatic updates** (`secretbroker_server/updater.py`, as root, daily timer). It reads `/releases/latest`
+  (or `SB_UPDATE_SOURCE`) and takes the server artifact for its processor; only if it is newer than what runs, it
+  downloads it and its `.sig` (GitHub hosts only, 200 MB at most) and verifies the signature over
+  `"SecretBroker release\0" + version + "\0" + SHA-256` with the built-in key (plus `SB_UPDATE_TRUST`, for forks and
+  CI) before unpacking anything; it checks the unpacked `VERSION` is the signed one, backs up through the backup
+  unit, re-points `current`, installs the version's units if they changed, restarts, and waits up to a minute for
+  `/health` ok and `/info` reporting the new version. Otherwise it rolls back: the previous version and the database
+  from the backup it just took (the new version may have migrated it; at most that minute of writes is lost, and the
+  apps push their newer edits again), and it remembers the failed version so it is not retried until a newer one
+  exists. Never a downgrade, never an unsigned file. Its result goes to `/var/lib/secretbroker-updater/status.json`
+  (root's; the server only reads it, for the overview). On or off: the app's choice (`PUT /admin/settings
+  {auto_update}`, kept in `SB_DATA_DIR/settings.json`) wins over `SB_AUTO_UPDATE` (default on); when off it still
+  checks, to report what is available.
 * Security: HTTPS expected (refuses non-TLS `SB_PUBLIC_URL` unless `SB_ALLOW_HTTP=1` for local tests), bearer tokens
   stored as SHA-256, login rate limiting per IP and per e-mail, constant-time compares, uniform `prelogin` answers for
   unknown e-mails (deterministic fake salt) to avoid account enumeration, request size limits, strict JSON validation,
@@ -495,6 +524,19 @@ item says and what is deleted is signed with the author's Ed25519 key and checke
 | `PUT /collections/{cid}/items/{iid}` | `{ciphertext, key_version, base_revision}` → `{revision}` / `409 {revision}` (edit; `409 needs_rekey` while the collection waits for a re-key; `413 collection_full` past the quota) |
 | `DELETE /collections/{cid}/items/{iid}` | `{base_revision, deletion?: {by, seq, signature}}` → `{revision}` (edit; `429` past `SB_MAX_DELETES_PER_HOUR`) |
 | `GET /orgs/{oid}/events?before=` | → `[{time, actor, action, target}]` (admin) |
+| `GET /admin/overview` | → `{version, latest, updates: {auto, updater, last_check, last_result, detail}, uptime_s, counts: {users, orgs, collections, items, disabled, unverified}, db_bytes, backups: {last, count, keep}, mail, signups, verification, restore: "cli", install: systemd|docker|other, restore_command: [str], name, public_url, api, min_client}` (`install` from `SB_INSTALL`, set by install-server.sh and the Docker image; `restore_command` the exact lines to restore a backup there, `<file>` the backup's name) (`latest` and `updates` from the updater's last run, `last_result` one of `updated`, `up_to_date`, `disabled`, `skipped`, `refused`, `rolled_back`, `error`; `updater` false without one, e.g. Docker) |
+| `GET /admin/users` | → `[{id, email, name, verified, admin, disabled, created, last_seen, orgs: [{id, name, role, status}]}]` |
+| `POST /admin/users/{uid}/disable` | `{}` → `{left: [{org, name, collections}], held: [{org, name, reason: last_owner|last_manager, collections}]}` (`400 last_admin` for the last server admin) |
+| `POST /admin/users/{uid}/enable` | `{}` → `{}` |
+| `POST /admin/users/{uid}/verify` | `{}` → `{}` |
+| `DELETE /admin/users/{uid}` | → `{}`; `400 last_owner {orgs: [{id, name}], collections}` or `400 last_manager {orgs, collections}`, changing nothing; `400 last_admin` |
+| `GET /admin/orgs` | → `[{id, name, created, members, pending, collections, direct, owners: [{id, email, name}]}]` |
+| `POST /admin/orgs/{oid}/owner` | `{user_id}` → `{}` (`400 not_member` unless a confirmed member, `400 disabled`) |
+| `GET /admin/backups` | → `[{file, at, bytes}]`, newest first (file names only) |
+| `POST /admin/backups` | `{}` → `{file, at, bytes}` (a backup now; `503 backup_failed`) |
+| `POST /admin/invites` | `{days?, email?}` → `{token, expires}` (a single-use signup token; with `email`, for that address only) |
+| `PUT /admin/settings` | `{signups?: open|invite|closed, auto_update?: bool}` → `{}` |
+| `GET /admin/events?before=` | → `[{id, time, actor, actor_email, via: api|cli, action, target, detail}]` (the server admin log, newest first, 100 a page) |
 
 Errors: `{"error": "<message>", "code": "<code>"}` with proper HTTP status (400 invalid, 401 auth, 403 forbidden,
 404 not found, 409 conflict, 413 too large, 429 rate limited).
@@ -543,13 +585,26 @@ Implementation notes (`server/`, binding for clients):
   target the e-mail); server-wide `user.disable`, `user.enable`, `user.delete`.
 * **Operations.** `secretbroker-server backup [--dir] [--keep N] [--every HOURS]` (SQLite online backup of the
   database plus `server_secret` in one zip, pruned to the newest N) and `restore <file>` (refused while `serve` holds
-  its lock on the data folder; the current files are moved to `before-restore-<time>/`). The schema (now 3: disabled
-  accounts, invite expiry) is upgraded on start from any earlier version.
+  its lock on the data folder; the current files are moved to `before-restore-<time>/`). The schema (now 4: the
+  server admin log and signup tokens bound to one e-mail; 3: disabled accounts, invite expiry) is upgraded on start
+  from any earlier version. Backups go to `SB_BACKUP_DIR` (default `SB_DATA_DIR/backups`), `SB_BACKUP_KEEP` (14) kept.
 * **Extra endpoints.** `DELETE /invites/{id}` → `{}` (the invitee declines, or an org admin withdraws it).
-  `POST /admin/invites` `{days?}` → `{token, expires}` (server admin: a single-use signup token).
+* **Server admin API** (`/admin/...`, `admin_api.py`, for the desktop app's server panel). Every endpoint needs the
+  session of a server admin (`users.is_admin` or an `SB_ADMIN_EMAILS` address) and answers `403 forbidden` to anyone
+  else before looking at anything (unknown ids included); for admins, unknown ids are `404`. The logic is
+  `admin.py`, shared with the command line (`users`, `disable-user`, `enable-user`, `delete-user`,
+  `transfer-owner`, `verify-email`), so the two can't diverge: the same refusals, the same org events
+  (`member.disable`, `member.delete`, `member.role` by nobody). Every admin action, from either, also goes to the
+  server admin log (`admin_events`: the actor and their e-mail, `via`, action, target, a metadata detail), read with
+  `GET /admin/events`. Through the API the last server admin who can sign in can't disable or delete itself
+  (`last_admin`). Limits per admin account: 120 requests a minute, 30 changes per 10 minutes, 6 backups an hour
+  (`429`). Restoring stays on the command line (it needs the server stopped): `restore: "cli"` in the overview.
+* **Settings from the app.** `PUT /admin/settings` writes `SB_DATA_DIR/settings.json` and applies at once; on every
+  start those values win over `SB_SIGNUPS` and `SB_AUTO_UPDATE` (precedence: the app's choice, then the environment,
+  then the default). Nothing else can be changed from the app (no addresses, keys, update source or SMTP).
 * **Signups.** `open`: anyone; the first account becomes server admin. `invite`: `invite_token` must be a signup
-  token (`POST /admin/invites` or `secretbroker-server create-invite`) or the id of a pending org invite for that
-  same e-mail. `closed`: nobody. E-mails in `SB_ADMIN_EMAILS` are server admins and register (in any mode, `closed`
+  token (`POST /admin/invites` or `secretbroker-server create-invite`; one made for an `email` works only for that
+  address) or the id of a pending org invite for that same e-mail. `closed`: nobody. E-mails in `SB_ADMIN_EMAILS` are server admins and register (in any mode, `closed`
   included) only with a signup token, normally from the server's command line (`secretbroker-server
   create-invite`), so nobody can take the address first.
 * **E-mail verification** (`SB_EMAIL_VERIFICATION=required`, the default). `register` answers `{user_id, verified,

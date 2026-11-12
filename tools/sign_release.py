@@ -5,7 +5,8 @@
     python tools/sign_release.py --public-key <base64> ...   # release.yml's dry runs: a throwaway key
 
 Signing writes <installer>.sig next to each installer (dist/SecretBroker-Setup-<version>.exe,
-dist/secretbroker_<version>_amd64.deb, dist/SecretBroker-<version>-macos-<arch>.pkg) and checks it against the
+dist/secretbroker_<version>_amd64.deb, dist/SecretBroker-<version>-macos-<arch>.pkg, and the team server's
+dist/secretbroker-server-<version>-linux-x86_64.tar.gz and dist/install-server.sh) and checks it against the
 public key built into secretbroker/update.py, so a release can never ship with a mismatched key. --verify checks
 existing .sig files against that key, as the updater will.
 
@@ -79,7 +80,8 @@ def main():
             sys.exit("Falta UPDATE_SIGNING_KEY")
 
     for installer in installers:
-        if version not in installer.name:
+        # install-server.sh has no version in its name; its signature still binds the release's version.
+        if version not in installer.name and installer.name != "install-server.sh":
             sys.exit(f"{installer.name} no es de la versión {version}")
         data = installer.read_bytes()
         sig_path = installer.with_name(installer.name + ".sig")
