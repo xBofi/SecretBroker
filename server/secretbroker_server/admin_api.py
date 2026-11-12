@@ -59,12 +59,12 @@ def read_update_status(settings):
 def restore_command(settings):
     """The exact command lines that restore a backup on this installation (`<file>`: the backup's file name)."""
     if settings.install == "systemd":
-        return [f"sudo secretbroker-server restore {settings.backups_path}/<file>"]
+        return [f"sudo secretbroker-server restore {settings.backups_path.as_posix()}/<file>"]
     if settings.install == "docker":
         return ["docker compose stop server backup",
                 "docker compose run --rm --no-deps backup secretbroker-server restore /backups/<file>",
                 "docker compose up -d"]
-    return ["# stop the server first", f"secretbroker-server restore {settings.backups_path}/<file>",
+    return ["# stop the server first", f"secretbroker-server restore {settings.backups_path.as_posix()}/<file>",
             "# then start it again"]
 
 

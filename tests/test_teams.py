@@ -23,7 +23,8 @@ HOME = Path(tempfile.mkdtemp(prefix="secretbroker-teams-test-"))
 os.environ["SECRETBROKER_HOME"] = str(HOME / "default")  # must be set before importing secretbroker
 os.environ.update(SB_ALLOW_HTTP="1", SB_PUBLIC_URL="http://127.0.0.1", SB_SIGNUPS="open",
                   SB_DATA_DIR=str(HOME / "server"), SB_EMAIL_VERIFICATION="required", SB_SMTP_HOST="smtp.example",
-                  SB_SMTP_FROM="secrets@example.com", SB_MAX_DELETES_PER_HOUR="100")
+                  SB_SMTP_FROM="secrets@example.com", SB_MAX_DELETES_PER_HOUR="100",
+                  SB_INSTALL="systemd")  # as install-server.sh sets it: the admin overview names its restore command
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
 import uvicorn  # noqa: E402
