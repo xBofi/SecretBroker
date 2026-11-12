@@ -377,6 +377,7 @@ class MacTray(Tray):
         except Exception:
             log.info("menu bar icon: not a template image")
         self.available = True
+        log.info("menu bar icon: shown")  # "tray icon: ok" only says that start() returned (it waits 5 s at most)
 
     def _on_main(self, action):
         try:

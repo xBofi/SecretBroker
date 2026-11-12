@@ -26,7 +26,9 @@ updater only looks at published releases (`/releases/latest`), picks the asset o
 of its processor: `platform.INSTALLER_RE`) and installs it only if its `.sig` verifies.
 
 Before tagging, run `tests/test_gui.py` and `tests/test_browser.py` on a Windows desktop (they open the real app and a
-real browser; CI cannot).
+real browser; CI cannot on Windows). CI runs `test_gui.py` on Ubuntu (job `desktop-gui-ubuntu`, screenshots in the
+`gui-screenshots-ubuntu` artifact) and only a smoke check of the app on macOS (`macos-package`: the page loads and
+reaches the service, `sb` works, one screenshot), because WKWebView cannot be driven from outside.
 
 ## Builds without the owner's accounts are unsigned
 

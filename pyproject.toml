@@ -37,7 +37,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["websocket-client>=1.7"]  # tests/test_gui.py drives the app's page
+# tests/test_gui.py drives the app's page (DevTools Protocol) and, on Linux, finds and closes its window (X11)
+dev = ["websocket-client>=1.7", "python-xlib>=0.33; sys_platform == 'linux'"]
 
 [project.scripts]
 sb = "secretbroker.cli:main"

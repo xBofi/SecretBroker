@@ -1037,7 +1037,8 @@ def _let_windows_close(api, args):
 
 def _reopen_from_dock(api):
     """macOS: closing hides the window (the app keeps answering the AI); clicking the Dock icon brings it back,
-    as Mac apps do. pywebview's application delegate does not handle that, so it is added to its class."""
+    as Mac apps do, and quitting the app (Cmd+Q, the Dock, log out) quits it. pywebview's application delegate does
+    not handle the first and refuses the second while the window only hides, so both are set on its class."""
     import objc
     from AppKit import NSApplication
 
@@ -1045,10 +1046,22 @@ def _reopen_from_dock(api):
         threading.Thread(target=api.show, daemon=True).start()
         return True
 
+    def terminate(self, _app):
+        # Quit from the app menu (Cmd+Q) or the Dock, logging out or shutting down: the app quits. pywebview asks
+        # the window's closing handler, which only hides the window, and macOS reported that SecretBroker had
+        # cancelled the log out. Only the window's close button keeps it running (like _let_windows_close).
+        api._quitting = True
+        return 1  # NSTerminateNow
+
     delegate = NSApplication.sharedApplication().delegate()
     if delegate is not None:
-        objc.classAddMethods(type(delegate), [objc.selector(
-            reopen, selector=b"applicationShouldHandleReopen:hasVisibleWindows:", signature=b"Z@:@Z")])
+        cls = type(delegate)
+        objc.classAddMethods(cls, [
+            objc.selector(reopen, selector=b"applicationShouldHandleReopen:hasVisibleWindows:", signature=b"Z@:@Z")])
+        # The same signature as pywebview's own method (its type encoding differs between PyObjC versions).
+        existing = getattr(cls, "applicationShouldTerminate_", None)
+        signature = getattr(existing, "signature", None) or b"Q@:@"
+        objc.classAddMethods(cls, [objc.selector(terminate, selector=b"applicationShouldTerminate:", signature=signature)])
 
 
 _link_handler = None  # macOS: kept alive for as long as the app runs

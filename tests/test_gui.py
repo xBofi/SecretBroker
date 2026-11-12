@@ -1,15 +1,16 @@
-"""Drive the real desktop app (window, WebView2 page, icon next to the clock, MCP over HTTP) against a
+"""Drive the real desktop app (window, web page, icon next to the clock, MCP over HTTP) against a
 throwaway vault, and save screenshots to look at.
 
-    python tests/test_gui.py            (needs: pip install websocket-client)
+    python tests/test_gui.py            (needs: pip install ".[dev]")
 
 Runs as a separate instance (its own SECRETBROKER_HOME, window, settings, ports): the installed
-SecretBroker and the user's vault are never touched. The page is driven through WebView2's
-remote debugging protocol, enabled only for this test.
+SecretBroker and the user's vault are never touched. The page is driven through the Chrome DevTools
+Protocol of the web view (WebView2 on Windows, QtWebEngine on Linux), enabled only for this test; what
+differs between systems (processes, the window, the clipboard) is in tests/gui_desktop.py.
+On Linux it needs an X display (a desktop session, or xvfb-run in CI).
 """
 
 import base64
-import ctypes
 import http.server
 import json
 import os
@@ -20,10 +21,12 @@ import tempfile
 import threading
 import time
 import urllib.request
-from ctypes import wintypes
 from pathlib import Path
 
 import websocket
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import gui_desktop as desktop  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 HOME = Path(tempfile.mkdtemp(prefix="secretbroker-gui-"))
@@ -68,40 +71,6 @@ def wait_for(condition, seconds=20, step=0.2):
             pass
         time.sleep(step)
     return None
-
-
-# ----------------------------------------------------------------- the window (Win32)
-
-user32 = ctypes.windll.user32
-
-
-def app_window(pid):
-    found = []
-
-    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-    def visit(hwnd, _):
-        owner = wintypes.DWORD()
-        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
-        title = ctypes.create_unicode_buffer(256)
-        user32.GetWindowTextW(hwnd, title, 256)
-        if owner.value == pid and title.value == "SecretBroker":
-            found.append(hwnd)
-        return True
-
-    user32.EnumWindows(visit, 0)
-    return found[0] if found else None
-
-
-def real_pid(pid):
-    """A venv's pythonw.exe starts the real interpreter as a child process."""
-    out = subprocess.run(["powershell", "-NoProfile", "-Command",
-                          f"(Get-CimInstance Win32_Process -Filter 'ParentProcessId={pid}').ProcessId"],
-                         capture_output=True, text=True).stdout.split()
-    return int(out[0]) if out else pid
-
-
-def visible(hwnd):
-    return bool(user32.IsWindowVisible(hwnd)) and not user32.IsIconic(hwnd)
 
 
 # ----------------------------------------------------------------- the page (Chrome DevTools Protocol)
@@ -220,7 +189,7 @@ def fake_psql():
     folder = HOME / "bin"
     folder.mkdir()
     (folder / "fake_psql.py").write_text(FAKE_PSQL, encoding="utf-8")
-    (folder / "psql.cmd").write_text(f'@"{sys.executable}" "%~dp0fake_psql.py" %*\r\n', encoding="utf-8")
+    desktop.fake_command(folder, "psql", "fake_psql.py")
     (folder / "db_password.txt").write_text("OLD-pg-pass-1", encoding="utf-8")
     return folder
 
@@ -253,26 +222,26 @@ def main():
     fake_profile()
     env = {**os.environ, "SECRETBROKER_HOME": str(HOME), "SECRETBROKER_MCP_PORT": str(mcp_port),
            "SECRETBROKER_PROFILE": str(PROFILE), "PATH": f"{fake_psql()}{os.pathsep}{os.environ.get('PATH', '')}",
-           "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS": f"--remote-debugging-port={devtools} --disable-background-timer-throttling "
-           "--disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion"}
+           **desktop.browser_env(devtools)}
+    if desktop.NAME == "linux":  # «start with the session» writes its .desktop file here, not in the user's own
+        env["XDG_CONFIG_HOME"] = str(HOME / "xdg-config")
     os.environ.update({k: env[k] for k in ("SECRETBROKER_HOME", "SECRETBROKER_MCP_PORT")})
     sys.path.insert(0, str(ROOT))
     from secretbroker import client, integrations
 
-    pythonw = Path(sys.executable).with_name("pythonw.exe")
     # The app starts the service with -I, which would import the installed (editable) package: start the
     # service of this checkout first, so the test drives the code next to it.
-    subprocess.Popen([str(pythonw), "-m", "secretbroker.service"], cwd=ROOT, env=env)
+    desktop.start(["-m", "secretbroker.service"], ROOT, env)
     wait_for(lambda: client.request("status", timeout=2), 20)
-    app = subprocess.Popen([str(pythonw), "-m", "secretbroker.app"], cwd=ROOT, env=env)
+    app = desktop.start(["-m", "secretbroker.app"], ROOT, env)
     try:
         run(app, env, devtools, api_port, client, integrations)
     finally:
         if app.poll() is None:
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(app.pid)], capture_output=True)
+            desktop.stop_tree(app)
         service_pid = wait_for(lambda: json.loads((HOME / "public" / "broker.json").read_text())["pid"], 2)
         if service_pid:
-            subprocess.run(["taskkill", "/F", "/PID", str(service_pid)], capture_output=True)
+            desktop.stop_pid(service_pid)
         api_server.shutdown()
         team_server.should_exit = True
     print(f"\n{'ALL PASSED' if not failures else f'{failures} FAILED'}  (screenshots: {SHOTS})")
@@ -282,9 +251,9 @@ def main():
 def run(app, env, devtools, api_port, client, integrations):
     print("Window")
     page = Page(devtools)
-    pid = real_pid(app.pid)
-    hwnd = wait_for(lambda: app_window(pid))
-    check(hwnd and visible(hwnd), "the window opens")
+    pid = desktop.app_pid(app)
+    hwnd = wait_for(lambda: desktop.find_window(pid))
+    check(hwnd and desktop.visible(hwnd), "the window opens")
     check(wait_for(lambda: "Tus claves, usadas sin ser vistas" in page.text()), "first screen: create a vault")
     welcome = page.text()
     check("Apruebas con un clic, una vez o para todo el día" in welcome and "este equipo" not in welcome
@@ -304,8 +273,8 @@ def run(app, env, devtools, api_port, client, integrations):
     hello = page.js("!!state.info.hello_supported")
     first = page.js("document.querySelector('.choice input:checked').value")
     check(first == ("hello" if hello else "session") and "Recomendado" in page.js("document.querySelector('.choice.active').innerText"),
-          f"preselected: {'Windows Hello' if hello else 'Abrir con mi sesión de Windows'} ({first})")
-    check("no de alguien que use tu sesión de Windows" in page.text(), "the session unlock is explained honestly")
+          f"preselected: {'Windows Hello' if hello else desktop.os_text('Abrir con mi sesión de Windows')} ({first})")
+    check(desktop.os_text("no de alguien que use tu sesión de Windows") in page.text(), "the session unlock is explained honestly")
     page.shot("01-setup-unlock")
     page.js("document.querySelector('.choice input[value=master]').click()")  # this test types the password on purpose
     page.click("Continuar")
@@ -332,7 +301,7 @@ def run(app, env, devtools, api_port, client, integrations):
     page.shot("02-credentials")
 
     print("Screens")
-    for view, expected, name in (("access", "Qué puede hacer la IA", "03-access"), ("settings", "Abrir con mi sesión de Windows", "04-settings"),
+    for view, expected, name in (("access", "Qué puede hacer la IA", "03-access"), ("settings", desktop.os_text("Abrir con mi sesión de Windows"), "04-settings"),
                                  ("activity", "Actividad", "05-activity"), ("exposure", "Copias encontradas", "06-exposure")):
         page.js(f"state.view = '{view}'; renderMain()")
         check(wait_for(lambda: expected in page.text(), 10), f"{view} renders")
@@ -363,7 +332,7 @@ def run(app, env, devtools, api_port, client, integrations):
     page.click("Revisar ahora")
     check(wait_for(lambda: "Expuesta" in page.text() and "búsqueda: hoy" in page.text() and "proveedores: hoy" in page.text(), 60),
           "it searches for copies and tests the keys: the key the AI saw is found, and Salud says when it looked")
-    check("Una IA la ha visto" in page.text() and page.click("Rotar con ayuda", ".exposure-card button") is not None,
+    check(wait_for(lambda: "Una IA la ha visto" in page.text(), 10) and page.click("Rotar con ayuda", ".exposure-card button") is not None,
           "the exposed credential's card says an AI saw it")
     page.js("document.querySelector('.modal') && document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
     page.click("Descartar")
@@ -463,9 +432,11 @@ def run(app, env, devtools, api_port, client, integrations):
           "the service made the new one and keeps it as pending: the page never has it")
     check("«psql»" in page.text(), "it says why the app can't apply it here (psql not allowed)")
     page.js("document.querySelectorAll('.modal .prop .btn.icon-only')[1].click()")
-    clipboard = wait_for(lambda: (lambda c: c if new in c else None)(subprocess.run(
-        ["powershell", "-NoProfile", "-Command", "Get-Clipboard"], capture_output=True, text=True).stdout), 10)
-    check(clipboard and clipboard.strip() == f"""ALTER ROLE "shop_app" WITH PASSWORD '{new}';""", "«Copiar» puts the command with it in the clipboard")
+    if desktop.read_clipboard() is None:
+        desktop.skip("«Copiar» puts the command in the clipboard: no way to read the clipboard on this desktop")
+    else:
+        clipboard = wait_for(lambda: (lambda c: c if c and new in c else None)(desktop.read_clipboard()), 10)
+        check(clipboard and clipboard.strip() == f"""ALTER ROLE "shop_app" WITH PASSWORD '{new}';""", "«Copiar» puts the command with it in the clipboard")
     page.shot("09-rotate-database")
     page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
     check(wait_for(lambda: "queda guardada aquí como pendiente" in page.text(), 5), "closing asks first, and says the new one is kept")
@@ -546,8 +517,11 @@ def run(app, env, devtools, api_port, client, integrations):
                         "url": "https://oauth2.googleapis.com"}, "policy": {"approval": "session"}}
     page.js(f"api().call('save_entry', {{ entry: {json.dumps(oauth)} }}, {{ kind: 'master_password', value: {json.dumps(MASTER)} }})")
     page.js("state.view = 'credentials'; state.selected = 'g-oauth'; loadEntries().then(renderMain)")
-    check(wait_for(lambda: "Rotar con ayuda" in page.text(), 10), "an OAuth client secret offers the guided rotation")
+    # Its own detail, not the one still on screen while the list reloads (that one has «Rotar con ayuda» too).
+    check(wait_for(lambda: "Google OAuth" in (page.js("(document.querySelector('.detail h2') || {}).textContent") or "")
+                   and "Rotar con ayuda" in page.text(), 10), "an OAuth client secret offers the guided rotation")
     page.click("Rotar con ayuda")
+    wait_for(lambda: "1 · Dónde se usa" in page.text(), 10)
     page.click("Siguiente")
     check(wait_for(lambda: "No borres el cliente OAuth" in page.text(), 10), "step 2 warns not to delete the client")
     page.click("Ya la tengo")
@@ -688,19 +662,15 @@ def run(app, env, devtools, api_port, client, integrations):
     import_flow(page, client)
 
     print("Close, reopen, quit")
-    # The X button. (A plain WM_CLOSE from another program, like the installer or Task Manager, quits.)
-    user32.PostMessageW(hwnd, 0x0112, 0xF060, 0)  # WM_SYSCOMMAND SC_CLOSE
-    check(wait_for(lambda: not user32.IsWindowVisible(hwnd), 5) and app.poll() is None, "closing hides the window, the app keeps running")
-    check(wait_for(lambda: client.request("status")["gui_connected"], 5), "hidden, it still answers the AI")
-    subprocess.Popen([str(Path(sys.executable).with_name("pythonw.exe")), "-m", "secretbroker.app"], cwd=ROOT, env=env).wait(20)
-    check(wait_for(lambda: visible(hwnd), 5), "starting it again shows the running window")
+    close_and_reopen(app, hwnd, client, env)
+    session_checks(page)
 
-    print("Open with the Windows session")
+    print(desktop.os_text("Open with the Windows session"))
     enabled = page.js(f"api().enable_session_unlock({{ kind: 'master_password', value: {json.dumps(MASTER)} }})")
-    check(enabled and enabled["ok"] and (HOME / "user" / "session.bin").exists(), "turned on; the token is kept for this Windows user")
+    check(enabled and enabled["ok"] and (HOME / "user" / "session.bin").exists(), desktop.os_text("turned on; the token is kept for this Windows user"))
     page.js("lockNow()")
-    check(wait_for(lambda: "Abrir con mi sesión de Windows" in page.text(), 5), "the lock screen offers one click")
-    check(page.js("document.querySelector('.auth .btn.primary').innerText.trim()") == "Abrir con mi sesión de Windows"
+    check(wait_for(lambda: desktop.os_text("Abrir con mi sesión de Windows") in page.text(), 5), "the lock screen offers one click")
+    check(page.js("document.querySelector('.auth .btn.primary').innerText.trim()") == desktop.os_text("Abrir con mi sesión de Windows")
           and "Contraseña maestra" not in page.js("document.querySelector('.auth').innerText")
           and page.js("document.activeElement === document.querySelector('.auth .btn.primary')"),
           "one primary way, focused; the password is folded under «Otras formas de desbloquear»")
@@ -709,7 +679,7 @@ def run(app, env, devtools, api_port, client, integrations):
     check(wait_for(lambda: page.js("!!document.querySelector('details.other-unlock input[type=password]').offsetParent"), 5),
           "the other ways are one click away")
     page.shot("09-lock-other-ways")
-    page.click("Abrir con mi sesión de Windows")
+    page.click(desktop.os_text("Abrir con mi sesión de Windows"))
     check(wait_for(lambda: client.request("status")["state"] == "unlocked", 10), "one click opens it, no password")
 
     print("Backups")
@@ -731,6 +701,53 @@ def run(app, env, devtools, api_port, client, integrations):
     except websocket.WebSocketException:
         pass  # the page goes away with the app
     check(wait_for(lambda: app.poll() is not None, 10), "«Salir» quits the app")
+
+
+# ----------------------------------------------------------------- the desktop around the page
+
+
+def close_and_reopen(app, window, client, env):
+    """The X button keeps the app running (it answers the AI); starting the app again shows the same window.
+    Windows and a Linux desktop with an icon next to the clock hide the window; a Linux desktop without one
+    (GNOME without the AppIndicator extension) minimizes it, so that it can still be found in the dock."""
+    log = HOME / "user" / "app.log"
+    no_tray = desktop.NAME == "linux" and "no system tray here" in (log.read_text(encoding="utf-8") if log.exists() else "")
+    desktop.close_window(window)
+    if not no_tray:
+        check(wait_for(lambda: not desktop.shown(window), 5) and app.poll() is None, "closing hides the window, the app keeps running")
+    elif desktop.can_minimize():
+        check(wait_for(lambda: desktop.minimized(window), 5) and app.poll() is None,
+              "no icon next to the clock: closing minimizes the window, the app keeps running")
+    else:
+        time.sleep(1)
+        check(app.poll() is None and desktop.shown(window), "no icon next to the clock: closing keeps the window and the app")
+        desktop.skip("minimizing: this display has no window manager that minimizes")
+    check(wait_for(lambda: client.request("status")["gui_connected"], 5), "hidden, it still answers the AI")
+    desktop.start(["-m", "secretbroker.app"], ROOT, env).wait(20)
+    check(wait_for(lambda: desktop.visible(window), 5), "starting it again shows the running window")
+
+
+def session_checks(page):
+    """What the app does with the desktop session beyond the window: starting with it, and its lock screen."""
+    if desktop.NAME != "linux":
+        desktop.skip("«start with the session»: on Windows it is the user's own Run value, not a test instance's")
+        return
+    print("Start with the session, the lock screen (Linux)")
+    autostart = HOME / "xdg-config" / "autostart"
+    page.js("api().set_start_with_windows(true)")
+    files = wait_for(lambda: list(autostart.glob("secretbroker*.desktop")), 5)
+    content = files[0].read_text(encoding="utf-8") if files else ""
+    check(files and "Exec=" in content and "secretbroker.app --background" in content and "Type=Application" in content,
+          f"«Arrancar con Linux» writes an XDG autostart entry ({[f.name for f in files or []]})")
+    page.js("api().set_start_with_windows(false)")
+    check(wait_for(lambda: not list(autostart.glob("secretbroker*.desktop")), 5), "and turning it off removes it")
+    sys.path.insert(0, str(ROOT))
+    from secretbroker import platform
+    started = time.monotonic()
+    locked = platform.session_locked()
+    check(locked is False and time.monotonic() - started < 15,
+          f"the lock screen state (logind, else the screensaver) reads «not locked» here, without waiting ({locked})")
+    desktop.skip("locking the desktop session itself (Win+L, loginctl lock-session): test_e2e simulates it")
 
 
 # ----------------------------------------------------------------- other languages
@@ -815,7 +832,7 @@ def english_flow(page, client):
     leaks = spanish_leaks(page)
     check(not leaks, f"no Spanish left on the lock screen ({leaks[:5]})")
     calm_shot(page, "en-09-lock")
-    page.click("Open with my Windows session")
+    page.click(desktop.os_text("Open with my Windows session"))
     check(wait_for(lambda: client.request("status")["state"] == "unlocked", 10), "unlocked again (in English)")
     page.js("api().set_pref('language', 'es').then(() => applyLanguage('es')).then(renderMain)")
     check(wait_for(lambda: "Credenciales" in page.text(), 10), "and back to Spanish")
@@ -857,7 +874,7 @@ def other_languages(page, client):
         time.sleep(0.8)
         clipped |= set(page.js(CLIPPED) or [])
         calm_shot(page, f"{lang}-09-lock")
-        page.click(page.js("t('common.open_with_my_windows_session')"))
+        page.click(page.js("osText(t('common.open_with_my_windows_session'))"))
         check(wait_for(lambda: client.request("status")["state"] == "unlocked", 10), f"unlocked again ({lang})")
         check(not clipped, f"no text overflows its box in {lang} ({sorted(clipped)[:6]})")
     page.js("api().set_pref('language', 'es').then(() => applyLanguage('es')).then(renderMain)")
@@ -956,7 +973,7 @@ def connect_ai_flow(page, client):
     """The last step of the first run: connect an AI app with one click and see its first request arrive."""
     print("Connect your AI")
     (PROFILE / ".cursor").mkdir(parents=True, exist_ok=True)  # Cursor and VS Code are «installed» in the fake profile
-    vscode = PROFILE / "AppData" / "Roaming" / "Code" / "User" / "mcp.json"
+    vscode = desktop.appdata(PROFILE) / "Code" / "User" / "mcp.json"
     vscode.parent.mkdir(parents=True, exist_ok=True)
     vscode.write_text('{\n  // mine\n  "servers": {"other": {"type": "stdio", "command": "x"},},\n}\n', encoding="utf-8")
     # The pause test's last redraws are over: the status is in, nothing is open, and the page has settled.
@@ -1333,13 +1350,13 @@ def friction_flow(page, client):
     check(page.js("window.__prompts") == 0 and "Confirma que eres tú" not in page.text(),
           f"1 password over the session: unlock, edit, reveal, copy, settings ({page.js('window.__prompts')} more asked)")
 
-    print("Opened with the Windows session: a proof once")
+    print(desktop.os_text("Opened with the Windows session: a proof once"))
     enabled = page.js("api().enable_session_unlock(null)")
     check(enabled and enabled["ok"] and page.js("window.__prompts") == 0, "turning on the session unlock is one click too")
     page.js("lockNow()")
     wait_for(lambda: "SecretBroker está bloqueado" in page.text(), 10)
     page.js("document.querySelector('details.other-unlock') && (document.querySelector('details.other-unlock').open = true)")
-    page.click("Abrir con mi sesión de Windows")
+    page.click(desktop.os_text("Abrir con mi sesión de Windows"))
     check(wait_for(lambda: client.request("status")["state"] == "unlocked" and "Credenciales" in page.text(), 10), "opened without a password")
     page.js("state.view = 'credentials'; state.selected = 'echo-api'; renderMain()")
     wait_for(lambda: page.js("!!document.querySelector('.detail .prop button[title=Mostrar]')"), 5)
@@ -1354,7 +1371,7 @@ def friction_flow(page, client):
     check(wait_for(lambda: "se borra en" in page.text(), 10) and page.js("window.__prompts") == 1,
           "and from then on it is one click (one proof in all)")
 
-    print("Locked for inactivity, with the Windows session")
+    print(desktop.os_text("Locked for inactivity, with the Windows session"))
     page.js("api().call('set_settings', { settings: { auto_lock_minutes: 1 } })")
     check(wait_for(lambda: (lambda s: s["state"] == "locked" and s.get("lock_reason") == "idle")(client.request("status")), 100, 1),
           "after a minute without use it locks")
@@ -1488,8 +1505,7 @@ def teams_flow(page, env):
     calm_shot(page, "12-team-invite-link")
     page.js("renderView()")
     wait_for(lambda: page.js("[...document.querySelectorAll('.team-form input')].every((i) => !i.value)"), 5)
-    pythonw = Path(sys.executable).with_name("pythonw.exe")
-    subprocess.Popen([str(pythonw), "-m", "secretbroker.app", link], cwd=ROOT, env=env).wait(20)
+    desktop.start(["-m", "secretbroker.app", link], ROOT, env).wait(20)
     check(wait_for(lambda: page.js("[...document.querySelectorAll('.team-form input')].some((i) => i.value === 'ABC-123')"), 10),
           "opening the app with secretbroker://join… fills in the form of the running app")
     log = (HOME / "user" / "app.log").read_text(encoding="utf-8")

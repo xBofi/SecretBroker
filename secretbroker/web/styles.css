@@ -181,6 +181,10 @@ code, .mono { font-family: var(--font-mono); font-size: var(--fs-sm); }
 .btn.solid-danger { background: var(--danger); color: #fff; }
 .btn.lg { height: 40px; padding: 0 18px; font-size: var(--fs-md); }
 .btn.block { width: 100%; }
+/* A full-width button's long label (Greek, German, or a wider font: Linux has no Segoe UI) wraps inside it
+   instead of spilling out on both sides. One line looks as before. */
+.btn.block { white-space: normal; height: auto; min-height: 34px; padding-block: 6px; line-height: 1.3; text-align: center; }
+.btn.lg.block { min-height: 40px; }
 .btn.icon-only { width: 30px; height: 30px; padding: 0; background: transparent; color: var(--muted); }
 .btn.icon-only:hover { background: var(--fill); color: var(--text); }
 .link { background: none; border: none; color: var(--interactive); cursor: pointer; padding: 0; font-weight: var(--fw-medium); }
@@ -973,8 +977,11 @@ p, .help, .lead, .muted, .subtitle, .banner, .warning { overflow-wrap: break-wor
 .setting { flex-wrap: wrap; }
 .setting > .control { min-width: min(200px, 100%); max-width: 100%; }
 .setting > .control select.input { width: 248px; max-width: 100%; }  /* one width that holds «100 Verwendungen pro Stunde» */
-/* «1 item to check» runs to «1 пункт на проверку»: one line, with an ellipsis; the whole text is in its tooltip. */
-.sidebar-footer .state > span:last-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* «1 item to check» runs to «1 пункт на проверку» or «1 Sache zu prüfen», and wider still in Linux's fonts: up to two
+   lines, then an ellipsis; the whole text is in its tooltip. */
+.sidebar-footer .state { white-space: normal; }
+.sidebar-footer .state > span:last-child { min-width: 0; overflow: hidden; overflow-wrap: anywhere; line-height: 1.3;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .finding .source, .event .actor > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-grid-head > span { overflow-wrap: anywhere; hyphens: auto; line-height: 1.25; padding: 0 2px; }
 .language-select { width: auto; max-width: 220px; }
