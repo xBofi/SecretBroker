@@ -82,14 +82,35 @@ _MAC_WORDS = {
     "mt": ([(r"\b([Dd]an il-|[Dd]an l-istess )PC\b", r"\1Mac")],
            [(r"\bil-PC\b", "il-kompjuter"), (r"\bl-PC\b", "l-kompjuter"), (r"\bPC\b", "kompjuter")]),
     "eu": ([(r"\bPC (hon\w*)", r"Mac \1")], [(r"\bPC\b", "ordenagailu")]),
+    "nl": ([(r"\b([Dd]eze(?: zelfde)?|[Jj]e) PC\b", r"\1 Mac")], [(r"\bPC\b", "computer")]),
+    "da": ([(r"\b([Dd]enne(?: samme)?|[Dd]in) PC\b", r"\1 Mac")],
+           [(r"\bPC['’]en\b", "computeren"), (r"\bPC['’]s\b", "computers"), (r"\bPC\b", "computer")]),
     "ru": ([(r"\b([Ээ]т(?:от|ом|ого|ому|им)(?: же)?) ПК\b", r"\1 Mac")], []),
     "uk": ([(r"\b([Цц](?:ей|ьому|ього|им)(?: самому| самого| самий)?) ПК\b", r"\1 Mac")], []),
 }
 
 
+# The rules are written for «PC», but some languages write «pc» (Dutch, Danish) and a text may start with «Pc».
+# They match in any case, and the words they put in take the case style of the «PC» they replace: «pc» gives
+# «computer», «Pc» gives «Computer», «PC» the rule's own word. «Mac» is a name and stays «Mac».
+_PC = re.compile(r"\bpc\b", re.IGNORECASE)
+
+
+def _styled(word, like):
+    if word == "Mac" or like.isupper():
+        return word
+    if like.islower():
+        return word.lower()
+    return word[:1].upper() + word[1:]
+
+
 def _mac_text(text, rules):
     for pattern, replacement in rules[0] + rules[1]:
-        text = re.sub(pattern, replacement, text)
+        def sub(match, replacement=replacement):
+            found = _PC.search(match.group(0))
+            like = found.group(0) if found else "PC"
+            return match.expand(re.sub(r"[^\W\d_]+", lambda w: _styled(w.group(0), like), replacement))
+        text = re.sub(pattern, sub, text, flags=re.IGNORECASE)
     return text
 
 

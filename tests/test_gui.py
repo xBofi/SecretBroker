@@ -1602,6 +1602,27 @@ def recovery_dialogs(page, lang):
     page.click(t("open_modal.discard"), ".modal-foot button")
     check(wait_for(lambda: page.js("!document.querySelector('.modal')"), 5), "«Descartar» closes both")
 
+    page.js("showRecoveryCode('7K3QD-M2XHP-9WTRC-4NBVE-ZA6YG-1FJ8S', { used: true })")
+    check(wait_for(lambda: t("recovery_code.used") in page.text(), 5),
+          f"after recovering with the code, the new one says the old one was used and no longer works ({lang})")
+    leaks("the new code after a recovery")
+    calm_shot(page, f"{prefix}30-recovery-code-used")
+    page.click(t("recovery_code.done"))
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
+
+    for mail, name in ((True, "36-team-replace-code"), (False, "36-team-replace-admin")):
+        page.js(f"""(() => {{ const m = openModal({{ title: t('team_replace.title'),
+          body: teamConnectForm({{ server: 'https://equipo.example.com', email: 'kira@example.com', lockMode: true,
+            pending: {{ email: 'kira@example.com', mail: {json.dumps(mail)} }}, onDone: () => m.close() }}) }}); }})()""")
+        expected = t("team_replace.mail_text", email="kira@example.com") if mail else t("team_replace.no_mail_text", email="kira@example.com")
+        check(wait_for(lambda: expected in page.text(), 5)
+              and page.js("!!document.querySelector('.modal .team-form input[autocomplete=one-time-code]')"
+                          " && document.querySelector('.modal .team-form input[autocomplete=one-time-code]').offsetParent !== null") == mail,
+              f"a new account replacing a lost one proves the e-mail first ({'the e-mailed code' if mail else 'the server admin'}, {lang})")
+        leaks("the e-mail proof of a replacing account")
+        calm_shot(page, f"{prefix}{name}")
+        close_dialogs(page)
+
     page.js("resetTeamPassword()")
     check(wait_for(lambda: t("team_reset.lead") in page.text(), 5), f"a new password from this PC, in {lang}")
     leaks("the new password dialog")

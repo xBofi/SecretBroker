@@ -1056,6 +1056,7 @@
   "recovery_code.saved_vault": "已作为“团队恢复码”保存到你的保险库",
   "recovery_code.shown_once": "它只在现在显示：SecretBroker 不会保存它。请把它写在纸上，或保存在这台电脑以外的地方。",
   "recovery_code.title": "你的恢复码",
+  "recovery_code.used": "你已使用了恢复码，因此它不再有效。这是新的恢复码：请像保存旧的一样保存它。",
   "recovery_code.vault_note": "保存在个人保险库中没问题，但如果你丢失的正是保险库（这台电脑及其备份），它就帮不上忙：请同时保存在别处。",
   "reminder.ask_manager_in_case": {
     "other": "请它的管理者更改它，以防对方看到过。"
@@ -1718,6 +1719,15 @@
   "team_recover.title": "找回你的团队账户",
   "team_recover.type_code": "请输入你的恢复码。",
   "team_recover.type_new_password": "请输入新密码。",
+  "team_replace.button": "确认",
+  "team_replace.code": "邮件验证码",
+  "team_replace.done": "邮箱已确认。你的新账户已准备就绪。",
+  "team_replace.mail_text": "已有一个使用 {email} 的账户，管理你团队的人表示你已无法访问它。要让你的新账户取而代之，请输入服务器刚刚发送到 {email} 的验证码。",
+  "team_replace.no_mail_text": "已有一个使用 {email} 的账户。要让你的新账户取而代之，需要管理服务器的人验证你的邮箱：请告知对方。然后点击“登录”。",
+  "team_replace.not_yet": "你的邮箱尚未验证。请告知管理服务器的人，然后重试。",
+  "team_replace.reason": "用于确认你的邮箱并登录你的新账户。",
+  "team_replace.title": "确认你的邮箱",
+  "team_replace.type_code": "请输入邮件验证码。",
   "team_reset.button": "设置新密码",
   "team_reset.done": "新密码已设置。请在你的其他设备上用它登录。",
   "team_reset.dont_remember": "我记不起来了",

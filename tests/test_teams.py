@@ -1343,6 +1343,14 @@ def recovery_flows(base, alice, oid, settings):
     check(recovered["connected"] and recovered["fingerprint"] == status["fingerprint"]
           and fresh.service.vault.team()["keys"] == hana.service.vault.team()["keys"],
           "the code, typed as read from paper, gives the same keys on a new PC")
+    check(recovered.get("recovery_used") and re.fullmatch(r"([0-9A-HJKMNP-TV-Z]{5}-){5}[0-9A-HJKMNP-TV-Z]{5}",
+                                                           recovered.get("recovery_code") or "")
+          and recovered["recovery_code"] != code, "the used code is replaced at once by a new one, shown once")
+    used = Person("hana-f")
+    response = used.call("team_recover", server_url=base, email="hana@example.com", code=code, password=ACCOUNT,
+                         proof={"kind": "presence", "token": used.presence})
+    check(response["code"] == "invalid_credentials", "the code that was used no longer works")
+    code = recovered["recovery_code"]
     check(alice_id in fresh.service.vault.team()["pinned"], "the people Hana verified come back by themselves")
     fresh.sync()
     check(fresh.entry("hana-api")["fields"]["value"] == "sk-hana-FAKE-1", "and so does what is shared with her")
@@ -1432,11 +1440,32 @@ def lost_access(base, alice, oid):
     check("member.remove" in events and "invite.replace" in events, "Actividad says so")
     check(kira.sync()["state"] in ("ok", "reconnect") and not kira.service.vault.team()["collections"],
           "her old device no longer gets the collection")
+    # Alice (the admin) knows the invite code: signing up with it must not be enough to take Kira's address.
+    hostile = Person("kira-hostile")
+    pending = hostile.act("team_connect", server_url=base, email="kira@example.com", password=NEW_ACCOUNT,
+                          mode="register", name="Kira", invite_token=result["invite"]["id"])
+    check(pending == {"connected": False, "replace_pending": {"server_url": base, "email": "kira@example.com", "mail": True}}
+          and not hostile.service.vault.team(), "a sign-up with the invite waits for the e-mailed code; nothing is linked")
+    check(kira.sync()["state"] != "reconnect", "meanwhile the old account is untouched")
+    response = hostile.call("team_confirm_replacement", server_url=base, email="kira@example.com", code="00000000",
+                            password=NEW_ACCOUNT, proof={"kind": "presence", "token": hostile.presence})
+    check(response["code"] == "invalid_code" and kira.sync()["state"] != "reconnect",
+          "without the code from Kira's mailbox, nothing changes")
     again = Person("kira-new")
-    status = again.act("team_connect", server_url=base, email="kira@example.com", password=NEW_ACCOUNT, mode="register",
-                       name="Kira", invite_token=result["invite"]["id"])
+    before = sum(1 for m in OUTBOX if m["To"] == "kira@example.com" and "código" in m["Subject"])
+    pending = again.act("team_connect", server_url=base, email="kira@example.com", password=NEW_ACCOUNT,
+                        mode="register", name="Kira", invite_token=result["invite"]["id"])
+    check(pending.get("replace_pending", {}).get("mail") is True, "Kira signs up with the invite: a code is e-mailed")
+    for _ in range(100):
+        mails = [m for m in OUTBOX if m["To"] == "kira@example.com" and "código" in m["Subject"]]
+        if len(mails) > before:
+            break
+        time.sleep(0.05)
+    sent = re.search(r"\b(\d{8})\b", mails[-1].get_content()).group(1)
+    status = again.act("team_confirm_replacement", server_url=base, email="kira@example.com", code=sent,
+                       password=NEW_ACCOUNT)
     check(status["connected"] and status["user"]["id"] != kira.id and status.get("recovery_code"),
-          "with the new invite Kira creates a new account with the same e-mail (and gets a recovery code)")
+          "with the code, the new account takes the e-mail, signs in and gets a recovery code")
     check(kira.sync()["state"] == "reconnect", "the old account is gone")
     again.act("team_accept_invite", id=again.ok("team_invites")[0]["id"])
     new_id = status["user"]["id"]

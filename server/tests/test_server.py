@@ -1355,72 +1355,122 @@ def test_recovery():
 
 
 def test_replace_account():
-    print("An account whose owner lost access is replaced through the admin's new invite")
+    print("An account whose owner lost access is replaced only once the new sign-up proves the e-mail")
+    with Outbox() as outbox:
+        base, stop, settings = start(email_verification="required", smtp_host="smtp.example",
+                                     smtp_from="secrets@example.com")
+        try:
+            admin = Keyed(base).signup("admin@example.com")
+            server_db(settings, "UPDATE users SET verified = 1")
+            oid = admin.ok("POST", "/orgs", {"name": "Acme"})["id"]
+            other_oid = admin.ok("POST", "/orgs", {"name": "Otra"})["id"]
+
+            def join(person, org, address):
+                invite = admin.ok("POST", f"/orgs/{org}/invites", {"email": address, "role": "member"})
+                if person.token is None:
+                    assert person.register(address, invite_token=invite["id"]).status_code == 200
+                    person.token = person.login().json()["token"]
+                person.ok("POST", f"/invites/{invite['id']}/accept")
+                admin.ok("POST", f"/orgs/{org}/members/{person.id}/confirm")
+
+            carol = Keyed(base)
+            join(carol, oid, "carol@example.com")
+            old_id = carol.id
+            early = admin.call("POST", f"/orgs/{oid}/invites", {"email": "carol@example.com", "role": "member",
+                                                                 "replaces": old_id})
+            check(early.status_code == 409, "while still a member, no new invite")
+            admin.ok("DELETE", f"/orgs/{oid}/members/{old_id}")
+            wrong = admin.call("POST", f"/orgs/{oid}/invites", {"email": "carol@example.com", "role": "member",
+                                                                 "replaces": admin.id})
+            check(wrong.status_code == 400, "`replaces` must be the account of that e-mail")
+            invite = admin.ok("POST", f"/orgs/{oid}/invites", {"email": "carol@example.com", "role": "member",
+                                                                "replaces": old_id})
+            check("invite.replace" in _events(admin, oid), "Actividad says it was a new invite after lost access")
+
+            imposter = Keyed(base)
+            imposter.register("carol@example.com")
+            check(imposter.login().status_code == 401, "signing up without that invite does nothing")
+
+            # The org admin knows the invite code: signing up with it alone must never take the address.
+            hostile = Keyed(base)
+            answer = hostile.register("carol@example.com", invite_token=invite["id"]).json()
+            check(answer.get("replacing") is True and answer["verified"] is False,
+                  "a sign-up with the invite waits: it has to prove the e-mail first")
+            check(hostile.login().status_code == 401, "until then it can't sign in")
+            check(carol.call("GET", "/me").status_code == 200 and carol.login().status_code == 200,
+                  "and the old account keeps its sessions and its password")
+            guesses = [Api(base).call("POST", "/accounts/replace/verify", {"email": "carol@example.com",
+                                                                           "code": "12345678"}).status_code
+                       for _ in range(3)]
+            check(guesses == [400] * 3 and carol.login().status_code == 200,
+                  "without the e-mailed code nothing changes (wrong codes are refused)")
+            unknown = Api(base).call("POST", "/accounts/replace/verify", {"email": "nobody@example.com", "code": "1"})
+            check(unknown.status_code == 400 and unknown.json()["code"] == "code_expired",
+                  "an e-mail with nothing waiting gets the answer of an expired code")
+
+            fresh = Keyed(base)
+            answer = fresh.register("carol@example.com", invite_token=invite["id"]).json()
+            check(answer.get("replacing") and answer.get("mail") is True, "the person signs up too: the code is e-mailed")
+            code = outbox.code("carol@example.com")
+            check(Api(base).call("POST", "/accounts/replace/verify", {"email": "carol@example.com", "code": code})
+                  .status_code == 200, "the code from the e-mail proves the address")
+            session = fresh.login()
+            check(session.status_code == 200 and session.json()["user"]["id"] == fresh.id != old_id
+                  and session.json()["user"]["verified"], "the new account takes the e-mail (new id, new keys, verified)")
+            check(hostile.login().status_code == 401, "the earlier sign-up that never proved it is gone")
+            check(carol.call("GET", "/me").status_code == 401, "the old account's sessions are gone")
+            fresh.token = session.json()["token"]
+            check([i["org_id"] for i in fresh.ok("GET", "/invites")] == [oid], "the new account sees the invite")
+            fresh.ok("POST", f"/invites/{invite['id']}/accept")
+            admin.ok("POST", f"/orgs/{oid}/members/{fresh.id}/confirm")
+            check(any(m["user_id"] == fresh.id for m in admin.ok("GET", f"/orgs/{oid}/members")), "and is back in")
+
+            # Someone also in another organization is not replaced until every organization let them go.
+            dave = Keyed(base)
+            join(dave, oid, "dave@example.com")
+            server_db(settings, "UPDATE users SET verified = 1 WHERE replacing_email IS NULL")
+            join(dave, other_oid, "dave@example.com")
+            admin.ok("DELETE", f"/orgs/{oid}/members/{dave.id}")
+            invite = admin.ok("POST", f"/orgs/{oid}/invites", {"email": "dave@example.com", "role": "member",
+                                                                "replaces": dave.id})
+            again = Keyed(base)
+            answer = again.register("dave@example.com", invite_token=invite["id"]).json()
+            check(not answer.get("replacing") and again.login().status_code == 401
+                  and dave.call("GET", "/me").status_code == 200, "an account still in another organization is not replaced")
+            plain = admin.ok("POST", f"/orgs/{other_oid}/invites", {"email": "erin@example.com", "role": "member"})
+            erin = Keyed(base)
+            erin.register("erin@example.com", invite_token=plain["id"])
+            erin_again = Keyed(base)
+            erin_again.register("erin@example.com", invite_token=plain["id"])
+            check(erin_again.login().status_code == 401 and erin.login().status_code == 200,
+                  "an ordinary invite never replaces an account")
+        finally:
+            stop()
+
+    print("Without e-mail, the server admin verifies the new account before it replaces the old one")
     base, stop, settings = start(email_verification="required")
     try:
         admin = Keyed(base).signup("admin@example.com")
         server_db(settings, "UPDATE users SET verified = 1")
         oid = admin.ok("POST", "/orgs", {"name": "Acme"})["id"]
-        other_oid = admin.ok("POST", "/orgs", {"name": "Otra"})["id"]
-
-        def join(person, org, email):
-            invite = admin.ok("POST", f"/orgs/{org}/invites", {"email": email, "role": "member"})
-            if person.token is None:
-                assert person.register(email, invite_token=invite["id"]).status_code == 200
-                person.token = person.login().json()["token"]
-            person.ok("POST", f"/invites/{invite['id']}/accept")
-            admin.ok("POST", f"/orgs/{org}/members/{person.id}/confirm")
-
-        carol = Keyed(base)
-        join(carol, oid, "carol@example.com")
-        old_id = carol.id
-        early = admin.call("POST", f"/orgs/{oid}/invites", {"email": "carol@example.com", "role": "member",
-                                                             "replaces": old_id})
-        check(early.status_code == 409, "while still a member, no new invite")
-        admin.ok("DELETE", f"/orgs/{oid}/members/{old_id}")
-        wrong = admin.call("POST", f"/orgs/{oid}/invites", {"email": "carol@example.com", "role": "member",
-                                                             "replaces": admin.id})
-        check(wrong.status_code == 400, "`replaces` must be the account of that e-mail")
-        invite = admin.ok("POST", f"/orgs/{oid}/invites", {"email": "carol@example.com", "role": "member",
-                                                            "replaces": old_id})
-        check("invite.replace" in _events(admin, oid), "Actividad says it was a new invite after lost access")
-
-        imposter = Keyed(base)
-        imposter.register("carol@example.com")
-        check(imposter.login().status_code == 401, "signing up without that invite does not replace the account")
+        frank = Keyed(base)
+        invite = admin.ok("POST", f"/orgs/{oid}/invites", {"email": "frank@example.com", "role": "member"})
+        frank.register("frank@example.com", invite_token=invite["id"])
+        frank.token = frank.login().json()["token"]
+        frank.ok("POST", f"/invites/{invite['id']}/accept")
+        admin.ok("DELETE", f"/orgs/{oid}/members/{frank.id}")
+        invite = admin.ok("POST", f"/orgs/{oid}/invites", {"email": "frank@example.com", "role": "member",
+                                                            "replaces": frank.id})
         fresh = Keyed(base)
-        check(fresh.register("carol@example.com", invite_token=invite["id"]).status_code == 200,
-              "signing up with the invite answers like any sign-up")
-        session = fresh.login()
-        check(session.status_code == 200 and session.json()["user"]["id"] == fresh.id != old_id,
-              "the new account takes the e-mail (a new id and new keys)")
-        check(carol.call("GET", "/me").status_code == 401, "the old account's sessions are gone")
-        fresh.token = session.json()["token"]
-        check([i["org_id"] for i in fresh.ok("GET", "/invites")] == [oid],
-              "the new account sees the invite (its code proves the address to that organization)")
-        fresh.ok("POST", f"/invites/{invite['id']}/accept")
-        admin.ok("POST", f"/orgs/{oid}/members/{fresh.id}/confirm")
-        check(any(m["user_id"] == fresh.id for m in admin.ok("GET", f"/orgs/{oid}/members")), "and is back in")
-
-        # Someone also in another organization is not replaced until every organization let them go.
-        dave = Keyed(base)
-        join(dave, oid, "dave@example.com")
-        server_db(settings, "UPDATE users SET verified = 1")
-        join(dave, other_oid, "dave@example.com")
-        admin.ok("DELETE", f"/orgs/{oid}/members/{dave.id}")
-        invite = admin.ok("POST", f"/orgs/{oid}/invites", {"email": "dave@example.com", "role": "member",
-                                                            "replaces": dave.id})
-        again = Keyed(base)
-        again.register("dave@example.com", invite_token=invite["id"])
-        check(again.login().status_code == 401 and dave.call("GET", "/me").status_code == 200,
-              "an account still in another organization is not replaced")
-        plain = admin.ok("POST", f"/orgs/{other_oid}/invites", {"email": "erin@example.com", "role": "member"})
-        erin = Keyed(base)
-        erin.register("erin@example.com", invite_token=plain["id"])
-        erin_again = Keyed(base)
-        erin_again.register("erin@example.com", invite_token=plain["id"])
-        check(erin_again.login().status_code == 401 and erin.login().status_code == 200,
-              "an ordinary invite never replaces an account")
+        answer = fresh.register("frank@example.com", invite_token=invite["id"]).json()
+        check(answer.get("replacing") and answer.get("mail") is False and fresh.login().status_code == 401
+              and frank.call("GET", "/me").status_code == 200, "it waits, and the old account carries on")
+        code, listed = cli_out(settings, ["unverified"])
+        check("frank@example.com" in listed and "lost access" in listed, "`unverified` lists it as a replacement")
+        code, said = cli_out(settings, ["verify-email", "frank@example.com"])
+        check(code == 0 and "took the place" in said, f"`verify-email` completes it ({said.strip()})")
+        check(fresh.login().status_code == 200 and frank.call("GET", "/me").status_code == 401,
+              "then the new account signs in and the old one is gone")
     finally:
         stop()
 

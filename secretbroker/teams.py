@@ -584,7 +584,8 @@ SERVER_MESSAGES = {"last_owner": "teams.org_needs_an_owner", "last_manager": "te
                    "forbidden": "teams.server_forbidden", "conflict": "teams.server_changed_meanwhile",
                    "key_version": "teams.server_changed_meanwhile", "needs_rekey": "teams.this_collection_has_be_re",
                    "collection_full": "teams.server_collection_full", "too_large": "teams.server_too_large",
-                   "client_too_old": "teams.app_too_old", "invalid_proof": "teams.server_invalid_proof"}
+                   "client_too_old": "teams.app_too_old", "invalid_proof": "teams.server_invalid_proof",
+                   "replace_blocked": "teams.server_replace_blocked"}
 SERVER_MESSAGES_BY_STATUS = {("invalid_credentials", 403): "teams.current_account_password_wrong"}
 
 
@@ -841,11 +842,17 @@ class Team:
                 if invite_token:
                     body["invite_token"] = str(invite_token).strip()
                 try:
-                    api.call("POST", "/accounts/register", body, auth=False)
+                    registered = api.call("POST", "/accounts/register", body, auth=False)
                 except TeamError as exc:
                     if exc.code == "email_taken":  # servers before 0.17 say so; newer ones answer as if created
                         raise TeamError(tr("teams.account_could_not_be_created"), "email_taken") from None
                     raise
+                if registered.get("replacing"):
+                    # The e-mail had an account whose owner lost access (an admin's «Ha perdido el acceso» invite):
+                    # this one takes its place only once it proves the e-mail (confirm_replacement, or the server
+                    # admin). Nothing is kept here until then.
+                    return {"connected": False, "replace_pending": {
+                        "server_url": base, "email": email, "mail": registered.get("mail") is True}}
             else:
                 kdf = api.call("POST", "/accounts/prelogin", {"email": email}, auth=False)["kdf"]
                 # Less work than the app uses only if this PC already logged in to this account with it.
@@ -997,7 +1004,30 @@ class Team:
             api.call("POST", "/accounts/recover", {
                 **asked, **fields, "challenge": started["challenge"],
                 "signature": account_proof(keys, "recover", user_id, started["challenge"], fields)}, auth=False)
-        return self.connect(base, email, password, "login", device_name=device_name)
+        result = self.connect(base, email, password, "login", device_name=device_name)
+        # The code was used (it may have been read from paper, a file, a vault): a new one at once, shown once.
+        return {**self._fresh_recovery(result), "recovery_used": True}
+
+    def _fresh_recovery(self, result):
+        """`result` (a connect answer) with a new recovery code for the account, if the server has them."""
+        if not result.get("recovery_supported") or result.get("recovery_code"):
+            return result
+        try:
+            made = self.make_recovery_code()
+        except TeamError as exc:  # «Tu cuenta» offers it again
+            print(f"team recovery code: {detail(exc)}", file=sys.stderr)
+            return result
+        return {**result, **self.status(), "recovery_code": made["code"]}
+
+    def confirm_replacement(self, server_url, email, code, password, device_name=""):
+        """The code e-mailed to a new account that waits to take the place of one whose owner lost access: once
+        it is right the server makes the swap, and this PC logs in with the password chosen at sign-up and makes
+        the new account's recovery code."""
+        base, email = server_base(server_url), str(email or "").strip().lower()
+        with Client(base) as api:
+            api.call("POST", "/accounts/replace/verify", {"email": email, "code": str(code or "").strip()[:20]},
+                     auth=False)
+        return self._fresh_recovery(self.connect(base, email, password, "login", device_name=device_name))
 
     def forget_session(self):
         """A vault restored on another PC: keep the account (keys, collections, pins, credentials) but not the

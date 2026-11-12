@@ -18,7 +18,10 @@ What changed for people who use SecretBroker. The commit history has the details
   verified. Every other session of the account ends.
 - **Neither the code nor a PC?** Admins have «Ha perdido el acceso» on each person in Personas: it removes the old
   account like any removal (collections re-encrypted, what they could see flagged to change) and invites the same
-  e-mail again; the new account takes the old one's place, and the admin gives access back once it is confirmed.
+  e-mail again. The new account takes the old one's place only after it proves the e-mail (the code the server
+  e-mails, or the server admin's verification): the invite code alone is never enough, so an admin can't take
+  someone's account. The admin gives access back once it is confirmed.
+- After recovering with the code, the app makes a new one at once and shows it: the used one no longer works.
 - Actividad (Equipo) shows recovered accounts, passwords set from a device and these invitations.
 
 ### Moving to another PC
@@ -26,6 +29,7 @@ What changed for people who use SecretBroker. The commit history has the details
   it on the new PC, sign in to the team, and close the session on the old one. No commands.
 - A backup restored on a new PC no longer reuses the old PC's team session: Equipo asks for the account password,
   and the account carries on with its collections and verified people (no duplicates).
+- On a Mac, Dutch and Danish texts now say «Mac» / «computer» too (they write «pc» in lowercase).
 
 The team server needs this version for recovery codes, «La he olvidado» and «Ha perdido el acceso» (its database
 upgrades by itself to schema 4, and it now needs the `cryptography` package, installed with it).

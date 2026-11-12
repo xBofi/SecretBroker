@@ -120,8 +120,7 @@ def register(ctx):
         security.verifier(data["auth_hash"], security.new_salt())
         return {"user_id": data["user_id"], "verified": verified}
     if existing:
-        _drop_account(conn, existing["id"])
-        event(conn, None, data["user_id"], "user.replace", existing["id"])
+        return _pending_replacement(ctx, conn, data, existing)
     first = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
     invited_to = None if verified or not data["invite_token"] else _org_invite(ctx, data["email"], data["invite_token"])
     salt = security.new_salt()
@@ -153,6 +152,76 @@ def _replaceable(conn, user, token):
                        (invite_id, user["email"], user["id"], 2**62, now_epoch())).fetchone()
     return bool(row) and not user["is_admin"] and not conn.execute(
         "SELECT 1 FROM org_members WHERE user_id = ?", (user["id"],)).fetchone()
+
+
+def _pending_replacement(ctx, conn, data, old):
+    """The new account of someone who lost access waits here, unable to sign in, until it proves the e-mail: the
+    code e-mailed to it (`/accounts/replace/verify`) or a server admin (`verify-email`, mark_verified). Until then the
+    old account keeps its e-mail and nothing of it changes: the invite code alone (which the org admin knows) never
+    takes an address. A newer sign-up for the same account takes the place of an older one still waiting."""
+    for (waiting,) in conn.execute("SELECT id FROM users WHERE replaces = ?", (old["id"],)).fetchall():
+        _drop_account(conn, waiting)
+    uid, salt = data["user_id"], security.new_salt()
+    conn.execute(
+        "INSERT INTO users (id, email, name, kdf, auth_salt, auth_verifier, public_key, signing_public_key, "
+        "private_blob, is_admin, verified, created, replaces, replacing_email) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)",
+        (uid, f"{uid}@replacing.invalid", data["name"], json.dumps(data["kdf"]), salt,
+         security.verifier(data["auth_hash"], salt), data["public_key"], data["signing_public_key"],
+         json.dumps(data["private_blob"]), now_iso(), old["id"], data["email"]))
+    event(conn, None, uid, "user.replace_pending", old["id"])
+    if ctx.settings.smtp:
+        _send_code(ctx, conn, uid, data["email"])
+    return {"user_id": uid, "verified": False, "replacing": True, "mail": bool(ctx.settings.smtp)}
+
+
+def complete_replacement(conn, uid, actor):
+    """The waiting account proved the e-mail: it takes the old account's place (the old one is deleted). Refused
+    (False, nothing changes) if the old account is in an organization again or is a server admin by now."""
+    row = conn.execute("SELECT id, replaces, replacing_email FROM users WHERE id = ? AND replacing_email IS NOT NULL",
+                       (uid,)).fetchone()
+    if row is None:
+        return False
+    old = conn.execute("SELECT * FROM users WHERE email = ?", (row["replacing_email"],)).fetchone()
+    if old and (old["id"] != row["replaces"] or old["is_admin"]
+                or conn.execute("SELECT 1 FROM org_members WHERE user_id = ?", (old["id"],)).fetchone()):
+        return False
+    if old:
+        _drop_account(conn, old["id"])
+    conn.execute("UPDATE users SET email = replacing_email, replaces = NULL, replacing_email = NULL, verified = 1 "
+                 "WHERE id = ?", (uid,))
+    conn.execute("DELETE FROM email_codes WHERE user_id = ?", (uid,))
+    event(conn, None, actor, "user.replace", row["replaces"])
+    return True
+
+
+@route("POST", "/accounts/replace/verify", auth=False, tx=False)
+def verify_replacement(ctx):
+    """The code e-mailed to a new account that waits to replace one whose owner lost access. Wrong tries count
+    (5 per code) and are throttled like logins; an unknown e-mail gets the same answer as an expired code."""
+    data = body(ctx.body, {"email": email, "code": text(20)})
+    code = "".join(ch for ch in data["code"] if ch.isdigit())
+    server = ctx.server
+    wait = max(server.ip_throttle.retry_after(ctx.ip), server.email_throttle.retry_after(data["email"]))
+    if wait:
+        raise rate_limited(wait)
+    error = None
+    with ctx.db.tx(write=True) as conn:
+        row = conn.execute("SELECT u.id, c.code_hash, c.expires, c.attempts FROM users u LEFT JOIN email_codes c "
+                           "ON c.user_id = u.id WHERE u.replacing_email = ?", (data["email"],)).fetchone()
+        if row is None or row["code_hash"] is None or row["expires"] <= now_epoch() or row["attempts"] >= mail.CODE_TRIES:
+            error = ApiError(400, "code_expired", "Ese código ha caducado. Pide uno nuevo.")
+        elif not hmac.compare_digest(mail.code_hash(ctx.server.secret, row["id"], code), row["code_hash"]):
+            conn.execute("UPDATE email_codes SET attempts = attempts + 1 WHERE user_id = ?", (row["id"],))
+            error = ApiError(400, "invalid_code", "El código no es correcto.")
+        elif not complete_replacement(conn, row["id"], row["id"]):
+            error = ApiError(409, "replace_blocked", "La cuenta anterior vuelve a estar en una organización.")
+    if error:
+        if error.code != "replace_blocked":
+            server.ip_throttle.fail(ctx.ip)
+            server.email_throttle.fail(data["email"])
+        raise error
+    return {}
 
 
 def _drop_account(conn, uid):
@@ -220,9 +289,14 @@ def verify_email(ctx):
 
 
 def mark_verified(conn, user_id, actor):
+    """Verified by its code or by a server admin. An account waiting to replace one whose owner lost access takes
+    its place now (complete_replacement; False if that is refused)."""
+    if conn.execute("SELECT 1 FROM users WHERE id = ? AND replacing_email IS NOT NULL", (user_id,)).fetchone():
+        return complete_replacement(conn, user_id, actor)
     conn.execute("UPDATE users SET verified = 1 WHERE id = ?", (user_id,))
     conn.execute("DELETE FROM email_codes WHERE user_id = ?", (user_id,))
     event(conn, None, actor, "email.verify", user_id)
+    return True
 
 
 @route("POST", "/accounts/login", auth=False, tx=False)
@@ -233,6 +307,8 @@ def login(ctx):
     if wait:
         raise rate_limited(wait)
     user = ctx.db.conn().execute("SELECT * FROM users WHERE email = ?", (address,)).fetchone()
+    if user and user["replacing_email"]:
+        user = None  # waiting to replace an account: it signs in once it has proven the e-mail
     if user:
         ok = security.verify(data["auth_hash"], user["auth_salt"], user["auth_verifier"])
     else:  # same work as a real check, so timing does not reveal whether the account exists

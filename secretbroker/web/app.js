@@ -4724,7 +4724,7 @@ function teamEventsPanel(events, members, collections) {
 // ----- recovery (docs/ARCHITECTURE.md 2.1): nobody on a team loses access for good
 
 // The account's recovery code, shown once: nothing of it is kept, here or on the server.
-function showRecoveryCode(code, { onClose } = {}) {
+function showRecoveryCode(code, { onClose, used = false } = {}) {
   const team = state.team || {};
   const email = (team.user || {}).email || '';
   const server = team.server_url || '';
@@ -4765,6 +4765,7 @@ function showRecoveryCode(code, { onClose } = {}) {
     title: t('recovery_code.title'),
     lead: el('div', { class: 'glyph lock' }, icon('key')),
     body: [
+      used ? el('div', { class: 'notice' }, icon('info', 'sm'), el('span', { class: 'notice-text' }, t('recovery_code.used'))) : null,
       el('p', { class: 'muted' }, t('recovery_code.lead')),
       el('div', { class: 'recovery-code selectable', 'aria-label': t('recovery_code.title') }, code),
       el('p', { class: 'help' }, t('recovery_code.shown_once')),
@@ -4917,7 +4918,7 @@ function moveComputerGuide() {
 
 // ----- linking the account (the only time its password is typed on this PC)
 
-function teamConnectForm({ server = '', email = '', code = '', mode = 'register', lockMode = false, invited = false, restored = false, onDone }) {
+function teamConnectForm({ server = '', email = '', code = '', mode = 'register', lockMode = false, invited = false, restored = false, pending = null, onDone }) {
   let current = mode;
   const serverInput = el('input', { class: 'input', placeholder: 'https://equipo.tuempresa.com', value: server, spellcheck: 'false' });
   const nameInput = el('input', { class: 'input', placeholder: t('team_connect_form.how_your_team_will_see') });
@@ -4938,33 +4939,52 @@ function teamConnectForm({ server = '', email = '', code = '', mode = 'register'
   const noCode = el('div', { class: 'warning subtle' }, icon('info', 'sm'), el('div', {},
     el('b', {}, t('team_recover.no_code_title')), ' ', t('team_recover.no_code_text')));
   const onlyOnce = el('p', { class: 'help' }, t('team_connect_form.only_asked_for_this_once'));
+  // A new account replacing one whose owner lost access: it proves the e-mail first (the e-mailed code, or the
+  // server admin), so an invite code alone never takes an address.
+  let replacing = pending;  // {email, mail}: shown at once (the sign-up said the e-mail must be proven)
+  if (pending) current = 'replace';
+  const replaceText = el('p', { class: 'muted' });
+  const replaceHead = el('div', { class: 'recover-head' }, el('h3', {}, t('team_replace.title')), replaceText);
+  const replaceInput = el('input', { class: 'input mono', spellcheck: 'false', autocomplete: 'one-time-code', inputmode: 'numeric' });
+  const replaceField = el('div', { class: 'field' }, el('label', {}, t('team_replace.code')), replaceInput);
   const errorText = el('div', { class: 'error-text' });
   const button = el('button', { class: 'btn primary lg' });
   const tabs = el('div', { class: 'segmented' });
   const linkNote = el('div', { class: `notice ${invited ? '' : 'hidden'}` }, icon('users', 'sm'), el('span', { class: 'notice-text' }));
+  const serverField = el('div', { class: 'field' }, el('label', {}, t('team_connect_form.server')), serverInput,
+    el('div', { class: 'help' }, t('team_connect_form.address_your_secretbroker_server_you')));
+  const emailField = el('div', { class: 'field' }, el('label', {}, 'E-mail'), emailInput);
   const registerOnly = [
     el('div', { class: 'field' }, el('label', {}, t('team_connect_form.your_name'), el('span', { class: 'req' }, t('common.optional_suffix'))), nameInput),
   ];
   const meter = strengthMeter(pw.input);
   const repeatField = el('div', { class: 'field' }, el('label', {}, t('common.repeat')), repeat);
   const tokenField = el('div', { class: 'field' }, el('label', {}, t('team_connect_form.invitation_code'), el('span', { class: 'req' }, t('team_connect_form.if_your_server_asks_for'))), tokenInput);
+  const pwField = el('div', { class: 'field' }, pwLabel, pw, meter, forgot);
   const render = () => {
     tabs.replaceChildren([['register', t('team_connect_form.create_account')], ['login', t('team_connect_form.sign_in')]].map(([m, text]) => el('button', {
       type: 'button', class: m === current ? 'active' : '', onclick: () => { current = m; errorText.textContent = ''; render(); },
     }, text)));
     const register = current === 'register';
     const recover = current === 'recover';
-    tabs.classList.toggle('hidden', recover);
+    const replace = current === 'replace';
+    tabs.classList.toggle('hidden', recover || replace);
+    replaceHead.classList.toggle('hidden', !replace);
+    replaceField.classList.toggle('hidden', !replace || !(replacing && replacing.mail));
+    [serverField, emailField, pwField].forEach((n) => n.classList.toggle('hidden', replace));
     [recoverHead, recoverField, noCode, back].forEach((n) => n.classList.toggle('hidden', !recover));
     forgot.classList.toggle('hidden', current !== 'login');
-    onlyOnce.classList.toggle('hidden', recover);
+    onlyOnce.classList.toggle('hidden', recover || replace);
     registerOnly.forEach((n) => n.classList.toggle('hidden', !register));
     meter.forEach((n) => n.classList.toggle('hidden', !register && !recover));
-    repeatField.classList.toggle('hidden', !register && !recover);
+    repeatField.classList.toggle('hidden', (!register && !recover) || replace);
     tokenField.classList.toggle('hidden', !register);
     pwLabel.textContent = recover ? t('team_recover.new_password') : t('team_connect_form.account_password');
     pw.input.autocomplete = register || recover ? 'new-password' : 'current-password';
-    button.textContent = recover ? t('team_recover.button') : register ? t('team_connect_form.create_account') : t('team_connect_form.sign_in');
+    button.textContent = replace ? (replacing && replacing.mail ? t('team_replace.button') : t('team_connect_form.sign_in'))
+      : recover ? t('team_recover.button') : register ? t('team_connect_form.create_account') : t('team_connect_form.sign_in');
+    if (replace) replaceText.textContent = replacing.mail ? t('team_replace.mail_text', { email: replacing.email })
+      : t('team_replace.no_mail_text', { email: replacing.email });
   };
   render();
   const showLink = (link) => {
@@ -4990,6 +5010,7 @@ function teamConnectForm({ server = '', email = '', code = '', mode = 'register'
   });
   const submit = async () => {
     errorText.textContent = '';
+    if (current === 'replace') { await submitReplace(); return; }
     const register = current === 'register';
     const recover = current === 'recover';
     if (!serverInput.value.trim()) { errorText.textContent = t('team_connect_form.type_server_address'); serverInput.focus(); return; }
@@ -5007,29 +5028,58 @@ function teamConnectForm({ server = '', email = '', code = '', mode = 'register'
       recover ? t('team_recover.reason') : t('team_connect_form.connect_team_account'));
     busy(button, false);
     if (!result.ok) { if (result.code !== 'cancelled') errorText.textContent = result.error; return; }
+    if (result.result.replace_pending) {  // the e-mail had an account whose owner lost access: prove it first
+      replacing = result.result.replace_pending;
+      current = 'replace';
+      render();
+      if (replacing.mail) replaceInput.focus();
+      return;
+    }
+    await finish(result.result, recover ? t('team_recover.done') : register ? t('team_connect_form.account_created_and_connected') : t('common.connected'));
+  };
+  const finish = async (status, message) => {
     pw.input.value = '';
     repeat.input.value = '';
     recoveryInput.value = '';
-    toast(recover ? t('team_recover.done') : register ? t('team_connect_form.account_created_and_connected') : t('common.connected'));
-    const code = result.result.recovery_code;
-    delete result.result.recovery_code;
-    await onDone(result.result);
-    if (code) showRecoveryCode(code);  // a new account: its recovery code, shown once
+    replaceInput.value = '';
+    toast(message);
+    const code = status.recovery_code;
+    const used = !!status.recovery_used;
+    delete status.recovery_code;
+    await onDone(status);
+    // A new account, or a recovery code that was just used: the (new) code, shown once.
+    if (code) showRecoveryCode(code, { used });
+  };
+  const submitReplace = async () => {
+    const params = { server_url: serverInput.value.trim(), email: emailInput.value.trim(), password: pw.input.value };
+    if (replacing.mail && !replaceInput.value.trim()) { errorText.textContent = t('team_replace.type_code'); replaceInput.focus(); return; }
+    busy(button, true);
+    const result = replacing.mail
+      ? await withProof((p) => api().call('team_confirm_replacement', { ...params, code: replaceInput.value.trim() }, p), t('team_replace.reason'))
+      : await withProof((p) => api().call('team_connect', { ...params, mode: 'login' }, p), t('team_connect_form.connect_team_account'));
+    busy(button, false);
+    if (!result.ok) {
+      if (result.code === 'cancelled') return;
+      errorText.textContent = !replacing.mail && result.code === 'invalid_credentials' ? t('team_replace.not_yet') : result.error;
+      return;
+    }
+    await finish(result.result, t('team_replace.done'));
   };
   button.addEventListener('click', submit);
-  [pw.input, repeat.input, tokenInput].forEach((i) => i.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); }));
+  [pw.input, repeat.input, tokenInput, replaceInput].forEach((i) => i.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); }));
   if (lockMode) tabs.remove();
   return el('div', { class: 'team-form' },
     lockMode ? null : tabs,
     recoverHead,
+    replaceHead,
     linkNote,
-    el('div', { class: 'field' }, el('label', {}, t('team_connect_form.server')), serverInput,
-      el('div', { class: 'help' }, t('team_connect_form.address_your_secretbroker_server_you'))),
+    serverField,
     registerOnly,
-    el('div', { class: 'field' }, el('label', {}, 'E-mail'), emailInput),
+    emailField,
     recoverField,
     noCode,
-    el('div', { class: 'field' }, pwLabel, pw, meter, forgot),
+    pwField,
+    replaceField,
     repeatField,
     tokenField,
     onlyOnce,

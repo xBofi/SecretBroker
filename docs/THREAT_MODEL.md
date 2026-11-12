@@ -182,8 +182,9 @@ A member of an organization, with some permission on a collection.
   is not enough. A hostile server could still overwrite what it stores, which only denies service: a blob it makes
   does not hold the account's keys, and the app checks the keys it opens against the account's public keys.
 - Replacing an account whose owner lost access is limited: only through an org admin's new invite naming that
-  account, only once the account is in no organization, never for a server admin, and the new account has new keys
-  that teammates must verify like anyone's.
+  account, only once the account is in no organization, never for a server admin, and only after the new account
+  proves the e-mail (the code e-mailed to it, or a server admin who checked who the person is). Until then the old
+  account is untouched. The new account has new keys that teammates must verify like anyone's.
 - Item versions and deletions carry the author's signature and a write counter: the server cannot forge, attribute
   or delete content, nor serve an older version again; unsigned deletions are ignored and reported, and a collection
   that disappears with many credentials is held for the user.
@@ -252,10 +253,12 @@ A member of an organization, with some permission on a collection.
 - Whether an account has a recovery code is not answered directly, but its scrypt salt changes when a new code is
   made, so someone who keeps asking `recover/prelogin` can tell that an account has one.
 - A malicious org admin can use «Ha perdido el acceso» on someone who has not lost anything: they are removed (which
-  the admin could do anyway) and, if that was their only organization, whoever signs up with the new invite (the
-  admin knows its code) takes the e-mail on this server. With e-mail verification on, that account sees only that
-  organization's invites, and the person can no longer log in; the server admin can restore it
-  (`delete-user` and an invite). The removed person's data on the server was only their own encrypted pins.
+  the admin could do anyway), but the invite code the admin knows does not take their address: a sign-up with it
+  waits until it proves the e-mail, by a code sent to that mailbox or through the server admin. Whoever controls the
+  mailbox (or fools the server admin) can therefore take the address of an account that is in no organization; that
+  is the same trust the server already puts in e-mail for invites. Someone with the invite code can also keep
+  replacing a waiting sign-up with their own, which only delays the real person (each new sign-up e-mails a new
+  code to the real address).
 
 ### 3.6 Network attacker
 

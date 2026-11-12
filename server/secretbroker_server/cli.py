@@ -73,10 +73,20 @@ def verify_email(args):
         sys.exit(f"secretbroker-server: not an e-mail address: {args.email}")
     db = Database(settings.db_path)
     with db.tx(write=True) as conn:
-        row = conn.execute("SELECT id, verified FROM users WHERE email = ?", (address,)).fetchone()
+        # A new account waiting to replace one whose owner lost access (Equipo › «Ha perdido el acceso»): check who
+        # the person is first; verifying takes the old account's place.
+        waiting = conn.execute("SELECT id FROM users WHERE replacing_email = ?", (address,)).fetchone()
+        replaced = mark_verified(conn, waiting["id"], None) if waiting else None
+        row = None if waiting else conn.execute("SELECT id, verified FROM users WHERE email = ?", (address,)).fetchone()
         if row and not row["verified"]:
             mark_verified(conn, row["id"], None)
     db.close()
+    if waiting:
+        if not replaced:
+            sys.exit(f"secretbroker-server: the account {address} had is in an organization again (or is a server "
+                     "admin): the new one can't take its place")
+        print(f"{address} is verified now: the new account took the place of the one whose owner lost access.")
+        return
     if row is None:
         sys.exit(f"secretbroker-server: no account with the e-mail {address}")
     print(f"{address} {'was already verified' if row['verified'] else 'is verified now'}.")
@@ -86,8 +96,10 @@ def unverified(args):
     """List accounts still waiting for e-mail verification."""
     settings = _settings()
     db = Database(settings.db_path)
-    for row in db.conn().execute("SELECT email, name, created FROM users WHERE verified = 0 ORDER BY created"):
-        print(f"{row['email']:40} {row['name']:24} {row['created']}")
+    for row in db.conn().execute("SELECT COALESCE(replacing_email, email) AS email, name, created, replacing_email "
+                                 "FROM users WHERE verified = 0 ORDER BY created"):
+        note = "  (new account: replaces one whose owner lost access)" if row["replacing_email"] else ""
+        print(f"{row['email']:40} {row['name']:24} {row['created']}{note}")
     db.close()
 
 

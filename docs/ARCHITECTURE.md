@@ -42,7 +42,9 @@ approvals are one click after unlock.
   `app.page_api(api)`: each method raises `PermissionError` unless the web view's current address
   (`window.gui.get_current_url`) is `window.real_url` (fragment aside). An address that can't be read is refused.
 - **Mac wording.** Messages say «PC»; on macOS `i18n.for_system` rewrites «this PC» as «this Mac» and any other PC
-  as the language's word for a computer (`i18n._MAC_WORDS`), for the page and the Python texts alike.
+  as the language's word for a computer (`i18n._MAC_WORDS`), for the page and the Python texts alike. The rules match
+  «PC», «pc» (Dutch and Danish write it so) and «Pc» alike, and the word they put in takes the case style of the one
+  it replaces («pc» → «computer», «Pc» → «Computer»; «Mac» stays a name).
 - **Inactivity lock** applies with the session unlock too. `status.lock_reason` is `idle`, `manual` or `windows`. With
   the session unlock on, `client.call` opens the vault again by itself on the AI's next request
   (`client.reopen_with_session`), and the app does when the user comes back to the window; never after «Bloquear».
@@ -245,12 +247,20 @@ New passwords set these ways also need `n` ≥ 2^17.
   the code's `kdf` (a fake, fixed one for unknown e-mails or accounts without a code), `recover/start` with
   `recovery_auth_hash` gives `recovery_blob` and a challenge; the client opens the keys, checks they are the
   account's public keys, signs `recover` and sends the new `kdf`, `auth_hash` and `private_blob`; every session ends
-  and the device logs in as usual (pins come back from `/me/data`, credentials with the next sync).
+  and the device logs in as usual (pins come back from `/me/data`, credentials with the next sync). The code was
+  used (it may have been read from paper, a file, a vault), so the app makes a new one at once and shows it once,
+  saying the old one no longer works (`recovery_used`, `recovery_code`).
 * **Neither** («Ha perdido el acceso», `team_replace_member {org, user_id}`): an org admin removes the account (2.4,
   re-keys and «Cambiar» flags as any removal) and invites the e-mail again with `replaces: <old user id>`. Signing up
-  with that invite takes the old account's place (it is deleted, a new user id and keys are made) only if the old
-  one is then in no organization and is not a server admin; otherwise the sign-up answers like any taken e-mail.
-  The admin gives access back after confirming the new account's code.
+  with that invite (the old account in no organization, not a server admin; otherwise the sign-up answers like any
+  taken e-mail) creates the new account **waiting**: `register` answers `{replacing: true, mail}`, it can't sign in,
+  and the old account keeps its e-mail, password and sessions. The invite code alone (which the org admin knows)
+  never takes an address: the new account must prove the e-mail, by the code e-mailed to it (`POST
+  /accounts/replace/verify {email, code}`, client `team_confirm_replacement`) or by a server admin
+  (`secretbroker-server verify-email`, or anything that calls `accounts.mark_verified`, such as the admin API's
+  verify). Only then is the old account deleted and the new one given the e-mail, verified. A newer waiting sign-up
+  for the same account replaces an older one. The app then logs in and makes the new account's recovery code; the
+  admin gives access back after confirming the new account's code.
 
 ### 2.2 Fingerprints and key pinning
 
@@ -510,6 +520,7 @@ item says and what is deleted is signed with the author's Ed25519 key and checke
 | `POST /accounts/password/reset` | `{challenge, signature, kdf, auth_hash, private_blob}` → `{}` (a new password without the old one, signed `reset`; revokes the other sessions; org event `password.reset`) |
 | `POST /accounts/recover/prelogin` (no auth) | `{email}` → `{kdf}` (the recovery code's; unknown e-mails and accounts without a code get a fixed fake one) |
 | `POST /accounts/recover/start` (no auth) | `{email, recovery_auth_hash}` → `{user_id, recovery_blob, public_key, signing_public_key, challenge}`; `401 invalid_credentials` alike for a wrong code, an unknown e-mail or no code; throttled like `login` (same counters) |
+| `POST /accounts/replace/verify` (no auth) | `{email, code}` → `{}` (the code e-mailed to a new account waiting to replace one whose owner lost access; then it takes the e-mail; `400 invalid_code` / `code_expired` (also for an e-mail with nothing waiting), throttled like `login`; `409 replace_blocked` if the old account is in an organization again) |
 | `POST /accounts/recover` (no auth) | `{email, recovery_auth_hash, challenge, signature, kdf, auth_hash, private_blob}` → `{}` (signed `recover` with the opened keys; revokes every session; org event `account.recover`) |
 | `GET /users/{uid}/keys` | → `{id, email, name, public_key, signing_public_key}` (only users sharing an org with you, or invited by your org) |
 | `GET /users/keys?ids=a,b,…` | → `[{id, email, name, public_key, signing_public_key}]`, at most 200 ids; people you may not see are left out (one request for a team's members; clients fall back to the single endpoint on a `404`) |
@@ -630,7 +641,10 @@ Windows-session unlock, Hello or a password once): `team_recovery_code` (→ `{c
 `team_reset_password {password}`, `team_recover {server_url, email, code, password, device_name?}` (→ like
 `team_connect`), `team_replace_member {org, user_id}` (→ `team_remove_member`'s answer plus `{email, invite: {id,
 emailed, expires}, collections: [names]}`; if the invite fails after the removal, calling it again only invites).
-`team_connect` with `mode: register` also answers `recovery_code` on servers with recovery; `team_status` has
+`team_connect` with `mode: register` also answers `recovery_code` on servers with recovery, or `{connected: false,
+replace_pending: {server_url, email, mail}}` when the e-mail must be proven first; `team_confirm_replacement
+{server_url, email, code, password}` (in `TEAM_EXPORT_OPS`) sends the e-mailed code, logs in and answers like
+`team_connect` with a `recovery_code`; `team_status` has
 `recovery` (`{created}` or null) and `recovery_supported`, and, when not connected but the vault holds an account
 without a session, `hint: {server_url, email}`. `restore` of a backup on a PC without a vault forgets the backup's
 team session (`Team.forget_session`: the account, collections and pins stay); Equipo then asks for the account

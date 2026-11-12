@@ -71,6 +71,7 @@ TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_i
                    "team_unshare_with", "team_revoke_device", "team_change_password", "team_renew_invite",
                    "team_resend_invite", "team_drop_invite", "team_invite_code")
 TEAM_CHANGE_OPS += ("team_recovery_code", "team_reset_password", "team_recover", "team_replace_member")  # 2.1 recovery
+TEAM_CHANGE_OPS += ("team_confirm_replacement",)
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
                 "import_file", "import_env_file", "export_vault") + TEAM_CHANGE_OPS  # what the app that unlocked may do with one click
 # Operations that can send credentials or keys out of the vault (to someone else's account, or a file in clear).
@@ -83,6 +84,7 @@ TEAM_EXPORT_OPS = ("team_connect", "team_invite", "team_renew_invite", "team_acc
 # A recovery code opens the account's keys; a password set without the old one, or with the code, takes the account;
 # «Ha perdido el acceso» sends an invite: like exporting or sharing, a session unlock alone is not enough.
 TEAM_EXPORT_OPS += ("team_recovery_code", "team_reset_password", "team_recover", "team_replace_member")
+TEAM_EXPORT_OPS += ("team_confirm_replacement",)
 # Operations that may change a shared credential: the team sync runs soon after them to push it.
 TEAM_PUSH_OPS = {"save_entry", "delete_entry", "replace_key", "rotate", "update_credential", "ai_rotate", "ai_delete"}
 # Rotations from the app: one click. Copying a new password not applied yet gives it out, like exporting.
@@ -109,7 +111,7 @@ PROVEN_PURPOSE = {op: f"service.purpose_{op}" for op in (
     "exposure_begin", "enable_session_unlock", "export_vault", "rotation_secret", "totp_code", "team_accept_change",
     "team_invite_code")}
 PROVEN_PURPOSE.update({op: f"service.purpose_{op}" for op in (
-    "team_recovery_code", "team_reset_password", "team_recover", "team_replace_member")})
+    "team_recovery_code", "team_reset_password", "team_recover", "team_replace_member", "team_confirm_replacement")})
 APPROVAL_EXPIRED_SECONDS = 600  # how long the app is told about a request nobody answered in time
 # The browser extension, through native_host.py (see the browser section of Service). None is for the AI.
 EXTENSION_OPS = ("ext_hello", "ext_pair", "ext_logins", "ext_search", "ext_fill", "ext_save_check", "ext_save")
@@ -2691,6 +2693,8 @@ class Service:
             params.get("server_url"), params.get("email"), str(params.get("password") or ""),
             params.get("mode") or "login", params.get("name") or "", params.get("device_name") or "",
             params.get("invite_token")))
+        if result.get("replace_pending"):  # a new account that must prove its e-mail first: nothing linked yet
+            return result
         self._team_info = {"state": "idle"}
         self._audit("vault", "team_connect", f"{result['user']['email']} en {result['server_url']}", "ok")
         self._team_wake.set()
@@ -2803,6 +2807,16 @@ class Service:
             str(params.get("password") or ""), params.get("device_name") or ""))
         self._team_info = {"state": "idle"}
         self._audit("vault", "team_account_recovered", f"{result['user']['email']} en {result['server_url']}", "ok")
+        self._team_wake.set()
+        return result
+
+    def op_team_confirm_replacement(self, params):
+        """The e-mailed code of a new account that replaces one whose owner lost access; then it logs in."""
+        result = self._team_call("team_confirm_replacement", params, lambda: self.team.confirm_replacement(
+            params.get("server_url"), params.get("email"), str(params.get("code") or ""),
+            str(params.get("password") or ""), params.get("device_name") or ""))
+        self._team_info = {"state": "idle"}
+        self._audit("vault", "team_connect", f"{result['user']['email']} en {result['server_url']} (cuenta nueva)", "ok")
         self._team_wake.set()
         return result
 

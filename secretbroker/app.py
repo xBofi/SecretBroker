@@ -44,6 +44,7 @@ TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_i
                    "team_unshare_with", "team_revoke_device", "team_change_password", "team_renew_invite",
                    "team_resend_invite", "team_drop_invite", "team_invite_code")
 TEAM_CHANGE_OPS += ("team_recovery_code", "team_reset_password", "team_recover", "team_replace_member")
+TEAM_CHANGE_OPS += ("team_confirm_replacement",)
 # What the app that unlocked may do with one click (see service.PRESENCE_OPS).
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
                 "import_file", "import_env_file", "export_vault") + TEAM_CHANGE_OPS
