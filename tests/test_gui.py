@@ -1771,8 +1771,9 @@ def teams_flow(page, env):
     page.click("Volver a entrar con la contraseña")
     check(wait_for(lambda: "¿Has olvidado la contraseña?" in page.text() and "Recuperar la cuenta del equipo" not in page.text(), 5),
           "and back to signing in")
-    page.js("renderView()")
-    wait_for(lambda: page.js("!!document.querySelector('.team-form .segmented button.active')"), 5)
+    # renderView() is asynchronous: wait for the new form, not the old one it is about to replace.
+    page.js("document.querySelector('.team-form').dataset.old = '1'; renderView()")
+    wait_for(lambda: page.js("!!document.querySelector('.team-form:not([data-old]) .segmented button.active')"), 10)
 
     print("An invite link")
     link = f"secretbroker://join?server={TEAM_URL}&email=alicia%40example.com&code=ABC-123"
@@ -2037,6 +2038,9 @@ def teams_flow(page, env):
     page.js("api().call = window.__realCall; api().call('team_status').then((r) => { state.team = r.result; state.view = 'credentials'; renderMain(); })")
 
     print("An edit that waits")
+    # The step above reloads asynchronously: mark the entry once that redraw is done, or it draws over the mark.
+    wait_for(lambda: page.js("state.view === 'credentials' && !!document.querySelector('.list .row')"), 10)
+    time.sleep(0.5)
     page.js("""(() => { const e = state.entries.find((x) => x.id === 'echo-api'); e.shared.unsent = 'rekey'; renderMain(); })()""")
     check(wait_for(lambda: "Sin enviar" in page.text(), 5)
           and "se tiene que volver a cifrar" in page.js("[...document.querySelectorAll('.draft-badge')].map((b) => b.title).join(' ')"),
