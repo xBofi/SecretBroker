@@ -4,6 +4,25 @@ What changed for people who use SecretBroker. The commit history has the details
 
 ## Unreleased
 
+### Team server
+- **One command installs the team server** on an Ubuntu 22.04 or 24.04 server, without Docker:
+  `curl -fsSL https://github.com/xBofi/SecretBroker/releases/latest/download/install-server.sh | sudo bash`. It asks
+  the domain name and your e-mail, sets up HTTPS (Caddy, with a certificate it renews by itself), a nightly backup
+  (14 kept) and the server as a locked-down system service, and prints what to do next in the app, with a one-time
+  code that only your e-mail can use to become the server's administrator. Running it again repairs and upgrades.
+  `--local` installs it without Caddy, for a tunnel (Cloudflare Tunnel, Tailscale). Docker still works.
+- **The server updates itself**, every night, only with releases signed with the SecretBroker release key (checked
+  before anything is used; never an older version). It backs up first, and if the new version does not answer
+  within a minute it goes back to the previous one and its database. It can be switched off.
+- **Administration API for the app's server panel**: accounts (disable, enable, verify, delete), organizations
+  (hand over ownership), backups (list, back up now), signups and automatic updates, and a log of everything the
+  server's administrators did, from the app or the command line. Only server administrators can use it; the last
+  one can't lock themselves out. Restoring a backup stays on the server's command line
+  (`sudo secretbroker-server restore <file>`), because the server has to be stopped.
+- Signup codes can be made for one e-mail only (`create-invite --email`).
+- The app's choices for signups and automatic updates are kept in the server's data folder and win over its
+  `SB_SIGNUPS` / `SB_AUTO_UPDATE` settings.
+
 ### Windows installer
 - **The installer speaks the app's 32 languages**, not only Spanish and English: it opens in the language of Windows
   without asking, and lists the languages only when Windows speaks one SecretBroker doesn't. Its own texts say «PC»

@@ -1,5 +1,7 @@
-"""Server settings, read once from the environment."""
+"""Server settings, read once from the environment, then the server admin's choices from the app on top
+(`settings.json` in the data folder, see apply_overrides)."""
 
+import json
 import os
 import re
 import secrets
@@ -8,6 +10,9 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 SIGNUP_MODES = ("open", "invite", "closed")
+INSTALL_KINDS = ("systemd", "docker", "other")
+OVERRIDES_NAME = "settings.json"
+OVERRIDABLE = ("signups", "auto_update")
 VERIFICATION_MODES = ("required", "off")
 SMTP_SECURITY = ("starttls", "ssl", "none")
 VERSION_RE = re.compile(r"^\s*v?(\d{1,6})\.(\d{1,6})(?:\.(\d{1,6}))?")
@@ -59,10 +64,27 @@ class Settings:
     max_invites_per_hour: int = 30
     # The oldest desktop app this server serves (it says so with 426 client_too_old). Never below MIN_CLIENT.
     min_client: str = ""
+    # Backups: where the daily backup and «back up now» (POST /admin/backups) write, and how many are kept.
+    backup_dir: str = ""
+    backup_keep: int = 14
+    # Automatic updates (the systemd install's updater, secretbroker_server.updater). The server only reports them:
+    # `update_status` is the file the updater writes after each check (readable, written by root only).
+    auto_update: bool = True
+    update_status: str = ""
+    # How this server was installed (SB_INSTALL): "systemd" (install-server.sh), "docker" (the image), "other".
+    install: str = "other"
 
     @property
     def db_path(self):
         return self.data_dir / "secretbroker.db"
+
+    @property
+    def backups_path(self):
+        return Path(self.backup_dir) if self.backup_dir else self.data_dir / "backups"
+
+    @property
+    def overrides_path(self):
+        return self.data_dir / OVERRIDES_NAME
 
     @property
     def oldest_client(self):
@@ -103,6 +125,8 @@ class Settings:
             raise ConfigError("SB_INVITE_DAYS must be between 1 and 365")
         if self.max_invites_per_hour < 1:
             raise ConfigError("SB_MAX_INVITES_PER_HOUR must be at least 1")
+        if not 1 <= self.backup_keep <= 1000:
+            raise ConfigError("SB_BACKUP_KEEP must be between 1 and 1000")
         if self.min_client and parse_version(self.min_client) is None:
             raise ConfigError("SB_MIN_CLIENT must be a version such as 0.17.0")
         if self.public_url:
@@ -127,9 +151,10 @@ def from_env(env=None):
         max_deletes = int(env.get("SB_MAX_DELETES_PER_HOUR", "100"))
         invite_days = int(env.get("SB_INVITE_DAYS", "14"))
         max_invites = int(env.get("SB_MAX_INVITES_PER_HOUR", "30"))
+        backup_keep = int(env.get("SB_BACKUP_KEEP", "14"))
     except ValueError as exc:
-        raise ConfigError("SB_SESSION_DAYS, SB_MAX_BODY, SB_SMTP_PORT, SB_MAX_DELETES_PER_HOUR, SB_INVITE_DAYS and "
-                          "SB_MAX_INVITES_PER_HOUR must be numbers") from exc
+        raise ConfigError("SB_SESSION_DAYS, SB_MAX_BODY, SB_SMTP_PORT, SB_MAX_DELETES_PER_HOUR, SB_INVITE_DAYS, "
+                          "SB_MAX_INVITES_PER_HOUR and SB_BACKUP_KEEP must be numbers") from exc
     emails = frozenset(e.strip().lower() for e in env.get("SB_ADMIN_EMAILS", "").split(",") if e.strip())
     return Settings(
         data_dir=Path(env.get("SB_DATA_DIR", "./data")).resolve(),
@@ -152,7 +177,55 @@ def from_env(env=None):
         invite_days=invite_days,
         max_invites_per_hour=max_invites,
         min_client=env.get("SB_MIN_CLIENT", "").strip(),
+        backup_dir=env.get("SB_BACKUP_DIR", "").strip(),
+        backup_keep=backup_keep,
+        auto_update=_flag(env.get("SB_AUTO_UPDATE", "1")),
+        update_status=env.get("SB_UPDATE_STATUS", "").strip(),
+        install=_install_kind(env.get("SB_INSTALL", "")),
     )
+
+
+def _install_kind(value):
+    value = str(value).strip().lower()
+    return value if value in INSTALL_KINDS else "other"
+
+
+def read_overrides(data_dir):
+    """What the server admin chose in the app ({} when nothing, or when the file is unreadable)."""
+    try:
+        data = json.loads((Path(data_dir) / OVERRIDES_NAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    clean = {}
+    if data.get("signups") in SIGNUP_MODES:
+        clean["signups"] = data["signups"]
+    if isinstance(data.get("auto_update"), bool):
+        clean["auto_update"] = data["auto_update"]
+    return clean
+
+
+def apply_overrides(settings):
+    """The app's choices (PUT /admin/settings, kept in SB_DATA_DIR/settings.json) win over the SB_* defaults."""
+    for key, value in read_overrides(settings.data_dir).items():
+        setattr(settings, key, value)
+    return settings
+
+
+def save_overrides(settings, changes):
+    """Merge `changes` into settings.json (written whole, then renamed into place) and into `settings`."""
+    current = read_overrides(settings.data_dir)
+    current.update({k: v for k, v in changes.items() if k in OVERRIDABLE})
+    path = settings.overrides_path
+    tmp = path.with_name(path.name + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        json.dump(current, handle, indent=1, sort_keys=True)
+    os.replace(tmp, path)
+    for key, value in current.items():
+        setattr(settings, key, value)
+    return current
 
 
 def server_secret(data_dir):

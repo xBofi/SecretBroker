@@ -1,10 +1,11 @@
-# Builds and signs the installers for Windows, Ubuntu and macOS when a version tag (v0.16.0) is pushed, after the
+# Builds and signs the installers for Windows, Ubuntu and macOS (and the team server's archive and installer) when a version tag (v0.16.0) is pushed, after the
 # suites pass on each system and every signature verifies, and publishes them as the latest GitHub Release, which
 # the in-app updater offers (secretbroker/update.py, /releases/latest; it installs an asset only with a valid .sig). See docs/RELEASING.md.
 #
 #   version ─ test (3 systems) ─┬─ windows ────────┬─ sign ─ publish
 #                               ├─ ubuntu ─────────┤
-#                               └─ macos (2 archs) ┘
+#                               ├─ macos (2 archs) ┤
+#                               └─ server ─────────┘
 #
 # Supply chain (docs/THREAT_MODEL.md, §4): every Python package comes from the hash-pinned locks in requirements/
 # (pip --require-hashes --no-deps), every Action is pinned to a commit and the bundled CPython by checksum. The build
@@ -32,6 +33,10 @@ on:
       - secretbroker/update.py
       - installer/**
       - packaging/**
+      - server/install-server.sh
+      - server/packaging/**
+      - server/pyproject.toml
+      - server/secretbroker_server/updater.py
   pull_request:
     paths:
       - .github/workflows/release.yml
@@ -44,6 +49,10 @@ on:
       - secretbroker/update.py
       - installer/**
       - packaging/**
+      - server/install-server.sh
+      - server/packaging/**
+      - server/pyproject.toml
+      - server/secretbroker_server/updater.py
 
 permissions:
   contents: read
@@ -284,11 +293,42 @@ jobs:
           path: dist/SecretBroker-${{ needs.version.outputs.version }}-macos-${{ matrix.arch }}.pkg
           if-no-files-found: error
 
+  # The team server for install-server.sh and its signed automatic updates (server/secretbroker_server/updater.py):
+  # one self-contained archive (its own CPython, packages from requirements/server.txt and sign.txt), built on the
+  # older Ubuntu. Before it is uploaded (unsigned), the whole path runs on this runner with a throwaway key the test
+  # tells the installer to trust: install-server.sh --local, the admin API, a signed update, a refused one, a rollback.
+  server:
+    needs: [version, test]
+    if: ${{ !failure() && !cancelled() }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Build the server archive
+        run: bash tools/build_server.sh
+
+      - name: Install it, update it, refuse, roll back
+        run: sudo bash server/tests/test_install.sh "dist/secretbroker-server-${{ needs.version.outputs.version }}-linux-x86_64.tar.gz"
+
+      - name: The archive and the installer
+        run: cp server/install-server.sh dist/install-server.sh
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: unsigned-server
+          path: |
+            dist/secretbroker-server-${{ needs.version.outputs.version }}-linux-x86_64.tar.gz
+            dist/install-server.sh
+          if-no-files-found: error
+
   # The only job with UPDATE_SIGNING_KEY. It installs nothing but the hash-pinned cryptography (requirements/sign.txt)
   # into its own venv, runs no build code and takes each installer from the artifact of the job that built it, by
   # name (an extra artifact uploaded by another job is ignored).
   sign:
-    needs: [version, windows, ubuntu, macos]
+    needs: [version, windows, ubuntu, macos, server]
     if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -317,13 +357,15 @@ jobs:
           pattern: unsigned-*
           path: unsigned
 
-      - name: The four installers, each from its own build
+      - name: The four installers and the server's two files, each from its own build
         run: |
           mkdir dist
           cp "unsigned/unsigned-windows/SecretBroker-Setup-$VERSION.exe" \
              "unsigned/unsigned-ubuntu/secretbroker_${VERSION}_amd64.deb" \
              "unsigned/unsigned-macos-arm64/SecretBroker-$VERSION-macos-arm64.pkg" \
-             "unsigned/unsigned-macos-x86_64/SecretBroker-$VERSION-macos-x86_64.pkg" dist/
+             "unsigned/unsigned-macos-x86_64/SecretBroker-$VERSION-macos-x86_64.pkg" \
+             "unsigned/unsigned-server/secretbroker-server-$VERSION-linux-x86_64.tar.gz" \
+             "unsigned/unsigned-server/install-server.sh" dist/
           sha256sum dist/*
 
       - name: Sign for the updater
@@ -390,7 +432,14 @@ jobs:
           if [ "$IS_RELEASE" != true ]; then key=(--public-key "$DRY_RUN_PUBLIC_KEY"); fi
           "$RUNNER_TEMP/verify/bin/python" -I tools/sign_release.py --verify "${key[@]}" \
             "dist/SecretBroker-Setup-$VERSION.exe" "dist/secretbroker_${VERSION}_amd64.deb" \
-            "dist/SecretBroker-$VERSION-macos-arm64.pkg" "dist/SecretBroker-$VERSION-macos-x86_64.pkg"
+            "dist/SecretBroker-$VERSION-macos-arm64.pkg" "dist/SecretBroker-$VERSION-macos-x86_64.pkg" \
+            "dist/secretbroker-server-$VERSION-linux-x86_64.tar.gz" dist/install-server.sh
+          # The server's updater and install-server.sh carry their own copies of the release key: the same one.
+          desktop=$(sed -n 's/^PUBLIC_KEY = "\([^"]*\)".*/\1/p' secretbroker/update.py)
+          updater=$(sed -n 's/^PUBLIC_KEY = "\([^"]*\)".*/\1/p' server/secretbroker_server/updater.py)
+          installer=$(sed -n 's/^RELEASE_KEY="\([^"]*\)".*/\1/p' server/install-server.sh)
+          [ -n "$desktop" ] && [ "$updater" = "$desktop" ] && [ "$installer" = "$desktop" ] \
+            || { echo "::error::the server's copies of the release key differ from secretbroker/update.py"; exit 1; }
           ls -l dist
 
       - name: Publish release
@@ -402,4 +451,6 @@ jobs:
             --title "SecretBroker $VERSION" --generate-notes \
             dist/SecretBroker-Setup-*.exe dist/SecretBroker-Setup-*.exe.sig \
             dist/secretbroker_*_amd64.deb dist/secretbroker_*_amd64.deb.sig \
-            dist/SecretBroker-*-macos-*.pkg dist/SecretBroker-*-macos-*.pkg.sig
+            dist/SecretBroker-*-macos-*.pkg dist/SecretBroker-*-macos-*.pkg.sig \
+            dist/secretbroker-server-*-linux-x86_64.tar.gz dist/secretbroker-server-*-linux-x86_64.tar.gz.sig \
+            dist/install-server.sh dist/install-server.sh.sig
