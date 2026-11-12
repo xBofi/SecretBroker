@@ -4,7 +4,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, server-hosting]  # TEMPORARY: to run CI on this branch
   pull_request:
 
 permissions:
