@@ -40,7 +40,7 @@ mail.deliver = lambda settings, msg: OUTBOX.append(msg)  # what the server would
 
 def email_code(address):
     for _ in range(100):  # sent from a background thread
-        found = [m for m in OUTBOX if m["To"] == address]
+        found = [m for m in OUTBOX if m["To"] == address and "código" in m["Subject"]]
         if found:
             return re.search(r"\b(\d{8})\b", found[-1].get_content()).group(1)
         time.sleep(0.05)
@@ -560,6 +560,104 @@ def weak_approvals():
     check(answer["ok"], "and from then on it is one click again until the vault is locked")
 
 
+def invite_lifecycle(alice, oid, settings):
+    """An admin's invites: e-mailed by the server, re-sent, expired, renewed, withdrawn. → the code Erin gets."""
+    print("Invites that expire, are renewed, re-sent or withdrawn")
+    first = alice.act("team_invite", org=oid, email="erin@example.com", role="member")
+
+    def row():
+        return next(m for m in alice.ok("team_members", org=oid) if m["email"] == "erin@example.com")
+    check(first["emailed"] and row()["emailed"] and row()["expired"] is False, "the admin sees it was e-mailed")
+    response = alice.call("team_resend_invite", org=oid, id=first["id"], proof={"kind": "presence", "token": alice.presence})
+    check(not response["ok"] and response["code"] == "rate_limited", "re-sending at once waits a few minutes")
+    ServerDb(settings).run("UPDATE invites SET sent = sent - 3600 WHERE id = ?", (first["id"],))
+    check(alice.act("team_resend_invite", org=oid, id=first["id"])["emailed"], "then it is e-mailed again")
+    ServerDb(settings).run("UPDATE invites SET expires = ? WHERE id = ?", (int(time.time()) - 1, first["id"]))
+    check(row()["expired"] is True, "an expired invite says so")
+    renewed = alice.act("team_renew_invite", org=oid, id=first["id"])
+    mails = [m for m in OUTBOX if m["To"] == "erin@example.com" and "invita" in m["Subject"]]
+    check(renewed["id"] != first["id"] and renewed["emailed"] and row()["expired"] is False
+          and renewed["id"] in mails[-1].get_content(), "renewing gives a new code, e-mailed again")
+    other = alice.act("team_invite", org=oid, email="nobody@example.com", role="member")
+    alice.act("team_drop_invite", id=other["id"])
+    check(not any(m["email"] == "nobody@example.com" for m in alice.ok("team_members", org=oid)), "an invite can be withdrawn")
+    return renewed["id"]
+
+
+def disabled_account(base, settings, alice, oid, cid, code):
+    """The server admin disables an account (secretbroker-server disable-user): the managers' apps re-key what
+    it could read on their next sync and flag those credentials, as when an org admin removes someone."""
+    print("A server admin disables an account")
+    from secretbroker_server import cli
+    erin = Person("erin-team")
+    erin.act("team_connect", server_url=base, email="erin@example.com", password=ACCOUNT, mode="register", name="Erin",
+             invite_token=code)
+    erin.act("team_accept_invite", id=erin.ok("team_invites")[0]["id"])
+    erin_id = next(m["user_id"] for m in alice.ok("team_members", org=oid) if m["email"] == "erin@example.com")
+    alice.act("team_confirm_member", org=oid, user_id=erin_id)
+    alice.act("team_grant", collection=cid, user_id=erin_id, permission="view")
+    erin.sync()
+    check(erin.entry("five-api")["fields"]["value"] == "five-FAKE-1", "Erin, with an invite code from the e-mail, reads the collection")
+    before = alice.service.vault.team()["collections"][cid]["key_version"]
+    cli.main(["disable-user", "erin@example.com"])
+    result = alice.sync()["result"]
+    check({"collection": "Cinco", "people": ["Erin"]} in result["rotate"]
+          and alice.service.vault.team()["collections"][cid]["key_version"] == before + 1,
+          "the manager's next sync re-keys the collection Erin could read")
+    reminder = next((r for r in alice.ok("reminders") if r["id"] == "five-api"), {})
+    check(reminder.get("kind") == "team_access" and "Erin" in reminder.get("people", []),
+          "and flags its credentials: «rotate: Erin had access»")
+    events = alice.ok("team_events", org=oid)
+    check(any(e["action"] == "member.disable" and e["target"] == "erin@example.com" for e in events),
+          "Actividad says the server admin disabled the account")
+    check(erin.sync()["state"] == "reconnect", "Erin's sessions are revoked")
+    response = erin.call("team_connect", server_url=base, email="erin@example.com", password=ACCOUNT, mode="login",
+                         proof={"kind": "presence", "token": erin.presence})
+    check(response["code"] == "account_disabled", "and she can't sign in again")
+
+
+def version_checks(base, alice):
+    print("App and server versions")
+    from secretbroker import __version__
+    with teams.Client(base) as api:
+        check(api._http.headers.get(teams.VERSION_HEADER) == __version__, "the app sends its version with every request")
+    real_call = teams.Client.call
+
+    def server(info):
+        def call(self, method, path, body=None, auth=True):
+            if path == "/info":
+                return info
+            return real_call(self, method, path, body, auth)
+        return call
+    teams.Client.call = server({"name": "Viejo", "version": "0.15.2", "signups": "invite", "verification": "off"})
+    try:
+        status = alice.sync()
+        oldie = Person("oldie")
+        response = oldie.call("team_connect", server_url=base, email="oldie@example.com", password=ACCOUNT,
+                              mode="register", proof={"kind": "presence", "token": oldie.presence})
+    finally:
+        teams.Client.call = real_call
+    old_server = "El servidor del equipo es una versión antigua: pide a quien lo administra que lo actualice."
+    check(status["state"] == "error" and status["error"] == old_server,
+          f"a server too old for this app is named as such in Equipo ({status.get('error')})")
+    check(response["code"] == "server_too_old" and response["error"] == old_server, "also when linking an account")
+    teams.Client.call = server({"name": "0.16", "version": "0.16.2", "signups": "invite", "verification": "email"})
+    try:
+        check(alice.sync()["state"] == "ok", "a 0.16 server (no api number yet) works")
+    finally:
+        teams.Client.call = real_call
+    teams.__version__ = "0.15.0"
+    try:
+        response = alice.call("team_orgs")
+        status = alice.sync()
+    finally:
+        teams.__version__ = __version__
+    check(response["code"] == "client_too_old" and "demasiado antigua" in response["error"],
+          f"an app older than the server's min_client is told to update ({response.get('error')})")
+    check(status["state"] == "error" and "actualízala" in status["error"], "and the sync says so too")
+    check(alice.sync()["state"] == "ok", "an up-to-date app syncs again")
+
+
 def main():
     base, stop, settings = start_server()
     echo = HTTPServer(("127.0.0.1", 0), Echo)
@@ -608,7 +706,11 @@ def main():
 
     print("Organization, invites and fingerprints")
     oid = alice.act("team_create_org", name="Acme")["id"]
-    alice.act("team_invite", org=oid, email="bob@example.com", role="member")
+    invited = alice.act("team_invite", org=oid, email="bob@example.com", role="member")
+    mails = [m for m in OUTBOX if m["To"] == "bob@example.com" and "invita" in m["Subject"]]
+    check(invited["emailed"] is True and alice.ok("team_status")["mail"] and len(mails) == 1
+          and f"code={invited['id']}" in mails[0].get_content(),
+          "a server with e-mail sends the invite itself, with the join link (and the app knows)")
     alice.act("team_invite", org=oid, email="carol@example.com", role="member")
     check(bob.ok("team_invites") == [], "an account that has not verified its e-mail sees no invites")
     bob.act("team_verify_email", code=email_code("bob@example.com"))
@@ -909,6 +1011,10 @@ def main():
     check(alice.service.vault.team()["collections"][c5]["key_version"] == 2, "the next sync re-encrypts the one left")
     check(not any(c in json.dumps(teams.explain(exc, "Prod")) for exc in (KeyError("x"), ValueError("y"), InvalidTag())
                   for c in ("KeyError", "ValueError", "InvalidTag")), "sync errors never show exception names")
+
+    erin_code = invite_lifecycle(alice, oid, settings)
+    disabled_account(base, settings, alice, oid, c5, erin_code)
+    version_checks(base, alice)
 
     db = b"".join(p.read_bytes() for p in Path(settings.data_dir).glob("secretbroker.db*"))
     leaks = [w for w in (API_KEY, NEW_KEY, NAME, COLLECTION, "echo-api", "API compartida", "Notas de Bob")
