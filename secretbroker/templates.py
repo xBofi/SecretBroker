@@ -191,9 +191,12 @@ def computed_values(entry):
             credentials = quote(fields.get("username", ""), safe="")
             if fields.get("password"):
                 credentials += ":" + quote(fields["password"], safe="")
-            port = fields.get("port") or engine["port"]
-            return {"connection_url": f"{engine['scheme']}://{credentials}@{fields['host']}"
-                                      f"{':' + port if port else ''}/{fields.get('database', '')}"}
+            port = quote(str(fields.get("port") or engine["port"] or ""), safe="")
+            # Every field quoted: a database name like «app?host=evil.example» must stay a name, not become
+            # options (libpq reads host= from the query) that send the password elsewhere. IPv6 keeps [ : ].
+            host = quote(str(fields["host"]), safe="[]:")
+            return {"connection_url": f"{engine['scheme']}://{credentials}@{host}"
+                                      f"{':' + port if port else ''}/{quote(str(fields.get('database') or ''), safe='')}"}
     return {}
 
 

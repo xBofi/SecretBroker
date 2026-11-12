@@ -101,6 +101,14 @@ A member of an organization, with some permission on a collection.
   about to be removed included) cannot point a shared login at their own site and collect the password the team
   sets after rotating it. The local approval mode is
   never taken from the server.
+- A destination is everywhere the key can actually travel, not just the policy's list: hosts the fields imply
+  (an API's address, a generic credential's URL), the saved test request's host and how the key is sent. Emptying
+  the list while pointing the address and the test elsewhere is reviewed like a new host, and the automatic check of
+  a shared credential only ever calls hosts its policy names. Database names are quoted in connection URLs and reviewed when changed.
+- A teammate's malformed item is refused on its own and reported; it cannot stop anyone's sync (and with it the
+  re-keys that follow a removal).
+- Someone who does not manage a collection can only sign their own departure from it; someone downgraded to read
+  can no longer write, even before the next re-key.
 - Item versions and deletions must be signed by someone with `edit` or `manage` in the signed member list: a `view` or
   `use` member who holds the collection key cannot write or delete items, even with the server's help.
 - Many deletions at once (a compromised account, ransomware with a stolen session) are held until each user decides,
@@ -148,6 +156,16 @@ A member of an organization, with some permission on a collection.
   collection keys or substitute a member's public key without a fingerprint change the user must confirm.
 - Member lists are a hash chain of lists signed by the collection's managers: a member, a permission or a manager the
   chain does not back is refused and reported, and no key is sealed to anyone outside it.
+- A verified list is never forgotten: dropping a collection keeps it, and it travels encrypted to the account's
+  other devices, so hiding a collection for a sync and then serving an older list (or none) gets nowhere. Automatic
+  re-keys need a verified list, and a new key never goes to someone this account saw removed unless a manager adds
+  them again with a new signed list.
+- Items name the list their writer had verified. A device shown a different list than its teammates with the same
+  number (a fork), or kept behind a newer one, stops writing to that collection and tells the user.
+- Accepting an invite shows the inviter's code; a pin made only from an invite is not enough for owners' recovery
+  grants, which need a verified code.
+- At login the app refuses scrypt parameters weaker than the ones it registers accounts with, so the server cannot
+  lower the cost of guessing the password from `auth_hash`. Sign-ups do not reveal which e-mails have an account.
 - Item versions and deletions carry the author's signature and a write counter: the server cannot forge, attribute
   or delete content, nor serve an older version again; unsigned deletions are ignored and reported, and a collection
   that disappears with many credentials is held for the user.
@@ -170,7 +188,26 @@ A member of an organization, with some permission on a collection.
   list and Actividad, and needs that teammate's cooperation.
 - A device seeing a collection for the first time trusts the newest member list signed by a manager it verified,
   without checking older links (trust on first use of the chain). Collections from before 0.16 keep working
-  unsigned until a manager whose PC verified every member signs them.
+  unsigned until a manager whose PC verified every member signs them (automatically, with a re-key to the members
+  the server lists and this PC trusts, and only for collections the account never saw signed).
+- Fork and freshness detection is not a guarantee (there is no transparency log or gossip between members):
+  - A server that partitions people completely, showing a device only an old list and only items written under it
+    (its own and those of others it keeps behind with it), is not detected: nothing that device sees names a newer
+    list. During that time it keeps writing with a key a removed member may hold, and a removed manager can extend
+    the old chain for it. Detection needs one item, or one of the account's own devices, that saw the other branch.
+  - It works per account: two devices of the same account compare what they verified through the encrypted account
+    data; different people only through the lists items name. Apps before 0.17 do not name one, and rewrite the
+    account data without what newer devices verified (the next newer device puts it back).
+  - Only the newest 20 list hashes per collection are remembered, and a device that starts mid-chain knows none
+    older, so a fork at an older link that only an old item names goes unnoticed.
+  - A collection marked forked stays so (on every device of the account): nothing more is written to it from there.
+    The remedy is a new collection created by a manager the team verifies, and rotating its secrets.
+- A pin made by accepting an invite is still the server's word on who sent it (the code is shown, but comparing it is
+  optional). It is enough to trust what that person shares and the grants they sign; only owners' recovery access
+  needs a verified code. Pins from before 0.17 carry no origin and count as verified.
+- Sign-ups no longer say whether an e-mail has an account, but other answers still differ for known addresses (an
+  invite to an address that has an account, login throttling per e-mail), and timing is only roughly uniform.
+- Accounts registered with scrypt below 2^17 (none by this app) can only log in on PCs that already did so.
 - Without SMTP, e-mail verification relies on the admin checking who asks to be verified; a server with
   `SB_EMAIL_VERIFICATION=off` gives invites to whoever registered the address.
 - An attacker who controls the server can try offline guessing of weak account passwords from `private_blob` and the

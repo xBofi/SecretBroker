@@ -26,6 +26,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from . import autofill, crypto, templates
 from .crypto import b64, unb64
 from .vault import ID_RE, SHARE_PERMISSIONS, SHARE_WRITE, ValidationError, secret_fields, shared_content
+from .vault import validate_entry as vault_validate
 from .i18n import tr
 
 API = "/api/v1"
@@ -49,8 +50,17 @@ TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 READ_TIMEOUT = httpx.Timeout(8.0, connect=5.0)
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
 MIN_ACCOUNT_PASSWORD = 12
-# Besides the policy, these fields decide where a secret is sent (an SSH or database server).
-DESTINATION_FIELDS = ("host", "port", "engine")
+# Besides the policy, these fields decide where a secret is sent (an SSH or database server; the database name goes
+# into the connection URL, where libpq reads options such as host= from it).
+DESTINATION_FIELDS = ("host", "port", "engine", "database")
+# Fields that imply where (and how) a key travels without being destinations themselves: the address a check or a
+# relative test request uses, and how the key is put in a request. A quarantined change keeps them as they were too.
+ROUTE_FIELDS = ("base_url", "auth_style")
+# The least scrypt work accepted for an account at login (what crypto.new_kdf uses): a hostile server must not get
+# an auth_hash derived with less work, which would make guessing the password from it cheap.
+MIN_ACCOUNT_KDF_N = 2**17
+HEAD_SIG = b"secretbroker/item-head/v1|"
+HEAD_HASHES = 20  # member list hashes remembered per collection (to tell a fork from an old link)
 SOMEONE = "alguien que ya no está"
 
 
@@ -94,8 +104,9 @@ def public_keys(keys):
             "signing_public_key": b64(_ed25519(keys).public_key().public_bytes_raw())}
 
 
-def check_kdf(kdf):
-    """Only sane scrypt parameters: a hostile server must not make this PC hang or run out of memory."""
+def check_kdf(kdf, min_n=2**14):
+    """Only sane scrypt parameters: a hostile server must not make this PC hang or run out of memory, nor (with
+    `min_n`, at login) get an auth_hash derived with so little work that guessing the password from it is cheap."""
     try:
         n, r, p = int(kdf["n"]), int(kdf["r"]), int(kdf["p"])
         ok = kdf.get("name") == "scrypt" and 2**14 <= n <= 2**20 and not n & (n - 1) and 1 <= r <= 32 \
@@ -104,6 +115,8 @@ def check_kdf(kdf):
         ok = False
     if not ok:
         raise TeamError(tr("teams.server_sent_invalid_encryption_parameter"), "bad_server")
+    if n < min_n:
+        raise TeamError(tr("teams.server_asks_weaker_password_protection"), "weak_kdf")
     return kdf
 
 
@@ -238,10 +251,20 @@ def _item_message(cid, iid, seq, entry, by, at):
                                   "at": at})
 
 
-def sign_item(keys, me, cid, iid, plain):
-    """Sign an item's plaintext (inside the encryption): who wrote this version, which one, with what content."""
+def sign_item(keys, me, cid, iid, plain, head=None):
+    """Sign an item's plaintext (inside the encryption): who wrote this version, which one, with what content.
+    With `head`, also the member list the writer had verified (`head`: {seq, hash, signature}), so a reader can
+    tell when the server shows it a different or older list than its teammates (fork, stale)."""
     message = _item_message(cid, iid, _seq(plain), plain["entry"], me, plain.get("updated"))
+    plain = {k: v for k, v in plain.items() if k != "head"}
+    if head:
+        claim = {"seq": head["seq"], "hash": head["hash"]}
+        plain["head"] = {**claim, "signature": sign(keys, _head_message(cid, iid, _seq(plain), claim))}
     return {**plain, "sig": {"by": me, "signature": sign(keys, message)}}
+
+
+def _head_message(cid, iid, seq, claim):
+    return HEAD_SIG + _canonical({"cid": cid, "iid": iid, "seq": seq, "head": claim})
 
 
 def _delete_message(cid, iid, seq, by):
@@ -276,6 +299,11 @@ def effective_content(entry):
             content["fields"][name] = value
     if "description" in pending:
         content["description"] = pending["description"]
+    if "test_request" in pending:
+        if pending["test_request"]:
+            content["test_request"] = copy.deepcopy(pending["test_request"])
+        else:
+            content.pop("test_request", None)
     if "fill" in pending:
         _set_fill_part(content, pending["fill"])
     return content
@@ -324,10 +352,44 @@ def _destination(content):
             "fields": {name: (content.get("fields") or {}).get(name) for name in DESTINATION_FIELDS}}
 
 
+def _held_fields(template):
+    """The fields a quarantined change keeps as they were: destinations, and what implies a host or how the key
+    is sent (a generic credential's url is the host its key may go to)."""
+    return DESTINATION_FIELDS + ROUTE_FIELDS + (("url",) if template == "generic" else ())
+
+
+def effective_http(content):
+    """(hosts, auth): every web host a credential's key can reach (the hosts its policy names, those its fields
+    imply, as templates.default_policy derives them from base_url/url, and its saved test request's) and how the
+    key is put in a request (its policy's, else what its fields imply). A change that adds a host here, or another
+    auth, is a new destination even if the policy's own list got shorter: the automatic check and a relative test
+    request follow the fields."""
+    fields = content.get("fields") if isinstance(content.get("fields"), dict) else {}
+    policy = content.get("policy") if isinstance(content.get("policy"), dict) else {}
+    http = policy.get("http") if isinstance(policy.get("http"), dict) else {}
+    implied = {}
+    if content.get("template") in ("api_key", "generic"):  # where the checks follow base_url / url (exposure.py)
+        try:
+            implied = templates.default_policy(content["template"], fields).get("http") or {}
+        except Exception:  # noqa: BLE001 - odd fields imply nothing
+            implied = {}
+    test = content.get("test_request") if isinstance(content.get("test_request"), dict) else {}
+    hosts = []
+    for host in [*(http.get("allowed_hosts") or []), *(implied.get("allowed_hosts") or []),
+                 templates._host_of(str(test.get("url") or ""))]:
+        if isinstance(host, str) and host and host not in hosts:
+            hosts.append(host)
+    auth = http.get("auth") if isinstance(http.get("auth"), dict) and http["auth"].get("kind", "none") != "none" \
+        else implied.get("auth")
+    return hosts, auth or {"kind": "none"}
+
+
 def widening_changes(old, new):
     """Every way `new` sends a secret somewhere `old` did not (empty: nothing wider), as structured changes
     ({kind, field?, template?, old?, new?, values?}) that the page words in its own language."""
     sites = new_fill_sites(old, new)
+    hosts = new_hosts(old, new)
+    old_auth, new_auth = effective_http(old)[1], effective_http(new)[1]
     old, new = _destination(old), _destination(new)
     changes = []
     if old["template"] != new["template"]:
@@ -336,14 +398,12 @@ def widening_changes(old, new):
         if old["fields"][name] != new["fields"][name]:
             changes.append({"kind": "field", "field": name, "template": new["template"],
                             "old": old["fields"][name] or "", "new": new["fields"][name] or ""})
-    http = lambda d: d["policy"].get("http") or {}
-    hosts = new_hosts(old, new)
     if hosts:
         changes.append({"kind": "hosts", "values": hosts})
     if sites:
         changes.append({"kind": "fill_sites", "values": sites})
-    if (http(old).get("auth") or {"kind": "none"}) != (http(new).get("auth") or {"kind": "none"}):
-        changes.append({"kind": "auth", "new": str((http(new).get("auth") or {}).get("kind", "none"))})
+    if old_auth != new_auth:
+        changes.append({"kind": "auth", "new": str(new_auth.get("kind", "none"))})
     commands = lambda d: d["policy"].get("commands") or {}
     programs = [c for c in commands(new).get("allowed") or [] if c not in (commands(old).get("allowed") or [])]
     if programs:
@@ -356,9 +416,10 @@ def widening_changes(old, new):
 
 
 def new_hosts(old, new):
-    """The web hosts `new` may send the key to and `old` could not (the change review names them)."""
-    http = lambda d: _destination(d)["policy"].get("http") or {}
-    return [h for h in http(new).get("allowed_hosts") or [] if h not in (http(old).get("allowed_hosts") or [])]
+    """The web hosts `new` may send the key to and `old` could not (the change review names them): its policy's,
+    and those its fields and test request imply (effective_http)."""
+    before = effective_http(old)[0]
+    return [h for h in effective_http(new)[0] if h not in before]
 
 
 def new_fill_sites(old, new):
@@ -481,6 +542,8 @@ _EXPLAIN = {
                    "no se usa ni se comparte nada nuevo en ella. Avisa a quien administra el servidor.",
     "unsigned": "{where}llegó un cambio sin una firma válida de alguien que pueda editar y se ha descartado. "
                 "Avisa a quien gestiona la colección.",
+    "forked": "{where}el servidor no te enseña la misma lista de miembros que a tu equipo, así que no se escribe "
+              "nada nuevo en ella. Avisa a quien la gestiona y a quien administra el servidor.",
     "bad_server": "El servidor del equipo ha respondido algo inesperado. Se reintentará; si sigue, avisa a quien lo administra.",
     "rate_limited": "El servidor del equipo pide esperar un poco. Se reintentará solo.",
     "other": "{where}algo no se pudo sincronizar. Se reintentará; si sigue, pide a quien la gestiona que lo revise.",
@@ -526,6 +589,35 @@ def _label(person):
 def _mass(count, total):
     """Whether deleting `count` of a collection's `total` credentials in one sync is too much to do unasked."""
     return count > MASS_DELETE or (count >= MASS_DELETE_MIN and count * 2 >= total)
+
+
+def _recent(hashes):
+    """The member list hashes worth keeping: the newest HEAD_HASHES ({str(seq): hash})."""
+    return dict(sorted(hashes.items(), key=lambda kv: int(kv[0]))[-HEAD_HASHES:])
+
+
+def _check_content(content):
+    """An item's decrypted entry must have the shape the rest of the app relies on before anything here uses it:
+    a teammate's (or a broken client's) odd item is refused on its own and never stops a sync (ValidationError)."""
+    def strings(value):
+        return isinstance(value, list) and all(isinstance(v, str) for v in value)
+
+    def mapping(value):
+        return value if isinstance(value, dict) else {} if value is None else None
+    fields, policy = content.get("fields"), mapping(content.get("policy"))
+    http, commands = mapping((policy or {}).get("http")), mapping((policy or {}).get("commands"))
+    ok = isinstance(fields, dict) and all(isinstance(k, str) and (v is None or isinstance(v, (str, int, bool)))
+                                          for k, v in fields.items()) \
+        and None not in (policy, http, commands) \
+        and strings(http.get("allowed_hosts") or []) and isinstance(http.get("auth") or {}, dict) \
+        and strings(commands.get("allowed") or []) and isinstance(commands.get("env") or {}, dict) \
+        and all(isinstance(k, str) and isinstance(v, str) for k, v in (commands.get("env") or {}).items()) \
+        and all(content.get(name) is None or isinstance(content[name], kind)
+                for name, kind in (("name", str), ("description", str), ("template", str), ("autofill", dict),
+                                   ("test_request", dict), ("tags", list)))
+    if not ok:
+        raise ValidationError(tr("teams.explain_invalid_item", where=""))
+    vault_validate(content)
 
 
 class Team:
@@ -596,12 +688,27 @@ class Team:
                         "private_blob": seal_private_keys(wrap_key, keys, user_id)}
                 if invite_token:
                     body["invite_token"] = str(invite_token).strip()
-                api.call("POST", "/accounts/register", body, auth=False)
+                try:
+                    api.call("POST", "/accounts/register", body, auth=False)
+                except TeamError as exc:
+                    if exc.code == "email_taken":  # servers before 0.17 say so; newer ones answer as if created
+                        raise TeamError(tr("teams.account_could_not_be_created"), "email_taken") from None
+                    raise
             else:
                 kdf = api.call("POST", "/accounts/prelogin", {"email": email}, auth=False)["kdf"]
+                # Less work than the app uses only if this PC already logged in to this account with it.
+                remembered = int(current.get("kdf_n") or 0) if connected(current) else 0
+                check_kdf(kdf, min(MIN_ACCOUNT_KDF_N, remembered) if remembered else MIN_ACCOUNT_KDF_N)
                 auth_key, wrap_key = account_secrets(password, kdf)
-            session = api.call("POST", "/accounts/login", {"email": email, "auth_hash": b64(auth_key),
-                                                            "device_name": device_name}, auth=False)
+            try:
+                session = api.call("POST", "/accounts/login", {"email": email, "auth_hash": b64(auth_key),
+                                                                "device_name": device_name}, auth=False)
+            except TeamError as exc:
+                if mode == "register" and exc.code == "invalid_credentials":
+                    # The server does not say whether an e-mail has an account (it answers a sign-up as if it
+                    # were new): logging in with the new account is what fails when one already existed.
+                    raise TeamError(tr("teams.account_could_not_be_created"), "email_taken") from None
+                raise
             keys = open_private_keys(wrap_key, session["private_blob"], session["user"]["id"])
             if public_keys(keys) != {"public_key": session["public_key"],
                                      "signing_public_key": session["signing_public_key"]}:
@@ -610,6 +717,7 @@ class Team:
             user["verified"] = session["user"].get("verified", True) is not False  # servers before 0.16: no check
             state = current if connected(current) and current["user"]["id"] == user["id"] else {}
             state.update(server_url=base, token=session["token"], user=user, keys=keys, device=device_name,
+                         kdf_n=int(kdf["n"]),
                          verification=info.get("verification", "off") if isinstance(info, dict) else "off",
                          **public_keys(keys))
             for section in ("pinned", "orgs", "collections"):
@@ -665,13 +773,18 @@ class Team:
             raise
         key, me = _data_key(state["keys"]), state["user"]["id"]
         theirs, counter = {}, int(state.get("data_counter") or 0)
+        their_heads = {}
         if remote.get("blob"):
             try:
                 data = json.loads(crypto.open_sealed(key, remote["blob"], DATA_AAD + me.encode("utf-8")))
                 if int(data.get("counter") or 0) >= counter:
                     theirs, counter = data.get("pinned") or {}, int(data.get("counter") or 0)
-            except (InvalidTag, ValueError, KeyError, TypeError):
+                    their_heads = data.get("heads") if isinstance(data.get("heads"), dict) else {}
+            except (InvalidTag, ValueError, KeyError, TypeError, AttributeError):
                 print("team account data: unreadable, replaced", file=sys.stderr)
+        # The member lists this account verified (and who it saw removed), so every device of the account starts
+        # from the newest one any of them saw and a device the server keeps behind notices (2.6).
+        heads = self._merge_heads(state, their_heads)
         merged = dict(state.get("pinned") or {})
         for uid, pin in theirs.items():
             try:
@@ -681,8 +794,9 @@ class Team:
             if uid != me and (uid not in merged or str(pin.get("at") or "") > str(merged[uid].get("at") or "")):
                 merged[uid] = pin
         state["pinned"] = merged
-        if merged != theirs:
-            blob = crypto.seal(key, _canonical({"pinned": merged, "counter": counter + 1}), DATA_AAD + me.encode("utf-8"))
+        if merged != theirs or heads != their_heads:
+            blob = crypto.seal(key, _canonical({"pinned": merged, "heads": heads, "counter": counter + 1}),
+                               DATA_AAD + me.encode("utf-8"))
             try:
                 api.call("PUT", "/me/data", {"blob": blob, "base_revision": int(remote.get("revision") or 0)})
                 counter += 1
@@ -690,6 +804,58 @@ class Team:
                 if exc.code != "conflict":
                     raise  # another device wrote first: merged on the next sync
         state["data_counter"] = counter
+
+    @staticmethod
+    def _merge_heads(state, theirs):
+        """This PC's memory of each collection's verified member list merged with the account's other devices':
+        the newer list wins, who was seen removed adds up (unless a newer signed list let them in again), and two
+        different lists with the same number are a fork. Returns what goes back to the server."""
+        mine = state.setdefault("heads", {})
+        for cid, record in (theirs or {}).items():
+            try:
+                head, hashes = record["head"], {str(s): str(h) for s, h in (record.get("hashes") or {}).items()}
+                head = {**head, "seq": int(head["seq"]), "hash": str(head["hash"]), "members": dict(head["members"]),
+                        "key_version": int(head["key_version"]), "writers": list(head.get("writers") or [])}
+                removed = {str(u) for u in record.get("removed") or []}
+            except (KeyError, TypeError, ValueError, AttributeError):
+                continue
+            own = mine.get(cid)
+            if not own or not own.get("head"):
+                mine[cid] = {"head": head, "hashes": hashes, "removed": sorted(removed - set(head["members"])),
+                             **({"forked": True} if record.get("forked") else {})}
+                continue
+            forked = bool(own.get("forked") or record.get("forked")) or any(
+                own["hashes"].get(s) not in (None, h) for s, h in hashes.items())
+            newer = head if head["seq"] > own["head"]["seq"] else own["head"]
+            gone = (set(own.get("removed") or []) | removed) - set(newer["members"])
+            mine[cid] = {"head": newer, "hashes": _recent({**hashes, **own["hashes"]}), "removed": sorted(gone),
+                         **({"forked": True} if forked else {})}
+        return copy.deepcopy({cid: record for cid, record in mine.items() if record.get("head")})
+
+    @staticmethod
+    def _remember_head(state, cid, head, removed=()):
+        """Keep a verified member list of a collection for good: dropping the collection (the server stopped
+        listing it, say) never forgets it, nor who this account saw taken out (2.6). A list with the number of
+        one already seen and another content is a fork."""
+        if not head:
+            return
+        memory = state.setdefault("heads", {}).setdefault(cid, {"hashes": {}, "removed": []})
+        previous = memory.get("head")
+        known = memory["hashes"].get(str(head["seq"]))
+        if known and known != head["hash"]:
+            memory["forked"] = True
+        gone = set(memory.get("removed") or []) | set(removed)
+        if previous and head["seq"] > previous["seq"]:
+            gone |= set(previous["members"]) - set(head["members"])
+        if not previous or head["seq"] >= previous["seq"]:
+            memory["head"] = copy.deepcopy(head)
+        memory["removed"] = sorted(gone - set(memory["head"]["members"]))
+        memory["hashes"] = _recent({**memory["hashes"], str(head["seq"]): head["hash"]})
+
+    @staticmethod
+    def _removed_from(state, cid):
+        """Who this account saw taken out of a collection (and not let in again by a newer signed list)."""
+        return set(((state.get("heads") or {}).get(cid) or {}).get("removed") or [])
 
     def disconnect(self):
         """Forget the account on this PC, and the team's credentials with it (they belong to the team)."""
@@ -710,6 +876,45 @@ class Team:
         self.vault.set_team_view({})
         self._flush_removed()
         return {"removed": len(notes["removed"]), "kept": len(notes.get("kept", [])) + len(notes["conflicts"])}
+
+    def devices(self):
+        """The devices (sessions) of this account, this one marked `current`, for «Tu cuenta»."""
+        with self._read() as api:
+            rows = api.call("GET", "/me").get("devices") or []
+        self._remember("devices", rows)
+        return rows
+
+    def revoke_device(self, device_id):
+        """Log out another device of this account (it has to log in again with the account password)."""
+        with self._api(self.vault.team()) as api:
+            api.call("DELETE", f"/me/devices/{str(device_id or '')[:64]}")
+        return {}
+
+    def change_password(self, current, new):
+        """A new account password: the private keys are wrapped again (the keys stay the same, 2.1) and the
+        server logs out the account's other devices. Needs the current one."""
+        if len(new or "") < MIN_ACCOUNT_PASSWORD:
+            raise TeamError(tr("teams.account_password_must_have_at", MIN_ACCOUNT_PASSWORD=MIN_ACCOUNT_PASSWORD),
+                            "invalid")
+        state = self.vault.team()
+        with self._api(state) as api:
+            old_kdf = api.call("POST", "/accounts/prelogin", {"email": state["user"]["email"]}, auth=False)["kdf"]
+            remembered = int(state.get("kdf_n") or 0)
+            check_kdf(old_kdf, min(MIN_ACCOUNT_KDF_N, remembered) if remembered else MIN_ACCOUNT_KDF_N)
+            current_auth = account_secrets(current or "", old_kdf)[0]
+            kdf = crypto.new_kdf()
+            auth_key, wrap_key = account_secrets(new, kdf)
+            try:
+                api.call("POST", "/accounts/password", {
+                    "current_auth_hash": b64(current_auth), "kdf": kdf, "auth_hash": b64(auth_key),
+                    "private_blob": seal_private_keys(wrap_key, state["keys"], state["user"]["id"])})
+            except TeamError as exc:
+                if exc.code == "invalid_credentials":
+                    raise TeamError(tr("teams.current_account_password_wrong"), "invalid_credentials") from None
+                raise
+        state["kdf_n"] = int(kdf["n"])
+        self.vault.set_team(state)
+        return {}
 
     def _api(self, state, timeout=TIMEOUT):
         if not connected(state):
@@ -827,23 +1032,48 @@ class Team:
         with self._api(self.vault.team()) as api:
             return api.call("POST", f"/orgs/{oid}/invites", {"email": str(email or "").strip(), "role": role})
 
+    @staticmethod
+    def _inviter(invite):
+        """The keys of whoever sent an invite, as the server gives them with it (servers since 0.17), or None."""
+        try:
+            return Team._keys_of({"public_key": invite["invited_by_public_key"],
+                                  "signing_public_key": invite["invited_by_signing_public_key"],
+                                  "email": invite.get("invited_by_email"), "name": invite.get("invited_by_name")})
+        except (KeyError, TypeError, ValueError):
+            return None
+
     def invites(self):
+        """Invites to this account, each with the inviter's security code (`invited_by_fingerprint`) so the user
+        can compare it before accepting, if they can."""
         with self._read() as api:
             rows = api.call("GET", "/invites")
+        for row in rows:
+            inviter = self._inviter(row)
+            row["invited_by_fingerprint"] = inviter["fp"] if inviter else None
+            for name in ("invited_by_public_key", "invited_by_signing_public_key"):
+                row.pop(name, None)
         self._remember("invites", rows)
         return rows
 
-    def accept_invite(self, invite_id):
+    def accept_invite(self, invite_id, fingerprint=None):
         """Join an organization. Whoever sent the invite is trusted from now on (their key is pinned): accepting
-        it is this user saying they know that person. Anyone else is confirmed by hand (confirm_member)."""
+        it is this user saying they know that person. The pin remembers it came from an invite (`origin`), with
+        the code the accept dialog showed (`fingerprint`, which must still match): it is enough to use what they
+        share, not to hand them recovery access (_recover_access), which needs the code verified. Anyone else is
+        confirmed by hand (confirm_member)."""
         state = self.vault.team()
         with self._api(state) as api:
             invite = next((i for i in api.call("GET", "/invites") if i.get("id") == invite_id), None)
+            inviter = self._inviter(invite or {})
+            if fingerprint and inviter and not _same_fingerprint(fingerprint, inviter):
+                raise TeamError(tr("teams.security_code_doesn_match_don", _label=_label(inviter)), "fingerprint_mismatch")
             api.call("POST", f"/invites/{invite_id}/accept")
             by = (invite or {}).get("invited_by")
             if by and by != state["user"]["id"] and by not in state["pinned"]:
                 try:
-                    state["pinned"][by] = {**self._fetch_keys(api, by), "at": now_iso()}
+                    found = self._fetch_keys(api, by)
+                    if inviter is None or found["fp"] == inviter["fp"]:
+                        state["pinned"][by] = {**found, "at": now_iso(), "origin": "invite"}
                 except TeamError:
                     pass  # confirmed by hand later, if they grant anything
             self._refresh_orgs(api, state)
@@ -888,7 +1118,7 @@ class Team:
                 raise TeamError(tr("teams.key_has_changed_ask_them", _label=_label(found)), "key_changed")
             if row["status"] == "accepted":
                 api.call("POST", f"/orgs/{oid}/members/{uid}/confirm")
-            state["pinned"][uid] = {**found, "at": now_iso()}
+            state["pinned"][uid] = {**found, "at": now_iso(), "origin": "verified"}
             state.get("waiting", {}).pop(uid, None)
             try:  # the account's other devices trust them too
                 self._sync_account_data(api, state)
@@ -1018,6 +1248,7 @@ class Team:
                 "revision": 0, "needs_rekey": False, "items": {},
                 "members": {me: {"name": _label(state["user"]), "permission": "manage"}},
                 "manifest": self._head(record)}
+            self._remember_head(state, cid, state["collections"][cid]["manifest"])
             self.vault.set_team(state)
             try:
                 self._recover_access(api, state, {"recovery": []}, {}, only=[cid])
@@ -1046,7 +1277,8 @@ class Team:
                       for uid, m in (coll.get("members") or {}).items()])
         return {"status": self.status(), "orgs": orgs, "invites": view.get("invites") or [],
                 "collections": self.collections(), "members": members, "events": view.get("events") or {},
-                "collection_members": view.get("collection_members") or {}, "unsent": self.unsent(),
+                "collection_members": view.get("collection_members") or {}, "devices": view.get("devices") or [],
+                "unsent": self.unsent(),
                 "offboarding": self.offboarding()}
 
     def unsent(self):
@@ -1123,6 +1355,7 @@ class Team:
                 if exc.code == "needs_rekey":
                     self._rekey(api, state, cid, *self._gone(api, state, cid))
         coll["manifest"] = self._head(record, coll.get("manifest"))
+        self._remember_head(state, cid, coll["manifest"])
         coll.setdefault("members", {})[uid] = {"name": _label(state["pinned"].get(uid)), "permission": permission}
 
     def revoke(self, cid, uid):
@@ -1140,6 +1373,7 @@ class Team:
             api.call("DELETE", f"/collections/{cid}/members/{uid}", body or None)
             if body:
                 coll["manifest"] = self._head(body["members_record"], coll.get("manifest"))
+                self._remember_head(state, cid, coll["manifest"], [] if uid == me else [uid])
             (coll.get("members") or {}).pop(uid, None)
             if uid == me:
                 self._drop_collection(state, cid)
@@ -1173,15 +1407,29 @@ class Team:
         body = record["body"]
         writers = {u for u, p in body["members"].items() if p in SHARE_WRITE}
         if previous and previous.get("key_version") == body["key_version"]:
-            writers |= set(previous.get("writers") or [])
+            # People taken out still hold this key until the re-key (the server refuses their writes), but whoever
+            # this list keeps with a permission that cannot write was downgraded by it and writes no more.
+            writers |= {u for u in previous.get("writers") or [] if u not in body["members"]}
         return {"seq": body["seq"], "hash": members_hash(body), "members": dict(body["members"]), "by": body["by"],
                 "key_version": body["key_version"], "at": body.get("at"), "writers": sorted(writers)}
 
     def _verify_members(self, api, state, cid, coll, org=None):
         """Extend the verified member list with the server's new links, each signed by someone this user trusts
         who managed the collection before it (or who only takes themselves out). Returns the head, or None for
-        a collection from before 0.16 that has no signed list yet. A broken chain raises: nothing is used."""
+        a collection from before 0.16 that has no signed list yet. A broken chain raises: nothing is used.
+
+        It starts from the newest list this account ever verified (this PC's or another device's, _remember_head),
+        even for a collection this PC dropped: a server that hides a collection for a while and then serves an
+        older list, or none, cannot make it start again from a list it chooses."""
         head = coll.get("manifest")
+        memory = (state.get("heads") or {}).get(cid) or {}
+        if memory.get("forked"):
+            raise TeamError(tr("teams.explain_forked", where=""), "forked")
+        if memory.get("head") and (not head or memory["head"]["seq"] > head["seq"]):
+            head = copy.deepcopy(memory["head"])
+        elif head and memory.get("hashes", {}).get(str(head["seq"])) not in (None, head["hash"]):
+            memory["forked"] = True
+            raise TeamError(tr("teams.explain_forked", where=""), "forked")
         try:
             records = api.call("GET", f"/collections/{cid}/manifest?since={head['seq'] if head else 0}")["records"]
         except TeamError as exc:
@@ -1223,10 +1471,18 @@ class Team:
             if not signed_by(signer["signing_public_key"], record.get("signature"), MEMBERS_SIG + _canonical(body)):
                 raise TeamError(tr("teams.member_list_with_invalid_signature"), "bad_members")
             before = body["members"] if first else head["members"]
-            leaving = by not in body["members"] and all(before.get(u) == p for u, p in body["members"].items())
+            # Someone who does not manage it may only take themselves out: nobody else leaves, nothing else
+            # changes, and the key stays the one they had.
+            leaving = not first and set(before) - set(body["members"]) == {by} \
+                and all(before.get(u) == p for u, p in body["members"].items()) \
+                and body["key_version"] == head["key_version"]
             if before.get(by) != "manage" and not leaving:
                 raise TeamError(tr("teams.member_list_signed_by_someone_2"), "bad_members")
             head = self._head(record, None if first else head)
+            self._remember_head(state, cid, head)
+            if state["heads"][cid].get("forked"):
+                raise TeamError(tr("teams.explain_forked", where=""), "forked")
+        self._remember_head(state, cid, head)  # also a list verified before this was remembered (0.16)
         coll["manifest"] = head
         if head and me not in head["members"]:
             raise TeamError(tr("teams.you_re_no_longer_on"), "bad_members")
@@ -1282,7 +1538,13 @@ class Team:
                     uid = owner["user_id"]
                     if coll["manifest"]["members"].get(uid) == "manage":
                         continue
-                    if uid not in (state.get("pinned") or {}):
+                    if uid in self._removed_from(state, cid):
+                        continue  # taken out of it: only a manager's explicit grant lets them in again
+                    # Only someone whose code this user verified: a pin from accepting their invite is the
+                    # server's word on who sent it, enough to use what they share but not to hand them every
+                    # collection. Pins from before 0.17 carry no origin and count as verified.
+                    pin = (state.get("pinned") or {}).get(uid)
+                    if not pin or pin.get("origin", "verified") != "verified":
                         if uid not in waiting:
                             waiting[uid] = {**self._untrusted(api, uid, oid).data, "reason": "recovery",
                                             "collections": []}
@@ -1331,7 +1593,9 @@ class Team:
                     live[item["id"]] = open_item(self._key(coll, item["key_version"]), cid, item["id"],
                                                  item["key_version"], item["ciphertext"])
             members = self._signed_rows(coll, api.call("GET", f"/collections/{cid}/members"))
-            if any(m["user_id"] in removed for m in members):
+            # Never to anyone this account saw taken out of it (only a manager's explicit grant, a new signed
+            # list, lets them in again), even if the server lists them and their key is pinned here.
+            if any(m["user_id"] in set(removed) | self._removed_from(state, cid) for m in members):
                 raise TeamError(tr("teams.server_still_gives_access_person"),
                                 "bad_server")
             version, key = listed["key_version"] + 1, os.urandom(32)
@@ -1342,8 +1606,10 @@ class Team:
                                          version)
             future = self._head(record)
             for iid, plain in live.items():
+                if not isinstance(plain, dict) or not isinstance(plain.get("entry"), dict):
+                    continue  # an odd item goes on as it is (the server wants every live item); nobody applies it
                 if self._item_signer(state, cid, iid, plain, future) is None:
-                    live[iid] = sign_item(state["keys"], me, cid, iid, plain)
+                    live[iid] = sign_item(state["keys"], me, cid, iid, plain, future)
             body = {"key_version": version, "grants": grants, "members_record": record,
                     "encrypted_name": seal_name(key, cid, {"name": coll.get("name", ""), "removed": people,
                                                            "version": version}),
@@ -1357,6 +1623,7 @@ class Team:
         coll["keys"] = {str(version): b64(key)}
         coll.update(key_version=version, needs_rekey=False, manifest=future,
                     members={m["user_id"]: {"name": _label(m), "permission": m["permission"]} for m in members})
+        self._remember_head(state, cid, future, removed)
         if people:
             self._flag(cid, people)
         return version
@@ -1402,6 +1669,8 @@ class Team:
             raise TeamError(tr("teams.add_key_before_sharing_it"), "invalid")
         state = self.vault.team()
         coll = self._collection(state, cid, SHARE_WRITE)
+        if coll.get("stale") or ((state.get("heads") or {}).get(cid) or {}).get("forked"):
+            raise TeamError(explain(TeamError("", "forked"), coll.get("name", "")), "forked")
         with self._api(state) as api:
             if coll.get("needs_rekey"):
                 if coll.get("permission") != "manage":
@@ -1409,7 +1678,8 @@ class Team:
                 self._rekey(api, state, cid, *self._gone(api, state, cid))
             iid, content = str(uuid.uuid4()), shared_content(entry)
             plain = sign_item(state["keys"], state["user"]["id"], cid, iid,
-                              {"entry": content, "author": self._me(state), "updated": now_iso(), "seq": 1})
+                              {"entry": content, "author": self._me(state), "updated": now_iso(), "seq": 1},
+                              coll.get("manifest"))
             revision = api.call("PUT", f"/collections/{cid}/items/{iid}", {
                 "ciphertext": seal_item(self._key(coll, coll["key_version"]), cid, iid, coll["key_version"], plain),
                 "key_version": coll["key_version"], "base_revision": 0})["revision"]
@@ -1531,8 +1801,9 @@ class Team:
                             notes["trust"].append(_label(person))
                     else:
                         self._sync_error(notes, row["id"], (state["collections"].get(row["id"]) or {}).get("name"), exc)
-                except (InvalidTag, ValueError, KeyError, TypeError) as exc:
-                    self._sync_error(notes, row["id"], (state["collections"].get(row["id"]) or {}).get("name"), exc)
+                except Exception as exc:  # noqa: BLE001 - one collection's problem never stops the others
+                    cid = row.get("id") if isinstance(row, dict) else None
+                    self._sync_error(notes, cid, (state["collections"].get(cid) or {}).get("name"), exc)
                 self.vault.set_team(state)
             for cid in [cid for cid in state["collections"] if cid not in {r["id"] for r in listed}]:
                 notes["removed"] += self._collection_gone(state, cid, notes)
@@ -1562,6 +1833,10 @@ class Team:
         coll = copy.deepcopy(coll) if coll else {"items": {}, "revision": 0, "keys": {}, "members": {}}
         # The signed member list first (2.6): it says whose key grants and item signatures count.
         head = self._verify_members(api, state, cid, coll, row.get("org_id"))
+        if head and row["key_version"] < head["key_version"]:
+            # A list this account verified (here or on another of its devices) is newer than the key the server
+            # serves: it keeps this PC behind, writing with a key someone removed still has.
+            raise TeamError(tr("teams.explain_forked", where=""), "forked")
         key = self._learn_key(api, state, coll, cid, row)
         info = open_name(key, cid, row["encrypted_name"])
         removed = info.get("removed") if not first and row["key_version"] > coll.get("key_version", 0) \
@@ -1577,7 +1852,7 @@ class Team:
         state["collections"][cid] = coll
         signed_gone = bool(head) and any(uid not in {r["user_id"] for r in rows} for uid in head["members"])
         rekeyed = False
-        if coll["permission"] == "manage" and (coll["needs_rekey"] or signed_gone):
+        if coll["permission"] == "manage" and head and (coll["needs_rekey"] or signed_gone):
             # Someone left (the server says so, or the signed list has someone the server no longer lists). Safe
             # even if the server asked for it falsely: the new key only goes to people trusted here.
             self._pull(api, state, cid, notes)
@@ -1585,12 +1860,18 @@ class Team:
             self._rekey(api, state, cid, people, gone)
             notes["rotate"].append({"collection": coll["name"], "people": people})
             rekeyed = True
-        elif coll["permission"] == "manage" and not head:
+        elif coll["permission"] == "manage" and not head and cid not in (state.get("heads") or {}):
             # A collection from before 0.16: its manager signs the member list (and its items) with a re-key.
-            # Until everyone in it is verified here it keeps working as before.
+            # Until everyone in it is verified here it keeps working as before. Never one this account has
+            # seen signed (_verify_members starts from that list, so it can't get here without one).
             self._pull(api, state, cid, notes)
             try:
-                self._rekey(api, state, cid, [])
+                if coll["needs_rekey"]:  # someone left it before it was ever signed
+                    people, gone = self._gone(api, state, cid)
+                    self._rekey(api, state, cid, people, gone)
+                    notes["rotate"].append({"collection": coll["name"], "people": people})
+                else:
+                    self._rekey(api, state, cid, [])
                 rekeyed = True
             except TeamError as exc:
                 if exc.code != "untrusted":
@@ -1625,7 +1906,9 @@ class Team:
                         deletions.append(found)
                 else:
                     self._apply(state, cid, item, notes)
-            except (TeamError, ValidationError, InvalidTag, ValueError, KeyError, TypeError) as exc:
+            except Exception as exc:  # noqa: BLE001 - one odd item is reported and skipped, never stops the sync
+                if isinstance(exc, TeamError) and exc.code in ("offline", "reconnect"):
+                    raise
                 self._sync_error(notes, cid, coll.get("name"), exc)
         if deletions and _mass(len(deletions), len(coll["items"])):
             self._hold(state, cid, deletions, notes)
@@ -1633,6 +1916,30 @@ class Team:
             for found in deletions:
                 self._delete(state, cid, found, notes)
         coll["revision"] = max(int(coll.get("revision") or 0), int(data["revision"]))
+        self._check_heads(api, state, cid, coll, notes.pop("_heads", []), notes)
+
+    def _check_heads(self, api, state, cid, coll, claims, notes):
+        """Items carry the member list their writer had verified (sign_item). One this account never saw with
+        that number is a fork: the server shows people different lists. One newer than this PC was served (after
+        asking again) means the server keeps this PC behind, writing with a key someone removed may hold. Either
+        way nothing more is written to the collection from here (`stale`) and the user is told."""
+        head = coll.get("manifest")
+        if not head:
+            return
+        newest = max([c["seq"] for c in claims if c["seq"] > head["seq"]], default=0)
+        if newest:
+            head = self._verify_members(api, state, cid, coll)  # it may have moved on while this sync ran
+        memory = state.setdefault("heads", {}).setdefault(cid, {"hashes": {}, "removed": []})
+        for claim in claims:
+            known = memory.get("hashes", {}).get(str(claim["seq"]))
+            if claim["seq"] <= head["seq"] and known not in (None, claim["hash"]):
+                memory["forked"] = True
+        if newest > head["seq"] or memory.get("forked"):
+            coll["stale"] = {"seq": max(newest, head["seq"] + 1), "at": now_iso()}
+        elif coll.get("stale") and head["seq"] >= coll["stale"].get("seq", 0):
+            coll.pop("stale")  # the server showed the newer list after all
+        if coll.get("stale"):
+            self._sync_error(notes, cid, coll.get("name"), TeamError(tr("teams.explain_forked", where=""), "forked"))
 
     def _name_of(self, state, coll, uid):
         if uid and uid == state["user"]["id"]:
@@ -1778,11 +2085,14 @@ class Team:
                 # Every live item is re-encrypted at a re-key: an older key is someone who left (or the server).
                 raise TeamError(tr("teams.is_encrypted_with_old_key"), "old_key")
             plain = open_item(self._key(coll, item["key_version"]), cid, iid, item["key_version"], item["ciphertext"])
+            if not isinstance(plain, dict) or not isinstance(plain.get("entry"), dict):
+                raise ValidationError(tr("teams.explain_invalid_item", where=""))
             content = {k: v for k, v in dict(plain["entry"]).items() if k not in ("shared", "updated", "secret_since")}
-            for local_only in ("approval", "ai_totp"):  # the user's own choices on this PC, never a teammate's
-                (content.get("policy") or {}).pop(local_only, None)
             if not ID_RE.match(str(content.get("id", ""))):
                 raise TeamError(tr("teams.invalid_identifier"), "invalid_item")
+            _check_content(content)  # its shape, before anything here uses it
+            for local_only in ("approval", "ai_totp"):  # the user's own choices on this PC, never a teammate's
+                (content.get("policy") or {}).pop(local_only, None)
             digest, seq = content_hash(content), _seq(plain)
             if known and (seq < known.get("seq", 0) or (seq == known.get("seq", 0) and seq and digest != known["hash"])):
                 # Each write counts up: an older version served again (a revoked key, say) is not taken back.
@@ -1802,6 +2112,12 @@ class Team:
             if coll.get("manifest") and signer is None:
                 notes.setdefault("unsigned", []).append(content.get("name") or content["id"])
                 raise TeamError(tr("teams.version_without_valid_signature_from"), "unsigned")
+            claim = plain.get("head")
+            if signer and isinstance(claim, dict) and isinstance(claim.get("seq"), int) \
+                    and isinstance(claim.get("hash"), str) and signed_by(
+                        self._signer(state, signer)["signing_public_key"], claim.get("signature"),
+                        _head_message(cid, iid, seq, {"seq": claim["seq"], "hash": claim["hash"]})):
+                notes.setdefault("_heads", []).append({"seq": claim["seq"], "hash": claim["hash"]})
             by = signer or item.get("updated_by")
             author = {"id": by, "name": self._name_of(state, coll, by), **({"verified": True} if signer else {})}
             shared = self._shared_block(state, cid, iid, item["revision"], author, item.get("updated"))
@@ -1884,13 +2200,20 @@ class Team:
         else:
             entry = copy.deepcopy(content)
             entry["id"] = local["id"]
-            destination = _destination(content)
-            pending.update(policy=destination["policy"], fields=destination["fields"])
-            for name in DESTINATION_FIELDS:
+            destination, held = _destination(content), _held_fields(content.get("template"))
+            pending.update(policy=destination["policy"],
+                           fields={name: (content.get("fields") or {}).get(name) for name in held})
+            for name in held:
                 if local["fields"].get(name) in (None, ""):
                     entry["fields"].pop(name, None)
                 else:
                     entry["fields"][name] = local["fields"][name]
+            # The saved test request too (exposure checks call it): the one in force stays until accepted.
+            pending["test_request"] = copy.deepcopy(content.get("test_request"))
+            if local.get("test_request"):
+                entry["test_request"] = copy.deepcopy(local["test_request"])
+            else:
+                entry.pop("test_request", None)
             if texts:
                 pending["description"] = content.get("description") or ""
                 entry["description"] = local.get("description") or ""
@@ -1924,6 +2247,14 @@ class Team:
     def _push(self, api, state, cid, notes):
         coll = state["collections"][cid]
         version, me = coll["key_version"], self._me(state)
+        if coll.get("stale"):
+            # The server shows this PC an older (or another) member list than its teammates: nothing is written
+            # with a key someone removed may still have (_check_heads). Edits stay here.
+            notes.setdefault("held", []).extend(
+                e.get("name") or e["id"] for e in self.vault.entries()
+                if (e.get("shared") or {}).get("collection") == cid
+                and (coll["items"].get(e["shared"]["item"]) or {}).get("hash") != content_hash(effective_content(e)))
+            return
         if coll.get("needs_rekey"):
             # Someone who left still holds this key: edits wait here until a manager re-keys (2.4).
             held = [e.get("name") or e["id"] for e in self.vault.entries()
@@ -1945,7 +2276,7 @@ class Team:
                 continue
             seq = (known or {}).get("seq", 0) + 1
             plain = sign_item(state["keys"], me["id"], cid, iid,
-                              {"entry": content, "author": me, "updated": now_iso(), "seq": seq})
+                              {"entry": content, "author": me, "updated": now_iso(), "seq": seq}, coll.get("manifest"))
             try:
                 revision = api.call("PUT", f"/collections/{cid}/items/{iid}", {
                     "ciphertext": seal_item(self._key(coll, version), cid, iid, version, plain), "key_version": version,

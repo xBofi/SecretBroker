@@ -103,7 +103,8 @@ def my_invites(ctx):
     organization whose invite code it registered with."""
     rows = ctx.conn.execute(
         "SELECT i.id, i.org_id, o.name AS org_name, i.role, i.invited_by, u.email AS invited_by_email, "
-        "u.name AS invited_by_name FROM invites i JOIN orgs o ON o.id = i.org_id LEFT JOIN users u "
+        "u.name AS invited_by_name, u.public_key AS invited_by_public_key, "
+        "u.signing_public_key AS invited_by_signing_public_key FROM invites i JOIN orgs o ON o.id = i.org_id LEFT JOIN users u "
         "ON u.id = i.invited_by WHERE i.email = ? ORDER BY i.created", (ctx.user["email"],)).fetchall()
     return [dict(r) for r in rows if _may_take(ctx.user, r["org_id"])]
 

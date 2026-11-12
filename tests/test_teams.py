@@ -478,6 +478,16 @@ def owners_recovery(alice, carol, oid, carol_id):
     alice_id = alice.service.vault.team()["user"]["id"]
     alice.act("team_set_role", org=oid, user_id=carol_id, role="admin")
     carol.sync()
+    first = carol.act("team_create_collection", org=oid, name="Primera de Carol")["id"]
+    carol.sync()
+    waiting ={w["user_id"]: w for w in carol.ok("team_status")["waiting"]}
+    check(alice_id not in carol.service.vault.team()["collections"][first]["manifest"]["members"]
+          and waiting.get(alice_id, {}).get("reason") == "recovery",
+          "an owner trusted only from accepting their invite gets no recovery access: «Por verificar» asks first")
+    carol.act("team_confirm_member", org=oid, user_id=alice_id)
+    carol.sync()
+    check(carol.service.vault.team()["collections"][first]["manifest"]["members"].get(alice_id) == "manage",
+          "once their code is verified, they get it on the next sync")
     cid = carol.act("team_create_collection", org=oid, name="De Carol")["id"]
     signed = carol.service.vault.team()["collections"][cid]["manifest"]["members"]
     check(signed.get(alice_id) == "manage" and signed.get(carol_id) == "manage",
@@ -513,6 +523,304 @@ def legacy_collection(db, alice, oid):
           and db.run("SELECT key_version FROM collections WHERE id = ?", (cid,))[0][0] == 2
           and alice.service.vault.team()["collections"][cid].get("manifest"),
           "its manager's app signs one at the next sync (with a re-key that also signs its items)")
+
+
+class FakeApi:
+    """A team server in-process for the attacks below: `routes(method, path, body)` answers each call."""
+
+    def __init__(self, routes):
+        self.routes, self.calls = routes, []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        pass
+
+    def call(self, method, path, body=None, auth=True):
+        self.calls.append((method, path, body))
+        return self.routes(method, path, body)
+
+
+def offline_vault(label):
+    from secretbroker import vault as vault_module
+    vault = vault_module.Vault(HOME / "offline" / label)
+    vault.create(MASTER)
+    return vault
+
+
+def empty_notes():
+    return {k: [] for k in ("added", "updated", "removed", "conflicts", "quarantined", "pushed", "rotate", "trust",
+                            "held", "errors", "unsigned", "held_deletions", "recovery", "changes")}
+
+
+def security_findings():
+    """Regressions for the 0.17 security review: each attack that worked before, as it was shown to work."""
+    from secretbroker import actions, exposure, templates, vault as vault_module
+    from secretbroker.crypto import b64
+
+    print("Security review: the automatic check never goes where a teammate merely points it")
+    old = {"id": "acme", "name": "Acme", "template": "api_key",
+           "fields": {"value": "NEW-ROTATED-SECRET", "base_url": "https://api.acme.com", "auth_style": "bearer"},
+           "policy": {"http": {"allowed_hosts": ["api.acme.com"], "auth": {"kind": "header", "name": "Authorization",
+                                                                           "template": "Bearer {{value}}"}}}}
+    new = json.loads(json.dumps(old))
+    new["policy"]["http"]["allowed_hosts"] = []  # "narrowing"
+    new["fields"]["base_url"] = "https://evil.example"
+    new["test_request"] = {"method": "GET", "url": "https://evil.example/x", "status": 200}
+    new["check_every_hours"] = 1
+    vault_module.validate_entry(new)
+    arrived = {**new, "shared": {"org": "o", "collection": "c", "item": "i", "permission": "edit"}}
+    changes = teams.widening_changes(old, new)
+    check(any(c["kind"] == "hosts" and "evil.example" in c["values"] for c in changes),
+          "emptying the hosts while pointing base_url and the test elsewhere is a new destination (quarantined)")
+    sent = []
+    real_http = actions.http_request
+
+    def fake_http(entry, params):
+        actions._check_destination(entry, params)
+        sent.append(params["url"])
+        return {"status": 200}
+    actions.http_request = fake_http
+    try:
+        result = exposure.check_alive(arrived)
+    finally:
+        actions.http_request = real_http
+    check(not sent and result["status"] == "unknown",
+          f"the automatic check of a shared key only calls hosts the policy names, never base_url's ({sent})")
+    generic_old = {"id": "g", "name": "G", "template": "generic", "fields": {"value": "x", "url": "https://ok.example"},
+                   "policy": {"http": {"allowed_hosts": ["ok.example"]}}}
+    generic_new = {**generic_old, "fields": {"value": "x", "url": "https://evil.example"}, "policy": {"http": {}}}
+    check(any(c["kind"] == "hosts" and "evil.example" in c["values"]
+              for c in teams.widening_changes(generic_old, generic_new)), "the same for a generic credential's url")
+    shared = {"permission": "edit"}
+    held = teams.Team._quarantine(old, new, shared, {"name": "Mallory"}, changes)
+    check(held["fields"]["base_url"] == "https://api.acme.com" and "test_request" not in held
+          and teams.effective_content({**held, "shared": shared})["fields"]["base_url"] == "https://evil.example"
+          and teams.effective_content({**held, "shared": shared})["test_request"] == new["test_request"],
+          "while quarantined the credential keeps its address and test; the change stays whole for review")
+    check(any(c["kind"] == "auth" for c in teams.widening_changes(
+        {**old, "policy": {"http": {"allowed_hosts": ["api.acme.com"]}}},
+        {**old, "fields": {**old["fields"], "auth_style": "query"}, "policy": {"http": {"allowed_hosts": ["api.acme.com"]}}})),
+        "a different way of sending the key implied by its fields is reviewed too")
+
+    print("Security review: database fields are destinations and stay names in URLs")
+    db_entry = {"template": "database", "fields": {"engine": "postgresql", "host": "db.example.com", "port": "5432",
+                                                   "database": "app?host=evil.example", "username": "u",
+                                                   "password": "p@ss"}}
+    url = templates.computed_values(db_entry)["connection_url"]
+    check("?" not in url and url.endswith("/app%3Fhost%3Devil.example"),
+          f"a database name can't add connection options ({url})")
+    check("database" in teams.DESTINATION_FIELDS and any(
+        c["kind"] == "field" and c["field"] == "database" for c in teams.widening_changes(
+            {**db_entry, "fields": {**db_entry["fields"], "database": "app"}}, db_entry)),
+          "a teammate's change to the database name waits for review")
+
+    print("Security review: one odd item never stops a sync")
+    v = offline_vault("poison")
+    me, mallory = str(uuid.uuid4()), str(uuid.uuid4())
+    mk, mal = teams.new_account_keys(), teams.new_account_keys()
+    cid, iid, key = str(uuid.uuid4()), str(uuid.uuid4()), os.urandom(32)
+    state = {"user": {"id": me, "email": "a@x.io", "name": "a"}, "keys": mk, "token": "t",
+             "server_url": "https://s.example", **teams.public_keys(mk),
+             "pinned": {mallory: {**teams.public_keys(mal), "name": "m"}}, "orgs": {},
+             "collections": {cid: {"org": "o", "name": "c", "keys": {"1": b64(key)}, "key_version": 1,
+                                   "permission": "edit", "revision": 0, "items": {}, "members": {},
+                                   "manifest": {"seq": 1, "hash": "h", "members": {me: "edit", mallory: "edit"},
+                                                "by": mallory, "key_version": 1, "writers": [me, mallory]}}}}
+    v.set_team(state)
+    bad = {"id": "x", "name": "x", "template": "generic", "fields": {}, "policy": "boom"}
+    items = []
+    for n, entry in enumerate((bad, {"id": "ok", "name": "Ok", "template": "generic", "fields": {"value": "v"},
+                                     "policy": {}}, "not an entry")):
+        item_id = str(uuid.uuid4())
+        plain = {"entry": entry, "updated": "2026-01-01T00:00:00+00:00", "seq": 1}
+        plain = teams.sign_item(mal, mallory, cid, item_id, plain) if isinstance(entry, dict) else plain
+        items.append({"id": item_id, "revision": n + 1, "key_version": 1, "deleted": False,
+                      "ciphertext": teams.seal_item(key, cid, item_id, 1, plain)})
+    team, notes = teams.Team(v), empty_notes()
+    try:
+        team._pull(FakeApi(lambda m, p, b: {"revision": 3, "items": items}), state, cid, notes)
+        escaped = None
+    except Exception as exc:  # noqa: BLE001
+        escaped = exc
+    check(escaped is None and notes["errors"] and notes["added"] == ["Ok"],
+          f"an item with a malformed policy is skipped and reported; the others apply ({escaped!r})")
+
+    print("Security review: a hidden collection does not forget its signed member list")
+    v = offline_vault("reset")
+    bob, mal_id, oid, cid = (str(uuid.uuid4()) for _ in range(4))
+    bk, mk = teams.new_account_keys(), teams.new_account_keys()
+    bpub, mpub = teams.public_keys(bk), teams.public_keys(mk)
+    rec1 = teams.make_members_record(bk, bob, cid, None, {bob: "manage", mal_id: "edit"}, 1)
+    h1 = teams.Team._head(rec1)
+    rec2 = teams.make_members_record(bk, bob, cid, h1, {bob: "manage"}, 2)  # Mallory removed, re-keyed
+    key2 = os.urandom(32)
+    grant_bob = teams.make_grant(bk, bob, cid, 2, bob, bpub["public_key"], key2)
+    iid = str(uuid.uuid4())
+    entry = {"id": "prod-db", "name": "Prod", "template": "generic", "fields": {"value": "S3CRET-after-rotation"},
+             "policy": {}}
+    plain = teams.sign_item(bk, bob, cid, iid, {"entry": entry, "updated": "2026-11-01T00:00:00+00:00", "seq": 3})
+    item = {"id": iid, "revision": 5, "key_version": 2, "deleted": False, "updated_by": bob, "updated": "x",
+            "ciphertext": teams.seal_item(key2, cid, iid, 2, plain)}
+    v.put({**entry, "shared": {"org": oid, "collection": cid, "item": iid, "permission": "manage", "own": True,
+                               "revision": 5}})
+    state = {"server_url": "https://s.example", "token": "t",
+             "user": {"id": bob, "email": "b@x.io", "name": "Bob", "verified": True}, "keys": bk, **bpub,
+             "pinned": {mal_id: {**mpub, "name": "Mallory", "at": "2026-01-01"}}, "orgs": {},
+             "collections": {cid: {"org": oid, "name": "Prod", "keys": {"2": b64(key2)}, "key_version": 2,
+                                   "permission": "manage", "revision": 5, "needs_rekey": False,
+                                   "members": {bob: {"name": "Bob", "permission": "manage"}},
+                                   "items": {iid: {"revision": 5, "seq": 3, "content": entry, "hash": teams.content_hash(
+                                       teams.effective_content(v.get("prod-db")))}},
+                                   "manifest": teams.Team._head(rec2, h1)}}}
+    team = teams.Team(v)
+    if hasattr(team, "_remember_head"):  # what this PC's own re-key recorded (absent before 0.17)
+        team._remember_head(state, cid, state["collections"][cid]["manifest"], [mal_id])
+    v.set_team(state)
+    phase, rotated = {"n": 1}, {}
+
+    def routes(method, path, body):
+        if path == "/me/data":
+            raise teams.TeamError("x", status=404)
+        if path == "/orgs":
+            return [{"id": oid, "name": "Org", "role": "admin"}]
+        if path == "/collections":
+            return [] if phase["n"] == 1 else [{
+                "id": cid, "org_id": oid, "encrypted_name": teams.seal_name(key2, cid, {"name": "Prod"}),
+                "key_version": 2, "permission": "manage", "grant": grant_bob, "needs_rekey": True, "revision": 5}]
+        if path.startswith(f"/collections/{cid}/manifest"):
+            return {"records": [rec1] if path.endswith("since=0") else []}  # an old list, or none
+        if path == f"/collections/{cid}/members":
+            return [{"user_id": bob, "permission": "manage", "name": "Bob"},
+                    {"user_id": mal_id, "permission": "edit", "name": "Mallory"}]
+        if path.startswith(f"/collections/{cid}/items"):
+            return {"revision": 5, "items": [item]}
+        if path == f"/users/{mal_id}/keys":
+            return {**mpub, "email": "m@x.io", "name": "Mallory"}
+        if path == f"/collections/{cid}/rotate":
+            rotated.update(body)
+            return {"revision": 6}
+        if path == f"/orgs/{oid}/members":
+            return []
+        raise AssertionError(path)
+    team._api = lambda state, timeout=None: FakeApi(routes)
+    team.sync()
+    check(cid in (v.team().get("heads") or {}), "a collection the server stops listing is dropped, its list is not")
+    phase["n"] = 2
+    result = team.sync()
+    check(mal_id not in (rotated.get("grants") or {}) and result["errors"],
+          f"listed again with an old (or no) member list, no new key goes to the person removed "
+          f"({sorted(rotated.get('grants') or {})})")
+
+    try:
+        forks()
+    except AttributeError as exc:
+        check(False, f"forks and stale lists are detected ({exc})")
+    downgrades_and_recovery()
+
+
+def forks():
+    from secretbroker.crypto import b64
+    print("Security review: forks and stale lists")
+    v = offline_vault("fork")
+    alice_id, carol2 = str(uuid.uuid4()), str(uuid.uuid4())
+    ak, ck = teams.new_account_keys(), teams.new_account_keys()
+    cid, key = str(uuid.uuid4()), os.urandom(32)
+    r1 = teams.make_members_record(ak, alice_id, cid, None, {alice_id: "manage", carol2: "edit"}, 1)
+    head = teams.Team._head(r1)
+    state = {"server_url": "https://s.example", "token": "t", "user": {"id": carol2, "email": "c@x.io", "name": "C"},
+             "keys": ck, **teams.public_keys(ck),
+             "pinned": {alice_id: {**teams.public_keys(ak), "name": "Alice", "at": "2026-01-01"}}, "orgs": {},
+             "collections": {cid: {"org": "o", "name": "Fork", "keys": {"1": b64(key)}, "key_version": 1,
+                                   "permission": "edit", "revision": 0, "items": {}, "members": {}, "manifest": head}}}
+    team = teams.Team(v)
+    team._remember_head(state, cid, head)
+    v.set_team(state)
+
+    def item_under(claim, name):
+        item_id = str(uuid.uuid4())
+        p = teams.sign_item(ak, alice_id, cid, item_id, {"entry": {"id": name, "name": name, "template": "generic",
+                                                                    "fields": {"value": "v"}, "policy": {}},
+                                                          "updated": "2026-01-01T00:00:00+00:00", "seq": 1}, claim)
+        return {"id": item_id, "revision": 1, "key_version": 1, "deleted": False,
+                "ciphertext": teams.seal_item(key, cid, item_id, 1, p)}
+    fine = item_under(head, "same-chain")
+    api = FakeApi(lambda m, p, b: {"records": []} if "/manifest" in p else {"revision": 1, "items": [fine]})
+    notes = empty_notes()
+    team._pull(api, state, cid, notes)
+    check(not state["collections"][cid].get("stale") and notes["added"] == ["same-chain"],
+          "an item written under the list this PC has: nothing to say")
+    newer = item_under({"seq": 2, "hash": "f" * 64}, "from-the-future")
+    api = FakeApi(lambda m, p, b: {"records": []} if "/manifest" in p else {"revision": 2, "items": [newer]})
+    notes = empty_notes()
+    team._pull(api, state, cid, notes)
+    check(state["collections"][cid].get("stale") and any("misma lista" in e for e in notes["errors"]),
+          "one written under a newer list the server does not show this PC: it is kept behind, and told")
+    v.put({"id": "local-edit", "name": "L", "template": "generic", "fields": {"value": "v"}, "policy": {},
+           "shared": {"org": "o", "collection": cid, "item": str(uuid.uuid4()), "permission": "edit", "revision": 0}})
+    notes = empty_notes()
+    api = FakeApi(lambda m, p, b: (_ for _ in ()).throw(AssertionError(f"wrote {p}")))
+    team._push(api, state, cid, notes)
+    check(notes["held"] == ["L"] and not api.calls, "and nothing more is written to it from this PC")
+    forked = item_under({"seq": 1, "hash": "0" * 64}, "other-branch")
+    api = FakeApi(lambda m, p, b: {"records": []} if "/manifest" in p else {"revision": 3, "items": [forked]})
+    team._pull(api, state, cid, empty_notes())
+    check(state["heads"][cid].get("forked"), "an item written under another list with the same number is a fork")
+    merged = teams.Team._merge_heads({"heads": {}}, {cid: {"head": head, "hashes": {"1": "0" * 64}, "removed": []}})
+    check(merged[cid]["head"]["seq"] == 1, "the account's devices share what they verified (merged by number)")
+    two = {"heads": {cid: {"head": head, "hashes": {"1": head["hash"]}, "removed": []}}}
+    check(teams.Team._merge_heads(two, {cid: {"head": head, "hashes": {"1": "0" * 64}, "removed": []}})[cid].get("forked"),
+          "and two devices shown different lists with the same number find out")
+
+
+def downgrades_and_recovery():
+    print("Security review: who may take themselves out, and who still writes")
+    from secretbroker.crypto import b64  # noqa: F401
+    a_id, b_id, c_id = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
+    akeys, bkeys = teams.new_account_keys(), teams.new_account_keys()
+    cid = str(uuid.uuid4())
+    base = teams.make_members_record(akeys, a_id, cid, None, {a_id: "manage", b_id: "edit", c_id: "view"}, 1)
+    base_head = teams.Team._head(base)
+    st = {"user": {"id": a_id}, "signing_public_key": teams.public_keys(akeys)["signing_public_key"],
+          "pinned": {b_id: {**teams.public_keys(bkeys), "name": "B"}}, "heads": {}}
+    both_out = teams.make_members_record(bkeys, b_id, cid, base_head, {a_id: "manage"}, 1)
+    coll = {"manifest": dict(base_head), "org": "o"}
+    try:
+        teams.Team(None)._verify_members(FakeApi(lambda m, p, b: {"records": [both_out]}), st, cid, coll)
+        refused = False
+    except teams.TeamError as exc:
+        refused = exc.code == "bad_members"
+    check(refused, "an editor's list that takes out someone else as well as themselves is refused")
+    alone = teams.make_members_record(bkeys, b_id, cid, base_head, {a_id: "manage", c_id: "view"}, 1)
+    coll = {"manifest": dict(base_head), "org": "o"}
+    st["heads"] = {}
+    head = teams.Team(None)._verify_members(FakeApi(lambda m, p, b: {"records": [alone]}), st, cid, coll)
+    check(head["seq"] == 2 and b_id not in head["members"], "taking only themselves out is fine")
+    down = teams.make_members_record(akeys, a_id, cid, base_head, {a_id: "manage", b_id: "view", c_id: "view"}, 1)
+    check(b_id not in teams.Team._head(down, base_head)["writers"],
+          "someone downgraded to read writes no more, even before a re-key")
+
+    print("Security review: owners' recovery access needs a verified code")
+    v = offline_vault("recovery")
+    me, owner, cid = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
+    mk, ok = teams.new_account_keys(), teams.new_account_keys()
+    rec = teams.make_members_record(mk, me, cid, None, {me: "manage"}, 1)
+    state = {"user": {"id": me, "email": "a@x.io", "name": "a"}, "keys": mk, "token": "t",
+             "server_url": "https://s.example", **teams.public_keys(mk),
+             "pinned": {owner: {**teams.public_keys(ok), "name": "Owner", "at": "2026-01-01", "origin": "invite"}},
+             "collections": {cid: {"org": "o", "name": "c", "permission": "manage", "manifest": teams.Team._head(rec)}}}
+    team, granted = teams.Team(v), []
+    team._grant = lambda api, st, c, uid, perm: granted.append(uid)
+    api = FakeApi(lambda m, p, b: [{"user_id": owner, "role": "owner", "status": "confirmed", "name": "Owner"}]
+                  if p == "/orgs/o/members" else {**teams.public_keys(ok), "name": "Owner"})
+    waiting = {}
+    team._recover_access(api, state, empty_notes(), waiting)
+    check(not granted and waiting.get(owner, {}).get("reason") == "recovery",
+          "an owner pinned only by accepting their invite waits in «Por verificar» instead")
+    state["pinned"][owner]["origin"] = "verified"
+    team._recover_access(api, state, empty_notes(), {})
+    check(granted == [owner], "once verified, they get it")
 
 
 def weak_approvals():
@@ -601,6 +909,24 @@ def main():
     response = laptop.call("team_connect", server_url=base, email="alice@example.com", password="wrong password 123",
                            mode="login", proof={"kind": "presence", "token": laptop.presence})
     check(response["code"] == "invalid_credentials", f"wrong account password refused: {response.get('error')}")
+    sent, real_call = [], teams.Client.call
+
+    def weaker(self, method, path, body=None, auth=True):
+        sent.append(path)
+        result = real_call(self, method, path, body, auth)
+        return {**result, "kdf": {**result["kdf"], "n": 2**14}} if path == "/accounts/prelogin" else result
+    teams.Client.call = weaker
+    try:
+        response = laptop.call("team_connect", server_url=base, email="alice@example.com", password=ACCOUNT,
+                               mode="login", proof={"kind": "presence", "token": laptop.presence})
+    finally:
+        teams.Client.call = real_call
+    check(response["code"] == "weak_kdf" and "/accounts/login" not in sent and "." in response["error"],
+          "a server asking for weaker password protection than the app uses gets no auth_hash, with a clear message")
+    response = laptop.call("team_connect", server_url=base, email="bob@example.com", password=ACCOUNT,
+                           mode="register", proof={"kind": "presence", "token": laptop.presence})
+    check(response["code"] == "email_taken" and not laptop.ok("team_status")["connected"],
+          "signing up with an e-mail that has an account says to log in instead (the server doesn't tell)")
     second = laptop.act("team_connect", server_url=base, email="alice@example.com", password=ACCOUNT, mode="login")
     check(second["fingerprint"] == status["fingerprint"] and second["user"]["id"] == status["user"]["id"],
           "a second device logs in and recovers the same keys")
@@ -614,7 +940,15 @@ def main():
     bob.act("team_verify_email", code=email_code("bob@example.com"))
     invite = bob.ok("team_invites")[0]
     check(invite["org_name"] == "Acme", "Bob sees the invite")
-    bob.act("team_accept_invite", id=invite["id"])
+    check(invite["invited_by_fingerprint"] == status["fingerprint"] and "invited_by_public_key" not in invite,
+          "with Alice's security code, to compare before accepting if he can")
+    response = bob.call("team_accept_invite", id=invite["id"], fingerprint="0000 1111 2222 3333 4444 5555 6666 7777",
+                        proof={"kind": "presence", "token": bob.presence})
+    check(response["code"] == "fingerprint_mismatch", "a code that is not the one shown is refused")
+    bob.act("team_accept_invite", id=invite["id"], fingerprint=invite["invited_by_fingerprint"])
+    alice_pin = next(iter(bob.service.vault.team()["pinned"].values()), {})
+    check(alice_pin.get("origin") == "invite" and teams._pinned_fp(alice_pin) == status["fingerprint"],
+          "accepting pins the inviter, remembering it came from an invite")
     carol.act("team_accept_invite", id=carol.ok("team_invites")[0]["id"])
     members = {m["email"]: m for m in alice.ok("team_members", org=oid)}
     check(members["bob@example.com"]["status"] == "accepted"
@@ -838,6 +1172,11 @@ def main():
         check(False, "the removed member cannot decrypt new items")
     except InvalidTag:
         check(item["key_version"] == 2, "the removed member cannot decrypt new items")
+    plain = teams.open_item(teams.unb64(state["collections"][cid]["keys"]["2"]), cid, item["id"], 2, item["ciphertext"])
+    head = state["collections"][cid]["manifest"]
+    check(plain["head"]["seq"] == head["seq"] and plain["head"]["hash"] == head["hash"]
+          and state["heads"][cid]["head"]["hash"] == head["hash"] and state["heads"][cid]["removed"] == [bob_id],
+          "items name the member list they were written under; the list, and who left, are remembered for good")
 
     print("Unsharing, backups and offline")
     backup = alice.act("backup")
@@ -915,8 +1254,31 @@ def main():
              if w.encode("utf-8") in db or json.dumps(w).encode() in db]
     check(not leaks, f"the server database has no secret, credential or collection name {leaks or ''}")
 
+    print("Your account: devices and password")
+    devices = alice.ok("team_devices")
+    current = [d for d in devices if d["current"]]
+    others = [d for d in devices if not d["current"]]
+    check(len(current) == 1 and others and alice.ok("team_overview")["devices"] == devices,
+          "«Tu cuenta» lists the account's devices, this one marked")
+    response = alice.call("team_revoke_device", id=others[-1]["id"])
+    check(response["code"] == "proof_required", "logging out another device needs the user (one click)")
+    alice.act("team_revoke_device", id=others[-1]["id"])
+    check(laptop.sync()["state"] == "reconnect", "the device logged out has to log in again")
+    response = alice.call("team_change_password", current="not the password 1", password="a new team password 7",
+                          proof={"kind": "presence", "token": alice.presence})
+    check(response["code"] == "invalid_credentials" and "." in response["error"], "a wrong current password is refused")
+    alice.act("team_change_password", current=ACCOUNT, password="a new team password 7")
+    check(alice.sync()["state"] == "ok", "the account password changes, this device stays connected")
+    response = laptop.call("team_connect", server_url=base, email="alice@example.com", password=ACCOUNT, mode="login",
+                           proof={"kind": "presence", "token": laptop.presence})
+    check(response["code"] == "invalid_credentials", "the old password no longer opens the account")
+    second = laptop.act("team_connect", server_url=base, email="alice@example.com", password="a new team password 7",
+                        mode="login")
+    check(second["fingerprint"] == status["fingerprint"], "the new one does, with the same keys")
+
     hostile_server(base, settings, alice, carol, oid, carol_id)
     weak_approvals()
+    security_findings()
 
     alice.ok("lock")
     check(alice.call("team_collections")["code"] == "locked", "team operations need an unlocked vault")
@@ -932,4 +1294,8 @@ def main():
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--security"]:  # only the attacks of the security review (no server needed)
+        security_findings()
+        print("ALL PASSED" if failures == 0 else f"{failures} FAILURE(S)")
+        sys.exit(1 if failures else 0)
     sys.exit(0 if main() else 1)
