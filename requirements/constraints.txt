@@ -1,0 +1,6 @@
+# Applied to every lock (tools/update_locks.py): what one platform needs differently.
+# Intel Macs: cryptography ships no x86_64 (or universal2) macOS wheels after 48.x, and building it from source
+# would pull a Rust toolchain and unpinned build backends into the release build. The second line keeps the other
+# systems on the newest release instead of holding them back with the Intel Macs.
+cryptography<49 ; sys_platform == 'darwin' and platform_machine == 'x86_64'
+cryptography>=49 ; sys_platform != 'darwin' or platform_machine != 'x86_64'
