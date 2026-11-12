@@ -2,8 +2,8 @@
 
 from . import manifests
 from .db import event, now_iso
-from .validate import (ApiError, body, dump, email, grant, members_record, one_of, path_id, query_int, sealed, text,
-                       uuid_id)
+from .validate import (ApiError, body, boolean, dump, email, grant, members_record, one_of, path_id, query_int, sealed,
+                       text, uuid_id)
 from .web import new_id, route
 
 ADMIN_ROLES = ("owner", "admin")
@@ -31,6 +31,12 @@ def require_admin(conn, oid, uid):
     if row["role"] not in ADMIN_ROLES:
         raise forbidden("Solo un administrador de la organización puede hacer esto.")
     return row
+
+
+def delete_collection_rows(conn, cid):
+    for table, column in (("items", "collection_id"), ("collection_members", "collection_id"),
+                          ("collection_manifests", "collection_id"), ("collections", "id")):
+        conn.execute(f"DELETE FROM {table} WHERE {column} = ?", (cid,))
 
 
 def _owners(conn, oid):
@@ -204,29 +210,44 @@ def remove_member(ctx):
         "WHERE c.org_id = ? AND cm.user_id = ? AND cm.permission = 'manage' AND NOT EXISTS (SELECT 1 FROM "
         "collection_members o WHERE o.collection_id = cm.collection_id AND o.permission = 'manage' "
         "AND o.user_id != cm.user_id) ORDER BY cm.collection_id", (oid, uid)).fetchall()]
+    # What someone shared with one person (a direct collection) goes with them: nobody else could manage it.
+    direct = {r[0] for r in ctx.conn.execute(
+        f"SELECT id FROM collections WHERE direct = 1 AND id IN ({','.join('?' * len(orphans))})", orphans).fetchall()} \
+        if orphans else set()
+    orphans = [cid for cid in orphans if cid not in direct]
     if orphans:
         raise ApiError(400, "last_manager", "Es la única persona que gestiona alguna colección. Antes, da permiso "
                        "de gestionar a otra persona en esas colecciones (o bórralas).", collections=orphans)
+    for cid in sorted(direct):
+        delete_collection_rows(ctx.conn, cid)
+        event(ctx.conn, oid, ctx.uid, "collection.delete", cid)
+    cids = [cid for cid in cids if cid not in direct]
     for cid in cids:
         ctx.conn.execute("DELETE FROM collection_members WHERE collection_id = ? AND user_id = ?", (cid, uid))
         ctx.conn.execute("UPDATE collections SET needs_rekey = 1 WHERE id = ?", (cid,))
     ctx.conn.execute("DELETE FROM org_members WHERE org_id = ? AND user_id = ?", (oid, uid))
     event(ctx.conn, oid, ctx.uid, "member.leave" if uid == ctx.uid else "member.remove", uid)
-    return {"needs_rekey": cids}
+    return {"needs_rekey": cids, **({"deleted": sorted(direct)} if direct else {})}
 
 
 @route("POST", "/orgs/{oid}/collections")
 def create_collection(ctx):
     oid = path_id(ctx.params["oid"])
     data = body(ctx.body, {"id": uuid_id, "encrypted_name": sealed(NAME_MAX), "grant": grant},
-                {"members_record": members_record})
-    require_admin(ctx.conn, oid, ctx.uid)
+                {"members_record": members_record, "direct": boolean})
+    # Admins make the team's collections. Anyone confirmed may share with one person: a direct collection, which
+    # never has more than two members.
+    if not data["direct"]:
+        require_admin(ctx.conn, oid, ctx.uid)
+    else:
+        membership(ctx.conn, oid, ctx.uid)
     if data["grant"]["granted_by"] != ctx.uid:
         raise ApiError(400, "invalid", "grant: granted_by debe ser tu usuario.")
     if ctx.conn.execute("SELECT 1 FROM collections WHERE id = ?", (data["id"],)).fetchone():
         raise ApiError(409, "exists", "Esa colección ya existe.")
-    ctx.conn.execute("INSERT INTO collections (id, org_id, encrypted_name, key_version, revision, needs_rekey, created) "
-                     "VALUES (?, ?, ?, 1, 0, 0, ?)", (data["id"], oid, dump(data["encrypted_name"]), now_iso()))
+    ctx.conn.execute("INSERT INTO collections (id, org_id, encrypted_name, key_version, revision, needs_rekey, created, "
+                     "direct) VALUES (?, ?, ?, 1, 0, 0, ?, ?)",
+                     (data["id"], oid, dump(data["encrypted_name"]), now_iso(), int(bool(data["direct"]))))
     ctx.conn.execute("INSERT INTO collection_members (collection_id, user_id, permission, grant_json, key_version) "
                      "VALUES (?, ?, 'manage', ?, 1)", (data["id"], ctx.uid, dump(data["grant"])))
     if data["members_record"]:  # the first signed member list (older clients don't send one)

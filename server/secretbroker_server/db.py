@@ -94,7 +94,8 @@ CREATE TABLE IF NOT EXISTS collections (
     key_version INTEGER NOT NULL,
     revision INTEGER NOT NULL,
     needs_rekey INTEGER NOT NULL DEFAULT 0,
-    created TEXT NOT NULL
+    created TEXT NOT NULL,
+    direct INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS collections_org ON collections(org_id);
 CREATE TABLE IF NOT EXISTS collection_members (
@@ -154,6 +155,8 @@ def _migrate(conn):
         conn.execute("ALTER TABLE users ADD COLUMN invited_to TEXT")
     if "deletion" not in _columns(conn, "items"):
         conn.execute("ALTER TABLE items ADD COLUMN deletion TEXT")
+    if "direct" not in _columns(conn, "collections"):  # a credential shared with one person (two members at most)
+        conn.execute("ALTER TABLE collections ADD COLUMN direct INTEGER NOT NULL DEFAULT 0")
 
 
 def now_iso():

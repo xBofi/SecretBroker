@@ -9,7 +9,7 @@ import json
 from . import manifests
 from .accounts import rate_limited
 from .db import event, now_iso
-from .orgs import forbidden, not_found
+from .orgs import delete_collection_rows, forbidden, not_found
 from .validate import (PERMISSIONS, ApiError, body, deletion, dump, grant, integer, mapping, members_record, one_of,
                        path_id, query_int, sealed, uuid_id)
 from .web import route
@@ -76,7 +76,7 @@ def _record(ctx, data, cid, key_version):
 def _summary(row):
     return {"id": row["id"], "org_id": row["org_id"], "encrypted_name": json.loads(row["encrypted_name"]),
             "key_version": row["key_version"], "permission": row["permission"], "grant": json.loads(row["grant_json"]),
-            "needs_rekey": bool(row["needs_rekey"]), "revision": row["revision"]}
+            "needs_rekey": bool(row["needs_rekey"]), "revision": row["revision"], "direct": bool(row["direct"])}
 
 
 @route("GET", "/collections")
@@ -92,9 +92,7 @@ def list_collections(ctx):
 @route("DELETE", "/collections/{cid}")
 def delete_collection(ctx):
     cid, row = _collection(ctx, ("manage",))
-    for table, column in (("items", "collection_id"), ("collection_members", "collection_id"),
-                          ("collection_manifests", "collection_id"), ("collections", "id")):
-        ctx.conn.execute(f"DELETE FROM {table} WHERE {column} = ?", (cid,))
+    delete_collection_rows(ctx.conn, cid)
     event(ctx.conn, row["org_id"], ctx.uid, "collection.delete", cid)
     return {}
 
@@ -130,6 +128,9 @@ def put_collection_member(ctx):
         if not ctx.conn.execute("SELECT 1 FROM org_members WHERE org_id = ? AND user_id = ? AND status = 'confirmed'",
                                 (row["org_id"], uid)).fetchone():
             raise ApiError(400, "not_confirmed", "Esa persona aún no está confirmada en la organización.")
+        if row["direct"] and ctx.conn.execute("SELECT COUNT(*) FROM collection_members WHERE collection_id = ?",
+                                              (cid,)).fetchone()[0] >= 2:
+            raise ApiError(400, "direct_full", "Esta colección es para compartir con una sola persona.")
         ctx.conn.execute("INSERT INTO collection_members (collection_id, user_id, permission, grant_json, key_version) "
                          "VALUES (?, ?, ?, ?, ?)", (cid, uid, data["permission"], _own_grant(ctx, data["grant"]),
                                                     row["key_version"]))
