@@ -1164,6 +1164,9 @@ def main():
     print("MCP over HTTP (served by the desktop app)")
     asyncio.run(check_http())
 
+    print("The installer's language")
+    check_installer_language()
+
     print("Following the Windows session (Win+L simulated)")
     from secretbroker import resident
     session_token = call("enable_session_unlock", {}, "hello")["token"]
@@ -1271,6 +1274,30 @@ async def check_http():
                 text = " ".join(getattr(c, "text", "") for c in result.content)
                 check("echo-api" in text and API_KEY not in text, "MCP over HTTP works through the service")
     server.should_exit = True
+
+
+def check_installer_language():
+    """integrations.adopt_language (run by the Windows installer): it never overwrites a language chosen in the app."""
+    from secretbroker import i18n, integrations
+    saved = integrations.PREFS_FILE
+    integrations.PREFS_FILE = HOME / "installer-prefs.json"
+    try:
+        other = next(code for code in ("de", "fr") if code != i18n.system_language())
+        check(not integrations.adopt_language(i18n.system_language()) and not integrations.PREFS_FILE.exists(),
+              "the system's own language is not saved (the app keeps following the system)")
+        check(not integrations.adopt_language("xx") and not integrations.PREFS_FILE.exists(), "an unknown language is ignored")
+        check(integrations.adopt_language(other) and integrations.load_prefs().get("language") == other,
+              "another language chosen in the installer becomes the app's")
+        integrations.set_pref("language", "es")
+        integrations.set_pref("palette", "dark")
+        check(not integrations.adopt_language(other) and integrations.load_prefs() == {"language": "es", "palette": "dark"},
+              "a language chosen in the app is never overwritten")
+        integrations.PREFS_FILE.write_text("{broken", encoding="utf-8")
+        check(not integrations.adopt_language(other) and integrations.PREFS_FILE.read_text(encoding="utf-8") == "{broken",
+              "an unreadable preferences file is left alone")
+    finally:
+        integrations.PREFS_FILE.unlink(missing_ok=True)
+        integrations.PREFS_FILE = saved
 
 
 async def check_stdio():
