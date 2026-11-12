@@ -275,6 +275,7 @@ cryptography==48.0.1 ; platform_machine == 'x86_64' and sys_platform == 'darwin'
     #   -c requirements/app.txt
     #   -c requirements/constraints.txt
     #   secretbroker (pyproject.toml)
+    #   secretbroker-server (server/pyproject.toml)
     #   paramiko
     #   pyjwt
 cryptography==50.0.2 ; platform_machine != 'x86_64' or sys_platform != 'darwin' \
@@ -341,6 +342,7 @@ cryptography==50.0.2 ; platform_machine != 'x86_64' or sys_platform != 'darwin' 
     #   -c requirements/app.txt
     #   -c requirements/constraints.txt
     #   secretbroker (pyproject.toml)
+    #   secretbroker-server (server/pyproject.toml)
     #   paramiko
     #   pyjwt
     #   secretstorage
