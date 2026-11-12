@@ -187,14 +187,15 @@ jobs:
         run: |
           PY=/Applications/SecretBroker.app/Contents/Resources/python/bin/python3
           log="$HOME/Library/Application Support/SecretBroker/app/app.log"
-          pgrep -u "$USER" -f "secretbroker.app" >/dev/null || open -a SecretBroker
+          pgrep -u "$USER" -f "[-]m secretbroker[.]app" >/dev/null || open -a SecretBroker
           for i in $(seq 1 60); do
             $PY -I -c "from secretbroker import client; import sys; sys.exit(0 if client.request('status')['gui_connected'] else 1)" && break
             sleep 2
           done
           $PY -I -c "from secretbroker import client; s = client.request('status'); print(s['state'], s['gui_connected']); assert s['gui_connected']"
           cat "$log"
-          grep -q "tray icon: ok" "$log" && grep -q "MCP over HTTP: ok" "$log" && ! grep -q "ERROR" "$log"
+          grep -q "tray icon: ok" "$log" && grep -q "MCP over HTTP: ok" "$log"
+          if grep -q "ERROR" "$log"; then exit 1; fi
           # A vault, so that the page shows its main screen, and `sb` reaches the service with the user's token.
           $PY -I -c "from secretbroker import client; r = client.request('create_vault', {'master_password': 'smoke test password 123'}); print(sorted(r))"
           mkdir -p /tmp/sb-smoke && cd /tmp/sb-smoke && printf 'DEMO_KEY = demo-key\n' > .secretbroker
@@ -203,7 +204,19 @@ jobs:
           test "$code" = 1 && echo "$out" | grep -q "DEMO_KEY = demo-key"
           sleep 5
           screencapture -x "$RUNNER_TEMP/macos-app.png"
-          osascript -e 'tell application "SecretBroker" to quit' || true
+          # The windows the app owns (layer 25: its menu bar icon). Window names would need the screen recording
+          # permission; owner, layer and bounds don't.
+          $PY -I -c "
+          import subprocess, Quartz
+          pid = int(subprocess.check_output(['pgrep', '-n', '-f', '[-]m secretbroker[.]app']).split()[0])
+          for w in Quartz.CGWindowListCopyWindowInfo(Quartz.kCGWindowListOptionAll, Quartz.kCGNullWindowID):
+              if w.get('kCGWindowOwnerPID') == pid:
+                  print('window: layer', w.get('kCGWindowLayer'), dict(w.get('kCGWindowBounds')), 'on screen' if w.get('kCGWindowIsOnscreen') else '')
+          " || true
+          # Quitting the app (as Cmd+Q, the Dock or logging out do) quits it; only the window's close button hides it.
+          osascript -e 'tell application "SecretBroker" to quit'
+          for i in $(seq 1 10); do pgrep -u "$USER" -f "[-]m secretbroker[.]app" >/dev/null || break; sleep 1; done
+          if pgrep -u "$USER" -f "[-]m secretbroker[.]app"; then echo "the app is still running"; exit 1; fi
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         if: always()
