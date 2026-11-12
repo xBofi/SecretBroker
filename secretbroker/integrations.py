@@ -41,6 +41,23 @@ def set_pref(key, value):
     PREFS_FILE.write_text(json.dumps(prefs), encoding="utf-8")
 
 
+def adopt_language(code):
+    """The language the installer ran in becomes the app's (the installer calls this as the desktop user), unless
+    the user has a language preference already (a choice made in the app is never overwritten) or it is the one the
+    app would follow anyway (the system's: then the app keeps following the system). True if it was saved."""
+    from . import i18n
+    if not i18n.valid(code) or code == i18n.system_language():
+        return False
+    try:
+        prefs = json.loads(PREFS_FILE.read_text(encoding="utf-8")) if PREFS_FILE.exists() else {}
+    except (OSError, ValueError):
+        return False  # unreadable now: rewriting it would lose the user's other preferences
+    if not isinstance(prefs, dict) or "language" in prefs:
+        return False
+    set_pref("language", code)
+    return True
+
+
 def mcp_endpoint():
     """(url, token) of the MCP server the desktop app serves. The token keeps other local programs
     (and web pages, which can reach 127.0.0.1) out; Claude Code sends it as a header."""

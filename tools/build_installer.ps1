@@ -42,8 +42,21 @@ Write-Step "Comprobando el runtime"
 $check = Invoke-Native { & (Join-Path $runtime "python.exe") -I -c "import secretbroker.app, secretbroker.service, secretbroker.mcp_server, webview, winrt.windows.security.credentials, paramiko; print('ok')" }
 if ("$check" -notmatch "ok") { throw "El runtime no funciona: $check" }
 
+Write-Step "Idiomas del instalador"
+# build\installer\languages.iss: [Languages] and our texts in every language of the app (secretbroker\locales).
+Invoke-Native { & $venvPython -I (Join-Path $root "tools\installer_languages.py") } | Write-Host
+if ($LASTEXITCODE -ne 0) { throw "Faltan idiomas o textos del instalador (python tools\check_locales.py)" }
+
 Write-Step "Compilando el instalador"
-Invoke-Native { & $iscc "/DAppVersion=$version" "/Q" (Join-Path $root "installer\SecretBroker.iss") } | Write-Host
-if ($LASTEXITCODE -ne 0) { throw "Inno Setup falló" }
+# The whole output goes to build\installer\iscc.log (/Q would hide the warnings, such as a message missing in a
+# language); here, the languages read and the warnings.
+$isccLog = Join-Path $root "build\installer\iscc.log"
+Invoke-Native { & $iscc "/DAppVersion=$version" (Join-Path $root "installer\SecretBroker.iss") } | Set-Content $isccLog -Encoding utf8
+$isccCode = $LASTEXITCODE
+$isccOutput = Get-Content $isccLog -Encoding utf8
+if ($isccCode -ne 0) { $isccOutput | Write-Host; throw "Inno Setup falló" }
+$isl = @($isccOutput | Where-Object { $_ -match "Reading file: .*\.isl$" } | ForEach-Object { [IO.Path]::GetFileNameWithoutExtension($_) } | Select-Object -Unique)
+Write-Host ("{0} idiomas: {1}" -f $isl.Count, ($isl -join ", "))
+$isccOutput | Where-Object { $_ -match "^Warning" } | ForEach-Object { Write-Host $_ -ForegroundColor Yellow }
 $exe = Join-Path $root "dist\SecretBroker-Setup-$version.exe"
 Write-Host ("`nListo: {0} ({1:N1} MB)" -f $exe, ((Get-Item $exe).Length / 1MB)) -ForegroundColor Green
