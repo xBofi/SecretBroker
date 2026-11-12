@@ -34,6 +34,13 @@ What changed for people who use SecretBroker. The commit history has the details
 The team server needs this version for recovery codes, «La he olvidado» and «Ha perdido el acceso» (its database
 upgrades by itself to schema 4, and it now needs the `cryptography` package, installed with it).
 
+### Windows installer
+- **The installer speaks the app's 32 languages**, not only Spanish and English: it opens in the language of Windows
+  without asking, and lists the languages only when Windows speaks one SecretBroker doesn't. Its own texts say «PC»
+  like the app.
+- **The app starts in the language you installed it in**, when you picked one different from Windows'. A language
+  chosen in the app is never changed, and updates don't change it.
+
 ## 0.17.0 (2026-11-12)
 
 Teams: pass a credential to one person, invitations by e-mail, a server that is easy to host and back up, and

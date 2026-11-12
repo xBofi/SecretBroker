@@ -5,9 +5,11 @@
 
 For each catalog (the app's page, the app's Python texts, the browser extension) a language must have exactly the
 keys of English, the same placeholders, valid plural forms for that language and no empty texts. It also checks that
-every key the page's code names exists in English. Exit code 1 if anything is wrong.
+every key the page's code names exists in English, and that the Windows installer speaks every language of the app
+(tools/installer_languages.py). Exit code 1 if anything is wrong.
 """
 
+import importlib.util
 import json
 import re
 import sys
@@ -206,6 +208,14 @@ def check_touch_id(langs):
     return report
 
 
+def check_installer():
+    """The Windows installer: a messages file for every language and texts it can show (tools/installer_languages.py)."""
+    spec = importlib.util.spec_from_file_location("installer_languages", Path(__file__).with_name("installer_languages.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.problems()
+
+
 def main(argv):
     langs = set(argv)
     failed = False
@@ -227,6 +237,11 @@ def main(argv):
     for problem in code:
         print(f"    {problem}")
     failed |= bool(code)
+    installer = check_installer()
+    print(f"[installer] languages and texts of the Windows installer: {'OK' if not installer else f'{len(installer)} problem(s)'}")
+    for problem in installer:
+        print(f"    {problem}")
+    failed |= bool(installer)
     print("FAILED" if failed else "All translations are consistent.")
     return 1 if failed else 0
 

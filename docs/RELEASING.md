@@ -16,10 +16,21 @@ A release is one version tag, `v<version>` matching `pyproject.toml`. Pushing it
    | macOS 12+ (Apple silicon) | `tools/build_macos.sh` (`macos-latest`) | `SecretBroker-<v>-macos-arm64.pkg` |
    | macOS 12+ (Intel) | `tools/build_macos.sh` (`macos-15-intel`) | `SecretBroker-<v>-macos-x86_64.pkg` |
 
-4. signs every installer for the in-app updater (`tools/sign_release.py`, secret `UPDATE_SIGNING_KEY`): a
-   `<asset>.sig` next to each one, an Ed25519 signature over the version and the installer's SHA-256, checked
-   against the public key built into `secretbroker/update.py`;
-5. checks all the signatures again and publishes the eight files as the latest GitHub Release.
+   Each build job uploads its installer **unsigned** (artifacts `unsigned-windows`, `unsigned-ubuntu`,
+   `unsigned-macos-<arch>`); none of them sees the release key;
+4. `sign`, the only job with the secret `UPDATE_SIGNING_KEY`, takes each installer from the artifact of the job that
+   built it and signs it for the in-app updater (`tools/sign_release.py`): a `<asset>.sig` next to each one, an
+   Ed25519 signature over the version and the installer's SHA-256, checked against the public key built into
+   `secretbroker/update.py`. That job installs nothing but `cryptography`, hash-pinned (`requirements/sign.txt`),
+   and `tools/sign_release.py` imports nothing else (it reads the key and prefix out of `update.py` as text);
+5. `publish` checks all the signatures again (`tools/sign_release.py --verify`) and publishes the eight files as
+   the latest GitHub Release.
+
+```
+version ─ test (3 systems) ─┬─ windows ────────┬─ sign ─ publish
+                            ├─ ubuntu ─────────┤
+                            └─ macos (2 archs) ┘
+```
 
 Nothing is published if any test, build or signature check fails. The
 updater only looks at published releases (`/releases/latest`), picks the asset of its own system (and on a Mac,
@@ -29,6 +40,38 @@ Before tagging, run `tests/test_gui.py` and `tests/test_browser.py` on a Windows
 real browser; CI cannot on Windows). CI runs `test_gui.py` on Ubuntu (job `desktop-gui-ubuntu`, screenshots in the
 `gui-screenshots-ubuntu` artifact) and only a smoke check of the app on macOS (`macos-package`: the page loads and
 reaches the service, `sb` works, one screenshot), because WKWebView cannot be driven from outside.
+
+## Dependencies are locked with hashes
+
+Every Python package CI and the release install comes from a lock in `requirements/`, with its exact version and
+the SHA-256 of each file on PyPI (`pip install --require-hashes --no-deps -r ...`). One lock serves every system:
+packages for one system only (winrt and pywin32 on Windows, PyQt6 and secretstorage on Linux, pyobjc and pystray on
+macOS) carry markers, and pip skips the lines that are not for the system it runs on.
+
+| Lock | Used by |
+|---|---|
+| `app.txt` | the installers: `tools/build_installer.ps1`, `tools/build_deb.sh`, `tools/build_macos.sh` |
+| `build.txt` | setuptools, installed before `app.txt`; builds run with `--no-build-isolation`, so pip never fetches an unpinned build backend (SecretBroker itself, and proxy-tools, which has no wheel) |
+| `dev.txt` | the suites in `ci.yml` and `release.yml` (app + `dev` extra + server + setuptools) |
+| `server.txt` | `ci.yml` › `linux-server` |
+| `sign.txt` | `cryptography` alone, for `release.yml` › `sign` and `publish` |
+| `tools.txt` | `uv`, for the lock check |
+
+After changing a dependency in `pyproject.toml` or `server/pyproject.toml`, run `python tools/update_locks.py`
+(it needs [uv](https://docs.astral.sh/uv/)) and commit the changed locks; `python tools/update_locks.py --upgrade`
+moves every lock to the newest versions allowed. Read the diff of the locks before committing: it is the list of
+code that will be bundled into the next release. CI's `locks` job fails when a lock no longer matches what it is
+compiled from. `requirements/constraints.txt` holds what one system needs differently (Intel Macs stay on
+`cryptography` 48, the last version with an x86_64 macOS wheel).
+
+## Dry runs before tagging
+
+`release.yml` also runs, without the release key and without publishing, on pull requests and pushes to `main` that
+change the release path (the workflow, `requirements/`, `pyproject.toml`, the build scripts, `installer/`,
+`packaging/`, `tools/sign_release.py`, `secretbroker/update.py`): every installer is built unsigned from the locks,
+installed and checked as in a release, signed by `sign` with a throwaway key and verified by `publish`. A dry run
+that passes means the next tag only adds the suites (which `ci.yml` already runs), the release key and the
+`gh release create`.
 
 ## Builds without the owner's accounts are unsigned
 

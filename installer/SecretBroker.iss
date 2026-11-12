@@ -31,41 +31,21 @@ SolidCompression=yes
 WizardStyle=modern
 WizardSizePercent=100
 CloseApplications=yes
-; The language of Windows (Spanish or English, else English), without asking: one click to install.
-ShowLanguageDialog=no
+; The language of Windows, without asking (one click to install); the list of languages only when Windows speaks one
+; SecretBroker doesn't. Not the language of a previous installation: the one picked now is handed to the app.
+ShowLanguageDialog=auto
 LanguageDetectionMethod=uilanguage
+UsePreviousLanguage=no
 RestartApplications=no
 ChangesEnvironment=yes
 
-[Languages]
-Name: "en"; MessagesFile: "compiler:Default.isl"
-Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
-
-[Messages]
-en.WelcomeLabel2=This will install [name/ver] on this computer.%n%nSecretBroker keeps your passwords and API keys encrypted and lets AI use them without being able to read them. It runs under a Windows account of its own so that no other program can reach them.
-es.WelcomeLabel2=Se instalará [name/ver] en este equipo.%n%nSecretBroker guarda tus contraseñas y API keys cifradas y deja que la IA las use sin poder leerlas. Funciona con una cuenta de Windows propia para que ningún otro programa pueda acceder a ellas.
-
-[CustomMessages]
-en.DesktopIcon=Create a desktop shortcut
-es.DesktopIcon=Crear un acceso directo en el escritorio
-en.AppComment=Credential vault for your AI
-es.AppComment=Bóveda de credenciales para tu IA
-en.OpenApp=Open SecretBroker
-es.OpenApp=Abrir SecretBroker
-en.OwnerUnknown=Couldn't identify the user running the installation.
-es.OwnerUnknown=No se pudo identificar al usuario que ejecuta la instalación.
-en.ConfiguringService=Setting up the protected service…
-es.ConfiguringService=Configurando el servicio protegido…
-en.ServiceFailed=Couldn't set up the SecretBroker service.
-es.ServiceFailed=No se pudo configurar el servicio de SecretBroker.
-en.Details=Details:
-es.Details=Detalles:
-en.ConnectingClaude=Connecting to Claude…
-es.ConnectingClaude=Conectando con Claude…
-en.RemoveVault=Also delete the vault with all your credentials?%n%nIf you choose “Yes”, they will be lost for good and can't be recovered.%nIf you choose “No”, they are kept in %1 and will be available again if you reinstall SecretBroker.
-es.RemoveVault=¿Borrar también la bóveda con todas tus credenciales?%n%nSi eliges «Sí», se perderán definitivamente y no se podrán recuperar.%nSi eliges «No», se conservan en %1 y volverán a estar disponibles si reinstalas SecretBroker.
-en.RemoveFailed=Couldn't completely delete %1. You can remove the folder by hand.
-es.RemoveFailed=No se pudo borrar por completo %1. Puedes eliminar la carpeta a mano.
+; [Languages], and our texts in each language ([Messages] WelcomeLabel2 and the [CustomMessages] the script uses),
+; written by tools\installer_languages.py from the installer.* messages of secretbroker\locales\*.json.
+#define LanguagesFile AddBackslash(SourcePath) + "..\build\installer\languages.iss"
+#if !FileExists(LanguagesFile)
+  #error Run tools\installer_languages.py first (tools\build_installer.ps1 does it)
+#endif
+#include LanguagesFile
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"
@@ -148,12 +128,24 @@ begin
   Result := '';
 end;
 
+{ The app's code of the language Setup is running in (tools\installer_languages.py names zh-CN zh_CN). }
+function AppLanguage(): String;
+begin
+  Result := ActiveLanguage();
+  StringChangeEx(Result, '_', '-', True);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
 begin
   if CurStep <> ssPostInstall then
     exit;
+  { The language of the installation becomes the app's if the desktop user hasn't chosen one in it (adopt_language
+    never overwrites a choice, and doesn't save the system's own language, so the app keeps following Windows). }
+  ExecAsOriginalUser(ExpandConstant('{app}\python\python.exe'),
+       '-I -c "from secretbroker import integrations; integrations.adopt_language(''' + AppLanguage() + ''')"',
+       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   WizardForm.StatusLabel.Caption := CustomMessage('ConfiguringService');
   WizardForm.ProgressGauge.Style := npbstMarquee;
   Exec('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\setup\configure.ps1') +

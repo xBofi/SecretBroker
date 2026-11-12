@@ -8,6 +8,8 @@ import secrets
 import shutil
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 from . import paths, platform
@@ -28,26 +30,71 @@ def mcp_command():
 
 
 def load_prefs():
-    try:
-        return json.loads(PREFS_FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
+    prefs = _read_prefs()
+    return {} if prefs is None else prefs
+
+
+def _read_prefs():
+    """The preferences; {} if there are none yet, None if the file stays unreadable (broken). Windows refuses to open
+    the file for a moment while set_pref replaces it: try again rather than take that moment for "no preferences"."""
+    for _ in range(100):
+        try:
+            return json.loads(PREFS_FILE.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError):
+            time.sleep(0.02)
+    return None
+
+
+# One writer at a time, and each write replaces the file whole: the page reads the preferences (info()) while the
+# app writes them at start (the MCP token, the Claude Code connection), and a reader that caught the file
+# truncated got {} (the welcome then showed in the system's language instead of the one chosen), while two
+# writers could each drop the other's key.
+_prefs_lock = threading.RLock()
 
 
 def set_pref(key, value):
-    prefs = load_prefs()
-    prefs[key] = value
-    PREFS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    PREFS_FILE.write_text(json.dumps(prefs), encoding="utf-8")
+    with _prefs_lock:
+        prefs = load_prefs()
+        prefs[key] = value
+        PREFS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = PREFS_FILE.with_name(f"{PREFS_FILE.name}.{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(prefs), encoding="utf-8")
+        for _ in range(250):
+            try:
+                os.replace(tmp, PREFS_FILE)
+                return
+            except PermissionError:  # Windows: someone is reading it at this very moment
+                time.sleep(0.02)
+        os.replace(tmp, PREFS_FILE)
+
+
+def adopt_language(code):
+    """The language the installer ran in becomes the app's (the installer calls this as the desktop user), unless
+    the user has a language preference already (a choice made in the app is never overwritten) or it is the one the
+    app would follow anyway (the system's: then the app keeps following the system). True if it was saved."""
+    from . import i18n
+    if not i18n.valid(code) or code == i18n.system_language():
+        return False
+    try:
+        prefs = json.loads(PREFS_FILE.read_text(encoding="utf-8")) if PREFS_FILE.exists() else {}
+    except (OSError, ValueError):
+        return False  # unreadable now: rewriting it would lose the user's other preferences
+    if not isinstance(prefs, dict) or "language" in prefs:
+        return False
+    set_pref("language", code)
+    return True
 
 
 def mcp_endpoint():
     """(url, token) of the MCP server the desktop app serves. The token keeps other local programs
     (and web pages, which can reach 127.0.0.1) out; Claude Code sends it as a header."""
-    token = load_prefs().get("mcp_token")
-    if not token:
-        token = secrets.token_urlsafe(32)
-        set_pref("mcp_token", token)
+    with _prefs_lock:  # created once, even when the MCP server and the Claude Code connection ask at once
+        token = load_prefs().get("mcp_token")
+        if not token:
+            token = secrets.token_urlsafe(32)
+            set_pref("mcp_token", token)
     return f"http://127.0.0.1:{MCP_PORT}/mcp", token
 
 

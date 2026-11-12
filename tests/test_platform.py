@@ -239,6 +239,57 @@ try:
 except PermissionError:
     check(True, "if the address can't be read, the call is refused")
 
+# The preferences are read by the page (info(): the language of the welcome) while the app writes them at start
+# (the MCP token): a reader must never catch the file half written, and two writers must not drop each other's key.
+import threading  # noqa: E402
+import time  # noqa: E402
+
+from secretbroker import integrations  # noqa: E402
+
+integrations.set_pref("language", "es")
+seen, stop = [], threading.Event()
+
+
+def _read_prefs():
+    while not stop.is_set():
+        seen.append(integrations.load_prefs().get("language"))
+        time.sleep(0.001)
+
+
+readers = [threading.Thread(target=_read_prefs) for _ in range(2)]
+writers = [threading.Thread(target=lambda n=n: [integrations.set_pref(f"key{n}", i) for i in range(100)]) for n in range(3)]
+for t in readers + writers:
+    t.start()
+for t in writers:
+    t.join()
+stop.set()
+for t in readers:
+    t.join()
+prefs = integrations.load_prefs()
+check(seen and all(v == "es" for v in seen), f"the preferences are never read half written ({len(seen)} reads, "
+      f"{sum(v != 'es' for v in seen)} without the language)")
+check(all(prefs.get(f"key{n}") == 99 for n in range(3)) and prefs.get("language") == "es",
+      "writers at once keep every key")
+check(len({integrations.mcp_endpoint()[1] for _ in range(3)}) == 1, "the MCP token is made once")
+
+# A scan renews the exposure session as it begins; a report that went out with the old one and answers late must
+# not clear the new one (the page would ask who you are again, and «Borrar de este archivo» would be refused).
+api = app.Api()
+api._scan_session = "old"
+
+
+def _late_report(op, params, proof=None):
+    api._scan_session = "new"  # the scan's exposure_begin answered while this report was on its way
+    return {"ok": True, "result": {"details": False}}
+
+
+api.call = _late_report
+api.exposure_report(background=True)
+check(api._scan_session == "new", "a late report without details keeps the session a scan has just renewed")
+api.call = lambda op, params, proof=None: {"ok": True, "result": {"details": False}}
+api.exposure_report(background=True)
+check(api._scan_session is None, "and a report without details for the current session forgets it")
+
 print()
 if failures:
     print(f"{len(failures)} FAILED")
