@@ -313,11 +313,22 @@ A member of an organization, with some permission on a collection.
 - Compromise of the provider or server that legitimately receives a key.
 - Physical attacks on an unlocked, unattended PC.
 - An attacker with administrator or SYSTEM rights on the user's PC.
-- Supply-chain compromise of Python dependencies before they are bundled into a signed release (mitigated only by
-  review and pinned release signing). The release workflow pins every GitHub Action to a commit SHA and the
-  bundled CPython by checksum, but installs Python packages from PyPI by name, in the same jobs that hold the
-  release signing key: a malicious release of a dependency could sign a bad installer. Pinning them with hashes
-  (`pip install --require-hashes`) is a pending decision.
+- Supply-chain compromise of Python dependencies before they are bundled into a signed release: a malicious version
+  the locks were updated to (`tools/update_locks.py` takes what PyPI serves at that moment; reviewing the lock diff
+  is the only check), or one of the locked packages being malicious already. What the release workflow does about
+  the rest:
+  - every GitHub Action is pinned to a commit SHA and the bundled CPython by checksum;
+  - every Python package that CI and the release install (the app's dependencies on each system, the server's,
+    the test tools, the build backend) comes from the locks in `requirements/`, with its exact version and the
+    SHA-256 of every file, installed with `pip install --require-hashes --no-deps`. A new upload to PyPI, even
+    under a pinned version, is refused. Builds run without build isolation against the locked setuptools, so pip
+    never fetches an unpinned build backend. CI fails if `pyproject.toml` asks for a package a lock lacks;
+  - the jobs that install and run build dependencies never see `UPDATE_SIGNING_KEY`: they upload the installers
+    unsigned, and a separate job signs them with nothing installed but the hash-pinned `cryptography` and no code
+    run but `tools/sign_release.py`. A compromised build dependency could still alter the installer of the
+    release it is built into (the signature covers whatever the build produced), but it cannot take the key to sign
+    other files later. The Apple Developer ID certificates, once added, are still used inside the macOS build job
+    (`codesign` runs during `tools/build_macos.sh`); Inno Setup comes from Chocolatey, unpinned.
 - The update signature binds the version and the installer's hash, not which system it is for: a signed package
   of the same version for another system could be offered in its place. It would fail to install (it is not
   code for this system), never install something unsigned.

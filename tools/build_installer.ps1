@@ -30,8 +30,17 @@ if ($LASTEXITCODE -ge 8) { throw "robocopy falló ($LASTEXITCODE)" }
 
 Write-Step "Instalando SecretBroker $version y dependencias"
 $sitePackages = Join-Path $runtime "Lib\site-packages"
-Invoke-Native { & $venvPython -m pip install --disable-pip-version-check --quiet --no-warn-script-location `
-    --target $sitePackages $root } | Write-Host
+# Every package from the hash-pinned locks (requirements\, tools\update_locks.py): the exact versions and files
+# reviewed, nothing resolved from PyPI by name. The build backend (setuptools, requirements\build.txt) goes into
+# the build venv and the builds run without isolation, so pip never fetches an unpinned one (for SecretBroker
+# itself, and proxy-tools, which has no wheel).
+$pipArgs = @("-m", "pip", "install", "--disable-pip-version-check", "--quiet", "--no-warn-script-location", "--no-cache-dir")
+Invoke-Native { & $venvPython @pipArgs --require-hashes --no-deps -r (Join-Path $root "requirements\build.txt") } | Write-Host
+if ($LASTEXITCODE -ne 0) { throw "pip install (build.txt) falló" }
+Invoke-Native { & $venvPython @pipArgs --require-hashes --no-deps --no-build-isolation `
+    --target $sitePackages -r (Join-Path $root "requirements\app.txt") } | Write-Host
+if ($LASTEXITCODE -ne 0) { throw "pip install (app.txt) falló" }
+Invoke-Native { & $venvPython @pipArgs --no-deps --no-build-isolation --no-index --upgrade --target $sitePackages $root } | Write-Host
 if ($LASTEXITCODE -ne 0) { throw "pip install falló" }
 Remove-Item (Join-Path $sitePackages "bin") -Recurse -Force -ErrorAction SilentlyContinue
 

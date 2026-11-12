@@ -1113,6 +1113,15 @@ def main():
     github.shutdown()
 
     print("Updates")
+    # tools/sign_release.py signs in the release job without importing secretbroker: it must read update.py's key
+    # and prefix and build the same message, or the updater would refuse every release.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("sign_release", Path(__file__).resolve().parent.parent / "tools" / "sign_release.py")
+    sign_release = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sign_release)
+    release_key, release_prefix = sign_release.update_constants()
+    check(release_key == update.PUBLIC_KEY and release_prefix == update.SIGNED_PREFIX,
+          "the release signer reads update.py's public key and signed prefix")
     signing = Ed25519PrivateKey.generate()
     private_b64 = base64.b64encode(signing.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw,
                                                          serialization.NoEncryption())).decode()
@@ -1122,6 +1131,8 @@ def main():
     signature = update.sign(private_b64, "99.0.0", installer)
     update.verify("99.0.0", installer, signature)
     check(True, "a signed installer verifies")
+    update.verify("99.0.0", installer, sign_release.sign(private_b64, "99.0.0", installer, release_prefix))
+    check(True, "a signature from tools/sign_release.py verifies in the updater")
     for label, args in [("another version's signature is refused", ("99.0.1", installer, signature)),
                         ("a modified installer is refused", ("99.0.0", installer + b"x", signature)),
                         ("a signature from another key is refused", ("99.0.0", installer, update.sign(

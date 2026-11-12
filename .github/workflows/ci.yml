@@ -16,6 +16,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Every package CI and the release install comes from the hash-pinned locks in requirements/. This fails when
+  # pyproject.toml (or server/pyproject.toml) asks for something a lock lacks: run `python tools/update_locks.py`.
+  locks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: The locks match pyproject.toml
+        run: |
+          python -m venv "$RUNNER_TEMP/uv"
+          "$RUNNER_TEMP/uv/bin/python" -m pip install --disable-pip-version-check --quiet --require-hashes --no-deps -r requirements/tools.txt
+          PATH="$RUNNER_TEMP/uv/bin:$PATH" python tools/update_locks.py --check
+
   # The desktop app's suites (no GUI) on each system. tests/test_gui.py runs on Ubuntu below (desktop-gui-ubuntu)
   # and on Windows before releases (it needs a real desktop there).
   desktop:
@@ -41,13 +61,15 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update -qq && sudo apt-get install -y -qq libpam0g
 
+      # Hash-pinned (requirements/dev.txt, tools/update_locks.py); the build backend is locked too (no isolation).
       - name: Install SecretBroker
         run: |
           python -m venv .venv
           if [ "$RUNNER_OS" = "Windows" ]; then PY=.venv/Scripts/python.exe; else PY=.venv/bin/python; fi
           echo "PY=$PY" >> "$GITHUB_ENV"
-          $PY -m pip install --disable-pip-version-check --quiet ".[dev]"
-          if [ -f server/pyproject.toml ]; then $PY -m pip install --disable-pip-version-check --quiet -e server; fi
+          $PY -m pip install --disable-pip-version-check --quiet --require-hashes --no-deps -r requirements/dev.txt
+          $PY -m pip install --disable-pip-version-check --quiet --no-deps --no-build-isolation --no-index -e . -e server
+          $PY -m pip check
 
       - name: Platform layer
         run: $PY tests/test_platform.py
@@ -98,8 +120,9 @@ jobs:
       - name: Install SecretBroker
         run: |
           python -m venv .venv
-          .venv/bin/python -m pip install --disable-pip-version-check --quiet ".[dev]"
-          .venv/bin/python -m pip install --disable-pip-version-check --quiet -e server
+          .venv/bin/python -m pip install --disable-pip-version-check --quiet --require-hashes --no-deps -r requirements/dev.txt
+          .venv/bin/python -m pip install --disable-pip-version-check --quiet --no-deps --no-build-isolation --no-index -e . -e server
+          .venv/bin/python -m pip check
 
       - name: Desktop app (tests/test_gui.py)
         run: |
@@ -247,11 +270,8 @@ jobs:
 
       - name: Install the server
         run: |
-          if [ -f server/pyproject.toml ]; then
-            python -m pip install --disable-pip-version-check --quiet -e server httpx
-          else
-            echo "server/ not present, skipped"
-          fi
+          python -m pip install --disable-pip-version-check --quiet --require-hashes --no-deps -r requirements/build.txt -r requirements/server.txt
+          python -m pip install --disable-pip-version-check --quiet --no-deps --no-build-isolation --no-index -e server
 
       - name: Server tests
         run: |

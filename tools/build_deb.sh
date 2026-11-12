@@ -47,13 +47,20 @@ rm -rf "$STAGE$PREFIX"/python/lib/python3.*/{test,idlelib,tkinter,turtledemo,lib
 step "venv with SecretBroker and its dependencies"
 "$STAGE$PREFIX/python/bin/python3" -m venv "$STAGE$PREFIX/venv"
 VENV_PY="$STAGE$PREFIX/venv/bin/python"
-"$VENV_PY" -m pip install --quiet --disable-pip-version-check --no-cache-dir --upgrade pip
+# Every package from the hash-pinned locks (requirements/, tools/update_locks.py): the exact versions and files
+# reviewed, nothing resolved from PyPI by name. The build backend (setuptools) is locked too and the builds run
+# without isolation, so pip never fetches an unpinned one (for SecretBroker itself, and proxy-tools: no wheel).
+PIP=("$VENV_PY" -m pip install --quiet --disable-pip-version-check --no-cache-dir)
+"${PIP[@]}" --require-hashes --no-deps -r "$REPO/requirements/build.txt"
+"${PIP[@]}" --require-hashes --no-deps --no-build-isolation -r "$REPO/requirements/app.txt"
 # A copy of the sources: building from a Windows checkout mounted in WSL leaves no build/ files behind there.
 SRC="$BUILD_DIR/src"
 rm -rf "$SRC" && mkdir -p "$SRC"
 tar -C "$REPO" --exclude=.git --exclude=.venv --exclude=dist --exclude=build --exclude=.claude \
     --exclude='__pycache__' --exclude='*.egg-info' -cf - pyproject.toml README.md secretbroker | tar -C "$SRC" -xf -
-"$VENV_PY" -m pip install --quiet --disable-pip-version-check --no-cache-dir "$SRC"
+"${PIP[@]}" --no-deps --no-build-isolation --no-index "$SRC"
+"$VENV_PY" -m pip check
+"$VENV_PY" -m pip uninstall --quiet --disable-pip-version-check -y setuptools
 
 step "Leaving out what is never loaded"
 "$VENV_PY" -I "$REPO/tools/deb_trim_qt.py" "$STAGE$PREFIX/venv/lib/python3.12/site-packages"

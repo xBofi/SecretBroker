@@ -60,12 +60,19 @@ rm -rf "$RES"/python/lib/python3.*/{test,idlelib,tkinter,turtledemo,lib2to3} \
 step "SecretBroker and its dependencies, into the bundled Python"
 # Straight into its site-packages, not a venv: the standalone Python finds them relative to itself, so the
 # bundle keeps working wherever the build happened (no absolute paths to rewrite).
-"$PY" -m pip install --quiet --disable-pip-version-check --no-cache-dir --upgrade pip
+# Every package from the hash-pinned locks (requirements/, tools/update_locks.py): the exact versions and files
+# reviewed, nothing resolved from PyPI by name. The build backend (setuptools) is locked too and the builds run
+# without isolation, so pip never fetches an unpinned one (for SecretBroker itself, and proxy-tools: no wheel).
+PIP=("$PY" -m pip install --quiet --disable-pip-version-check --no-cache-dir)
+"${PIP[@]}" --require-hashes --no-deps -r "$REPO/requirements/build.txt"
+"${PIP[@]}" --require-hashes --no-deps --no-build-isolation -r "$REPO/requirements/app.txt"
 SRC="$BUILD_DIR/src"
 mkdir -p "$SRC"
 tar -C "$REPO" --exclude=.git --exclude=.venv --exclude=dist --exclude=build --exclude=.claude \
     --exclude='__pycache__' --exclude='*.egg-info' -cf - pyproject.toml README.md secretbroker | tar -C "$SRC" -xf -
-"$PY" -m pip install --quiet --disable-pip-version-check --no-cache-dir "$SRC"
+"${PIP[@]}" --no-deps --no-build-isolation --no-index "$SRC"
+"$PY" -m pip check
+"$PY" -m pip uninstall --quiet --disable-pip-version-check -y setuptools
 "$PY" -I -c "import secretbroker.app, secretbroker.service, secretbroker.mcp_server, secretbroker.native_host, \
 secretbroker.platform.macos, secretbroker.touchid, webview, objc, AppKit, Security, LocalAuthentication, OpenDirectory, \
 Quartz, pystray, PIL, paramiko; print('imports ok')"

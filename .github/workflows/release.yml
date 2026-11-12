@@ -1,14 +1,60 @@
 # Builds and signs the installers for Windows, Ubuntu and macOS when a version tag (v0.16.0) is pushed, after the
 # suites pass on each system and every signature verifies, and publishes them as the latest GitHub Release, which
 # the in-app updater offers (secretbroker/update.py, /releases/latest; it installs an asset only with a valid .sig). See docs/RELEASING.md.
+#
+#   version ─ test (3 systems) ─┬─ windows ────────┬─ sign ─ publish
+#                               ├─ ubuntu ─────────┤
+#                               └─ macos (2 archs) ┘
+#
+# Supply chain (docs/THREAT_MODEL.md, §4): every Python package comes from the hash-pinned locks in requirements/
+# (pip --require-hashes --no-deps), every Action is pinned to a commit and the bundled CPython by checksum. The build
+# jobs never see UPDATE_SIGNING_KEY: they upload unsigned installers, and only `sign` holds the key, with nothing
+# installed but cryptography (requirements/sign.txt) and no code run but tools/sign_release.py.
+#
+# Dry run: on a pull request or a push to main that changes the release path (paths below), the same jobs build every
+# installer unsigned, `sign` signs them with a throwaway key, `publish` verifies them and publishes nothing. Only a
+# v* tag runs the suites here (ci.yml runs them on every change), uses the release key and publishes. (GitHub does not
+# evaluate `paths` for tag pushes: every v* tag runs.)
 name: Release
 
 on:
   push:
     tags: ["v*"]
+    branches: [main]
+    paths:
+      - .github/workflows/release.yml
+      - requirements/**
+      - pyproject.toml
+      - tools/build_*
+      - tools/sign_release.py
+      - tools/deb_trim_qt.py
+      - tools/make_icon.py
+      - secretbroker/update.py
+      - installer/**
+      - packaging/**
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - requirements/**
+      - pyproject.toml
+      - tools/build_*
+      - tools/sign_release.py
+      - tools/deb_trim_qt.py
+      - tools/make_icon.py
+      - secretbroker/update.py
+      - installer/**
+      - packaging/**
 
 permissions:
   contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  # True only for a version tag: the suites, the release key, the Apple certificates and publishing.
+  IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
 
 jobs:
   version:
@@ -17,12 +63,14 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
 
       - name: Tag and version must match
         id: version
         run: |
           version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+          if [ "$IS_RELEASE" = true ] && [ "v$version" != "$GITHUB_REF_NAME" ]; then
             echo "::error::La etiqueta $GITHUB_REF_NAME no coincide con la versión $version"
             exit 1
           fi
@@ -31,6 +79,7 @@ jobs:
   # The same suites as ci.yml, on each system. tests/test_gui.py needs a real desktop: run it by hand before tagging.
   test:
     needs: version
+    if: startsWith(github.ref, 'refs/tags/v')
     strategy:
       fail-fast: true
       matrix:
@@ -44,6 +93,8 @@ jobs:
       PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
@@ -53,13 +104,14 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update -qq && sudo apt-get install -y -qq libpam0g
 
-      - name: Install SecretBroker
+      - name: Install SecretBroker (hash-pinned, requirements/dev.txt)
         run: |
           python -m venv .venv
           if [ "$RUNNER_OS" = "Windows" ]; then PY=.venv/Scripts/python.exe; else PY=.venv/bin/python; fi
           echo "PY=$PY" >> "$GITHUB_ENV"
-          $PY -m pip install --disable-pip-version-check --quiet ".[dev]"
-          $PY -m pip install --disable-pip-version-check --quiet -e server
+          $PY -m pip install --disable-pip-version-check --quiet --require-hashes --no-deps -r requirements/dev.txt
+          $PY -m pip install --disable-pip-version-check --quiet --no-deps --no-build-isolation --no-index -e . -e server
+          $PY -m pip check
 
       - name: Platform layer
         run: $PY tests/test_platform.py
@@ -88,12 +140,16 @@ jobs:
         if: runner.os == 'Linux'
         run: $PY server/tests/test_server.py
 
+  # The build jobs: no release secret here. Each uploads its installer unsigned, for `sign`.
   windows:
     needs: [version, test]
+    if: ${{ !failure() && !cancelled() }}
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
@@ -102,38 +158,29 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
 
+      # tools/build_installer.ps1 installs the locked packages (requirements/build.txt, app.txt) itself.
       - name: Build environment
-        run: |
-          python -m venv .venv
-          .venv\Scripts\python.exe -m pip install --disable-pip-version-check --quiet .
+        run: python -m venv .venv
 
       - name: Build the installer
         run: powershell -NoProfile -ExecutionPolicy Bypass -File tools\build_installer.ps1
 
-      - name: Sign for the updater
-        env:
-          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
-        run: .venv\Scripts\python.exe tools\sign_release.py dist\SecretBroker-Setup-${{ needs.version.outputs.version }}.exe
-
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
-          name: release-windows
-          path: |
-            dist/SecretBroker-Setup-*.exe
-            dist/SecretBroker-Setup-*.exe.sig
+          name: unsigned-windows
+          path: dist/SecretBroker-Setup-${{ needs.version.outputs.version }}.exe
           if-no-files-found: error
 
   # One package for Ubuntu 22.04 and 24.04, built on the older one (its glibc).
   ubuntu:
     needs: [version, test]
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
-
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
-          python-version: "3.12"
+          persist-credentials: false
 
       - name: Build dependencies
         run: |
@@ -153,24 +200,16 @@ jobs:
           systemctl is-active "secretbroker@$USER.service"
           /opt/secretbroker/venv/bin/python -I -c "from secretbroker import client, paths; assert paths.is_installed(); print(client.request('status')['state'])"
 
-      - name: Sign for the updater
-        env:
-          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
-        run: |
-          python -m pip install --disable-pip-version-check --quiet cryptography httpx
-          python tools/sign_release.py dist/secretbroker_${{ needs.version.outputs.version }}_amd64.deb
-
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
-          name: release-ubuntu
-          path: |
-            dist/secretbroker_*_amd64.deb
-            dist/secretbroker_*_amd64.deb.sig
+          name: unsigned-ubuntu
+          path: dist/secretbroker_${{ needs.version.outputs.version }}_amd64.deb
           if-no-files-found: error
 
   # One package per processor; the updater picks the one of the Mac it runs on (platform/macos.py, INSTALLER_RE).
   macos:
     needs: [version, test]
+    if: ${{ !failure() && !cancelled() }}
     strategy:
       fail-fast: true
       matrix:
@@ -182,13 +221,11 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     env:
-      HAS_APPLE_SECRETS: ${{ secrets.MACOS_CERTIFICATES != '' }}
+      HAS_APPLE_SECRETS: ${{ startsWith(github.ref, 'refs/tags/v') && secrets.MACOS_CERTIFICATES != '' }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
-
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
-          python-version: "3.12"
+          persist-credentials: false
 
       # Unsigned until the owner adds the Apple Developer secrets (docs/RELEASING.md); then they sign and notarize.
       - name: Import the Developer ID certificates
@@ -241,62 +278,128 @@ jobs:
           ls -le "/Library/Application Support/SecretBroker/$USER/public"
           /Applications/SecretBroker.app/Contents/Resources/python/bin/python3 -I -c "from secretbroker import client, paths; assert paths.is_installed(); print(client.request('status')['state'])"
 
-      - name: Sign for the updater
-        env:
-          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
-        run: |
-          python -m pip install --disable-pip-version-check --quiet cryptography httpx
-          python tools/sign_release.py "dist/SecretBroker-${{ needs.version.outputs.version }}-macos-${{ matrix.arch }}.pkg"
-
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
-          name: release-macos-${{ matrix.arch }}
-          path: |
-            dist/SecretBroker-*-macos-*.pkg
-            dist/SecretBroker-*-macos-*.pkg.sig
+          name: unsigned-macos-${{ matrix.arch }}
+          path: dist/SecretBroker-${{ needs.version.outputs.version }}-macos-${{ matrix.arch }}.pkg
           if-no-files-found: error
 
-  publish:
+  # The only job with UPDATE_SIGNING_KEY. It installs nothing but the hash-pinned cryptography (requirements/sign.txt)
+  # into its own venv, runs no build code and takes each installer from the artifact of the job that built it, by
+  # name (an extra artifact uploaded by another job is ignored).
+  sign:
     needs: [version, windows, ubuntu, macos]
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    timeout-minutes: 10
+    outputs:
+      public_key: ${{ steps.dry-run-key.outputs.public_key }}
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Signing environment (cryptography only, hash-pinned)
+        run: |
+          python -m venv "$RUNNER_TEMP/sign"
+          "$RUNNER_TEMP/sign/bin/python" -m pip install --disable-pip-version-check --quiet --require-hashes --no-deps \
+            --only-binary :all: -r requirements/sign.txt
+          "$RUNNER_TEMP/sign/bin/python" -m pip list --disable-pip-version-check
 
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
-          pattern: release-*
-          path: dist
-          merge-multiple: true
+          pattern: unsigned-*
+          path: unsigned
 
-      # Every installer has its signature, and every signature verifies with the key built into update.py.
+      - name: The four installers, each from its own build
+        run: |
+          mkdir dist
+          cp "unsigned/unsigned-windows/SecretBroker-Setup-$VERSION.exe" \
+             "unsigned/unsigned-ubuntu/secretbroker_${VERSION}_amd64.deb" \
+             "unsigned/unsigned-macos-arm64/SecretBroker-$VERSION-macos-arm64.pkg" \
+             "unsigned/unsigned-macos-x86_64/SecretBroker-$VERSION-macos-x86_64.pkg" dist/
+          sha256sum dist/*
+
+      - name: Sign for the updater
+        if: env.IS_RELEASE == 'true'
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          "$RUNNER_TEMP/sign/bin/python" -I tools/sign_release.py dist/*
+
+      # Dry run: the same signing with a throwaway key, checked against it instead of update.py's.
+      - name: Sign with a throwaway key (dry run)
+        id: dry-run-key
+        if: env.IS_RELEASE != 'true'
+        run: |
+          read -r private public < <("$RUNNER_TEMP/sign/bin/python" -I -c "
+          import base64
+          from cryptography.hazmat.primitives import serialization as s
+          from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+          k = Ed25519PrivateKey.generate()
+          print(base64.b64encode(k.private_bytes(s.Encoding.Raw, s.PrivateFormat.Raw, s.NoEncryption())).decode(),
+                base64.b64encode(k.public_key().public_bytes(s.Encoding.Raw, s.PublicFormat.Raw)).decode())")
+          echo "::add-mask::$private"
+          UPDATE_SIGNING_KEY="$private" "$RUNNER_TEMP/sign/bin/python" -I tools/sign_release.py --public-key "$public" dist/*
+          echo "public_key=$public" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: release-signed
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: [version, sign]
+    if: ${{ !failure() && !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: release-signed
+          path: dist
+
+      # Every installer has its signature, and every signature verifies with the key built into update.py (in a dry
+      # run, with the throwaway key `sign` used).
       - name: Check the signatures
         env:
-          VERSION: ${{ needs.version.outputs.version }}
+          DRY_RUN_PUBLIC_KEY: ${{ needs.sign.outputs.public_key }}
         run: |
-          python3 -m pip install --disable-pip-version-check --quiet cryptography httpx
-          python3 - <<'EOF'
-          import os, sys
-          from pathlib import Path
-          sys.path.insert(0, ".")
-          from secretbroker import update
-          version = os.environ["VERSION"]
-          expected = [f"SecretBroker-Setup-{version}.exe", f"secretbroker_{version}_amd64.deb",
-                      f"SecretBroker-{version}-macos-arm64.pkg", f"SecretBroker-{version}-macos-x86_64.pkg"]
-          for name in expected:
-              path = Path("dist") / name
-              update.verify(version, path.read_bytes(), (Path("dist") / (name + ".sig")).read_text())
-              print("ok", name)
-          EOF
+          python -m venv "$RUNNER_TEMP/verify"
+          "$RUNNER_TEMP/verify/bin/python" -m pip install --disable-pip-version-check --quiet --require-hashes --no-deps \
+            --only-binary :all: -r requirements/sign.txt
+          key=()
+          if [ "$IS_RELEASE" != true ]; then key=(--public-key "$DRY_RUN_PUBLIC_KEY"); fi
+          "$RUNNER_TEMP/verify/bin/python" -I tools/sign_release.py --verify "${key[@]}" \
+            "dist/SecretBroker-Setup-$VERSION.exe" "dist/secretbroker_${VERSION}_amd64.deb" \
+            "dist/SecretBroker-$VERSION-macos-arm64.pkg" "dist/SecretBroker-$VERSION-macos-x86_64.pkg"
           ls -l dist
 
       - name: Publish release
+        if: env.IS_RELEASE == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.version.outputs.version }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --latest --verify-tag --title "SecretBroker $VERSION" --generate-notes \
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --latest --verify-tag \
+            --title "SecretBroker $VERSION" --generate-notes \
             dist/SecretBroker-Setup-*.exe dist/SecretBroker-Setup-*.exe.sig \
             dist/secretbroker_*_amd64.deb dist/secretbroker_*_amd64.deb.sig \
             dist/SecretBroker-*-macos-*.pkg dist/SecretBroker-*-macos-*.pkg.sig
