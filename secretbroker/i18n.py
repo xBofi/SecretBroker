@@ -13,6 +13,7 @@ import contextvars
 import hashlib
 import json
 import re
+import sys
 import threading
 import unicodedata
 from pathlib import Path
@@ -45,17 +46,61 @@ def valid(code):
 
 
 def catalog(code, folder=LOCALES):
-    """The messages of one language ({} if there is no file or it is broken)."""
+    """The messages of one language ({} if there is no file or it is broken), worded for this system (for_system)."""
     if not isinstance(code, str) or not CODE.match(code):
         return {}
     path = folder / f"{code}.json"
     with _lock:
         if path not in _cache:
             try:
-                _cache[path] = json.loads(path.read_text(encoding="utf-8"))
+                _cache[path] = for_system(json.loads(path.read_text(encoding="utf-8")), code, SYSTEM)
             except (OSError, ValueError):
                 _cache[path] = {}
         return _cache[path]
+
+
+# ----- the word for this computer
+#
+# The messages say «PC» (Windows and Linux). On a Mac, «this PC» becomes «this Mac», and any other PC (another one,
+# each one, a teammate's own) the language's general word for a computer, never «another Mac». Per language: the
+# patterns that mean this one ($1 kept), then the general word for what is left. Languages that already say
+# «computer» need nothing. Russian and Ukrainian keep «ПК» (personal computer) where it is not this one.
+
+SYSTEM = "macos" if sys.platform == "darwin" else "windows" if sys.platform == "win32" else "linux"
+_MAC_WORDS = {
+    "es": ([(r"\b([Ee]ste(?: mismo)?) PC\b", r"\1 Mac")], [(r"\bPC\b", "ordenador")]),
+    "gl": ([(r"\b([NnDd]?[Ee]ste(?: mesmo)?) PC\b", r"\1 Mac")], [(r"\bPC\b", "ordenador")]),
+    "pt": ([(r"\b([NnDd]?[Ee]ste(?: mesmo)?) PC\b", r"\1 Mac")], [(r"\bPC\b", "computador")]),
+    "ca": ([(r"\b([Aa]quest(?: mateix)?) PC\b", r"\1 Mac")], [(r"\b([Ee]l) PC\b", "l'ordinador"), (r"\bPC\b", "ordinador")]),
+    "it": ([(r"\b([Qq]uesto(?: stesso)?) PC\b", r"\1 Mac")], [(r"\bPC\b", "computer")]),
+    "fr": ([(r"\b([Cc]e(?: même)?|[Tt]on) PC\b", r"\1 Mac")], [(r"\bPC\b", "ordinateur")]),
+    "en": ([(r"\b([Tt]his(?: same)?|[Yy]our) PC\b", r"\1 Mac")], [(r"\bPC\b", "computer")]),
+    "de": ([(r"\b([Dd]ies(?:e[mnrs]?)?|[Dd]emselben) PC(s?)\b", r"\1 Mac\2")],
+           [(r"\bPCs\b", "Computers"), (r"\bPC\b", "Computer")]),
+    "nb": ([(r"\b([Dd]enne|[Ss]amme) PC(-en)?\b", r"\1 Mac\2")], [(r"\bPC-en\b", "datamaskinen"), (r"\bPC\b", "datamaskin")]),
+    "ro": ([(r"\b([Aa]cest|[Aa]cestui|[Aa]celași) PC\b", r"\1 Mac")], [(r"\bPC-ul\b", "calculatorul"), (r"\bPC\b", "calculator")]),
+    "mt": ([(r"\b([Dd]an il-|[Dd]an l-istess )PC\b", r"\1Mac")],
+           [(r"\bil-PC\b", "il-kompjuter"), (r"\bl-PC\b", "l-kompjuter"), (r"\bPC\b", "kompjuter")]),
+    "eu": ([(r"\bPC (hon\w*)", r"Mac \1")], [(r"\bPC\b", "ordenagailu")]),
+    "ru": ([(r"\b([Ээ]т(?:от|ом|ого|ому|им)(?: же)?) ПК\b", r"\1 Mac")], []),
+    "uk": ([(r"\b([Цц](?:ей|ьому|ього|им)(?: самому| самого| самий)?) ПК\b", r"\1 Mac")], []),
+}
+
+
+def _mac_text(text, rules):
+    for pattern, replacement in rules[0] + rules[1]:
+        text = re.sub(pattern, replacement, text)
+    return text
+
+
+def for_system(messages, code, system):
+    """`messages` (a catalog) with «PC» worded for `system` (see _MAC_WORDS): unchanged except on macOS."""
+    rules = _MAC_WORDS.get((code or "").split("-")[0]) if system == "macos" else None
+    if not rules:
+        return messages
+    adapt = lambda text: _mac_text(text, rules) if isinstance(text, str) else text
+    return {key: {form: adapt(text) for form, text in value.items()} if isinstance(value, dict) else adapt(value)
+            for key, value in messages.items()}
 
 
 def page_catalog(code):

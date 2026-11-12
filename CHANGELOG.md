@@ -32,6 +32,30 @@ Fixes from an independent review of team sharing. Update every desktop of a team
   2^17), unless this PC already logged in to that account with it. The server no longer says whether an e-mail
   has an account when someone signs up with it.
 - **Tu cuenta** lists the account's devices, logs out any of them with one click and changes the account password.
+- **Links or files dropped on the window.** Dropping a link or an .html file on the app's window opened it there,
+  and that page could use the app's bridge (reveal, export, share, approve). The window now takes no drops (the
+  page refuses them; WebView2 and Qt refuse external drops and any navigation away from the app; macOS stops taking
+  dragged types), a page that loads anyway is replaced by the app, and every call from a page is refused unless the
+  window shows the app's own page.
+- **Accepting a teammate's change** to where a key goes (or to the texts it carries) needs Hello or a password once
+  after opening with the Windows session, like approving the AI widening a destination; then one click.
+- **Invite codes.** The list of people no longer carries invite codes (they work as sign-up codes and the list needs
+  no proof). «Copiar instrucciones», «Renovar», «Reenviar» and «Retirar» get the invite inside the operation, one
+  click.
+- **Rotation guides from teammates** are checked like the AI's (an invalid one is dropped), a changed one waits for
+  review like the description, and the app says who wrote it («Guía escrita por Bob, del equipo»), not «la IA».
+- **Server texts.** The app no longer shows the team server's own error text: known answers in your language, any
+  other in general words (the server's text goes to the log).
+- **Database commands.** The user and database names in the command to copy are quoted for each engine (and a name
+  with a line break gets no command), so a name can't add SQL of its own; Redis passwords are quoted too.
+- **Server**: organization, person and device names refuse control, separator and invisible formatting
+  characters; invite e-mails keep names out of the subject, and one that can't be written no longer fails the
+  invite after it was saved.
+
+### Other
+- On a Mac the app says «Mac» for this computer and «ordenador» / "computer" for another one, instead of «PC», in
+  every language.
+
 ### Sharing with one person
 - **Pass a credential to a teammate in one step.** «Compartir» now opens on «Con una persona»: choose who and what
   they may do (Editor, Lector or Solo uso; Lector by default) and it reaches them encrypted. Behind it is a private

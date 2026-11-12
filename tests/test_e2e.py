@@ -905,6 +905,20 @@ def main():
           == f"""ALTER ROLE "app" WITH PASSWORD '{new}';""", "the app that unlocked copies the command with it in one click")
     check(rotation.db_command(service.vault.get("shop-db"), "it's") == """ALTER ROLE "app" WITH PASSWORD 'it''s';""",
           "quotes are escaped in the command")
+    # The user name and database come from the credential (a teammate may have written them): the command the
+    # user copies quotes them for each engine, so they can't add SQL of their own.
+    odd = lambda engine, user, database="": rotation.guide({"template": "database", "fields": {
+        "engine": engine, "host": "db.example.com", "username": user, "password": "x", "database": database}})["command"]
+    check(odd("postgresql", 'a"; DROP ROLE admin; --') == """ALTER ROLE "a""; DROP ROLE admin; --" WITH PASSWORD '{password}';"""
+          and odd("mysql", "o'brien\\") == """ALTER USER 'o''brien\\\\'@'%' IDENTIFIED BY '{password}';"""
+          and odd("sqlserver", "a]; DROP LOGIN x; --") == """ALTER LOGIN [a]]; DROP LOGIN x; --] WITH PASSWORD = '{password}';"""
+          and odd("mongodb", 'u"); db.dropDatabase(); ("', 'x"y') == """db.getSiblingDB("x\\"y").changeUserPassword("u\\"); db.dropDatabase(); (\\"", "{password}")"""
+          and odd("redis", "a b on >x") == """ACL SETUSER "a b on >x" resetpass >{password}""",
+          "a user or database name with quotes can't add commands of its own: each engine quotes it")
+    check(odd("postgresql", "app\nDROP ROLE admin;") is None and odd("mongodb", "app", "x\ny") is None,
+          "a name with a line break gets no command at all")
+    check(rotation.db_command({"template": "database", "fields": {"engine": "redis", "host": "h", "username": "app", "password": "x"}},
+                              'n e"w') == """ACL SETUSER "app" resetpass ">n e\\"w\"""", "a Redis password is quoted too")
     result = call("replace_key", {"id": "shop-db", "pending": True}, {"kind": "presence", "token": presence})
     check(current() == new and result["entry"]["pending_rotation"] is None, "«Ya la he cambiado» saves the prepared one")
     call("rotation_begin", {"id": "shop-db", "value": "typed-by-me-1234"}, "hello")

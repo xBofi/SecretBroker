@@ -31,7 +31,18 @@ approvals are one click after unlock.
 * **AI approvals.** Approving the AI's use of a credential is one click with any token. Requests that delete,
   rotate or widen where a key may go (`STRONG_APPROVALS`: the AI's `delete`, `rotate` and `edit_config`; the request
   carries `strong: true`) take a strong token, so after a Windows-session unlock the first one needs Hello or a
-  password (typed at most once a session: it makes the token strong, as above).
+  password (typed at most once a session: it makes the token strong, as above). Accepting a teammate's change
+  (`team_accept_change`, in `PROVEN_OPS`) is the same: it widens where a shared key may go.
+- **Only the app's own page.** pywebview injects `window.pywebview.api` into every page the window loads, and
+  `Api.call` adds the presence token itself. So the page refuses drops (`dragenter/dragover/drop` prevented in
+  app.js), the web view refuses external drops and other pages (`app._refuse_drops`: WebView2 `AllowExternalDrop =
+  false` and `NavigationStarting` cancelled for any other address; Qt `setAcceptDrops(False)` and
+  `acceptNavigationRequest` on pywebview's page class; macOS `unregisterDraggedTypes` on the WKWebView), a foreign
+  page that loads anyway is replaced (`events.loaded` → `_back_to_the_app`), and the object given as `js_api` is
+  `app.page_api(api)`: each method raises `PermissionError` unless the web view's current address
+  (`window.gui.get_current_url`) is `window.real_url` (fragment aside). An address that can't be read is refused.
+- **Mac wording.** Messages say «PC»; on macOS `i18n.for_system` rewrites «this PC» as «this Mac» and any other PC
+  as the language's word for a computer (`i18n._MAC_WORDS`), for the page and the Python texts alike.
 - **Inactivity lock** applies with the session unlock too. `status.lock_reason` is `idle`, `manual` or `windows`. With
   the session unlock on, `client.call` opens the vault again by itself on the AI's next request
   (`client.reopen_with_session`), and the app does when the user comes back to the window; never after «Bloquear».
@@ -331,7 +342,11 @@ The **description** is what the AI reads as instructions about a credential, so 
 prompt-injection vector: it is quarantined like a new destination (`text_changes`; `pending_policy.texts` and
 `description`). The AI keeps reading the previous text until the user accepts it with one click; an editor may
 reject it for the team; writing the description by hand settles it. Removing the text applies at once. A change
-signed by the user's own account (another of their PCs) is never quarantined. Descriptions, `used_in` and rotation
+signed by the user's own account (another of their PCs) is never quarantined. A **rotation guide** (steps and links
+the user follows when rotating) is checked on arrival like one the AI writes (`teams.clean_guide`; an invalid one
+is dropped), a changed one is quarantined the same way (`pending_policy.rotation_guide`, change kind
+`rotation_guide`), and the guide shown says who wrote it: `shared.guide_by` (set by the sync and by accepting;
+cleared when this user's AI or editor writes it) makes `rotation.guide` answer `source: "team", by`. Descriptions, `used_in` and rotation
 guides of shared credentials are still marked for the AI with `shared.texts_by = "team"` (information, not its
 user's instructions), and an AI edit of a shared credential always asks the user.
 
@@ -565,8 +580,11 @@ Added to `secretbroker/service.py` (GUI only, never reachable from the AI unless
 `team_verify_email {code}`, `team_send_code` (→ `{sent, verified, verification}`), `team_resolve_deletions
 {collection, apply}` (→ `{applied, count, collection_name}`; a proven op like `delete_entry`), `team_devices` (→ the
 account's devices, `GET /me`), `team_revoke_device {id}`, `team_change_password {current, password}`,
-`team_renew_invite {org, id}` (→ `{id, emailed, expires}`; in `TEAM_EXPORT_OPS` like `team_invite`),
-`team_resend_invite {org, id}` (→ `{emailed}`), `team_drop_invite {id}`. `team_invite` answers `{id, emailed,
+`team_renew_invite {org, email}` (→ `{id, emailed, expires}`; in `TEAM_EXPORT_OPS` like `team_invite`),
+`team_resend_invite {org, email}` (→ `{emailed}`), `team_drop_invite {org, email}`, `team_invite_code {org, email}`
+(→ `{code}`, for «Copiar instrucciones»; in `TEAM_EXPORT_OPS`). The invite id works as a sign-up code, so
+`team_members` (no proof) strips it from the server's rows (and from the cached copy); these ops look it up
+themselves. `team_invite` answers `{id, emailed,
 expires?}` (`emailed` false on servers before 0.17). Client logic and crypto live in `secretbroker/teams.py`.
 
 Every request carries `X-SecretBroker-Version`. `team_connect` and every sync round check `GET /info` first
@@ -643,9 +661,10 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   The general `status` op also carries `team` (that state) and `team_sync` (time of the last finished round), so
   the GUI's 1.5 s poll notices a finished round and reloads only when `team_status.last` says something arrived.
   `error` is always one sentence for the user with what to do (`teams.explain`); codes and exception types only go
-  to the service log. The server writes its messages in Spanish; the ones a user meets when managing people and sharing
-  (`last_owner`, `last_manager`, `not_confirmed`, `direct_full`, and `forbidden` when removing someone or changing a
-  role) are said in the app's language (`teams.SERVER_MESSAGES`), and `team_remove_member` names the collections the
+  to the service log. The server's own `error` text is never shown (free text a hostile server controls; it goes to
+  the service log): known codes are said in the app's language (`teams.SERVER_MESSAGES`, `forbidden` worded per
+  operation when removing someone or changing a role), anything else in general words (`teams.server_refused`,
+  `teams.server_failed` for 5xx), and `team_remove_member` names the collections the
   person is the only manager of. A session that expires raises one Windows notice.
 * **Op parameters.** `team_connect {server_url, email, password, mode: register|login, name?, device_name?,
   invite_token?}`, `team_invite {org, email, role}`, `team_accept_invite {id, fingerprint?}`, `team_members {org}` (rows add

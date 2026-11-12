@@ -244,6 +244,13 @@ async function boot() {
   setInterval(() => checkUpdate(false), 3 * 3600 * 1000);
 }
 
+// A link or a file dropped on the window would open in it, and that page would get the bridge to the app (app.py,
+// page_api). The app takes no drops anywhere: nothing it does is dragged in from outside.
+['dragenter', 'dragover', 'drop'].forEach((type) => window.addEventListener(type, (event) => {
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
+}, true));
+
 if (window.pywebview && window.pywebview.api) boot();
 else window.addEventListener('pywebviewready', boot);
 
@@ -1674,7 +1681,9 @@ function rotationSection(entry) {
       : (guide.testable ? t('rotation.with_help_tested') : t('rotation.with_help'));
   return el('div', { class: 'section' },
     el('h3', {}, t('rotation_section.rotation'), guide.source === 'ai'
-      ? el('span', { class: 'chip', title: (guide.written ? t('rotation.ai_guide_written_on', { date: guide.written }) : t('rotation.ai_guide_written')) }, t('rotation_section.ai_guide')) : null),
+      ? el('span', { class: 'chip', title: (guide.written ? t('rotation.ai_guide_written_on', { date: guide.written }) : t('rotation.ai_guide_written')) }, t('rotation_section.ai_guide'))
+      : guide.source === 'team'  // synced from a teammate: theirs, not this user's AI
+        ? el('span', { class: 'chip', title: t('rotation.team_guide_written', { name: guide.by }) }, t('rotation_section.team_guide', { name: guide.by })) : null),
     el('p', { class: 'help' }, line,
       guide.source === 'generic' ? [' ', el('button', { class: 'link small', title: ask, onclick: async () => { await api().copy_text(ask); toast(t('common.copied_paste_ai')); } }, t('rotation_section.ask_ai_for_guide'))] : null),
     el('div', { style: 'margin-top:8px;display:flex;gap:8px;flex-wrap:wrap' }, apiButton, guidedButton, testButton));
@@ -1975,8 +1984,9 @@ function rotateGuided(entry, after) {
     el('div', { class: 'prop' }, el('div', { style: 'min-width:0' }, el('div', { class: 'k' }, t('rotate_guided.suggested_name_for_key')),
       el('div', { class: 'v selectable' }, suggested)), el('div', { class: 'actions' }, copyButton(suggested))),
     guide.links && guide.links.length ? linkList(guide.links) : null,
-    guide.source === 'ai' ? el('p', { class: 'help' }, icon('sparkles', 'sm'), t('rotate_guided.guide_written_by_ai_sources'),
-      guide.sources.map((url, i) => [i ? ', ' : '', el('button', { class: 'link small', onclick: () => api().open_link(url) }, new URL(url).hostname)])) : null,
+    ['ai', 'team'].includes(guide.source) ? el('p', { class: 'help' }, icon(guide.source === 'team' ? 'users' : 'sparkles', 'sm'),
+      guide.source === 'team' ? t('rotate_guided.guide_written_by_teammate_sources', { name: guide.by }) : t('rotate_guided.guide_written_by_ai_sources'),
+      (guide.sources || []).map((url, i) => [i ? ', ' : '', el('button', { class: 'link small', onclick: () => api().open_link(url) }, hostOf(url))])) : null,
   ], [el('button', { class: 'btn', onclick: where }, t('rotate_guided.back')),
     el('button', { class: 'btn primary', onclick: paste }, t('rotate_guided.i_have'))]);
 
@@ -3279,7 +3289,13 @@ const CHANGE_KINDS = { template: 'change_line.credential_type', hosts: 'change_l
   auth: 'change_line.how_key_is_sent', programs: 'change_line.new_programs', env: 'change_line.new_variables' };
 
 function isTextChange(change) {
-  return typeof change === 'string' ? change.startsWith('Instrucciones') : change.kind === 'description';
+  return typeof change === 'string' ? change.startsWith('Instrucciones') : ['description', 'rotation_guide'].includes(change.kind);
+}
+
+// Whether a change to review rewrites the description (the other text a teammate's change can bring is a new
+// rotation guide). Changes kept by versions before 0.17 only had descriptions.
+function textsDescribed(change) {
+  return !!change.texts && (change.description != null || !change.rotation_guide);
 }
 
 // The AI's edits of a credential (service._describe_changes): {kind: setting, key, value} for its context, and
@@ -3340,6 +3356,7 @@ function changeSummary(change) {
   const hosts = change.only_hosts ? change.hosts || [] : [];
   const destinations = (change.changes || []).some((c) => !isTextChange(c));
   if (hosts.length) return t('change_summary.wants_ai_be_able_send', { who, names: listJoin(hosts) });
+  if (change.texts && !destinations && !textsDescribed(change)) return t('change_summary.changed_rotation_guide', { who });
   if (change.texts && !destinations) return t('change_summary.changed_instructions_ai_reads', { who });
   if (change.texts) return t('change_summary.changed_where_this_key_can', { who });
   return t('change_summary.changed_where_this_key_can_2', { who });
@@ -3363,19 +3380,30 @@ function pendingChangeBox(entry) {
   };
   const reject = write ? el('button', { class: 'btn primary', title: t('pending_change_box.reject_and_keep_as_was') }, t('pending_change_box.reject')) : null;
   if (reject) reject.addEventListener('click', () => decide(false, reject));
+  const guide = change.rotation_guide;
+  const described = textsDescribed(change);
   const allow = el('button', { class: write ? 'btn' : 'btn primary' }, hosts.length === 1 ? t('pending_change_box.allow', { value: hosts[0] })
-    : change.texts && !destinations.length ? t('pending_change_box.accept_new_description') : t('pending_change_box.allow_changes'));
+    : change.texts && !destinations.length
+      ? (described || !guide ? t('pending_change_box.accept_new_description') : t('pending_change_box.accept_new_guide'))
+      : t('pending_change_box.allow_changes'));
   allow.addEventListener('click', () => decide(true, allow));
   return el('div', { class: 'section draft-box review-box' },
     hosts.length
       ? el('h3', {}, t('pending_change_box.wants_ai_be_able_send', { who }), hosts.map((h, i) => [i ? ', ' : '', el('code', { class: 'selectable' }, h)]))
       : el('h3', {}, changeSummary(change)),
     hosts.length || !destinations.length ? null : el('ul', { class: 'used-in' }, destinations.map((c) => el('li', { class: 'selectable' }, changeLine(c)))),
-    change.texts ? el('div', { class: 'field' },
+    described ? el('div', { class: 'field' },
       el('div', { class: 'k small muted' }, t('pending_change_box.new_description_ai_reads_as')),
       el('blockquote', { class: 'quote selectable' }, change.description || '')) : null,
+    guide ? el('div', { class: 'field' },
+      el('div', { class: 'k small muted' }, t('pending_change_box.new_rotation_guide')),
+      el('blockquote', { class: 'quote selectable' },
+        el('ol', {}, (guide.create || []).map((step) => el('li', {}, step))),
+        [...(guide.links || []).map((link) => link.url), ...(guide.sources || [])].length
+          ? el('div', { class: 'small' }, listJoin([...new Set([...(guide.links || []).map((link) => hostOf(link.url)), ...(guide.sources || []).map(hostOf)])]))
+          : null)) : null,
     el('p', { class: 'help' }, change.texts && !destinations.length
-      ? t('pending_change_box.while_you_decide_ai_keeps')
+      ? (described ? t('pending_change_box.while_you_decide_ai_keeps') : t('pending_change_box.while_you_decide_old_guide'))
       : t('pending_change_box.while_you_decide_ai_can'), write
       ? t('pending_change_box.rejecting_undoes_change_for_whole')
       : t('pending_change_box.only_someone_who_can_edit')),
@@ -4324,19 +4352,22 @@ function inviteControls(org, m, rerender) {
     });
     return node;
   };
-  const renew = button(t('team_people_panel.renew'), 'team_renew_invite', { org: org.id, id: m.invite_id },
+  // The invite's code works as a sign-up code for that e-mail: the list of people never has it, the service looks
+  // it up inside each of these (one click with the token).
+  const which = { org: org.id, email: m.email };
+  const renew = button(t('team_people_panel.renew'), 'team_renew_invite', which,
     t('team_people_panel.renew_invitation'), (r) => { rerender(); inviteInstructions(org, m.email, r.id, true, r.emailed); });
-  const resend = button(t('team_people_panel.resend'), 'team_resend_invite', { org: org.id, id: m.invite_id },
+  const resend = button(t('team_people_panel.resend'), 'team_resend_invite', which,
     t('team_people_panel.resend_invitation'), (r) => {
       toast(r.emailed ? t('team_people_panel.invitation_resent', { email: m.email }) : t('team_people_panel.couldn_send_email'), r.emailed ? undefined : 'error');
       rerender();
     });
-  const withdraw = button(t('team_people_panel.withdraw'), 'team_drop_invite', { id: m.invite_id },
+  const withdraw = button(t('team_people_panel.withdraw'), 'team_drop_invite', which,
     t('team_people_panel.withdraw_invitation'), () => { toast(t('team_people_panel.invitation_withdrawn')); rerender(); });
   withdraw.classList.add('ghost');
   if (m.expired) return [renew, withdraw];
-  const copy = el('button', { class: 'btn', onclick: () => inviteInstructions(org, m.email, m.invite_id, false, m.emailed) },
-    icon('copy', 'sm'), t('common.copy_instructions'));
+  const copy = button([icon('copy', 'sm'), t('common.copy_instructions')], 'team_invite_code', which,
+    t('team_people_panel.copy_invitation'), (r) => inviteInstructions(org, m.email, r.code, false, m.emailed));
   return [copy, m.emailed ? resend : null, withdraw].filter(Boolean);
 }
 

@@ -74,6 +74,8 @@ A program running as the user, without administrator rights.
   to the app.
 - Registering a new Windows Hello key requires the master or Windows password.
 - Clipboard copies are cleared after 30 s and excluded from clipboard history.
+- The app's window takes no drops and never shows another page; a page that is not the app's gets every call to
+  the app refused (a dropped link or .html file would otherwise get the app's one-click bridge).
 
 **Limits**
 - Anything shown or typed on the desktop is exposed: keyloggers can capture the master password, screen capture and
@@ -83,7 +85,8 @@ A program running as the user, without administrator rights.
   app, and any program running as the user can open it (that is what the option means; the inactivity lock then only
   limits how long the key stays in memory). Revealing, copying, editing, exporting and sharing still need Hello or a
   password once after such an unlock, and so does approving an AI request that deletes, rotates or widens where a
-  key may go; approving ordinary uses stays one click, so such a program could approve the AI using a credential.
+  key may go, accepting a teammate's change to a shared credential, or reading an invite's code; approving ordinary
+  uses stays one click, so such a program could approve the AI using a credential.
 - Malware with administrator rights (or a user who runs the AI agent as administrator) defeats the account isolation.
   On Linux the same holds for root and for members of `sudo` who use it. The `secretbroker` service has the `shadow`
   group (to check the account password with PAM), so code execution inside the service would expose password hashes.
@@ -119,10 +122,10 @@ A member of an organization, with some permission on a collection.
 **Limits**
 - `use` is enforced by the member's client. A teammate running a modified client can decrypt anything they can use.
   Treat `use` as "will not see it by accident", not as a cryptographic barrier.
-- A member with `edit` can change names, private notes, `used_in`, rotation guides and secret values of shared items
-  (these apply immediately, signed with their name). The AI only sees `used_in` and the rotation guide marked as
-  written by the team, but a malicious text there is still a prompt-injection vector; policies still bound where keys
-  can go.
+- A member with `edit` can change names, private notes, `used_in` and secret values of shared items (these apply
+  immediately, signed with their name). A changed rotation guide waits for review and is shown as written by that
+  person; its links still deserve a look. The AI only sees `used_in` marked as written by the team, but a
+  malicious text there is still a prompt-injection vector; policies still bound where keys can go.
 - A credential new to the PC arrives with its description (marked as team-written for the AI): only changes are
   reviewed, so deleting and re-sharing a credential is a way to send new text without review.
 - A member with `manage` can grant access to others in the organization. A few deletions at a time (below the hold
@@ -179,6 +182,8 @@ A member of an organization, with some permission on a collection.
   proves nothing to anybody else.
 - Pins of verified people are stored encrypted with the account's own keys and never rolled back.
 - Quarantine of policy-widening and description changes (3.3) also covers changes forged by the server.
+- The server's free error texts are never shown to the user (only translated messages chosen by its error code), and
+  the names it relays are checked for control and invisible characters.
 
 **Limits**
 - Metadata is visible: e-mail addresses, organization names, membership graph, permissions, item counts, sizes and

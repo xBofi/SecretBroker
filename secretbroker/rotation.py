@@ -12,10 +12,12 @@ one. The guides of known providers come from their own documentation; for other 
 can research one and store it with the credential (marked as written by the AI).
 """
 
+import json
 import os
 import re
 import subprocess
 import sys
+import unicodedata
 from datetime import date, timedelta
 
 import httpx
@@ -271,13 +273,28 @@ def clean_paired_id(entry, value):
 # gives the exact command (or the panel of a managed database). The old password stops working at
 # once, so every place that uses it has to get the new one.
 
+# {user} and {database} come from the credential (a teammate may have written them): each engine's quoting is
+# applied to them (DB_QUOTE), and a name with a line break or another control character gets no command at all.
 DB_COMMANDS = {
-    "postgresql": """ALTER ROLE "{user}" WITH PASSWORD '{password}';""",
-    "mysql": """ALTER USER '{user}'@'%' IDENTIFIED BY '{password}';""",
-    "sqlserver": """ALTER LOGIN [{user}] WITH PASSWORD = '{password}';""",
-    "mongodb": """db.getSiblingDB("{database}").changeUserPassword("{user}", "{password}")""",
+    "postgresql": """ALTER ROLE {user} WITH PASSWORD '{password}';""",
+    "mysql": """ALTER USER {user}@'%' IDENTIFIED BY '{password}';""",
+    "sqlserver": """ALTER LOGIN {user} WITH PASSWORD = '{password}';""",
+    "mongodb": """db.getSiblingDB({database}).changeUserPassword({user}, "{password}")""",
     "redis": """ACL SETUSER {user} resetpass >{password}""",
 }
+DB_QUOTE = {
+    "postgresql": lambda name: '"' + name.replace('"', '""') + '"',
+    "mysql": lambda name: "'" + name.replace("\\", "\\\\").replace("'", "''") + "'",
+    "sqlserver": lambda name: "[" + name.replace("]", "]]") + "]",
+    "mongodb": lambda name: json.dumps(name, ensure_ascii=False),
+    "redis": lambda name: _redis_quote(name),
+}
+
+
+def _plain_name(name):
+    """A user or database name that can go in a command: no control, separator or invisible characters (they
+    could end the line and start another command) and no placeholder of ours."""
+    return not any(unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp") for c in name) and "{" not in name and "}" not in name
 DB_COMMAND_NOTES = {
     "mysql": "Si el usuario no es de cualquier host ('%'), pon el suyo (lo ves con SELECT user, host FROM mysql.user).",
     "redis": "Si no usa usuarios (solo requirepass): CONFIG SET requirepass y cámbiala también en redis.conf.",
@@ -458,7 +475,7 @@ def db_command(entry, password):
     if engine == "mongodb":
         quoted = password.replace("\\", "\\\\").replace('"', '\\"')
     elif engine == "redis":
-        quoted = password
+        return command.replace(">{password}", _redis_quote(">" + password))
     else:
         quoted = _sql_text(password)
     return command.replace("{password}", quoted)
@@ -469,8 +486,12 @@ def _database_guide(entry):
     name, found, panel_only = _database(entry)
     engine = fields.get("engine") or "postgresql"
     command = None if panel_only else DB_COMMANDS.get(engine)
-    if command:
-        command = command.replace("{user}", fields.get("username") or "usuario").replace("{database}", fields.get("database") or "admin")
+    user, database = str(fields.get("username") or "usuario"), str(fields.get("database") or "admin")
+    if command and _plain_name(user) and _plain_name(database):
+        quote = DB_QUOTE[engine]
+        command = command.replace("{user}", quote(user)).replace("{database}", quote(database))
+    else:
+        command = None
     where = f"{fields.get('host') or 'el servidor'}" + (f" (base de datos {fields['database']})" if fields.get("database") else "")
     steps = (["Abre el panel (enlace de abajo) y cambia la contraseña del usuario "
               f"{fields.get('username') or ''} con la que te da el panel; pégala en el paso siguiente."] if panel_only else
@@ -506,7 +527,9 @@ def guide(entry):
                 "sources": [], "generate": provider == links.OWN_SECRET, "paired": paired_id(entry), "testable": testable}
     written = entry.get("rotation_guide")
     if written:
-        return {"provider": provider, "source": "ai", "create": written.get("create") or [],
+        # Written by this user's AI, or synced from a teammate (`by`: shared.guide_by, set by the team sync).
+        by = (entry.get("shared") or {}).get("guide_by")
+        return {"provider": provider, "source": "team" if by else "ai", **({"by": by} if by else {}), "create": written.get("create") or [],
                 "revoke": written.get("revoke") or "", "warning": written.get("warning") or "",
                 "links": written.get("links") or [], "sources": written.get("sources") or [],
                 "written": written.get("written"), "paired": paired_id(entry), "testable": testable}

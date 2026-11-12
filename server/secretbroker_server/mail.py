@@ -11,6 +11,7 @@ import logging
 import secrets
 import smtplib
 import ssl
+import unicodedata
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from urllib.parse import urlencode
@@ -53,10 +54,12 @@ def invite_message(settings, to, code, org_name, inviter, expires):
     """The invite: the join link, and the same steps in plain words for someone without SecretBroker yet."""
     link = join_link(settings.public_url, to, code)
     until = datetime.fromtimestamp(expires, timezone.utc).strftime("%Y-%m-%d")
+    org_name, inviter = _plain(org_name), _plain(inviter)
     msg = EmailMessage()
     msg["From"] = settings.smtp_from
     msg["To"] = to
-    msg["Subject"] = f"{inviter} te invita a «{org_name}» en SecretBroker"
+    # Names people chose stay out of the headers (and out of what the inbox shows before opening it).
+    msg["Subject"] = "Te invitan a un equipo en SecretBroker · You're invited to a team on SecretBroker"
     lines = [
         f"{inviter} te ha invitado al equipo «{org_name}» en SecretBroker, para compartir credenciales cifradas de "
         "extremo a extremo.",
@@ -89,14 +92,21 @@ def invite_message(settings, to, code, org_name, inviter, expires):
     return msg
 
 
+def _plain(text):
+    """A name as one line of plain text: controls, separators and invisible formatting become spaces (names are
+    checked when they are set; this covers older ones)."""
+    return " ".join("".join(" " if unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp") else c for c in str(text)).split())
+
+
 def send_invite(settings, to, code, org_name, inviter, expires):
-    """True if the invite was handed to the SMTP server (False without SMTP or on failure, which is logged)."""
+    """True if the invite was handed to the SMTP server (False without SMTP or on failure, which is logged). Never
+    raises: it runs after the invite was saved, and the app still gives the admin the instructions to pass on."""
     if not settings.smtp or not settings.public_url:
         return False
     try:
         deliver(settings, invite_message(settings, to, code, org_name, inviter, expires))
         return True
-    except (OSError, smtplib.SMTPException) as exc:
+    except (OSError, smtplib.SMTPException, ValueError) as exc:  # ValueError: a header EmailMessage won't write
         log.warning("Could not send an invite e-mail: %s", type(exc).__name__)
         return False
 
@@ -121,6 +131,6 @@ def send_code(settings, to, code):
     try:
         deliver(settings, message(settings, to, code))
         return True
-    except (OSError, smtplib.SMTPException) as exc:
+    except (OSError, smtplib.SMTPException, ValueError) as exc:
         log.warning("Could not send a verification e-mail: %s", type(exc).__name__)
         return False

@@ -69,7 +69,7 @@ TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_i
                    "team_revoke", "team_share_entry", "team_share_entries", "team_unshare_entry", "team_accept_change",
                    "team_verify_email", "team_send_code", "team_resolve_deletions", "team_share_with",
                    "team_unshare_with", "team_revoke_device", "team_change_password", "team_renew_invite",
-                   "team_resend_invite", "team_drop_invite")
+                   "team_resend_invite", "team_drop_invite", "team_invite_code")
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
                 "import_file", "import_env_file", "export_vault") + TEAM_CHANGE_OPS  # what the app that unlocked may do with one click
 # Operations that can send credentials or keys out of the vault (to someone else's account, or a file in clear).
@@ -78,7 +78,7 @@ PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai
 # one click again.
 TEAM_EXPORT_OPS = ("team_connect", "team_invite", "team_renew_invite", "team_accept_invite", "team_confirm_member",
                    "team_set_role", "team_grant", "team_share_entry", "team_share_entries", "team_share_with",
-                   "export_vault")
+                   "export_vault", "team_invite_code")  # an invite's code works as a sign-up code for its e-mail
 # Operations that may change a shared credential: the team sync runs soon after them to push it.
 TEAM_PUSH_OPS = {"save_entry", "delete_entry", "replace_key", "rotate", "update_credential", "ai_rotate", "ai_delete"}
 # Rotations from the app: one click. Copying a new password not applied yet gives it out, like exporting.
@@ -90,6 +90,9 @@ TEAM_PUSH_OPS |= {"rotation_apply", "set_test_request"}
 # Hello). They show, change or delete secrets, so like TEAM_EXPORT_OPS a session unlock alone is not enough.
 PROVEN_OPS = ("reveal", "save_entry", "delete_entry", "rotate", "set_settings", "exposure_begin", "enable_session_unlock",
               "team_resolve_deletions")
+# Accepting a teammate's change lets a shared key go where they said (or the AI read their text): like approving
+# the AI widening where a key may go (STRONG_APPROVALS), a session unlock alone is not enough.
+PROVEN_OPS += ("team_accept_change",)
 PRESENCE_OPS += PROVEN_OPS
 # Connecting a browser lets it fill this user's logins: like the ops above, a session unlock is not enough.
 PROVEN_OPS += ("browser_pair_answer",)
@@ -99,7 +102,8 @@ STRONG_APPROVALS = ("delete", "rotate", "edit_config")
 # What a proof is for, said after «Confirma que eres tú una vez … para» (messages service.purpose_*).
 PROVEN_PURPOSE = {op: f"service.purpose_{op}" for op in (
     "browser_pair_answer", "reveal", "save_entry", "delete_entry", "team_resolve_deletions", "approve", "rotate", "set_settings",
-    "exposure_begin", "enable_session_unlock", "export_vault", "rotation_secret", "totp_code")}
+    "exposure_begin", "enable_session_unlock", "export_vault", "rotation_secret", "totp_code", "team_accept_change",
+    "team_invite_code")}
 APPROVAL_EXPIRED_SECONDS = 600  # how long the app is told about a request nobody answered in time
 # The browser extension, through native_host.py (see the browser section of Service). None is for the AI.
 EXTENSION_OPS = ("ext_hello", "ext_pair", "ext_logins", "ext_search", "ext_fill", "ext_save_check", "ext_save")
@@ -1595,6 +1599,8 @@ class Service:
                 except ValueError as exc:
                     raise ServiceError(str(exc), "invalid") from None
                 entry["rotation_guide"] = {**guide, "written": datetime.now().date().isoformat()}
+            if entry.get("shared"):  # this user's AI wrote it now, not the teammate who wrote the last one
+                entry["shared"] = {k: v for k, v in entry["shared"].items() if k != "guide_by"}
         policy = entry.setdefault("policy", {})
         if params.get("allowed_hosts") is not None:
             policy.setdefault("http", {"auth": {"kind": "none"}})["allowed_hosts"] = \
@@ -2536,12 +2542,16 @@ class Service:
         if pending and teams.widening_changes(old, entry) + teams.widening_changes(entry, old):
             entry["shared"].pop("pending_policy")  # the user decided by hand where it may go
         elif pending and "description" in pending and (old.get("description") or "") != (entry.get("description") or ""):
-            # The user wrote the description by hand: theirs is the one that goes to the team.
+            # The user wrote the description by hand: theirs is the one that goes to the team. A new rotation guide
+            # still waits for review.
             pending.pop("description")
-            pending["texts"] = False
-            pending["changes"] = [c for c in pending.get("changes") or [] if not teams.is_text_change(c)]
+            pending["texts"] = bool(pending.get("rotation_guide"))
+            pending["changes"] = [c for c in pending.get("changes") or []
+                                  if not teams.is_text_change(c) or (isinstance(c, dict) and c.get("kind") == "rotation_guide")]
             if not pending["changes"]:
                 entry["shared"].pop("pending_policy")
+        if (entry.get("rotation_guide") or None) != (old.get("rotation_guide") or None):
+            entry["shared"].pop("guide_by", None)  # written here now
         return entry
 
     def _require_team_write(self, entry):
@@ -2720,14 +2730,21 @@ class Service:
     def op_team_renew_invite(self, params):
         """A new code for a pending or expired invite, e-mailed again if the server can."""
         return self._team_call("team_renew_invite", params, lambda: self.team.renew_invite(
-            params.get("org"), params.get("id")))
+            params.get("org"), params.get("email")))
 
     def op_team_resend_invite(self, params):
         return self._team_call("team_resend_invite", params, lambda: self.team.resend_invite(
-            params.get("org"), params.get("id")))
+            params.get("org"), params.get("email")))
 
     def op_team_drop_invite(self, params):
-        return self._team_call("team_drop_invite", params, lambda: self.team.drop_invite(params.get("id")))
+        return self._team_call("team_drop_invite", params, lambda: self.team.drop_invite(
+            params.get("org"), params.get("email")))
+
+    def op_team_invite_code(self, params):
+        """The code of a pending invite ({org, email}), for the instructions the admin passes on. It works as a
+        sign-up code for that e-mail, so the member list (no proof) never carries it: this needs one click."""
+        return self._team_call("team_invite_code", params, lambda: self.team.invite_code(
+            params.get("org"), params.get("email")))
 
     def op_team_invites(self, params):
         return self._team_call("team_invites", params, self.team.invites, change=False)

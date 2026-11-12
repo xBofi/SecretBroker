@@ -8,6 +8,7 @@ import base64
 import binascii
 import json
 import re
+import unicodedata
 import uuid
 
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[^@\s]+$")
@@ -75,9 +76,16 @@ def email(value):
     if not isinstance(value, str):
         raise invalid("debe ser un e-mail.")
     value = value.strip().lower()
-    if len(value) > 254 or not EMAIL_RE.match(value):
+    if len(value) > 254 or not EMAIL_RE.match(value) or any(_odd(c) for c in value):
         raise invalid("debe ser un e-mail.")
     return value
+
+
+def _odd(char):
+    """A character that has no place in a name or an address: controls (C0, DEL, C1), line and paragraph
+    separators, and invisible formatting (bidi overrides, zero-width), which can break e-mail headers or make a
+    name read as something else. Zero-width (non-)joiners stay: some scripts and emoji need them."""
+    return unicodedata.category(char) in ("Cc", "Cf", "Zl", "Zp") and char not in "‌‍"
 
 
 def text(max_len, min_len=1):
@@ -87,6 +95,16 @@ def text(max_len, min_len=1):
         value = value.strip()
         if not min_len <= len(value) <= max_len or any(ord(c) < 32 for c in value):
             raise invalid(f"debe tener entre {min_len} y {max_len} caracteres.")
+        return value
+    return check
+
+
+def name(max_len):
+    """A name people read (an organization's, a person's, a device's): text without odd characters (_odd)."""
+    def check(value):
+        value = text(max_len)(value)
+        if any(_odd(c) for c in value):
+            raise invalid("tiene caracteres que no se admiten en un nombre.")
         return value
     return check
 

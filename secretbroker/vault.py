@@ -251,7 +251,8 @@ def _shared_summary(shared):
             "author": shared.get("author"), "changed": shared.get("changed"),
             "pending_change": {**{k: pending.get(k) for k in ("by", "at", "changes", "hosts", "only_hosts")},
                                "texts": bool(pending.get("texts")),
-                               "description": pending.get("description")} if pending else None,
+                               "description": pending.get("description"),
+                               "rotation_guide": pending.get("rotation_guide")} if pending else None,
             # Deleted for the team in a batch too large to apply unasked: it waits for the user (Equipo).
             "pending_delete": shared.get("pending_delete"),
             "rotate_because": (shared.get("rotate") or {}).get("people") or [],
@@ -283,7 +284,8 @@ def agent_view(entry):
     if summary["check_every_hours"] is not None:
         view["check_every_hours"] = summary["check_every_hours"]
     if entry.get("rotation_guide"):
-        view["rotation_guide"] = "escrita por la IA"
+        # A teammate may have written it (shared.guide_by): information for the AI, like the other team texts.
+        view["rotation_guide"] = "escrita por alguien del equipo" if (entry.get("shared") or {}).get("guide_by") else "escrita por la IA"
     if entry.get("used_in"):
         view["used_in"] = entry["used_in"]
     if entry.get("test_request"):

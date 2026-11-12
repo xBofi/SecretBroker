@@ -2,6 +2,7 @@
 
 import base64
 import ctypes
+import inspect
 import json
 import logging
 import logging.handlers
@@ -41,7 +42,7 @@ TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_i
                    "team_revoke", "team_share_entry", "team_share_entries", "team_unshare_entry", "team_accept_change",
                    "team_verify_email", "team_send_code", "team_resolve_deletions", "team_share_with",
                    "team_unshare_with", "team_revoke_device", "team_change_password", "team_renew_invite",
-                   "team_resend_invite", "team_drop_invite")
+                   "team_resend_invite", "team_drop_invite", "team_invite_code")
 # What the app that unlocked may do with one click (see service.PRESENCE_OPS).
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
                 "import_file", "import_env_file", "export_vault") + TEAM_CHANGE_OPS
@@ -96,8 +97,106 @@ def _file_types(*filters):
     return tuple(result)
 
 
+# ----- only the app's own page may use the app
+#
+# pywebview gives every page its window loads the bridge to Python (window.pywebview.api), and the app adds its
+# one-click presence token by itself. A link or an .html file dropped on the window, or anything else that makes
+# it navigate, would load a page that could reveal, export, share or approve with it. So: the page refuses drops
+# (app.js), each system's web view refuses external drops and other pages (_on_shown, _guard_qt_navigation), a
+# foreign page that loads anyway is replaced by the app (_back_to_the_app), and every call from a page is refused
+# unless the window shows the app's own page (page_api). Fail closed: an address that can't be read is refused.
+
+
+def _same_page(url, expected):
+    """Whether `url` is the app's own page (the address pywebview serves it at), fragment aside."""
+    if not url or not expected:
+        return False
+    try:
+        a, b = urlsplit(str(url)), urlsplit(str(expected))
+    except ValueError:
+        return False
+    return (a.scheme, a.netloc, a.path, a.query) == (b.scheme, b.netloc, b.path, b.query)
+
+
+def _shows_the_app(window):
+    """Whether the window shows the app's page now. Asks the web view itself (each backend's own get_current_url;
+    pywebview's Window.get_current_url would wait for a page load)."""
+    try:
+        return _same_page(window.gui.get_current_url(window.uid), window.real_url)
+    except Exception:
+        return False
+
+
+def page_api(api, window=None):
+    """What the page gets as window.pywebview.api: every public method of `api`, with the same arguments (pywebview
+    builds the page's functions from them), refused with PermissionError while the window shows another page."""
+    def expose(name, function):
+        def method(self, *args, **kwargs):
+            shown = window or api._window
+            if shown is None or not _shows_the_app(shown):
+                log.warning("a page that is not the app's called %s: refused", name)
+                raise PermissionError("Only SecretBroker's own page can use it.")
+            return getattr(api, name)(*args, **kwargs)
+        method.__name__ = name
+        method.__signature__ = inspect.signature(function)
+        return method
+
+    methods = {name: expose(name, function) for name, function in vars(type(api)).items()
+               if not name.startswith("_") and callable(function)}
+    return type("PageApi", (), methods)()
+
+
+def _back_to_the_app(window):
+    """A page that is not the app's loaded anyway (the web view let a navigation through): show the app again."""
+    if window.real_url and not _shows_the_app(window):
+        log.warning("the window navigated away from the app: loading the app again")
+        try:
+            window.load_url(window.real_url)
+        except Exception:
+            log.exception("could not load the app again")
+
+
+def _guard_qt_navigation(window):
+    """Linux (Qt): the page never navigates the window anywhere but the app's own page. Set before the window
+    exists, on pywebview's page class (a reimplementation of QWebEnginePage.acceptNavigationRequest)."""
+    from webview.platforms import qt
+    page_class = qt.BrowserView.WebPage
+    original = page_class.acceptNavigationRequest
+
+    def accept(self, url, kind, main_frame):
+        if main_frame and not _same_page(url.toString(), window.real_url):
+            log.warning("a navigation away from the app was refused")
+            return False
+        return original(self, url, kind, main_frame)
+
+    page_class.acceptNavigationRequest = accept
+
+
+def _refuse_drops(window):
+    """The web view takes no drops from outside the window: a dropped link or file would open in it. Windows:
+    WebView2's AllowExternalDrop, and every navigation to another page is cancelled. Linux: Qt widgets that don't
+    accept drops. macOS: the WKWebView stops taking dragged types. Run on the window's UI thread."""
+    if platform.NAME == "windows":
+        view = window.native.webview
+        view.AllowExternalDrop = False
+
+        def starting(_sender, args):
+            if not _same_page(str(args.Uri), window.real_url):
+                log.warning("a navigation away from the app was cancelled")
+                args.Cancel = True
+        view.NavigationStarting += starting
+    elif platform.NAME == "linux":
+        from qtpy.QtWidgets import QWidget
+        native = window.native
+        for widget in [native, native.webview, *native.webview.findChildren(QWidget)]:
+            widget.setAcceptDrops(False)
+    elif platform.NAME == "macos":
+        from webview.platforms.cocoa import BrowserView
+        BrowserView.instances[window.uid].webview.unregisterDraggedTypes()
+
+
 class Api:
-    """Methods exposed to the web UI as window.pywebview.api.*"""
+    """Methods exposed to the web UI as window.pywebview.api.* (through page_api)."""
 
     def __init__(self):
         self._window = None
@@ -965,10 +1064,13 @@ def main():
             pass
     api = Api()
     window = webview.create_window(
-        "SecretBroker", url=str(WEB_DIR / "index.html"), js_api=api,
+        "SecretBroker", url=str(WEB_DIR / "index.html"), js_api=page_api(api),
         width=1120, height=740, min_size=(880, 600), background_color="#0f1115", minimized=background,
     )
     api._window = window
+    window.events.loaded += lambda: _back_to_the_app(window)
+    if platform.NAME == "linux":
+        _step("navigation guard", lambda: _guard_qt_navigation(window))
     window.events.shown += lambda: _on_shown(window, api, background)
     # Closing the window keeps the app next to the clock, where it can answer the AI; "Salir" quits.
     window.events.closing += lambda: True if api._quitting else (api.hide() or False)
@@ -1097,6 +1199,11 @@ def _on_shown(window, api, background=False):
     if platform.NAME != "windows":
         if platform.NAME == "macos":
             _step("Dock icon reopens the window", lambda: _reopen_from_dock(api))
+            from PyObjCTools import AppHelper
+            AppHelper.callAfter(lambda: _step("no drops from outside", lambda: _refuse_drops(window)))
+        else:
+            from .platform import linux
+            linux.gui_call(lambda: _step("no drops from outside", lambda: _refuse_drops(window)))
         _start_resident(api)  # first: hiding needs to know whether there is an icon next to the clock
         if background:
             api._hidden_once = True
@@ -1111,6 +1218,7 @@ def _on_shown(window, api, background=False):
             form.Icon = Icon(str(ICON))
             api._hwnd = int(form.Handle.ToInt64())
             form.FormClosing += lambda sender, args: _let_windows_close(api, args)
+            _step("no drops from outside", lambda: _refuse_drops(window))
             if background:
                 api._hidden_once = True
                 api.hide()

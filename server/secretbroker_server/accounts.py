@@ -8,7 +8,7 @@ import threading
 
 from . import __version__, config, mail, security
 from .db import event, now_epoch, now_iso
-from .validate import ApiError, b64, body, email, integer, kdf, path_id, sealed, text, uuid_id
+from .validate import ApiError, b64, body, email, integer, kdf, name, path_id, sealed, text, uuid_id
 from .web import is_server_admin, new_id, route
 
 log = logging.getLogger("secretbroker_server")
@@ -99,7 +99,7 @@ def register(ctx):
         raise rate_limited(wait)
     ctx.server.signup_throttle.fail(ctx.ip)  # every attempt counts: accounts are cheap to create otherwise
     data = body(ctx.body, {
-        "user_id": uuid_id, "email": email, "name": text(100), "kdf": kdf, "auth_hash": b64(32),
+        "user_id": uuid_id, "email": email, "name": name(100), "kdf": kdf, "auth_hash": b64(32),
         "public_key": b64(32), "signing_public_key": b64(32), "private_blob": sealed(BLOB_MAX),
     }, {"invite_token": text(200)})
     token_digest = _check_signup(ctx, data["email"], data["invite_token"])
@@ -195,7 +195,7 @@ def mark_verified(conn, user_id, actor):
 
 @route("POST", "/accounts/login", auth=False, tx=False)
 def login(ctx):
-    data = body(ctx.body, {"email": email, "auth_hash": b64(32), "device_name": text(100)})
+    data = body(ctx.body, {"email": email, "auth_hash": b64(32), "device_name": name(100)})
     address, server = data["email"], ctx.server
     wait = max(server.ip_throttle.retry_after(ctx.ip), server.email_throttle.retry_after(address))
     if wait:

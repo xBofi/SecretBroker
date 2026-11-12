@@ -3,7 +3,8 @@
 from . import mail, manifests
 from .db import event, iso, now_epoch, now_iso
 from .validate import (ApiError, body, boolean, dump, email, grant, members_record, one_of, path_id, query_int, sealed,
-                       text, uuid_id)
+                       uuid_id)
+from .validate import name as name_text
 from .web import new_id, route
 
 ADMIN_ROLES = ("owner", "admin")
@@ -45,7 +46,7 @@ def _owners(conn, oid):
 
 @route("POST", "/orgs")
 def create_org(ctx):
-    name = body(ctx.body, {"name": text(100)})["name"]
+    name = body(ctx.body, {"name": name_text(100)})["name"]
     oid = new_id()
     ctx.conn.execute("INSERT INTO orgs (id, name, created) VALUES (?, ?, ?)", (oid, name, now_iso()))
     ctx.conn.execute("INSERT INTO org_members (org_id, user_id, role, status, created) VALUES (?, ?, 'owner', "

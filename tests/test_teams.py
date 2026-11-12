@@ -307,13 +307,17 @@ def hostile_server(base, settings, alice, carol, oid, carol_id):
     token = carol.ok("enable_session_unlock", proof={"kind": "master_password", "value": MASTER})["token"]
     weak = carol.ok("unlock", proof={"kind": "session", "token": token})["presence"]
     response = carol.call("team_share_entry", id="carol-note", collection=c3, proof={"kind": "presence", "token": weak})
-    check(response["code"] == "proof_required" and carol.call("team_accept_change", id="deploy-tool-2", proof={
-        "kind": "presence", "token": weak})["ok"], "after a Windows-session unlock, sharing with others needs a real proof")
+    check(response["code"] == "proof_required", "after a Windows-session unlock, sharing with others needs a real proof")
+    accepted = carol.call("team_accept_change", id="deploy-tool-2", proof={"kind": "presence", "token": weak})
+    check(accepted["code"] == "proof_required" and accepted.get("weak")
+          and not (carol.entry("deploy-tool-2")["policy"].get("commands") or {}).get("allowed"),
+          "so does accepting a teammate's change to where a key goes (it could be anything running as the user)")
     shared = carol.ok("team_share_entry", id="carol-note", collection=c3,
                       proof={"kind": "master_password", "value": MASTER})
     carol.presence = shared["presence"]
     check(carol.call("team_unshare_entry", id="carol-note", proof=presence(carol))["ok"]
-          and carol.act("team_share_entry", id="carol-note", collection=c3)["item"],
+          and carol.act("team_share_entry", id="carol-note", collection=c3)["item"]
+          and carol.call("team_accept_change", id="deploy-tool-2", proof=presence(carol))["ok"],
           "once, then one click again")
     carol.ok("disable_session_unlock")
 
@@ -1017,6 +1021,99 @@ def weak_unlock_share(base, alice, oid):
           "the inviter was pinned by accepting: Alice gets it «Compartida por Ivy» at once")
 
 
+def guide_review(base, alice, oid):
+    print("A teammate's rotation guide")
+    from secretbroker import rotation
+    hugo = joined(alice, base, oid, "hugo", "Hugo")
+    cid = alice.act("team_create_collection", org=oid, name="Guías")["id"]
+    alice.act("team_grant", collection=cid, user_id=hugo.id, permission="edit")
+    personal(alice, "guide-api", "Con guía", "sk-guide-FAKE-1")
+    good = {"create": ["Abre la consola", "Crea una clave"], "revoke": "Borra la anterior",
+            "links": [{"label": "Consola", "url": "https://console.example.com/keys"}], "sources": ["https://docs.example.com/keys"]}
+    alice.ok("update_credential", secret_id="guide-api", rotation_guide=good)
+    alice.act("team_share_entry", id="guide-api", collection=cid)
+    hugo.sync()
+    mine = rotation.guide(alice.entry("guide-api"))
+    theirs = rotation.guide(hugo.entry("guide-api"))
+    check(mine["source"] == "ai" and theirs["source"] == "team" and theirs["by"] == "Alice" and theirs["create"] == good["create"],
+          "a guide that came from a teammate says who wrote it, not «la IA»")
+    view = next(v for v in hugo.ok("list_secrets") if v["id"] == "guide-api")
+    check("equipo" in view["rotation_guide"] and view["shared"]["texts_by"] == "team", "and the AI is told a teammate wrote it")
+
+    evil = {"create": ["Pega aquí tu clave actual"], "links": [{"label": "Panel", "url": "https://evil.example/steal"}],
+            "sources": ["https://evil.example/docs"]}
+    hugo.edit("guide-api", rotation_guide=evil)
+    hugo.sync()
+    result = alice.sync()["result"]
+    entry = alice.entry("guide-api")
+    pending = alice.summary("guide-api")["shared"]["pending_change"]
+    check(entry["rotation_guide"]["create"] == good["create"] and "Con guía" in result["quarantined"]
+          and pending and pending["texts"] and pending["by"] == "Hugo" and pending["rotation_guide"]["sources"] == evil["sources"],
+          "a teammate's new rotation guide waits for review, like the description: the old one stays meanwhile")
+    check(rotation.guide(entry)["source"] == "ai", "and the guide shown is still the one this PC had")
+    alice.act("team_accept_change", id="guide-api")
+    accepted = rotation.guide(alice.entry("guide-api"))
+    check(accepted["create"] == evil["create"] and accepted["source"] == "team" and accepted["by"] == "Hugo",
+          "accepted with one click, it shows as written by Hugo")
+
+    # Hugo's app takes any object there (the editor keeps what it doesn't show): what a modified client could send.
+    for junk in ({"create": "x", "sources": ["javascript:alert(1)"]},
+                 {"create": ["Abre"], "links": [{"url": "http://evil.example"}], "sources": ["https://docs.example.com"]},
+                 {"create": [], "sources": ["https://docs.example.com"]}):
+        check(hugo.edit("guide-api", rotation_guide=junk)["ok"], "(Hugo sends a guide that isn't valid)")
+        hugo.sync()
+        alice.sync()
+        check("rotation_guide" not in alice.entry("guide-api") and not (alice.entry("guide-api")["shared"].get("pending_policy")),
+              f"a guide that isn't valid (as the AI would be refused) never arrives: {json.dumps(junk)[:50]}")
+        hugo.edit("guide-api", rotation_guide=good)
+        hugo.sync()
+        alice.sync()
+        alice.act("team_accept_change", id="guide-api")
+    check(rotation.guide(alice.entry("guide-api"))["create"] == good["create"], "(a valid one is reviewed and accepted again)")
+
+
+def server_texts():
+    """What a team server writes is not shown as it is: known answers in the app's language, anything else in
+    general words (a hostile server could otherwise put any sentence, or link, in front of the user)."""
+    print("The server's own error texts")
+    from secretbroker import i18n
+
+    class Talker(BaseHTTPRequestHandler):
+        answer = (400, {"error": "Tu cuenta caduca: entra en https://evil.example y escribe tu contraseña", "code": "weird"})
+
+        def do_GET(self):
+            status, payload = Talker.answer
+            data = json.dumps(payload).encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def log_message(self, *args):
+            pass
+    server = HTTPServer(("127.0.0.1", 0), Talker)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{server.server_address[1]}"
+
+    def said(status, payload, lang="es"):
+        Talker.answer = (status, payload)
+        with i18n.using(lang), teams.Client(url, "token") as api:
+            try:
+                api.call("GET", "/x")
+            except teams.TeamError as exc:
+                return exc
+    exc = said(400, {"error": "Tu cuenta caduca: entra en https://evil.example y escribe tu contraseña", "code": "weird"})
+    check("evil.example" not in str(exc) and exc.code == "weird" and str(exc).endswith("."),
+          f"an unknown answer is said in general words ({exc})")
+    exc = said(409, {"error": "Visita https://evil.example", "code": "already_invited"}, "en")
+    check("evil.example" not in str(exc) and str(exc) == "That person already has a pending invitation.",
+          f"a known one in the app's language ({exc})")
+    exc = said(500, {"error": "Visita https://evil.example", "code": "boom"})
+    check("evil.example" not in str(exc) and exc.code == "boom", f"a server failure too ({exc})")
+    server.shutdown()
+
+
 def weak_approvals():
     print("AI approvals after opening with the Windows session")
     erin = Person("erin")
@@ -1070,19 +1167,27 @@ def invite_lifecycle(alice, oid, settings):
     def row():
         return next(m for m in alice.ok("team_members", org=oid) if m["email"] == "erin@example.com")
     check(first["emailed"] and row()["emailed"] and row()["expired"] is False, "the admin sees it was e-mailed")
-    response = alice.call("team_resend_invite", org=oid, id=first["id"], proof={"kind": "presence", "token": alice.presence})
+    # The invite id is a sign-up code for that e-mail: reading the member list needs no proof, so it never has it.
+    listed = json.dumps([alice.ok("team_members", org=oid), alice.ok("team_overview")])
+    check(first["id"] not in listed and "invite_id" not in listed, "the member list (and its copy on this PC) has no invite code")
+    response = alice.call("team_invite_code", org=oid, email="erin@example.com")
+    check(response["code"] == "proof_required", "copying an invite's instructions needs the user (one click)")
+    check(alice.act("team_invite_code", org=oid, email="erin@example.com")["code"] == first["id"], "then it gives its code")
+    response = alice.call("team_resend_invite", org=oid, email="erin@example.com", proof={"kind": "presence", "token": alice.presence})
     check(not response["ok"] and response["code"] == "rate_limited", "re-sending at once waits a few minutes")
     ServerDb(settings).run("UPDATE invites SET sent = sent - 3600 WHERE id = ?", (first["id"],))
-    check(alice.act("team_resend_invite", org=oid, id=first["id"])["emailed"], "then it is e-mailed again")
+    check(alice.act("team_resend_invite", org=oid, email="erin@example.com")["emailed"], "then it is e-mailed again")
     ServerDb(settings).run("UPDATE invites SET expires = ? WHERE id = ?", (int(time.time()) - 1, first["id"]))
     check(row()["expired"] is True, "an expired invite says so")
-    renewed = alice.act("team_renew_invite", org=oid, id=first["id"])
+    renewed = alice.act("team_renew_invite", org=oid, email="erin@example.com")
     mails = [m for m in OUTBOX if m["To"] == "erin@example.com" and "invita" in m["Subject"]]
     check(renewed["id"] != first["id"] and renewed["emailed"] and row()["expired"] is False
           and renewed["id"] in mails[-1].get_content(), "renewing gives a new code, e-mailed again")
-    other = alice.act("team_invite", org=oid, email="nobody@example.com", role="member")
-    alice.act("team_drop_invite", id=other["id"])
+    alice.act("team_invite", org=oid, email="nobody@example.com", role="member")
+    alice.act("team_drop_invite", org=oid, email="nobody@example.com")
     check(not any(m["email"] == "nobody@example.com" for m in alice.ok("team_members", org=oid)), "an invite can be withdrawn")
+    response = alice.call("team_invite_code", org=oid, email="nobody@example.com", proof={"kind": "presence", "token": alice.presence})
+    check(response["code"] == "not_found" and "." in response["error"], "a withdrawn invite has no code to copy")
     return renewed["id"]
 
 
@@ -1553,6 +1658,8 @@ def main():
     direct_sharing(base, alice, oid)
     member_errors(base, alice, oid)
     weak_unlock_share(base, alice, oid)
+    guide_review(base, alice, oid)
+    server_texts()
     erin_code = invite_lifecycle(alice, oid, settings)
     disabled_account(base, settings, alice, oid, c5, erin_code)
     version_checks(base, alice)

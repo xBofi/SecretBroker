@@ -153,6 +153,80 @@ try:
 finally:
     update._get = _real_get
 
+# On a Mac the app says «Mac» for this computer and «ordenador» / "computer" for any other, in every language.
+import json  # noqa: E402
+import re  # noqa: E402
+
+from secretbroker import i18n  # noqa: E402
+
+OTHER_MAC = re.compile(r"\b(otro|otra|another|other|autre|anderen|anderer|altro|outro|noutro|altre|alt|celălalt|cada|each|"
+                       r"chaque|jedem|ogni|fiecare|hver|kull|propriul|own|eigenen|proprio|seu|su|son|sin|their)\s+Mac\b", re.I)
+leftover, others, same = [], [], True
+for folder in (i18n.WEB_LOCALES, i18n.LOCALES):
+    for code in i18n.available():
+        raw = json.loads((folder / f"{code}.json").read_text(encoding="utf-8"))
+        same = same and i18n.for_system(raw, code, "windows") == raw and i18n.for_system(raw, code, "linux") == raw
+        mac = i18n.for_system(raw, code, "macos")
+        for key, value in mac.items():
+            for text in (value.values() if isinstance(value, dict) else [value]):
+                if re.search(r"\bPC\b", text):
+                    leftover.append(f"{code}:{key}")
+                if OTHER_MAC.search(text):
+                    others.append(f"{code}:{key}: {text[:80]}")
+check(same, "Windows and Linux keep «PC»")
+check(not leftover, "macOS: no «PC» left in any language" + (f" ({leftover[:5]})" if leftover else ""))
+check(not others, "macOS: another computer is never «otro Mac»" + (f" ({others[:3]})" if others else ""))
+web = lambda code, key: i18n.for_system(json.loads((i18n.WEB_LOCALES / f"{code}.json").read_text(encoding="utf-8")), code, "macos")[key]
+check(web("es", "setup.encrypted_on_this_pc") == "Cifrado en este Mac. " and web("es", "import_source.on_other_pc") == "En el otro ordenador: "
+      and web("en", "setup.encrypted_on_this_pc") == "Encrypted on this Mac. " and web("en", "import_source.on_other_pc") == "On the other computer: "
+      and web("de", "setup.encrypted_on_this_pc") == "Verschlüsselt auf diesem Mac. " and web("fr", "import_source.on_other_pc") == "Sur l’autre ordinateur : "
+      and web("ru", "setup.encrypted_on_this_pc") == "Шифруется на этом Mac. ",
+      "macOS: «Cifrado en este Mac», «En el otro ordenador» (and in other languages)")
+
+# The window's page may call the app only while it shows the app's own page: a link or file dropped on the window
+# (or anything that navigates it) gets pywebview's bridge too, and must not reveal, export or approve anything.
+import inspect  # noqa: E402
+
+from secretbroker import app  # noqa: E402
+
+
+class _Gui:
+    url = None
+
+    def get_current_url(self, uid):
+        return self.url
+
+
+class _Window:
+    uid, real_url, gui = "master", "http://127.0.0.1:43123/index.html", _Gui()
+
+
+inner, window = app.Api(), _Window()
+page = app.page_api(inner, window)
+exposed = [n for n in dir(inner) if not n.startswith("_") and callable(getattr(inner, n))]
+check(exposed and all(inspect.getfullargspec(getattr(page, n)).args == inspect.getfullargspec(getattr(inner, n)).args
+                      for n in exposed), "the page gets every method of the app, with the same arguments")
+check(not [n for n in dir(page) if not n.startswith("_") and n not in exposed], "and nothing else")
+calls = []
+inner.has_presence = lambda: calls.append(1) or True
+results = []
+for url in ("http://127.0.0.1:43123/index.html", "http://127.0.0.1:43123/index.html#top", "http://evil.example/index.html",
+            "file:///C:/Users/x/Downloads/evil.html", "http://127.0.0.1:43123/other.html", "http://127.0.0.1:9999/index.html",
+            None, "about:blank"):
+    window.gui.url = url
+    try:
+        results.append(page.has_presence())
+    except PermissionError:
+        results.append("refused")
+check(results == [True, True] + ["refused"] * 6 and len(calls) == 2,
+      f"only the app's own page may call it; any other page, or none, is refused ({results})")
+window.gui.get_current_url = lambda uid: (_ for _ in ()).throw(RuntimeError("closing"))
+try:
+    page.has_presence()
+    check(False, "if the address can't be read, the call is refused")
+except PermissionError:
+    check(True, "if the address can't be read, the call is refused")
+
 print()
 if failures:
     print(f"{len(failures)} FAILED")

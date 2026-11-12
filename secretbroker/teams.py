@@ -24,7 +24,7 @@ from cryptography.exceptions import InvalidSignature, InvalidTag
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
-from . import __version__, autofill, crypto, templates
+from . import __version__, autofill, crypto, rotation, templates
 from .crypto import b64, unb64
 from .vault import ID_RE, LOCAL_ONLY_KEYS, SHARE_PERMISSIONS, SHARE_WRITE, ValidationError, secret_fields, shared_content
 from .vault import validate_entry as vault_validate
@@ -308,6 +308,8 @@ def effective_content(entry):
             content["fields"][name] = value
     if "description" in pending:
         content["description"] = pending["description"]
+    if pending.get("rotation_guide"):
+        content["rotation_guide"] = copy.deepcopy(pending["rotation_guide"])
     if "test_request" in pending:
         if pending["test_request"]:
             content["test_request"] = copy.deepcopy(pending["test_request"])
@@ -319,17 +321,43 @@ def effective_content(entry):
 
 
 def text_changes(old, new):
-    """The change to the description: the AI reads it as instructions about the credential, so a teammate's new
-    text waits for review like a new destination (a prompt-injection vector otherwise)."""
+    """The change to the description and to the rotation guide: the AI reads the description as instructions about
+    the credential, and the user follows the guide's steps and links when rotating, so a teammate's new text waits
+    for review like a new destination (prompt injection, or a link to a page that asks for the key, otherwise)."""
+    changes = []
     before, after = str(old.get("description") or "").strip(), str(new.get("description") or "").strip()
-    if before == after or not after:
-        return []  # removing the text can't instruct anything
-    return [{"kind": "description", "new": after[:300] + ("…" if len(after) > 300 else "")}]
+    if before != after and after:  # removing the text can't instruct anything
+        changes.append({"kind": "description", "new": after[:300] + ("…" if len(after) > 300 else "")})
+    guide = new.get("rotation_guide")
+    if guide and _guide_text(old.get("rotation_guide")) != _guide_text(guide):
+        changes.append({"kind": "rotation_guide", "steps": len(guide.get("create") or []),
+                        "sources": list(guide.get("sources") or [])})
+    return changes
+
+
+def _guide_text(guide):
+    """What a rotation guide says (its date aside)."""
+    return {k: v for k, v in (guide or {}).items() if k != "written"} if isinstance(guide, dict) else None
+
+
+def clean_guide(guide):
+    """A rotation guide that came from the team, checked and trimmed like one the AI writes (rotation.clean_guide),
+    with its date; None if it isn't valid (then it is dropped, as the AI's would be refused)."""
+    try:
+        cleaned = rotation.clean_guide(guide)
+    except Exception:  # ValueError, or a shape clean_guide doesn't expect (a teammate's modified client)
+        return None
+    written = guide.get("written")
+    if isinstance(written, str) and re.fullmatch(r"\d{4}-\d\d-\d\d", written):
+        cleaned["written"] = written
+    return cleaned
 
 
 def is_text_change(change):
-    """A change to the instructions the AI reads (dicts since 0.16; Spanish lines kept in older vaults)."""
-    return change.get("kind") == "description" if isinstance(change, dict) else str(change).startswith("Instrucciones")
+    """A change to a text people or the AI read (dicts since 0.16; Spanish lines kept in older vaults)."""
+    if isinstance(change, dict):
+        return change.get("kind") in ("description", "rotation_guide")
+    return str(change).startswith("Instrucciones")
 
 
 def change_text(change):
@@ -350,6 +378,7 @@ def change_text(change):
         "programs": f"Programas nuevos: {values}",
         "env": f"Variables nuevas o cambiadas: {values}",
         "description": f"Instrucciones para la IA (descripción): «{change.get('new')}»",
+        "rotation_guide": f"Guía de rotación nueva: {change.get('steps')} pasos; fuentes: {', '.join(change.get('sources') or [])}",
     }.get(kind, str(change))
 
 
@@ -500,10 +529,23 @@ def server_base(url):
     return url
 
 
-# Answers of the server a user can meet when managing people and sharing, in the app's language (the server
-# writes Spanish). Other messages are shown as the server wrote them.
+# Answers of the server a user can meet, in the app's language, by their code. The server's own text is never
+# shown (it is free text: a hostile server could put any sentence or link there); it only goes to the service log,
+# and any other answer is said in general words (teams.server_refused, or for a failure of the server itself
+# teams.team_server_answered_something_unexpecte).
 SERVER_MESSAGES = {"last_owner": "teams.org_needs_an_owner", "last_manager": "teams.collection_needs_a_manager",
-                   "not_confirmed": "teams.not_confirmed_yet", "direct_full": "teams.direct_is_for_two"}
+                   "not_confirmed": "teams.not_confirmed_yet", "direct_full": "teams.direct_is_for_two",
+                   "invalid_credentials": "teams.server_wrong_login", "account_disabled": "teams.server_account_disabled",
+                   "email_unverified": "teams.server_email_unverified", "invalid_code": "teams.server_invalid_code",
+                   "code_expired": "teams.server_code_expired", "invite_required": "teams.server_invite_required",
+                   "signups_closed": "teams.server_signups_closed", "already_invited": "teams.server_already_invited",
+                   "already_member": "teams.server_already_member", "invite_expired": "teams.server_invite_expired",
+                   "rate_limited": "teams.server_rate_limited", "not_found": "teams.it_no_longer_exists",
+                   "forbidden": "teams.server_forbidden", "conflict": "teams.server_changed_meanwhile",
+                   "key_version": "teams.server_changed_meanwhile", "needs_rekey": "teams.this_collection_has_be_re",
+                   "collection_full": "teams.server_collection_full", "too_large": "teams.server_too_large",
+                   "client_too_old": "teams.app_too_old"}
+SERVER_MESSAGES_BY_STATUS = {("invalid_credentials", 403): "teams.current_account_password_wrong"}
 
 
 class Client:
@@ -540,16 +582,24 @@ class Client:
                 raise TeamError(tr("teams.team_server_answered_something_unexpecte"), "bad_server")
             return data
         error = data if isinstance(data, dict) else {}
-        message = error.get("error") if isinstance(error.get("error"), str) else \
-            f"El servidor del equipo ha respondido con un error ({response.status_code})"
         code = error.get("code") if isinstance(error.get("code"), str) else "server_error"
-        if response.status_code == 401 and auth:
+        said = error.get("error") if isinstance(error.get("error"), str) else ""
+        print(f"team server: {method} {path.split('?')[0]} -> {response.status_code} {code[:40]}: {said[:200]!r}",
+              file=sys.stderr)  # the log only (see SERVER_MESSAGES)
+        status = response.status_code
+        if status == 401 and auth:
             code, message = "reconnect", "La sesión del equipo ha caducado. Vuelve a entrar en Equipo para seguir recibiendo cambios."
-        elif response.status_code == 426:  # the server serves only newer apps (its min_client)
+        elif status == 426:  # the server serves only newer apps (its min_client)
             code, message = "client_too_old", tr("teams.app_too_old")
+        elif (code, status) in SERVER_MESSAGES_BY_STATUS:
+            message = tr(SERVER_MESSAGES_BY_STATUS[(code, status)])
         elif code in SERVER_MESSAGES:
             message = tr(SERVER_MESSAGES[code])
-        raise TeamError(message[:300], code, response.status_code, error)
+        elif status >= 500:
+            message = tr("teams.server_failed")
+        else:
+            message = tr("teams.server_refused")
+        raise TeamError(message[:300], code, status, error)
 
 
 def _version(text):
@@ -1090,24 +1140,41 @@ class Team:
             result = api.call("POST", f"/orgs/{oid}/invites", {"email": str(email or "").strip(), "role": role})
         return {**result, "emailed": result.get("emailed") is True}
 
-    def renew_invite(self, oid, invite_id):
+    @staticmethod
+    def _invite_id(api, oid, email):
+        """The id of the invite to `email` in an organization, as the server gives it to its admins. The id is a
+        sign-up code for that e-mail: it is looked up here, inside the operations that need it (and a proof),
+        and never kept in what members() returns."""
+        address = str(email or "").strip().lower()
+        row = next((r for r in api.call("GET", f"/orgs/{oid}/members")
+                    if r.get("status") == "invited" and str(r.get("email") or "").lower() == address and r.get("invite_id")), None)
+        if row is None:
+            raise TeamError(tr("teams.no_pending_invitation"), "not_found")
+        return row["invite_id"]
+
+    def renew_invite(self, oid, email):
         """A new code for a pending or expired invite (the old one stops working), e-mailed if the server can.
         → {id, emailed, expires}"""
         with self._api(self.vault.team()) as api:
-            result = api.call("POST", f"/orgs/{oid}/invites/{invite_id}/renew", {})
+            result = api.call("POST", f"/orgs/{oid}/invites/{self._invite_id(api, oid, email)}/renew", {})
         return {**result, "emailed": result.get("emailed") is True}
 
-    def resend_invite(self, oid, invite_id):
+    def resend_invite(self, oid, email):
         """E-mail a pending invite again. → {emailed}"""
         with self._api(self.vault.team()) as api:
-            result = api.call("POST", f"/orgs/{oid}/invites/{invite_id}/send", {})
+            result = api.call("POST", f"/orgs/{oid}/invites/{self._invite_id(api, oid, email)}/send", {})
         return {"emailed": result.get("emailed") is True}
 
-    def drop_invite(self, invite_id):
+    def drop_invite(self, oid, email):
         """Withdraw an invite (org admins)."""
         with self._api(self.vault.team()) as api:
-            api.call("DELETE", f"/invites/{invite_id}")
+            api.call("DELETE", f"/invites/{self._invite_id(api, oid, email)}")
         return {}
+
+    def invite_code(self, oid, email):
+        """The code of a pending invite, for the instructions the admin passes on. → {code}"""
+        with self._api(self.vault.team()) as api:
+            return {"code": self._invite_id(api, oid, email)}
 
     @staticmethod
     def _inviter(invite):
@@ -1159,12 +1226,14 @@ class Team:
 
     def members(self, oid):
         """Members with their security codes, whether this user trusts each one (`trusted`: pinned with the
-        same code) and whether a pinned key has changed since. Their keys come in one request."""
+        same code) and whether a pinned key has changed since. Their keys come in one request. Invites carry no
+        code (`invite_id` works as a sign-up code, and reading this needs no proof): see invite_code()."""
         state = self.vault.team()
         with self._api(state, READ_TIMEOUT) as api:
             rows = api.call("GET", f"/orgs/{oid}/members")
             keys = self._fetch_many(api, [r.get("user_id") for r in rows])
         for row in rows:
+            row.pop("invite_id", None)
             row["fingerprint"], row["key_changed"], row["trusted"] = None, False, False
             if not row.get("user_id"):
                 continue
@@ -1371,7 +1440,7 @@ class Team:
         try:
             api.call("POST", f"/orgs/{oid}/collections", body)
         except TeamError as exc:
-            if not (direct and exc.code == "invalid" and "direct" in str(exc)):
+            if not (direct and exc.code == "invalid" and "direct" in str((exc.data or {}).get("error") or "")):
                 raise
             # A server from before direct shares: only an admin can make the collection there.
             body.pop("direct")
@@ -1402,7 +1471,9 @@ class Team:
         orgs = view.get("orgs")
         if orgs is None:  # nothing cached yet: what the last sync learned
             orgs = [{"id": oid, **o} for oid, o in (state.get("orgs") or {}).items()]
-        members = dict(view.get("members") or {})
+        # Without invite codes, also in a copy an older version kept.
+        members = {oid: [{k: v for k, v in row.items() if k != "invite_id"} for row in rows]
+                   for oid, rows in (view.get("members") or {}).items()}
         for cid, coll in (state.get("collections") or {}).items():  # until asked: who the last sync saw
             view.setdefault("collection_members", {}).setdefault(
                 cid, [{"user_id": uid, "name": m.get("name"), "email": None, "permission": m.get("permission")}
@@ -1995,8 +2066,11 @@ class Team:
                 raise TeamError(tr("teams.only_someone_who_can_edit"), "forbidden")
             if accept:
                 approval = (entry.get("policy") or {}).get("approval", "session")
+                before = entry.get("rotation_guide")
                 entry = {**effective_content(entry), "id": entry["id"], "shared": shared}
                 entry["policy"] = {**(entry.get("policy") or {}), "approval": approval}
+                if entry.get("rotation_guide") and _guide_text(entry["rotation_guide"]) != _guide_text(before):
+                    shared["guide_by"] = pending.get("by")  # the guide shown is now theirs
             shared.pop("pending_policy", None)
             entry["shared"] = shared
             self.vault.put(entry, replaces=entry_id)
@@ -2367,6 +2441,12 @@ class Team:
             content = {k: v for k, v in dict(plain["entry"]).items() if k not in LOCAL_ONLY_KEYS}
             if not ID_RE.match(str(content.get("id", ""))):
                 raise TeamError(tr("teams.invalid_identifier"), "invalid_item")
+            if "rotation_guide" in content:  # checked like one the AI writes; one that isn't valid is dropped
+                guide = clean_guide(content["rotation_guide"])
+                if guide:
+                    content["rotation_guide"] = guide
+                else:
+                    content.pop("rotation_guide")
             _check_content(content)  # its shape, before anything here uses it
             for local_only in ("approval", "ai_totp"):  # the user's own choices on this PC, never a teammate's
                 (content.get("policy") or {}).pop(local_only, None)
@@ -2401,6 +2481,10 @@ class Team:
             if edited:
                 notes["conflicts"].append(self._conflict_copy(local))
             entry = copy.deepcopy(content)
+            # Who wrote the rotation guide in force here, so the app says «Guía escrita por Bob», not «la IA».
+            guide_by = (local["shared"].get("guide_by") if local else None) or None
+            if _guide_text(content.get("rotation_guide")) != _guide_text((local or {}).get("rotation_guide")):
+                guide_by = author["name"] if signer != me else None
             if local is None:
                 entry["id"] = self._unique_id(content["id"])
                 entry = self._new_from_team(entry, content, shared, author, notes)
@@ -2414,20 +2498,29 @@ class Team:
                         shared[key] = local["shared"][key]
                 if local.get("team_rotate"):
                     entry["team_rotate"] = local["team_rotate"]
-                # A local edit that lost was kept as a copy: the text in force is the last one synced.
-                basis = {**local, "description": known["content"].get("description", "")} if edited else local
+                # A local edit that lost was kept as a copy: the texts in force are the last ones synced.
+                basis = local
+                if edited:
+                    basis = {k: v for k, v in local.items() if k != "rotation_guide"}
+                    basis["description"] = known["content"].get("description", "")
+                    if known["content"].get("rotation_guide"):
+                        basis["rotation_guide"] = known["content"]["rotation_guide"]
                 lines = widening_changes(local, content)
                 texts = text_changes(basis, content)
                 if (lines or texts) and signer != me:  # this user's own other device needs no review
                     entry = self._quarantine(basis, content, shared, author, lines + texts, bool(texts))
                     notes["quarantined"].append(entry.get("name") or entry["id"])
                     action = "team_review"
+                    if _guide_text(entry.get("rotation_guide")) == _guide_text(basis.get("rotation_guide")):
+                        guide_by = local["shared"].get("guide_by")  # the guide in force is still the one it had
                 else:
                     entry["policy"] = {**(entry.get("policy") or {}),
                                        "approval": (local.get("policy") or {}).get("approval", "session"),
                                        **({"ai_totp": True} if (local.get("policy") or {}).get("ai_totp") else {})}
                     action = "team_update"
                 notes["updated"].append(entry.get("name") or entry["id"])
+            if guide_by and entry.get("rotation_guide"):
+                shared["guide_by"] = guide_by
             entry["shared"] = shared
             self.vault.put(entry, replaces=local["id"] if local else None)
             coll["items"][iid] = {"revision": item["revision"], "hash": digest, "content": content, "seq": seq}
@@ -2493,9 +2586,16 @@ class Team:
                 entry["test_request"] = copy.deepcopy(local["test_request"])
             else:
                 entry.pop("test_request", None)
-            if texts:
+            kinds = {c.get("kind") for c in lines if isinstance(c, dict)}
+            if texts and "description" in kinds:
                 pending["description"] = content.get("description") or ""
                 entry["description"] = local.get("description") or ""
+            if texts and "rotation_guide" in kinds:  # the guide shown stays the one this PC had
+                pending["rotation_guide"] = copy.deepcopy(content.get("rotation_guide"))
+                if local.get("rotation_guide"):
+                    entry["rotation_guide"] = copy.deepcopy(local["rotation_guide"])
+                else:
+                    entry.pop("rotation_guide", None)
             if new_fill_sites(local, content):  # the browser keeps filling only where it did
                 pending["fill"] = _fill_part(content)
                 _set_fill_part(entry, _fill_part(local))

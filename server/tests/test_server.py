@@ -792,7 +792,7 @@ def test_invite_lifecycle():
             text = sent[0].get_content()
             link = f"secretbroker://join?server=https%3A%2F%2Fsecrets.example.com&email=bob%40example.com&code={answer['id']}"
             check(link in text and "https://github.com/xBofi/SecretBroker/releases/latest" in text
-                  and "Acme" in sent[0]["Subject"] and "Alice (alice@example.com)" in text,
+                  and "Acme" in text and "Alice (alice@example.com)" in text,
                   "with the join link, where to download SecretBroker and who invites")
             check(alice.token not in text and alice.auth_hash not in text and "Nadie te pedirá nunca tu contraseña" in text,
                   "and nothing secret (it says nobody will ask for a password)")
@@ -855,6 +855,47 @@ def test_invite_lifecycle():
               "re-sending without SMTP says it was not e-mailed")
     finally:
         stop()
+
+
+def test_mail_texts():
+    print("Names in e-mails")
+    with Outbox() as outbox:
+        base, stop, settings = start(smtp_host="smtp.example", smtp_from="secrets@example.com",
+                                     public_url="https://secrets.example.com", allow_http=True)
+        try:
+            alice = Api(base).signup("alice@example.com")
+            for name in ("Acme\u2028Bcc: x@evil.example", "Acme\x85x", "Acme\u202egnp.exe", "Acme\x7f"):
+                response = alice.call("POST", "/orgs", {"name": name})
+                check(response.status_code == 400, f"an organization name with a control or separator character is refused ({name!r})")
+            weird = Api(base)
+            weird.id, weird.email, weird.auth_hash = str(uuid.uuid4()), "weird@example.com", rand(32)
+            response = weird.call("POST", "/accounts/register", {
+                "user_id": weird.id, "email": weird.email, "name": "Eve\u2029Subject: hi", "kdf": kdf(),
+                "auth_hash": weird.auth_hash, "public_key": rand(32), "signing_public_key": rand(32), "private_blob": box(200)})
+            check(response.status_code == 400, "so is a person's name")
+            check(alice.call("POST", "/orgs", {"name": "Acme éè \U0001F468\u200d\U0001F4BB"}).status_code == 200,
+                  "accents and emoji are fine")
+            oid = alice.ok("POST", "/orgs", {"name": "Acme"})["id"]
+            alice.ok("POST", f"/orgs/{oid}/invites", {"email": "bob@example.com", "role": "member"})
+            subject = outbox.invites("bob@example.com")[-1]["Subject"]
+            check("Acme" not in subject and "Alice" not in subject and "alice" not in subject,
+                  f"the subject has no free text (the organization and inviter only go in the body): {subject}")
+            server_db(settings, "UPDATE orgs SET name = ? WHERE id = ?", ("Vieja\u2028org", oid))  # from before the check
+            response = alice.call("POST", f"/orgs/{oid}/invites", {"email": "carol@example.com", "role": "member"})
+            check(response.status_code == 200 and response.json()["emailed"] is True
+                  and "Vieja org" in outbox.invites("carol@example.com")[-1].get_content(),
+                  "a name saved before the check is written as plain text in the e-mail")
+            real = mail.invite_message
+            mail.invite_message = lambda *args: (_ for _ in ()).throw(ValueError("Header values may not contain linefeed"))
+            try:
+                response = alice.call("POST", f"/orgs/{oid}/invites", {"email": "dan@example.com", "role": "member"})
+            finally:
+                mail.invite_message = real
+            check(response.status_code == 200 and response.json()["emailed"] is False
+                  and any(m["email"] == "dan@example.com" for m in alice.ok("GET", f"/orgs/{oid}/members")),
+                  "an e-mail that can't be written is not sent, and the invite answers normally (no error after saving it)")
+        finally:
+            stop()
 
 
 def test_versions_and_health():
@@ -1153,6 +1194,7 @@ def main():
     test_migration()
     test_schema_1_upgrade()
     test_invite_lifecycle()
+    test_mail_texts()
     test_versions_and_health()
     test_admin_cli()
     test_backup_restore()
