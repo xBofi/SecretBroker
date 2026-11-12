@@ -1829,6 +1829,21 @@ def test_replace_account():
         check(code == 0 and "took the place" in said, f"`verify-email` completes it ({said.strip()})")
         check(fresh.login().status_code == 200 and frank.call("GET", "/me").status_code == 401,
               "then the new account signs in and the old one is gone")
+
+        gina = Keyed(base)
+        invite = admin.ok("POST", f"/orgs/{oid}/invites", {"email": "gina@example.com", "role": "member"})
+        gina.register("gina@example.com", invite_token=invite["id"])
+        gina.token = gina.login().json()["token"]
+        gina.ok("POST", f"/invites/{invite['id']}/accept")
+        admin.ok("DELETE", f"/orgs/{oid}/members/{gina.id}")
+        invite = admin.ok("POST", f"/orgs/{oid}/invites", {"email": "gina@example.com", "role": "member",
+                                                            "replaces": gina.id})
+        newer = Keyed(base)
+        newer.register("gina@example.com", invite_token=invite["id"])
+        check(newer.login().status_code == 401, "another one waits")
+        verified = admin.call("POST", f"/admin/users/{newer.id}/verify")
+        check(verified.status_code == 200 and newer.login().status_code == 200 and gina.call("GET", "/me").status_code == 401,
+              "the admin API's verify completes it too (the server admin checked who the person is)")
     finally:
         stop()
 
