@@ -1013,3 +1013,31 @@ p, .help, .lead, .muted, .subtitle, .banner, .warning { overflow-wrap: break-wor
 .direct-head { margin-top: 28px; }
 .direct-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .direct-controls .spacer { flex: 1; }
+
+/* «Servidor» in Equipo: the team server's admin */
+.team-tabs .server-tab { margin-left: auto; }
+.server-panel { display: flex; flex-direction: column; gap: 14px; }
+.server-nav { align-self: flex-start; }
+.server-nav .tab-count { margin-left: 2px; }
+.server-head { display: flex; gap: 12px; align-items: center; }
+.server-head .meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.server-head .title { font-weight: var(--fw-semibold); font-size: var(--fs-lg); display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+  overflow-wrap: anywhere; }
+.server-head .chip { margin-left: 4px; }
+.server-head .subtitle { color: var(--muted); font-size: var(--fs-sm); }
+.server-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 4px; }
+.server-stats .stat { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; min-width: 0; }
+.server-stats .stat-value { font: var(--fw-semibold) var(--fs-xl)/1.15 var(--font-display); font-variant-numeric: tabular-nums; }
+.server-stats .stat-label { color: var(--muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.command-box { display: flex; gap: 6px; align-items: flex-start; margin: 6px 0 2px; }
+.command-box .instructions { margin-top: 0; flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
+.restore-show { align-self: flex-start; margin-top: 2px; }
+.restore-steps { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.server-account .title { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+.server-account .title .name { font-weight: var(--fw-medium); overflow-wrap: anywhere; }
+.server-account.is-disabled .title .name { color: var(--muted); }
+.row-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; flex: none; max-width: 50%; }
+.delete-fix:empty { display: none; }
+.fix-body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.fix-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fix-link { align-self: flex-start; text-align: left; padding: 0; }

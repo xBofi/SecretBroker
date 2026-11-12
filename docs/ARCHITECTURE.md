@@ -582,7 +582,7 @@ Added to `secretbroker/service.py` (GUI only, never reachable from the AI unless
 account's devices, `GET /me`), `team_revoke_device {id}`, `team_change_password {current, password}`,
 `team_renew_invite {org, email}` (→ `{id, emailed, expires}`; in `TEAM_EXPORT_OPS` like `team_invite`),
 `team_resend_invite {org, email}` (→ `{emailed}`), `team_drop_invite {org, email}`, `team_invite_code {org, email}`
-(→ `{code}`, for «Copiar instrucciones»; in `TEAM_EXPORT_OPS`). The invite id works as a sign-up code, so
+(→ `{code}`, for «Copiar instrucciones»; in `TEAM_EXPORT_OPS`), and the server admin's `team_admin_*` (5.2). The invite id works as a sign-up code, so
 `team_members` (no proof) strips it from the server's rows (and from the cached copy); these ops look it up
 themselves. `team_invite` answers `{id, emailed,
 expires?}` (`emailed` false on servers before 0.17). Client logic and crypto live in `secretbroker/teams.py`.
@@ -690,7 +690,9 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   quarantined changes and unsent edits); then tabs **Colecciones** (members and permission Gestor / Editor / Lector /
   Solo uso with a «?» popover, add / change / remove, create), **Personas** (invite, «Invitada · aún no ha entrado»
   with «Copiar instrucciones», role, remove), **Actividad** (admins) and **Tu cuenta** (código de seguridad,
-  «Desconectar», the account's devices with «Cerrar sesión en ese dispositivo», «Cambiar contraseña»). Offline, buttons that need the server are disabled.
+  «Desconectar», the account's devices with «Cerrar sesión en ese dispositivo», «Cambiar contraseña»), and, at the
+  right end, **Servidor** for the server's admin only (5.2; also without an organization, next to «Organización»).
+  Offline, buttons that need the server are disabled.
 * Banners also cover «Verifica tu e-mail» (the 8-digit code, «Enviar otro código»; on servers without e-mail, who
   to ask), held deletions («N credenciales esperan tu decisión»: «Recuperarlas para el equipo» / «Conservarlas en
   este PC» and «Borrarlas también aquí»), and the change review names a new description («… ha cambiado las
@@ -730,6 +732,57 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
 * Credential list: a team mark on shared rows, collection chips next to the tag filter («Con Bob» for a direct
   share), «Sin enviar» / «Cambiar: salió Bob» badges, and with a team account a checkbox on hover (shift-click for a
   range) to «Compartir N…».
+
+### 5.2 The server's admin from the app («Equipo › Servidor»)
+
+Whoever runs the team server (often on a headless machine) administers it with clicks, never SSH, except restoring a
+backup. Only for an account whose `user.admin` is true (the first account of an `open` server, or one in
+`SB_ADMIN_EMAILS`); the server checks it again on every request. Only metadata: there are no contents to see.
+
+* **Who is admin.** `team_connect` keeps `user.admin` from the login answer; while it is true, and once for accounts
+  linked before this version (no `admin` known), each sync asks `GET /me`, so the tab goes away when the server stops
+  calling the account admin. `team_status.server_admin`; `team_overview.admin` is the cached view below, or null for
+  anyone else.
+* **Server API used** (`/api/v1/admin/*`, server admin only, `403 forbidden` otherwise): `GET overview` →
+  `{version, latest, updates: {auto, last_check, last_result}, uptime_s, counts: {users, orgs, collections, items},
+  db_bytes, backups: {last, count, keep}, mail, signups, verification, restore}`; `GET users` → `[{id, email, name,
+  verified, admin, disabled, created, last_seen, orgs: [{id, name, role}]}]`; `POST users/{uid}/disable` → `{left:
+  [{org, name, collections}], held?: [{org, name}]}`; `POST users/{uid}/enable | verify` → `{}`; `DELETE users/{uid}`
+  → `{}` or `400 last_owner {orgs}` / `400 last_manager {collections}` (ids, or `{id, name}` objects); `POST
+  orgs/{oid}/owner {user_id}` → `{}`; `GET orgs` → `[{id, name, members, collections, owners: [{id, email, name}]}]`;
+  `POST backups` → `{file, at}`; `GET backups` → `[{file, at, bytes}]`; `POST invites {days?}` → `{token, expires}`;
+  `PUT settings {signups?, auto_update?}` → `{}`; `GET events` → `[{time, actor, action, target}]` (`user.disable`,
+  `user.enable`, `user.delete`, `user.verify`, `signup_token.create`, `backup.create`, `settings.signups`,
+  `settings.auto_update`, `org.owner`, and the server-wide `register`, `login`, `email.verify`, `password.change`,
+  `password.fail`, `device.revoke`; others show as «Otra acción»). A `404`/`405` on a page without an id means a
+  server from before this (`server_too_old`: «actualízalo a la última versión»).
+* **Service ops** (GUI only, never in `AI_OPS`). Reads, an unlocked vault only, short timeouts, no team lock, cached
+  in `team_view.admin {overview, users, orgs, events, backups}` so the tab draws at once: `team_admin_overview`,
+  `team_admin_users` (rows add `me`), `team_admin_orgs`, `team_admin_events`, `team_admin_backups`. Changes, one click
+  (`TEAM_CHANGE_OPS` in `service.py` and `app.py`): `team_admin_backup_now`, `team_admin_settings {signups?,
+  auto_update?}`, `team_admin_enable {user_id}`, `team_admin_verify {user_id}`, and, also in `TEAM_EXPORT_OPS` (Hello
+  or the password once after a Windows-session unlock), `team_admin_disable {user_id}` (→ `{person, left, held}`;
+  then a sync re-keys what this PC manages), `team_admin_delete {user_id}` (→ `{deleted: true, person}`, or `{deleted:
+  false, code: last_owner | last_manager, error, orgs | collections}`: one sentence and what the dialog needs to offer
+  the fix; collections named only if this user is in them), `team_admin_transfer_owner {org, user_id}`,
+  `team_admin_signup_token {days?}` (→ `{token, expires}`). The admin's own account can't be disabled or deleted
+  here. Ids go into server paths only as UUIDs. Errors are the app's own sentences (`teams.SERVER_MESSAGES`;
+  `forbidden` → «Solo quien administra el servidor del equipo puede hacer esto.»).
+* **GUI.** «Servidor» has four parts (a segmented control): **Resumen** (the server's address, version and «Al día» /
+  «Versión nueva: X», running since, data size; counts of accounts, organizations, collections and credentials;
+  «Actualizaciones automáticas» on/off; «Copias de seguridad» with the last one, how many are kept and «Hacer copia
+  ahora»; «Restaurar una copia»: done on the server, with the exact `docker compose` commands for the newest backup
+  in a box with a copy button (a backup name that is not plain letters, digits, `.`, `-`, `_` is never put in a
+  command); «Registro de cuentas» Abierto / Solo con invitación / Cerrado with what each means; in invitation mode
+  «Crear código de registro» (a single-use code and instructions to pass on, with a `secretbroker://join` link
+  without e-mail); «E-mail» configured or not, and what that means: invitations passed on by hand, accounts verified
+  by the admin), **Cuentas** (one row each: «Verificada» / «Sin verificar» / «Desactivada», «Admin del servidor»,
+  organizations and roles, last seen; «Verificar e-mail», «Desactivar» (a dialog: sessions closed, out of its
+  organizations, collections re-encrypted by their managers' apps and credentials flagged; reversible), «Reactivar»,
+  and «Borrar la cuenta» (the e-mail typed to confirm; a refusal shows its sentence in the dialog with the fix: for
+  each organization «Nuevo propietario de «X»:» with its members and «Hacer propietario», then «Volver a intentar»;
+  «Abrir la colección X» when this user is in it)), **Organizaciones** (owners, people, collections; «Cambiar
+  propietario») and **Registro** (the admin log).
 
 ## 6. Platforms
 

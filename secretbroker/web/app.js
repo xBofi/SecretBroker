@@ -222,7 +222,7 @@ const ACTION_LABELS = localized(() => ({
   team_add: t('activity_action.arrived_from_team'), team_update: t('activity_action.changed_by_team'), team_delete: t('activity_action.deleted_by_team'),
   team_review: t('activity_action.team_change_review'), team_held: t('activity_action.team_deletions_on_hold'),
   team_unsigned: t('activity_action.unsigned_change_discarded'), team_recovery: t('activity_action.recovery_access'), team_resolve: t('activity_action.team_deletions_decided'),
-  team_verify_email: t('activity.email_verified'),
+  team_verify_email: t('activity.email_verified'), team_admin: t('activity_action.team_server_admin'),
 }));
 const APPROVAL_LABELS = localized(() => ({ session: t('approval_mode.once_per_session'), always: t('approval_mode.always'), never: t('common.never') }));
 const AUTH_LABELS = localized(() => ({ none: t('auth.don_add'), header: t('auth.in_header'), query: t('auth.as_url_parameter'), basic: t('auth.http_basic_username_and_password') }));
@@ -3845,6 +3845,9 @@ async function refreshTeam(content, again = true) {
   if (confirmed && ['owner', 'admin'].includes(org.role)) calls.push(api().call('team_events', { org: org.id }));
   if (state.openCollection) calls.push(api().call('team_collection_members', { collection: state.openCollection }));
   if (!org || state.teamTab === 'account') calls.push(api().call('team_devices'));
+  if (state.teamTab === 'server' && state.team.server_admin) {
+    for (const op of ['team_admin_overview', 'team_admin_users', 'team_admin_orgs', 'team_admin_events', 'team_admin_backups']) calls.push(api().call(op));
+  }
   const results = await Promise.all(calls);
   const fresh = await api().call('team_overview');
   if (ticket !== state.teamRefresh || state.view !== 'team') return;
@@ -3892,8 +3895,10 @@ function drawTeam(content) {
     tabs.push(['people', t('draw_team.people'), members.filter((m) => m.status !== 'invited').length]);
     if (admin) tabs.push(['activity', t('common.activity'), null]);
   }
+  const serverAdmin = !!state.team.server_admin;
   if (org) tabs.push(['account', t('common.your_account'), null]);
-  else tabs.push(['none', '', null]);  // no organization yet: no tabs, one page
+  else tabs.push(['none', serverAdmin ? t('common.organization') : '', null]);  // no organization yet: one page (no tabs)
+  if (serverAdmin) tabs.push(['server', t('server_admin.tab'), null]);  // the team server's admin: the whole server
   if (!tabs.some(([id]) => id === state.teamTab)) state.teamTab = tabs[0][0];
 
   const [kind, text, detail] = syncLine(state.team);
@@ -3922,18 +3927,19 @@ function drawTeam(content) {
   }
   const peopleAlert = verificationsFor(org, members, admin).length;
   const top = el('div', { class: 'team-top' },
-    el('div', { class: 'content-header' }, el('h1', {}, t('common.team')), orgPicker,
-      org ? el('span', { class: 'muted small' }, ROLE_LABELS[org.role] || org.role) : null,
+    el('div', { class: 'content-header' }, el('h1', {}, t('common.team')), state.teamTab === 'server' ? null : orgPicker,
+      org && state.teamTab !== 'server' ? el('span', { class: 'muted small' }, ROLE_LABELS[org.role] || org.role) : null,
       el('div', { class: 'spacer' }),
       el('span', { id: 'team-sync', class: `state-text ${kind}`, title: detail }, text), syncButton),
-    org ? el('div', { class: 'team-tabs', role: 'tablist' }, tabs.map(([id, label, count]) => el('button', {
-      class: state.teamTab === id ? 'active' : '', role: 'tab', 'aria-selected': state.teamTab === id ? 'true' : 'false',
-      onclick: () => { state.teamTab = id; drawTeam(content); if (id === 'account') refreshTeam(content, false); },
+    org || serverAdmin ? el('div', { class: 'team-tabs', role: 'tablist' }, tabs.map(([id, label, count]) => el('button', {
+      class: `${state.teamTab === id ? 'active' : ''} ${id === 'server' ? 'server-tab' : ''}`, role: 'tab', 'aria-selected': state.teamTab === id ? 'true' : 'false',
+      onclick: () => { state.teamTab = id; drawTeam(content); if (id === 'account' || id === 'server') refreshTeam(content, false); },
     }, label, count !== null && count !== undefined ? el('span', { class: 'tab-count' }, count) : null,
     id === 'people' && peopleAlert ? el('span', { class: 'tab-dot', title: tn('team.people_to_verify', peopleAlert) }) : null))) : null);
 
   let panel;
-  if (!org) panel = [teamNoOrg(data, rerender), el('div', { style: 'margin-top:28px' }, teamAccountPanel(null, rerender))];
+  if (state.teamTab === 'server') panel = teamServerPanel(content, rerender);
+  else if (!org) panel = [teamNoOrg(data, rerender), el('div', { style: 'margin-top:28px' }, teamAccountPanel(null, rerender))];
   else if (!confirmed && state.teamTab !== 'account') panel = teamWaitingForAdmin(org);
   else if (state.teamTab === 'collections') panel = teamCollectionsPanel(org, collections, members, admin, content);
   else if (state.teamTab === 'people') panel = teamPeoplePanel(org, members, admin, rerender);
@@ -3943,7 +3949,9 @@ function drawTeam(content) {
   const old = content.querySelector('.content-body.team-view');
   const scroll = old && state.teamTabShown === state.teamTab ? old.scrollTop : 0;
   state.teamTabShown = state.teamTab;
-  const body = el('div', { class: 'content-body team-view' }, teamBanners(org, members, admin, rerender), panel);
+  // Servidor is about the whole server: only what says whether the server can be reached goes above it.
+  const banners = state.teamTab === 'server' ? teamStatusBanners() : teamBanners(org, members, admin, rerender);
+  const body = el('div', { class: 'content-body team-view' }, banners, panel);
   content.replaceChildren(top, body);
   body.scrollTop = scroll;
   const scrolled = () => top.classList.toggle('scrolled', body.scrollTop > 2);
@@ -4000,6 +4008,16 @@ function teamBanners(org, members, admin, rerender) {
         el('div', { class: 'meta' }, el('div', { class: 'title' }, entry.name, el('span', { class: 'draft-badge', style: 'margin-left:8px' }, t('common.not_sent'))),
           el('div', { class: 'subtitle' }, unsentText(entry))),
         el('button', { class: 'btn ghost', onclick: () => open(entry) }, t('common.open'))))) : null);
+}
+
+// Above «Servidor»: the session, the connection and a read that failed (a server too old for these pages).
+function teamStatusBanners() {
+  const team = state.team;
+  const detail = team.error || (team.state === 'offline' ? t('sync_line.can_reach_server_retries_by') : t('sync_line.will_retry_by_itself'));
+  return el('div', { class: 'team-banners' },
+    ['offline', 'error', 'reconnect'].includes(team.state) ? el('div', { class: 'warning banner-line' }, icon('alert', 'sm'),
+      el('span', {}, team.state === 'reconnect' ? t('team_banners.your_team_session_has_expired') : detail)) : null,
+    state.teamReadError ? el('div', { class: 'warning banner-line' }, icon('alert', 'sm'), el('span', {}, state.teamReadError)) : null);
 }
 
 // The account has not proved it owns its e-mail: until then nobody's invites reach it (someone could have
@@ -4325,7 +4343,8 @@ function teamPeoplePanel(org, members, admin, rerender) {
 }
 
 function joinLink(server, email, code) {
-  const params = new URLSearchParams({ server, email });
+  const params = new URLSearchParams({ server });
+  if (email) params.set('email', email);
   if (code) params.set('code', code);
   return `secretbroker://join?${params}`;
 }
@@ -4701,6 +4720,382 @@ function teamEventsPanel(events, members, collections) {
         : el('table', { class: 'table' }, el('tbody', {}, events.slice(0, 50).map((e) => el('tr', {},
           el('td', { class: 'muted', style: 'white-space:nowrap' }, formatTime(e.time)),
           el('td', {}, e.actor ? name(e.actor, t('common.someone')) : ''),  // none: the server admin (it says so)
+          el('td', {}, describe(e)))))));
+}
+
+// ----- «Servidor»: the team server's admin (docs/ARCHITECTURE.md 5.2). Accounts, organizations, backups and sign-ups;
+// never contents: the server has none to show.
+
+const SIGNUP_LABELS = localized(() => ({ open: t('server_admin.signups_open'), invite: t('server_admin.signups_invite'), closed: t('server_admin.signups_closed') }));
+const SIGNUP_HELP = localized(() => ({ open: t('server_admin.signups_open_help'), invite: t('server_admin.signups_invite_help'), closed: t('server_admin.signups_closed_help') }));
+// The server admin's own log (accounts and server settings; organizations keep theirs in Actividad).
+const ADMIN_EVENT_LABELS = {
+  'user.disable': 'server_admin.event_disable', 'user.enable': 'server_admin.event_enable', 'user.delete': 'server_admin.event_delete',
+  'user.verify': 'server_admin.event_verify', 'signup_token.create': 'server_admin.event_signup_token',
+  'backup.create': 'server_admin.event_backup', 'settings.signups': 'server_admin.event_signups',
+  'settings.auto_update': 'server_admin.event_auto_update', 'org.owner': 'server_admin.event_owner',
+  'email.verify': 'server_admin.event_verify', register: 'server_admin.event_register', login: 'server_admin.event_login',
+  'password.change': 'server_admin.event_password', 'password.fail': 'server_admin.event_password_fail',
+  'device.revoke': 'server_admin.event_device',
+};
+
+function fmtBytes(bytes) {
+  const [unit, size] = [['gigabyte', 1e9], ['megabyte', 1e6], ['kilobyte', 1e3]].find(([, s]) => bytes >= s) || ['byte', 1];
+  return fmtNumber(bytes / size, { style: 'unit', unit, unitDisplay: 'short', maximumFractionDigits: 1 });
+}
+
+function quoted(name) {
+  return t('server_admin.quoted', { name });
+}
+
+// What a server could put in a backup's name goes into a command the admin pastes into a shell: letters, digits,
+// dots, dashes and underscores only.
+function safeFileName(name) {
+  return /^[\w.-]{1,120}$/.test(String(name || '')) ? name : null;
+}
+
+function teamServerPanel(content, rerender) {
+  const admin = (state.teamData && state.teamData.admin) || {};
+  const panes = [['overview', t('server_admin.pane_overview'), null], ['accounts', t('server_admin.pane_accounts'), (admin.users || []).length],
+    ['orgs', t('server_admin.pane_orgs'), (admin.orgs || []).length], ['log', t('server_admin.pane_log'), null]];
+  if (!panes.some(([id]) => id === state.serverPane)) state.serverPane = 'overview';
+  const nav = el('div', { class: 'segmented small server-nav', role: 'tablist' }, panes.map(([id, label, count]) => el('button', {
+    class: state.serverPane === id ? 'active' : '', role: 'tab', 'aria-selected': state.serverPane === id ? 'true' : 'false',
+    onclick: () => { state.serverPane = id; drawTeam(content); refreshTeam(content, false); },
+  }, label, count ? el('span', { class: 'tab-count' }, count) : null)));
+  const pane = {
+    overview: () => serverOverview(admin, rerender),
+    accounts: () => serverAccounts(admin, rerender),
+    orgs: () => serverOrgs(admin, rerender),
+    log: () => serverLog(admin),
+  }[state.serverPane]();
+  return el('div', { class: 'team-panel server-panel' }, nav, pane);
+}
+
+function serverOverview(admin, rerender) {
+  const o = admin.overview;
+  if (!o) return el('div', { class: 'spinner' });
+  const counts = o.counts || {};
+  const updates = o.updates || {};
+  const backups = o.backups || {};
+  const since = Number(o.uptime_s) > 0 ? new Date(Date.now() - Number(o.uptime_s) * 1000).toISOString() : null;
+  const fresh = o.latest && o.latest !== o.version
+    ? el('span', { class: 'chip is-warning' }, t('server_admin.new_version', { version: o.latest }))
+    : o.latest ? el('span', { class: 'chip is-ok' }, t('server_admin.up_to_date')) : null;
+  const head = el('div', { class: 'server-head' },
+    el('div', { class: 'start-icon' }, icon('server')),
+    el('div', { class: 'meta' },
+      el('div', { class: 'title' }, hostOf(state.team.server_url), fresh),
+      el('div', { class: 'subtitle' }, [t('server_admin.version', { version: o.version || '?' }),
+        since ? t('server_admin.running_since', { when: whenText(since) }) : null,
+        o.db_bytes ? t('server_admin.database_size', { size: fmtBytes(o.db_bytes) }) : null].filter(Boolean).join(' · '))));
+  const stats = el('div', { class: 'server-stats' }, [['users', t('server_admin.stat_accounts')], ['orgs', t('server_admin.stat_orgs')],
+    ['collections', t('server_admin.stat_collections')], ['items', t('server_admin.stat_credentials')]]
+    .map(([key, label]) => el('div', { class: 'stat' }, el('div', { class: 'stat-value' }, fmtNumber(Number(counts[key]) || 0)),
+      el('div', { class: 'stat-label' }, label))));
+
+  const auto = el('input', { type: 'checkbox', checked: !!updates.auto, 'data-mutates': '1', 'aria-label': t('server_admin.auto_updates') });
+  auto.addEventListener('change', async () => {
+    const result = await teamAct('team_admin_settings', { auto_update: auto.checked }, t('server_admin.settings_reason'));
+    if (!result.ok) { auto.checked = !auto.checked; return; }
+    toast(auto.checked ? t('server_admin.auto_on_done') : t('server_admin.auto_off_done'));
+    rerender();
+  });
+  const autoHelp = [updates.auto ? t('server_admin.auto_on_help') : t('server_admin.auto_off_help'),
+    updates.last_check ? t('server_admin.last_check', { when: whenText(updates.last_check) }) : null].filter(Boolean).join(' ');
+
+  const backupNow = el('button', { class: 'btn', 'data-mutates': '1' }, t('server_admin.backup_now'));
+  backupNow.addEventListener('click', async () => {
+    const result = await teamAct('team_admin_backup_now', {}, t('server_admin.backup_reason'), backupNow);
+    if (!result.ok) return;
+    toast(t('server_admin.backup_done'));
+    rerender();
+  });
+  const backupHelp = [backups.last ? t('server_admin.backup_last', { when: whenText(backups.last) }) : t('server_admin.backup_none'),
+    backups.count ? tn('server_admin.backups_kept', Number(backups.count)) : null,
+    Number(backups.keep) > 0 ? t('server_admin.backup_daily_keep', { keep: Number(backups.keep) }) : t('server_admin.backup_daily')]
+    .filter(Boolean).join(' · ');
+
+  const signups = el('select', { class: 'input', 'data-mutates': '1', 'aria-label': t('server_admin.signups') },
+    ['open', 'invite', 'closed'].map((mode) => el('option', { value: mode }, SIGNUP_LABELS[mode])));
+  signups.value = o.signups;
+  signups.addEventListener('change', async () => {
+    const result = await teamAct('team_admin_settings', { signups: signups.value }, t('server_admin.settings_reason'));
+    if (!result.ok) { signups.value = o.signups; return; }
+    toast(t('server_admin.signups_done', { mode: lowerFirst(SIGNUP_LABELS[signups.value]) }));
+    rerender();
+  });
+  const code = el('button', { class: 'btn', 'data-mutates': '1' }, t('server_admin.signup_code'));
+  code.addEventListener('click', async () => {
+    const result = await teamAct('team_admin_signup_token', { days: 7 }, t('server_admin.signup_code_reason'), code);
+    if (result.ok) signupInstructions(result.result);
+  });
+
+  const mail = o.mail
+    ? el('span', { class: 'state-text ok' }, icon('check', 'sm'), t('server_admin.mail_on'))
+    : el('span', { class: 'state-text warn' }, t('server_admin.mail_off'));
+  return el('div', { class: 'server-overview' }, head, stats,
+    el('div', { class: 'settings-group' },
+      setting(t('server_admin.auto_updates'), autoHelp, auto),
+      setting(t('server_admin.backups'), backupHelp, backupNow),
+      serverRestore(admin),
+      setting(t('server_admin.signups'), SIGNUP_HELP[o.signups] || '', signups),
+      o.signups === 'invite' ? setting(t('server_admin.signup_code_title'), t('server_admin.signup_code_help'), code) : null,
+      setting(t('server_admin.mail'), o.mail ? t('server_admin.mail_on_help') : t('server_admin.mail_off_help'), mail)));
+}
+
+// Restoring puts the whole team back in time, so it is done on the server, by hand: the exact commands to paste.
+function serverRestore(admin) {
+  const newest = ((admin.backups || [])[0] || {}).file;
+  const file = safeFileName(newest);
+  const meta = el('div', { class: 'meta' }, el('h3', {}, t('server_admin.restore')),
+    el('p', {}, file ? t('server_admin.restore_help') : t('server_admin.restore_none')));
+  if (!file) return el('div', { class: 'setting' }, meta);
+  const command = ['sudo docker compose stop server backup',
+    `sudo docker compose run --rm --no-deps backup secretbroker-server restore /backups/${file}`,
+    'sudo docker compose up -d'].join('\n');
+  const steps = el('div', { class: 'restore-steps hidden' }, el('p', {}, t('server_admin.restore_where')),
+    el('div', { class: 'command-box' }, el('pre', { class: 'instructions selectable' }, command), copyButton(command)),
+    el('p', {}, t('server_admin.restore_after')));
+  const show = el('button', { class: 'link small restore-show' }, t('server_admin.restore_show'));
+  show.addEventListener('click', () => { steps.classList.remove('hidden'); show.remove(); });
+  meta.append(show, steps);
+  return el('div', { class: 'setting' }, meta);
+}
+
+function signupInstructions(token) {
+  const server = state.team.server_url;
+  const link = joinLink(server, '', token.token);
+  const expires = token.expires ? new Date(typeof token.expires === 'number' ? token.expires * 1000 : token.expires) : null;
+  const text = [
+    t('server_admin.signup_text_intro'),
+    '',
+    t('invite.step_install', { url: RELEASES_URL }),
+    t('invite.step_open_link', { link }),
+    t('invite_instructions.if_doesn_open_go_team'),
+    t('invite.step_server', { server }),
+    t('server_admin.signup_text_code', { code: token.token }),
+    t('server_admin.signup_text_create'),
+  ].join('\n');
+  const copy = el('button', { class: 'btn primary' }, icon('copy', 'sm'), t('common.copy_instructions'));
+  copy.addEventListener('click', async () => { await api().copy_text(text); toast(t('invite_instructions.instructions_copied')); });
+  const copyCode = el('button', { class: 'btn' }, t('server_admin.copy_code_only'));
+  copyCode.addEventListener('click', async () => { await api().copy_text(token.token); toast(t('common.copied')); });
+  const modal = openModal({
+    title: t('server_admin.signup_code_title'),
+    wide: true,
+    body: [el('p', { class: 'muted' }, expires && !Number.isNaN(expires.getTime())
+      ? t('server_admin.signup_code_once', { date: fmtDate(expires, { day: 'numeric', month: 'long' }) }) : t('server_admin.signup_code_once_no_date')),
+    el('pre', { class: 'instructions selectable' }, text)],
+    footer: [copyCode, el('div', { class: 'spacer' }), el('button', { class: 'btn', onclick: () => modal.close() }, t('common.close')), copy],
+  });
+}
+
+function serverAccounts(admin, rerender) {
+  if (!admin.users) return el('div', { class: 'spinner' });
+  const users = [...admin.users].sort((a, b) => (b.me ? 1 : 0) - (a.me ? 1 : 0) || compareText(a.name || a.email || '', b.name || b.email || ''));
+  return el('div', { class: 'settings-group' },
+    el('p', { class: 'help', style: 'margin-bottom:4px' }, t('server_admin.accounts_help')),
+    users.map((u) => serverAccountRow(u, admin, rerender)));
+}
+
+function serverAccountRow(u, admin, rerender) {
+  const label = u.name || u.email;
+  const [cls, status] = u.disabled ? ['is-exposed', t('server_admin.status_disabled')]
+    : u.verified === false ? ['is-warning', t('server_admin.status_unverified')] : ['is-ok', t('server_admin.status_verified')];
+  const orgs = (u.orgs || []).map((o) => `${o.name} (${lowerFirst(ROLE_LABELS[o.role] || o.role || '')})`);
+  const seen = u.last_seen ? t('server_admin.last_seen', { when: whenText(u.last_seen) }) : t('server_admin.never_seen');
+  const controls = [];
+  const oneClick = (text, op, reason, done, ghost = false) => {
+    const node = el('button', { class: `btn ${ghost ? 'ghost' : ''}`, 'data-mutates': '1' }, text);
+    node.addEventListener('click', async () => {
+      const result = await teamAct(op, { user_id: u.id }, reason, node);
+      if (!result.ok) return;
+      toast(done);
+      rerender();
+    });
+    return node;
+  };
+  if (!u.me) {
+    if (!u.disabled && u.verified === false) {
+      controls.push(oneClick(t('server_admin.verify_email'), 'team_admin_verify', t('server_admin.verify_reason', { name: label }),
+        t('server_admin.verified_done', { name: label })));
+    }
+    controls.push(u.disabled
+      ? oneClick(t('server_admin.enable'), 'team_admin_enable', t('server_admin.enable_reason', { name: label }), t('server_admin.enabled_done', { name: label }))
+      : el('button', { class: 'btn ghost', 'data-mutates': '1', onclick: () => disableAccount(u, admin, rerender) }, t('server_admin.disable')));
+    controls.push(el('button', { class: 'btn icon-only', 'data-mutates': '1', title: t('server_admin.delete_account'), 'aria-label': t('server_admin.delete_account'),
+      onclick: () => deleteAccount(u, admin, rerender) }, icon('trash', 'sm')));
+  }
+  return el('div', { class: `member server-account${u.disabled ? ' is-disabled' : ''}` }, el('div', { class: 'access-row' },
+    el('div', { class: `avatar ${u.disabled ? 'invited' : ''}` }, (label || '?').trim().charAt(0).toUpperCase()),
+    el('div', { class: 'meta' },
+      el('div', { class: 'title' }, el('span', { class: 'name' }, label), u.me ? el('span', { class: 'faint' }, t('common.you')) : null,
+        el('span', { class: `chip ${cls}` }, status), u.admin ? el('span', { class: 'chip' }, t('server_admin.status_admin')) : null),
+      el('div', { class: 'subtitle' }, [u.name ? u.email : null, seen].filter(Boolean).join(' · ')),
+      el('div', { class: 'subtitle' }, orgs.length ? orgs.join(', ') : t('server_admin.in_no_org'))),
+    el('div', { class: 'row-actions' }, controls)));
+}
+
+function disableAccount(u, admin, rerender) {
+  const label = u.name || u.email;
+  // The only owner of an organization stays in it (unable to sign in) until it has another owner.
+  const owners = Object.fromEntries((admin.orgs || []).map((o) => [o.id, (o.owners || []).length]));
+  const stays = (u.orgs || []).filter((o) => o.role === 'owner' && owners[o.id] === 1);
+  const leaves = (u.orgs || []).filter((o) => !stays.includes(o));
+  confirmModal({
+    title: t('server_admin.disable_title', { name: label }),
+    text: [t('server_admin.disable_text', { name: label }),
+      leaves.length ? t('server_admin.disable_leaves', { orgs: listJoin(leaves.map((o) => quoted(o.name))) }) : null,
+      stays.length ? t('server_admin.disable_stays', { orgs: listJoin(stays.map((o) => quoted(o.name))) }) : null].filter(Boolean).join(' '),
+    warning: t('server_admin.disable_warning'),
+    action: t('server_admin.disable'),
+    danger: true,
+    onConfirm: async (button) => {
+      const result = await teamAct('team_admin_disable', { user_id: u.id }, t('server_admin.disable_reason', { name: label }), button);
+      if (!result.ok) return false;
+      const { left = [], held = [] } = result.result;
+      toast(left.length ? t('server_admin.disabled_left', { name: label, orgs: listJoin(left.map((l) => quoted(l.name))) })
+        : t('server_admin.disabled_done', { name: label }));
+      if (held.length) toast(t('server_admin.disabled_held', { name: label, orgs: listJoin(held.map((h) => quoted(h.name))) }), 'warning');
+      // This PC re-encrypts what it manages now, and flags what they could see.
+      await api().call('team_sync');
+      await loadEntries();
+      rerender();
+      return true;
+    },
+  });
+}
+
+// Deleting can't be undone: the e-mail typed to confirm. The server refuses while the account is an organization's
+// only owner or a collection's only manager; the dialog then says so in one sentence, with the fix next to it.
+function deleteAccount(u, admin, rerender) {
+  const label = u.name || u.email;
+  const typed = el('input', { class: 'input', autocomplete: 'off', spellcheck: 'false', placeholder: u.email });
+  const go = el('button', { class: 'btn solid-danger', 'data-mutates': '1', disabled: true }, t('server_admin.delete'));
+  const fix = el('div', { class: 'delete-fix' });
+  typed.addEventListener('input', () => { go.disabled = typed.value.trim().toLowerCase() !== String(u.email || '').toLowerCase(); });
+  const modal = openModal({
+    title: t('server_admin.delete_title', { name: label }),
+    body: [el('p', { class: 'muted' }, t('server_admin.delete_text', { name: label })),
+      el('div', { class: 'warning is-danger' }, icon('alert', 'sm'), el('span', {}, t('server_admin.delete_warning'))),
+      el('div', { class: 'field' }, el('label', {}, t('server_admin.delete_type_email', { email: u.email })), typed),
+      fix],
+    footer: [el('button', { class: 'btn', onclick: () => modal.close() }, t('common.cancel')), go],
+  });
+  go.addEventListener('click', async () => {
+    const result = await teamAct('team_admin_delete', { user_id: u.id }, t('server_admin.delete_reason', { name: label }), go);
+    if (!result.ok) return;
+    if (!result.result.deleted) {
+      // Who can take over: the accounts as they are now, not as the list was drawn.
+      const fresh = await api().call('team_admin_users');
+      if (fresh.ok) admin.users = fresh.result;
+      fix.replaceChildren(deleteBlocked(result.result, u, admin, modal));
+      go.textContent = t('server_admin.delete_again');
+      return;
+    }
+    modal.close();
+    toast(t('server_admin.deleted_done', { name: label }));
+    await api().call('team_sync');
+    await loadEntries();
+    rerender();
+  });
+  setTimeout(() => typed.focus(), 50);
+}
+
+function deleteBlocked(refused, u, admin, modal) {
+  const fixes = [];
+  if (refused.code === 'last_owner') {
+    for (const org of refused.orgs || []) {
+      const name = org.name ? quoted(org.name) : t('common.organization');
+      const candidates = (admin.users || []).filter((x) => !x.disabled && x.id !== u.id && (x.orgs || []).some((o) => o.id === org.id));
+      if (!candidates.length) {
+        fixes.push(el('p', { class: 'help' }, t('server_admin.no_one_else_in', { org: name })));
+        continue;
+      }
+      const pick = el('select', { class: 'input compact', 'aria-label': t('server_admin.new_owner_of', { org: name }) },
+        candidates.map((x) => el('option', { value: x.id }, x.name || x.email)));
+      const make = el('button', { class: 'btn primary', 'data-mutates': '1' }, t('server_admin.make_owner'));
+      const line = el('div', { class: 'fix-line' }, el('span', {}, t('server_admin.new_owner_of', { org: name })), pick, make);
+      make.addEventListener('click', async () => {
+        const who = candidates.find((x) => x.id === pick.value);
+        const result = await teamAct('team_admin_transfer_owner', { org: org.id, user_id: pick.value }, t('server_admin.owner_reason', { org: name }), make);
+        if (!result.ok) return;
+        line.replaceWith(el('p', { class: 'ok-text' }, icon('check', 'sm'), t('server_admin.owner_done', { name: who ? who.name || who.email : '', org: name })));
+      });
+      fixes.push(line);
+    }
+  } else if (refused.code === 'last_manager') {
+    for (const c of refused.collections || []) {
+      if (!c.name || !c.org) continue;
+      fixes.push(el('button', { class: 'link fix-link', onclick: () => {
+        modal.close();
+        state.view = 'team'; state.teamTab = 'collections'; state.teamOrg = c.org; state.openCollection = c.id;
+        renderMain();
+      } }, t('server_admin.open_collection', { name: c.name })));
+    }
+  }
+  return el('div', { class: 'warning' }, icon('alert', 'sm'), el('div', { class: 'fix-body' }, el('span', {}, refused.error), fixes));
+}
+
+function serverOrgs(admin, rerender) {
+  if (!admin.orgs) return el('div', { class: 'spinner' });
+  if (!admin.orgs.length) return el('p', { class: 'muted' }, t('server_admin.no_orgs'));
+  return el('div', { class: 'settings-group' }, admin.orgs.map((org) => {
+    const owners = (org.owners || []).map((w) => w.name || w.email);
+    return el('div', { class: 'access-row' },
+      el('div', { class: 'avatar' }, (org.name || '?').trim().charAt(0).toUpperCase()),
+      el('div', { class: 'meta' }, el('div', { class: 'title' }, org.name),
+        el('div', { class: 'subtitle' }, [owners.length ? t('server_admin.owners', { names: listJoin(owners) }) : t('server_admin.no_owner'),
+          tn('common.people_count', Number(org.members) || 0), tn('server_admin.collections_count', Number(org.collections) || 0)].join(' · '))),
+      el('button', { class: 'btn', 'data-mutates': '1', onclick: () => changeOwner(org, admin, rerender) }, t('server_admin.change_owner')));
+  }));
+}
+
+function changeOwner(org, admin, rerender) {
+  const oname = quoted(org.name);
+  const owners = new Set((org.owners || []).map((w) => w.id));
+  const candidates = (admin.users || []).filter((u) => !u.disabled && !owners.has(u.id) && (u.orgs || []).some((o) => o.id === org.id));
+  const pick = candidates.length ? el('select', { class: 'input', 'aria-label': t('server_admin.new_owner_of', { org: oname }) },
+    candidates.map((u) => el('option', { value: u.id }, u.email && u.name ? `${u.name} · ${u.email}` : u.name || u.email))) : null;
+  const make = el('button', { class: 'btn primary', 'data-mutates': '1', disabled: !pick }, t('server_admin.make_owner'));
+  const modal = openModal({
+    title: t('server_admin.change_owner_title', { org: oname }),
+    body: [el('p', { class: 'muted' }, t('server_admin.change_owner_text')),
+      pick ? el('div', { class: 'field' }, el('label', {}, t('server_admin.new_owner_of', { org: oname })), pick)
+        : el('div', { class: 'warning subtle' }, icon('info', 'sm'), el('span', {}, t('server_admin.no_one_else_in', { org: oname })))],
+    footer: [el('button', { class: 'btn', onclick: () => modal.close() }, t('common.cancel')), make],
+  });
+  make.addEventListener('click', async () => {
+    const who = candidates.find((u) => u.id === pick.value);
+    const result = await teamAct('team_admin_transfer_owner', { org: org.id, user_id: pick.value }, t('server_admin.owner_reason', { org: oname }), make);
+    if (!result.ok) return;
+    modal.close();
+    toast(t('server_admin.owner_done', { name: who ? who.name || who.email : '', org: oname }));
+    rerender();
+  });
+}
+
+function serverLog(admin) {
+  const events = admin.events;
+  const names = Object.fromEntries((admin.users || []).map((u) => [u.id, u.name || u.email]));
+  const who = (id) => names[id] || t('server_admin.deleted_account');
+  const describe = (e) => {
+    const key = ADMIN_EVENT_LABELS[e.action];
+    if (!key) return t('team_events_panel.other_action');
+    if (e.action === 'user.delete' && !names[e.target]) return t('server_admin.event_delete_gone');
+    if (e.action === 'email.verify' && e.actor && e.actor === e.target) return t('server_admin.event_verify_own');
+    const value = e.action === 'settings.signups' ? lowerFirst(SIGNUP_LABELS[e.target] || '')
+      : e.action === 'settings.auto_update' ? (e.target === 'off' ? t('server_admin.off') : t('server_admin.on')) : '';
+    return t(key, { who: who(e.target), value });
+  };
+  return el('div', { class: 'settings-group' },
+    el('p', { class: 'help', style: 'margin-bottom:8px' }, t('server_admin.log_help')),
+    events === undefined ? el('div', { class: 'spinner' })
+      : !events.length ? el('p', { class: 'muted' }, t('common.no_activity_yet'))
+        : el('table', { class: 'table' }, el('tbody', {}, events.slice(0, 100).map((e) => el('tr', {},
+          el('td', { class: 'muted', style: 'white-space:nowrap' }, formatTime(e.time)),
+          el('td', {}, e.actor ? capitalized(who(e.actor)) : t('server_admin.from_the_server')),
           el('td', {}, describe(e)))))));
 }
 

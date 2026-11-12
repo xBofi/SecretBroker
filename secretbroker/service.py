@@ -69,7 +69,9 @@ TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_i
                    "team_revoke", "team_share_entry", "team_share_entries", "team_unshare_entry", "team_accept_change",
                    "team_verify_email", "team_send_code", "team_resolve_deletions", "team_share_with",
                    "team_unshare_with", "team_revoke_device", "team_change_password", "team_renew_invite",
-                   "team_resend_invite", "team_drop_invite", "team_invite_code")
+                   "team_resend_invite", "team_drop_invite", "team_invite_code", "team_admin_backup_now",
+                   "team_admin_settings", "team_admin_disable", "team_admin_enable", "team_admin_verify",
+                   "team_admin_delete", "team_admin_transfer_owner", "team_admin_signup_token")
 PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai_permissions", "backup", "restore",
                 "import_file", "import_env_file", "export_vault") + TEAM_CHANGE_OPS  # what the app that unlocked may do with one click
 # Operations that can send credentials or keys out of the vault (to someone else's account, or a file in clear).
@@ -79,6 +81,9 @@ PRESENCE_OPS = ("approve", "complete_draft", "replace_key", "resume_ai", "set_ai
 TEAM_EXPORT_OPS = ("team_connect", "team_invite", "team_renew_invite", "team_accept_invite", "team_confirm_member",
                    "team_set_role", "team_grant", "team_share_entry", "team_share_entries", "team_share_with",
                    "export_vault", "team_invite_code")  # an invite's code works as a sign-up code for its e-mail
+# The server admin's changes that hand a server to someone else or take an account away: like inviting, a session
+# unlock alone is not enough (a sign-up code lets anyone create an account; an owner gets recovery access).
+TEAM_EXPORT_OPS += ("team_admin_disable", "team_admin_delete", "team_admin_transfer_owner", "team_admin_signup_token")
 # Operations that may change a shared credential: the team sync runs soon after them to push it.
 TEAM_PUSH_OPS = {"save_entry", "delete_entry", "replace_key", "rotate", "update_credential", "ai_rotate", "ai_delete"}
 # Rotations from the app: one click. Copying a new password not applied yet gives it out, like exporting.
@@ -103,7 +108,7 @@ STRONG_APPROVALS = ("delete", "rotate", "edit_config")
 PROVEN_PURPOSE = {op: f"service.purpose_{op}" for op in (
     "browser_pair_answer", "reveal", "save_entry", "delete_entry", "team_resolve_deletions", "approve", "rotate", "set_settings",
     "exposure_begin", "enable_session_unlock", "export_vault", "rotation_secret", "totp_code", "team_accept_change",
-    "team_invite_code")}
+    "team_invite_code", "team_admin_disable", "team_admin_delete", "team_admin_transfer_owner", "team_admin_signup_token")}
 APPROVAL_EXPIRED_SECONDS = 600  # how long the app is told about a request nobody answered in time
 # The browser extension, through native_host.py (see the browser section of Service). None is for the AI.
 EXTENSION_OPS = ("ext_hello", "ext_pair", "ext_logins", "ext_search", "ext_fill", "ext_save_check", "ext_save")
@@ -2877,6 +2882,73 @@ class Service:
     def op_team_events(self, params):
         return self._team_call("team_events", params, lambda: self.team.events(
             params.get("org"), params.get("before")), change=False)
+
+    # ------------------------------------------------------------------ the team server's admin («Servidor», 5.2)
+    # Reads only need an unlocked vault (short timeouts, cached in team_view); changes are one click.
+
+    def op_team_admin_overview(self, params):
+        return self._team_call("team_admin_overview", params, self.team.admin_overview, change=False)
+
+    def op_team_admin_users(self, params):
+        return self._team_call("team_admin_users", params, self.team.admin_users, change=False)
+
+    def op_team_admin_orgs(self, params):
+        return self._team_call("team_admin_orgs", params, self.team.admin_orgs, change=False)
+
+    def op_team_admin_events(self, params):
+        return self._team_call("team_admin_events", params, self.team.admin_events, change=False)
+
+    def op_team_admin_backups(self, params):
+        return self._team_call("team_admin_backups", params, self.team.admin_backups, change=False)
+
+    def op_team_admin_backup_now(self, params):
+        result = self._team_call("team_admin_backup_now", params, self.team.admin_backup_now)
+        self._audit("vault", "team_admin", "copia de seguridad del servidor del equipo", "ok")
+        return result
+
+    def op_team_admin_settings(self, params):
+        result = self._team_call("team_admin_settings", params, lambda: self.team.admin_settings(
+            params.get("signups"), params.get("auto_update")))
+        self._audit("vault", "team_admin", "ajustes del servidor del equipo: " + ", ".join(
+            f"{k} = {v}" for k, v in result.items()), "ok")
+        return result
+
+    def op_team_admin_disable(self, params):
+        """Block an account on the team server: it leaves its teams, whose managers re-key and flag credentials."""
+        result = self._team_call("team_admin_disable", params, lambda: self.team.admin_disable(params.get("user_id")))
+        self._audit("vault", "team_admin", f"cuenta desactivada en el servidor: {result['person']}", "ok")
+        self._team_wake.set()  # collections this user manages are re-keyed now
+        return result
+
+    def op_team_admin_enable(self, params):
+        result = self._team_call("team_admin_enable", params, lambda: self.team.admin_enable(params.get("user_id")))
+        self._audit("vault", "team_admin", f"cuenta reactivada en el servidor: {result['person']}", "ok")
+        return result
+
+    def op_team_admin_verify(self, params):
+        result = self._team_call("team_admin_verify", params, lambda: self.team.admin_verify(params.get("user_id")))
+        self._audit("vault", "team_admin", f"e-mail verificado por el administrador: {result['person']}", "ok")
+        return result
+
+    def op_team_admin_delete(self, params):
+        """Delete an account on the team server; refused (with the fix) while it is the only owner or manager."""
+        result = self._team_call("team_admin_delete", params, lambda: self.team.admin_delete(params.get("user_id")))
+        if result["deleted"]:
+            self._audit("vault", "team_admin", f"cuenta borrada en el servidor: {result['person']}", "ok")
+            self._team_wake.set()
+        return result
+
+    def op_team_admin_transfer_owner(self, params):
+        result = self._team_call("team_admin_transfer_owner", params, lambda: self.team.admin_transfer_owner(
+            params.get("org"), params.get("user_id")))
+        self._audit("vault", "team_admin", f"nuevo propietario de una organización: {result['person']}", "ok")
+        return result
+
+    def op_team_admin_signup_token(self, params):
+        """A single-use code to create an account on the team server (sign-ups by invitation)."""
+        result = self._team_call("team_admin_signup_token", params, lambda: self.team.admin_signup_token(params.get("days")))
+        self._audit("vault", "team_admin", "código de registro creado en el servidor del equipo", "ok")
+        return result
 
     # ------------------------------------------------------------------ audit
 
