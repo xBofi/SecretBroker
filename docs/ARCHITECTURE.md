@@ -483,7 +483,8 @@ item says and what is deleted is signed with the author's Ed25519 key and checke
 
 * Python, Starlette + uvicorn (already dependencies of `mcp`), stdlib `sqlite3` in WAL mode. Plain SQL kept
   Postgres-compatible for a later backend. Package `server/secretbroker_server`, its own `pyproject.toml`, no Windows
-  dependencies. Docker image + `docker-compose.yml` with Caddy for TLS.
+  dependencies. Two ways to run it: `server/install-server.sh` (one command on a headless Ubuntu 22.04/24.04,
+  systemd, Caddy, signed automatic updates; below) or the Docker image + `docker-compose.yml` with Caddy for TLS.
 * Configuration by environment: `SB_DATA_DIR`, `SB_SIGNUPS` (`open` | `invite` | `closed`), `SB_PUBLIC_URL`,
   `SB_ADMIN_EMAILS`, `SB_SESSION_DAYS` (30), `SB_INVITE_DAYS` (14), `SB_MAX_INVITES_PER_HOUR` (30), `SB_MIN_CLIENT`;
   the rest in 4.1 and `server/README.md`, which also covers hosting (VPS, own PC through a tunnel), backups and
@@ -491,6 +492,34 @@ item says and what is deleted is signed with the author's Ed25519 key and checke
 * Hosting: the image runs as an unprivileged user; Compose runs it read-only, without capabilities, with a daily
   `backup` service (14 kept) and `GET /api/v1/health` as the healthcheck. Data files are created `600` in `700`
   folders.
+* **Headless install** (`install-server.sh`, `curl -fsSL …/releases/latest/download/install-server.sh | sudo bash`).
+  It installs one self-contained archive, `secretbroker-server-<v>-linux-x86_64.tar.gz` (`tools/build_server.sh`:
+  python-build-standalone with the server and the hash-pinned `requirements/server.txt` and `sign.txt` installed into it; Ubuntu 22.04's
+  python3 is 3.10, and nothing is fetched from PyPI on the server), only after its Ed25519 signature verifies with
+  the release key (`openssl pkeyutl`; the same key and message as the desktop updater). Layout:
+  `/opt/secretbroker-server/versions/<v>/` with the links `current` and `previous`; settings in
+  `/etc/secretbroker-server/server.env` (root, `600`); data in `/var/lib/secretbroker-server` (`StateDirectory`,
+  `700`, account `secretbroker-server`). Units: `secretbroker-server.service` (listens on `127.0.0.1:SB_PORT`,
+  sandboxed: `ProtectSystem=strict`, `NoNewPrivileges`, no capabilities, `@system-service` system calls, private
+  /tmp and devices; `systemd-analyze security` rates it 1.4), `secretbroker-server-backup.{service,timer}` (daily,
+  `SB_BACKUP_KEEP` kept) and `secretbroker-server-update.{service,timer}`. Caddy from its official apt repository
+  proxies `SB_DOMAIN` with automatic HTTPS; `--local` leaves Caddy out (a tunnel, or tests). It prints a signup
+  token bound to the admin's e-mail (`create-invite --email`), so nobody else can register that address first.
+  Running it again repairs and upgrades; `--uninstall [--purge]` removes it. `sudo secretbroker-server <command>`
+  runs the command line as the server's account with its settings (`restore` stops and starts the service around it).
+* **Signed automatic updates** (`secretbroker_server/updater.py`, as root, daily timer). It reads `/releases/latest`
+  (or `SB_UPDATE_SOURCE`) and takes the server artifact for its processor; only if it is newer than what runs, it
+  downloads it and its `.sig` (GitHub hosts only, 200 MB at most) and verifies the signature over
+  `"SecretBroker release\0" + version + "\0" + SHA-256` with the built-in key (plus `SB_UPDATE_TRUST`, for forks and
+  CI) before unpacking anything; it checks the unpacked `VERSION` is the signed one, backs up through the backup
+  unit, re-points `current`, installs the version's units if they changed, restarts, and waits up to a minute for
+  `/health` ok and `/info` reporting the new version. Otherwise it rolls back: the previous version and the database
+  from the backup it just took (the new version may have migrated it; at most that minute of writes is lost, and the
+  apps push their newer edits again), and it remembers the failed version so it is not retried until a newer one
+  exists. Never a downgrade, never an unsigned file. Its result goes to `/var/lib/secretbroker-updater/status.json`
+  (root's; the server only reads it, for the overview). On or off: the app's choice (`PUT /admin/settings
+  {auto_update}`, kept in `SB_DATA_DIR/settings.json`) wins over `SB_AUTO_UPDATE` (default on); when off it still
+  checks, to report what is available.
 * Security: HTTPS expected (refuses non-TLS `SB_PUBLIC_URL` unless `SB_ALLOW_HTTP=1` for local tests), bearer tokens
   stored as SHA-256, login rate limiting per IP and per e-mail, constant-time compares, uniform `prelogin` answers for
   unknown e-mails (deterministic fake salt) to avoid account enumeration, request size limits, strict JSON validation,
@@ -547,6 +576,19 @@ item says and what is deleted is signed with the author's Ed25519 key and checke
 | `PUT /collections/{cid}/items/{iid}` | `{ciphertext, key_version, base_revision}` → `{revision}` / `409 {revision}` (edit; `409 needs_rekey` while the collection waits for a re-key; `413 collection_full` past the quota) |
 | `DELETE /collections/{cid}/items/{iid}` | `{base_revision, deletion?: {by, seq, signature}}` → `{revision}` (edit; `429` past `SB_MAX_DELETES_PER_HOUR`) |
 | `GET /orgs/{oid}/events?before=` | → `[{time, actor, action, target}]` (admin) |
+| `GET /admin/overview` | → `{version, latest, updates: {auto, updater, last_check, last_result, detail}, uptime_s, counts: {users, orgs, collections, items, disabled, unverified}, db_bytes, backups: {last, count, keep}, mail, signups, verification, restore: "cli", install: systemd|docker|other, restore_command: [str], name, public_url, api, min_client}` (`install` from `SB_INSTALL`, set by install-server.sh and the Docker image; `restore_command` the exact lines to restore a backup there, `<file>` the backup's name) (`latest` and `updates` from the updater's last run, `last_result` one of `updated`, `up_to_date`, `disabled`, `skipped`, `refused`, `rolled_back`, `error`; `updater` false without one, e.g. Docker) |
+| `GET /admin/users` | → `[{id, email, name, verified, admin, disabled, created, last_seen, orgs: [{id, name, role, status}]}]` |
+| `POST /admin/users/{uid}/disable` | `{}` → `{left: [{org, name, collections}], held: [{org, name, reason: last_owner|last_manager, collections}]}` (`400 last_admin` for the last server admin) |
+| `POST /admin/users/{uid}/enable` | `{}` → `{}` |
+| `POST /admin/users/{uid}/verify` | `{}` → `{}` |
+| `DELETE /admin/users/{uid}` | → `{}`; `400 last_owner {orgs: [{id, name}], collections}` or `400 last_manager {orgs, collections}`, changing nothing; `400 last_admin` |
+| `GET /admin/orgs` | → `[{id, name, created, members, pending, collections, direct, owners: [{id, email, name}]}]` |
+| `POST /admin/orgs/{oid}/owner` | `{user_id}` → `{}` (`400 not_member` unless a confirmed member, `400 disabled`) |
+| `GET /admin/backups` | → `[{file, at, bytes}]`, newest first (file names only) |
+| `POST /admin/backups` | `{}` → `{file, at, bytes}` (a backup now; `503 backup_failed`) |
+| `POST /admin/invites` | `{days?, email?}` → `{token, expires}` (a single-use signup token; with `email`, for that address only) |
+| `PUT /admin/settings` | `{signups?: open|invite|closed, auto_update?: bool}` → `{}` |
+| `GET /admin/events?before=` | → `[{id, time, actor, actor_email, via: api|cli, action, target, detail}]` (the server admin log, newest first, 100 a page) |
 
 Errors: `{"error": "<message>", "code": "<code>"}` with proper HTTP status (400 invalid, 401 auth, 403 forbidden,
 404 not found, 409 conflict, 413 too large, 429 rate limited).
@@ -596,14 +638,28 @@ Implementation notes (`server/`, binding for clients):
   target the e-mail); server-wide `user.disable`, `user.enable`, `user.delete`.
 * **Operations.** `secretbroker-server backup [--dir] [--keep N] [--every HOURS]` (SQLite online backup of the
   database plus `server_secret` in one zip, pruned to the newest N) and `restore <file>` (refused while `serve` holds
-  its lock on the data folder; the current files are moved to `before-restore-<time>/`). The schema (now 4: disabled
-  accounts, invite expiry; recovery codes and `invites.replaces`) is upgraded on start from any earlier version.
-  The server needs `cryptography` (Ed25519 checks of key-possession proofs).
+  its lock on the data folder; the current files are moved to `before-restore-<time>/`). The schema (now 4: the
+  server admin log, signup tokens bound to one e-mail, recovery codes, `invites.replaces` and accounts waiting to
+  replace one; 3: disabled accounts, invite expiry) is upgraded on start from any earlier version. Backups go to
+  `SB_BACKUP_DIR` (default `SB_DATA_DIR/backups`), `SB_BACKUP_KEEP` (14) kept. The server needs `cryptography`
+  (Ed25519 checks of key-possession proofs).
 * **Extra endpoints.** `DELETE /invites/{id}` → `{}` (the invitee declines, or an org admin withdraws it).
-  `POST /admin/invites` `{days?}` → `{token, expires}` (server admin: a single-use signup token).
+* **Server admin API** (`/admin/...`, `admin_api.py`, for the desktop app's server panel). Every endpoint needs the
+  session of a server admin (`users.is_admin` or an `SB_ADMIN_EMAILS` address) and answers `403 forbidden` to anyone
+  else before looking at anything (unknown ids included); for admins, unknown ids are `404`. The logic is
+  `admin.py`, shared with the command line (`users`, `disable-user`, `enable-user`, `delete-user`,
+  `transfer-owner`, `verify-email`), so the two can't diverge: the same refusals, the same org events
+  (`member.disable`, `member.delete`, `member.role` by nobody). Every admin action, from either, also goes to the
+  server admin log (`admin_events`: the actor and their e-mail, `via`, action, target, a metadata detail), read with
+  `GET /admin/events`. Through the API the last server admin who can sign in can't disable or delete itself
+  (`last_admin`). Limits per admin account: 120 requests a minute, 30 changes per 10 minutes, 6 backups an hour
+  (`429`). Restoring stays on the command line (it needs the server stopped): `restore: "cli"` in the overview.
+* **Settings from the app.** `PUT /admin/settings` writes `SB_DATA_DIR/settings.json` and applies at once; on every
+  start those values win over `SB_SIGNUPS` and `SB_AUTO_UPDATE` (precedence: the app's choice, then the environment,
+  then the default). Nothing else can be changed from the app (no addresses, keys, update source or SMTP).
 * **Signups.** `open`: anyone; the first account becomes server admin. `invite`: `invite_token` must be a signup
-  token (`POST /admin/invites` or `secretbroker-server create-invite`) or the id of a pending org invite for that
-  same e-mail. `closed`: nobody. E-mails in `SB_ADMIN_EMAILS` are server admins and register (in any mode, `closed`
+  token (`POST /admin/invites` or `secretbroker-server create-invite`; one made for an `email` works only for that
+  address) or the id of a pending org invite for that same e-mail. `closed`: nobody. E-mails in `SB_ADMIN_EMAILS` are server admins and register (in any mode, `closed`
   included) only with a signup token, normally from the server's command line (`secretbroker-server
   create-invite`), so nobody can take the address first.
 * **E-mail verification** (`SB_EMAIL_VERIFICATION=required`, the default). `register` answers `{user_id, verified,
@@ -636,7 +692,7 @@ Added to `secretbroker/service.py` (GUI only, never reachable from the AI unless
 account's devices, `GET /me`), `team_revoke_device {id}`, `team_change_password {current, password}`,
 `team_renew_invite {org, email}` (→ `{id, emailed, expires}`; in `TEAM_EXPORT_OPS` like `team_invite`),
 `team_resend_invite {org, email}` (→ `{emailed}`), `team_drop_invite {org, email}`, `team_invite_code {org, email}`
-(→ `{code}`, for «Copiar instrucciones»; in `TEAM_EXPORT_OPS`). Recovery (2.1), all in `TEAM_EXPORT_OPS` (after a
+(→ `{code}`, for «Copiar instrucciones»; in `TEAM_EXPORT_OPS`), and the server admin's `team_admin_*` (5.2). Recovery (2.1), all in `TEAM_EXPORT_OPS` (after a
 Windows-session unlock, Hello or a password once): `team_recovery_code` (→ `{code, created}`: the code, this once),
 `team_reset_password {password}`, `team_recover {server_url, email, code, password, device_name?}` (→ like
 `team_connect`), `team_replace_member {org, user_id}` (→ `team_remove_member`'s answer plus `{email, invite: {id,
@@ -756,7 +812,9 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
   quarantined changes and unsent edits); then tabs **Colecciones** (members and permission Gestor / Editor / Lector /
   Solo uso with a «?» popover, add / change / remove, create), **Personas** (invite, «Invitada · aún no ha entrado»
   with «Copiar instrucciones», role, remove), **Actividad** (admins) and **Tu cuenta** (código de seguridad,
-  «Desconectar», the account's devices with «Cerrar sesión en ese dispositivo», «Cambiar contraseña»). Offline, buttons that need the server are disabled.
+  «Desconectar», the account's devices with «Cerrar sesión en ese dispositivo», «Cambiar contraseña»), and, at the
+  right end, **Servidor** for the server's admin only (5.2; also without an organization, next to «Organización»).
+  Offline, buttons that need the server are disabled.
 * Banners also cover «Verifica tu e-mail» (the 8-digit code, «Enviar otro código»; on servers without e-mail, who
   to ask), held deletions («N credenciales esperan tu decisión»: «Recuperarlas para el equipo» / «Conservarlas en
   este PC» and «Borrarlas también aquí»), and the change review names a new description («… ha cambiado las
@@ -807,6 +865,66 @@ Implementation notes (`secretbroker/teams.py`, `service.py`, binding for the GUI
 * Credential list: a team mark on shared rows, collection chips next to the tag filter («Con Bob» for a direct
   share), «Sin enviar» / «Cambiar: salió Bob» badges, and with a team account a checkbox on hover (shift-click for a
   range) to «Compartir N…».
+
+### 5.2 The server's admin from the app («Equipo › Servidor»)
+
+Whoever runs the team server (often on a headless machine) administers it with clicks, never SSH, except restoring a
+backup. Only for an account whose `user.admin` is true (the first account of an `open` server, or one in
+`SB_ADMIN_EMAILS`); the server checks it again on every request. Only metadata: there are no contents to see.
+
+* **Who is admin.** `team_connect` keeps `user.admin` from the login answer; while it is true, and once for accounts
+  linked before this version (no `admin` known), each sync asks `GET /me`, so the tab goes away when the server stops
+  calling the account admin. `team_status.server_admin`; `team_overview.admin` is the cached view below, or null for
+  anyone else.
+* **Server API used** (`/api/v1/admin/*`, server admin only, `403 forbidden` otherwise): `GET overview` →
+  `{version, latest, updates: {auto, last_check, last_result}, uptime_s, counts: {users, orgs, collections, items},
+  db_bytes, backups: {last, count, keep}, mail, signups, verification, restore, install: systemd | docker | other,
+  restore_command?: [lines with <file>]}` (`restore_command` is pasted into a root shell on the server, so the
+  service keeps it only if every line is `systemctl`, `docker compose` or `secretbroker-server` (by name or full
+  path), optionally after a bare `sudo ` (no sudo options), with plain arguments, `<file>` at most once a line and no
+  shell metacharacters or `..`, `teams.restore_lines`; the systemd install sends the single line `sudo
+  secretbroker-server restore /var/lib/secretbroker-server/backups/<file>`, which stops and starts the service); `GET users` → `[{id, email, name,
+  verified, admin, disabled, created, last_seen, orgs: [{id, name, role}]}]`; `POST users/{uid}/disable` → `{left:
+  [{org, name, collections}], held?: [{org, name}]}`; `POST users/{uid}/enable | verify` → `{}`; `DELETE users/{uid}`
+  → `{}` or `400 last_owner {orgs}` / `400 last_manager {collections}` (ids, or `{id, name}` objects); `POST
+  orgs/{oid}/owner {user_id}` → `{}`; `GET orgs` → `[{id, name, members, collections, owners: [{id, email, name}]}]`;
+  `POST backups` → `{file, at}`; `GET backups` → `[{file, at, bytes}]`; `POST invites {days?}` → `{token, expires}`;
+  `PUT settings {signups?, auto_update?}` → `{}`; `GET events` → `[{time, actor, action, target}]` (`user.disable`,
+  `user.enable`, `user.delete`, `user.verify`, `signup_token.create`, `backup.create`, `settings.signups`,
+  `settings.auto_update`, `org.owner`, and the server-wide `register`, `login`, `email.verify`, `password.change`,
+  `password.fail`, `device.revoke`; others show as «Otra acción»). A `404`/`405` on a page without an id means a
+  server from before this (`server_too_old`: «actualízalo a la última versión»).
+* **Service ops** (GUI only, never in `AI_OPS`). Reads, an unlocked vault only, short timeouts, no team lock, cached
+  in `team_view.admin {overview, users, orgs, events, backups}` so the tab draws at once: `team_admin_overview`,
+  `team_admin_users` (rows add `me`), `team_admin_orgs`, `team_admin_events`, `team_admin_backups`. Changes, one click
+  (`TEAM_CHANGE_OPS` in `service.py` and `app.py`): `team_admin_backup_now`, `team_admin_settings {signups?,
+  auto_update?}`, `team_admin_enable {user_id}`, `team_admin_verify {user_id}`, and, also in `TEAM_EXPORT_OPS` (Hello
+  or the password once after a Windows-session unlock), `team_admin_disable {user_id}` (→ `{person, left, held}`;
+  then a sync re-keys what this PC manages), `team_admin_delete {user_id}` (→ `{deleted: true, person}`, or `{deleted:
+  false, code: last_owner | last_manager, error, orgs | collections}`: one sentence and what the dialog needs to offer
+  the fix; collections named only if this user is in them), `team_admin_transfer_owner {org, user_id}`,
+  `team_admin_signup_token {days?}` (→ `{token, expires}`). The admin's own account can't be disabled or deleted
+  here. Ids go into server paths only as UUIDs. Errors are the app's own sentences (`teams.SERVER_MESSAGES`;
+  `forbidden` → «Solo quien administra el servidor del equipo puede hacer esto.»).
+* **GUI.** «Servidor» has four parts (a segmented control): **Resumen** (the server's address, version, running
+  since, data size, and under them «Al día» (green) or «Hay una versión nueva (X): se instalará sola esta noche» /
+  «… actualízala desde el servidor» depending on automatic updates (nothing while `latest` is unknown); counts of
+  accounts, organizations, collections and credentials; «Actualizaciones automáticas» as a switch; «Copias de
+  seguridad» with the last one, how many are kept and «Hacer copia ahora»; «Restaurar una copia»: done on the server,
+  one line plus «Ver los comandos»: the server's `restore_command`, else the commands for its `install` (systemd: the
+  one-command installer's single `sudo secretbroker-server restore …` line, its paths said to be the installer's; Docker: `docker compose`), else a link to the server guide's
+  «Backups and restore», with the newest backup filled in and a copy button (a backup name that is not plain letters,
+  digits, `.`, `-`, `_` is never put in a command); «Registro de cuentas» Abierto / Solo con invitación / Cerrado with
+  what each means, Abierto in the warning colour suggesting «Solo con invitación»; in invitation mode
+  «Crear código de registro» (a single-use code and instructions to pass on, with a `secretbroker://join` link
+  without e-mail); «E-mail» configured or not, and what that means: invitations passed on by hand, accounts verified
+  by the admin), **Cuentas** (one row each: «Verificada» / «Sin verificar» / «Desactivada», «Admin del servidor»,
+  organizations and roles, last seen; «Verificar e-mail», «Desactivar» (a dialog: sessions closed, out of its
+  organizations, collections re-encrypted by their managers' apps and credentials flagged; reversible), «Reactivar»,
+  and «Borrar la cuenta» (the e-mail typed to confirm; a refusal shows its sentence in the dialog with the fix: for
+  each organization «Nuevo propietario de «X»:» with its members and «Hacer propietario», then «Volver a intentar»;
+  «Abrir la colección X» when this user is in it)), **Organizaciones** (owners, people, collections; «Cambiar
+  propietario») and **Registro** (the admin log).
 
 ## 6. Platforms
 

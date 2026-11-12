@@ -102,6 +102,20 @@ def backup(data_dir, dest_dir, keep=14):
     return target, prune(dest, keep)
 
 
+def list_backups(dest_dir):
+    """[{file, at, bytes}], newest first: the file name only (never a path), its time (UTC) and size."""
+    found = []
+    for path in Path(dest_dir).glob(f"{PREFIX}*{SUFFIX}"):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        if path.is_file():
+            found.append({"file": path.name, "bytes": stat.st_size,
+                          "at": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(timespec="seconds")})
+    return sorted(found, key=lambda b: b["file"], reverse=True)
+
+
 def prune(dest_dir, keep):
     """Delete the oldest backups so `keep` remain (names sort by time)."""
     found = sorted(p for p in Path(dest_dir).glob(f"{PREFIX}*{SUFFIX}") if p.is_file())

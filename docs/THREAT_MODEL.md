@@ -260,6 +260,35 @@ A member of an organization, with some permission on a collection.
   replacing a waiting sign-up with their own, which only delays the real person (each new sign-up e-mails a new
   code to the real address).
 
+**The server's own updates and administration** (`install-server.sh`, `updater.py`, `/admin/...`)
+- The automatic updater runs as root and installs only an archive whose Ed25519 signature (over the version and the
+  archive's SHA-256) verifies with the release key built into the version already running, checked before anything
+  is unpacked; the unpacked `VERSION` must be the signed one, and it never installs an older or the same version, so
+  an old signed release can't be replayed. Downloads come only from GitHub's hosts over HTTPS, but that is not what
+  is trusted: a compromised GitHub account, release page or network can withhold updates, not install anything. The
+  signing key is the same `UPDATE_SIGNING_KEY` as the desktop app's (a GitHub Actions secret): whoever holds it can
+  ship code that runs as root on every self-hosted server with automatic updates on, exactly as on every desktop.
+  Self-hosters who don't want that turn automatic updates off (the app's server panel, or `SB_AUTO_UPDATE=0`).
+- What the archive contains is built in CI from the hash-pinned locks (`requirements/server.txt` and `sign.txt`, the
+  same `cryptography` as the signing job) and a checksummed CPython, then signed by the release's `sign` job.
+- `SB_UPDATE_TRUST` (extra keys) and `SB_UPDATE_SOURCE` live in the root-only `server.env`: changing them needs root,
+  which could replace the code anyway. The server process can't: it only reads the updater's status file, and the
+  only update setting it can write (`auto_update`, from the app) turns signed updates on or off.
+- A new version that does not answer `/health` within a minute is rolled back to the previous version and the
+  database backed up just before; a version that starts but misbehaves later is not caught by this, and the rollback
+  loses what was written in that minute (the apps push it again).
+- The first install trusts HTTPS to GitHub for `install-server.sh` itself (`curl … | sudo bash`); the archive it
+  installs is signature-checked. Whoever wants more checks `install-server.sh.sig` first (the same key and message).
+- The admin API is reachable wherever the server is (it is the same HTTPS endpoint): it needs a server admin's
+  session, answers `403` to anyone else before reading ids, is rate-limited per admin, and refuses to let the last
+  admin lock themselves out. A stolen admin session can disable, delete or move accounts and organizations' ownership
+  (each recorded in the server admin log and the organization's Actividad), change signups and automatic updates,
+  and make backups, but it gains no secret: disabling or removing someone triggers the same re-keying as an org admin
+  removing them, and the apps verify every key, member list and item signature as before. It cannot restore backups,
+  change addresses, keys, SMTP or the update source, or read backups' contents (only names, times and sizes).
+- The signup token the installer prints is bound to the admin's e-mail, so seeing it (in a terminal scrollback, say)
+  doesn't let anyone else register; it is single-use and expires in 14 days.
+
 ### 3.6 Network attacker
 
 **Mitigations**

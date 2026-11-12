@@ -270,7 +270,8 @@ jobs:
 
       - name: Install the server
         run: |
-          python -m pip install --disable-pip-version-check --quiet --require-hashes --no-deps -r requirements/build.txt -r requirements/server.txt
+          # sign.txt: cryptography, for the updater's signature tests (the server archive bundles it the same way).
+          python -m pip install --disable-pip-version-check --quiet --require-hashes --no-deps -r requirements/build.txt -r requirements/server.txt -r requirements/sign.txt
           python -m pip install --disable-pip-version-check --quiet --no-deps --no-build-isolation --no-index -e server
 
       - name: Server tests
@@ -284,7 +285,7 @@ jobs:
       - name: Docker image
         run: |
           if [ -f server/Dockerfile ]; then
-            docker build -t secretbroker-server:ci server/
+            docker build -t secretbroker-server:ci -f server/Dockerfile .
           else
             echo "server/Dockerfile not present, skipped"
           fi
@@ -311,6 +312,7 @@ jobs:
           done
           [ "$(docker inspect -f '{{.State.Health.Status}}' "$(compose ps -q server)")" = healthy ] || fail "server not healthy"
           [ "$(compose exec -T server id -u)" = 10001 ] || fail "the server does not run as uid 10001"
+          [ "$(compose exec -T server printenv SB_INSTALL | tr -d '\r')" = docker ] || fail "SB_INSTALL is not docker"
           compose exec -T server sh -c 'stat -c "%a %u %n" /data /data/secretbroker.db /data/server_secret'
           compose exec -T server sh -c '[ "$(stat -c %a /data)" = 700 ] && [ "$(stat -c %a /data/secretbroker.db)" = 600 ] && [ "$(stat -c %a /data/server_secret)" = 600 ]' \
             || fail "data files are readable by others"
@@ -329,3 +331,25 @@ jobs:
           done
           curl -fsS http://127.0.0.1:8080/api/v1/health || fail "no health after the restore"
           compose down -v
+
+  # The one-command install on a real Ubuntu with systemd, from the archive built from this tree: install-server.sh
+  # --local, non-interactive; the service, its sandbox and timers; the admin's one-time token and the admin API; a
+  # second run that repairs; the updater installing a signed newer version, refusing a wrongly signed and an unsigned
+  # one, rolling back one that does not start; then Caddy from its repository in front of it.
+  server-install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Build the server archive (hash-pinned packages)
+        run: bash tools/build_server.sh
+
+      - name: Install, repair, update, refuse, roll back, Caddy
+        run: sudo SB_TEST_CADDY=1 bash server/tests/test_install.sh dist/secretbroker-server-*-linux-x86_64.tar.gz
+
+      - name: Logs
+        if: failure()
+        run: sudo journalctl -u 'secretbroker-server*' -u caddy --no-pager -n 200

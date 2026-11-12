@@ -4,6 +4,7 @@ Everything the server stores is either routing metadata or opaque ciphertext pro
 Timestamps shown to clients are ISO 8601 UTC strings; expiry times are integer epoch seconds.
 """
 
+import json
 import os
 import sqlite3
 import threading
@@ -77,7 +78,8 @@ CREATE TABLE IF NOT EXISTS signup_tokens (
     created TEXT NOT NULL,
     created_by TEXT,
     expires INTEGER NOT NULL,
-    used_by TEXT
+    used_by TEXT,
+    email TEXT
 );
 CREATE TABLE IF NOT EXISTS orgs (
     id TEXT PRIMARY KEY,
@@ -154,6 +156,16 @@ CREATE TABLE IF NOT EXISTS events (
     target TEXT
 );
 CREATE INDEX IF NOT EXISTS events_org ON events(org_id, id);
+CREATE TABLE IF NOT EXISTS admin_events (
+    id INTEGER PRIMARY KEY,
+    time TEXT NOT NULL,
+    actor TEXT,
+    actor_email TEXT,
+    via TEXT NOT NULL,
+    action TEXT NOT NULL,
+    target TEXT,
+    detail TEXT
+);
 """
 
 
@@ -168,9 +180,9 @@ def _migrate(conn):
     were in use before verification existed, and their organizations' admins confirmed them by hand.
     Schema 3 adds disabled accounts and invites that expire (and remember when they were e-mailed); invites that
     were pending get INVITE_DAYS_AT_UPGRADE days from now.
-    Schema 4 adds recovery codes (the table `recovery`) and invites that replace an account whose owner lost
-    access to it (`invites.replaces`; the new account waits in `users.replaces` / `users.replacing_email` until
-    its e-mail is proven)."""
+    Schema 4 adds the server admin log (admin_events) and signup tokens bound to one e-mail; recovery codes (the
+    table `recovery`) and invites that replace an account whose owner lost access to it (`invites.replaces`; the
+    new account waits in `users.replaces` / `users.replacing_email` until its e-mail is proven)."""
     if "verified" not in _columns(conn, "users"):
         conn.execute("ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0")
         conn.execute("UPDATE users SET verified = 1")
@@ -193,6 +205,8 @@ def _migrate(conn):
     if "replaces" not in invites:
         conn.execute("ALTER TABLE invites ADD COLUMN replaces TEXT")
     conn.execute("UPDATE invites SET expires = ? WHERE expires IS NULL", (now_epoch() + INVITE_DAYS_AT_UPGRADE * 86400,))
+    if "email" not in _columns(conn, "signup_tokens"):  # schema 4: a token for one address (the installer's)
+        conn.execute("ALTER TABLE signup_tokens ADD COLUMN email TEXT")
 
 
 def now_iso():
@@ -273,3 +287,16 @@ def event(conn, org_id, actor, action, target=None):
     """Record a metadata-only audit event (never contents: the server does not have them)."""
     conn.execute("INSERT INTO events (org_id, time, actor, action, target) VALUES (?, ?, ?, ?, ?)",
                  (org_id, now_iso(), actor, action, target))
+
+
+def admin_event(conn, actor, via, action, target=None, detail=None):
+    """The server admin log (GET /admin/events): who (an account, or None for the command line on the server),
+    through what ("api" or "cli"), did what to which id. Metadata only, like `event`."""
+    email = None
+    if actor:
+        row = conn.execute("SELECT email FROM users WHERE id = ?", (actor,)).fetchone()
+        email = row["email"] if row else None
+    conn.execute("INSERT INTO admin_events (time, actor, actor_email, via, action, target, detail) "
+                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                 (now_iso(), actor, email, via, action, target,
+                  json.dumps(detail, sort_keys=True, ensure_ascii=False) if detail is not None else None))

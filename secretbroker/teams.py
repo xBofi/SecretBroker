@@ -720,6 +720,33 @@ def connected(state):
     return bool(state.get("token") and state.get("keys") and state.get("user"))
 
 
+# The restore commands a server suggests are pasted by its admin into a root shell on that server: each line is
+# `systemctl`, `docker compose` or `secretbroker-server` (by name or full path), optionally after a bare `sudo `
+# (no sudo options), with plain arguments only: nothing a shell would treat specially (; | & $ ` > …).
+_ARG = r"[A-Za-z0-9_./:=@-]+"
+RESTORE_LINE = re.compile(r"^(?:sudo )?(?:systemctl|docker compose|secretbroker-server|(?:/[A-Za-z0-9_.-]+)+/secretbroker-server)"
+                          rf"(?: (?:(?:{_ARG})?<file>(?:{_ARG})?|{_ARG}))+$")
+
+
+def restore_lines(lines):
+    """The server's `restore_command` (lines with `<file>` for the backup), or None if anything in it looks off."""
+    if not isinstance(lines, list) or not 1 <= len(lines) <= 8:
+        return None
+    for line in lines:
+        if not (isinstance(line, str) and 0 < len(line) <= 300 and RESTORE_LINE.match(line)
+                and line.count("<file>") <= 1 and ".." not in line):
+            return None
+    return list(lines) if any("<file>" in line for line in lines) else None
+
+
+def _uuid(value):
+    """An id that goes into a server path: a UUID, or it is no one this server has."""
+    try:
+        return str(uuid.UUID(str(value or "")))
+    except ValueError:
+        raise TeamError(tr("teams.it_no_longer_exists"), "not_found") from None
+
+
 def _seq(plain):
     """The write counter inside an item's plaintext (0 for items written before it existed)."""
     seq = plain.get("seq", 0)
@@ -794,6 +821,7 @@ class Team:
                 "verified": state["user"].get("verified", True) is not False,
                 "verification": state.get("verification") or "email",
                 "mail": bool(state.get("mail")),  # the server e-mails invites itself
+                "server_admin": state["user"].get("admin") is True,  # the «Servidor» tab (5.2)
                 "held_deletions": self.held_deletions(),
                 # The account's recovery code: when it was made ({created}), or None; and whether the server has them.
                 "recovery": state.get("recovery") if isinstance(state.get("recovery"), dict) else None,
@@ -874,6 +902,7 @@ class Team:
                 raise TeamError(tr("teams.account_keys_don_match_server"), "bad_server")
             user = {k: session["user"].get(k) for k in ("id", "email", "name")}
             user["verified"] = session["user"].get("verified", True) is not False  # servers before 0.16: no check
+            user["admin"] = session["user"].get("admin") is True  # the server's admin: the «Servidor» tab (5.2)
             # The same account on this PC (signing in again, or a vault restored on a new PC without its old
             # session) keeps what it had: collections, pins, credentials. Another account starts from nothing.
             same = current.get("keys") and (current.get("user") or {}).get("id") == user["id"] \
@@ -1065,14 +1094,18 @@ class Team:
                 "verification": result.get("verification") or state.get("verification")}
 
     def _refresh_me(self, api, state):
-        """While the e-mail is not verified, each sync asks again (the admin may have verified it meanwhile).
-        Accounts linked before recovery codes existed learn once whether they have one."""
+        """While the e-mail is not verified, each sync asks again (the admin may have verified it meanwhile). A
+        server admin's app also asks every round, so the «Servidor» tab goes away when that stops; accounts linked
+        before the app knew about server admins, or about recovery codes, ask once."""
+        user = state["user"]
         unknown = state.get("recovery_supported") and "recovery" not in state
-        if state["user"].get("verified", True) is not False and not unknown:
+        if user.get("verified", True) is not False and user.get("admin") is False and not unknown:
             return
         me = api.call("GET", "/me")
-        if (me.get("user") or {}).get("verified"):
-            state["user"]["verified"] = True
+        found = me.get("user") or {}
+        if found.get("verified"):
+            user["verified"] = True
+        user["admin"] = found.get("admin") is True
         if state.get("recovery_supported"):
             state["recovery"] = me.get("recovery") if isinstance(me.get("recovery"), dict) else None
 
@@ -1638,6 +1671,200 @@ class Team:
             self._remember("events", rows[:50], oid)
         return rows
 
+    # ------------------------------------------------------------------ server administration (5.2)
+    # Only for an account the server calls admin (`user.admin`); the server checks it again on every request. Only
+    # metadata travels here (accounts, organizations, counts, backups): there are no contents to see.
+
+    def _admin(self, timeout=TIMEOUT):
+        state = self.vault.team()
+        if not connected(state):
+            raise TeamError(tr("teams.no_team_account_is_connected"), "not_connected")
+        if state["user"].get("admin") is not True:
+            raise TeamError(tr("teams.admin_only"), "forbidden")
+        return state, Client(state["server_url"], state["token"], timeout)
+
+    @staticmethod
+    def _admin_call(api, method, path, body=None, about=False):
+        """`about`: the path names an account or organization, so a 404 means it is gone; otherwise a 404 means the
+        server has no such page yet (a version before server administration from the app)."""
+        try:
+            return api.call(method, "/admin" + path, body)
+        except TeamError as exc:
+            if exc.code == "forbidden":
+                raise TeamError(tr("teams.admin_only"), "forbidden", exc.status) from None
+            if exc.status in (404, 405) and not about:
+                raise TeamError(tr("teams.admin_server_too_old"), "server_too_old", exc.status) from None
+            raise
+
+    def _admin_read(self, path, key, clean):
+        state, api = self._admin(READ_TIMEOUT)
+        with api:
+            data = clean(self._admin_call(api, "GET", path), state)
+        self._remember("admin", data, key)
+        return data
+
+    @staticmethod
+    def _rows(data):
+        if not isinstance(data, list):
+            raise TeamError(tr("teams.team_server_answered_something_unexpecte"), "bad_server")
+        return [row for row in data if isinstance(row, dict)]
+
+    def admin_overview(self):
+        def clean(data, state):
+            if not isinstance(data, dict):
+                raise TeamError(tr("teams.team_server_answered_something_unexpecte"), "bad_server")
+            found = {k: data.get(k) for k in ("version", "latest", "updates", "uptime_s", "counts", "db_bytes", "backups",
+                                              "mail", "signups", "verification", "restore")}
+            found["install"] = data.get("install") if data.get("install") in ("systemd", "docker", "other") else None
+            found["restore_command"] = restore_lines(data.get("restore_command"))
+            return found
+        return self._admin_read("/overview", "overview", clean)
+
+    def admin_users(self):
+        def clean(data, state):
+            rows = self._rows(data)
+            for row in rows:
+                row["me"] = row.get("id") == state["user"]["id"]
+                row["orgs"] = [o for o in row.get("orgs") or [] if isinstance(o, dict)]
+            return rows
+        return self._admin_read("/users", "users", clean)
+
+    def admin_orgs(self):
+        return self._admin_read("/orgs", "orgs", lambda data, state: self._rows(data))
+
+    def admin_events(self):
+        return self._admin_read("/events", "events", lambda data, state: self._rows(data)[:100])
+
+    def admin_backups(self):
+        return self._admin_read("/backups", "backups", lambda data, state: self._rows(data))
+
+    def admin_view(self):
+        """What the «Servidor» tab drew last time (from this PC), or None for an account that isn't the server's admin."""
+        if self.vault.team().get("user", {}).get("admin") is not True:
+            return None
+        return self.vault.team_view().get("admin") or {}
+
+    def _admin_person(self, uid):
+        users = (self.vault.team_view().get("admin") or {}).get("users") or []
+        return _label(next((u for u in users if u.get("id") == uid), None))
+
+    def _admin_change(self, method, path, body=None, about=False):
+        state, api = self._admin()
+        with api:
+            result = self._admin_call(api, method, path, body, about)
+        return result if isinstance(result, dict) else {}
+
+    def _not_me(self, uid):
+        uid = _uuid(uid)
+        if uid == self.vault.team()["user"]["id"]:
+            raise TeamError(tr("teams.admin_not_yourself"), "invalid")
+        return uid
+
+    def admin_backup_now(self):
+        """A copy of the server's database now (the same as the daily one). → {file, at}"""
+        result = self._admin_change("POST", "/backups", {})
+        return {"file": result.get("file"), "at": result.get("at")}
+
+    def admin_settings(self, signups=None, auto_update=None):
+        body = {}
+        if signups is not None:
+            if signups not in ("open", "invite", "closed"):
+                raise TeamError(tr("teams.admin_bad_signups"), "invalid")
+            body["signups"] = signups
+        if auto_update is not None:
+            body["auto_update"] = auto_update is True
+        if not body:
+            raise TeamError(tr("teams.admin_bad_signups"), "invalid")
+        self._admin_change("PUT", "/settings", body)
+        return body
+
+    def admin_disable(self, uid):
+        """Block an account at once: its sessions end and it leaves its organizations (their managers' apps re-key
+        what it could read and flag those credentials, like removing someone). → {person, left: [{org, name,
+        collections}], held: [{org, name}]} (`held`: where it stays until the organization has another owner)."""
+        uid = self._not_me(uid)
+        person = self._admin_person(uid)
+        result = self._admin_change("POST", f"/users/{uid}/disable", {}, about=True)
+        clean = lambda rows: [r for r in rows or [] if isinstance(r, dict)]  # noqa: E731
+        return {"person": person, "left": clean(result.get("left")), "held": clean(result.get("held"))}
+
+    def admin_enable(self, uid):
+        self._admin_change("POST", f"/users/{_uuid(uid)}/enable", {}, about=True)
+        return {"person": self._admin_person(uid)}
+
+    def admin_verify(self, uid):
+        """Verify someone's e-mail by hand (a server without e-mail, or a code that never arrived)."""
+        self._admin_change("POST", f"/users/{_uuid(uid)}/verify", {}, about=True)
+        return {"person": self._admin_person(uid)}
+
+    def admin_delete(self, uid):
+        """Delete an account. While it is an organization's only owner or a collection's only manager the server
+        refuses, changing nothing: → {deleted: False, code, error (one sentence), orgs | collections} so the app
+        offers the fix next to it. Otherwise → {deleted: True, person}."""
+        uid = self._not_me(uid)
+        person = self._admin_person(uid)
+        state, api = self._admin()
+        with api:
+            try:
+                self._admin_call(api, "DELETE", f"/users/{uid}", about=True)
+            except TeamError as exc:
+                data = exc.data or {}
+                if exc.code == "last_owner":
+                    orgs = self._admin_orgs_named(state, data.get("orgs"))
+                    names = ", ".join(tr("teams.admin_quoted", name=o["name"]) for o in orgs if o["name"])
+                    return {"deleted": False, "code": "last_owner", "person": person, "orgs": orgs,
+                            "error": tr("teams.admin_last_owner", person=person, orgs=names) if names
+                            else tr("teams.admin_last_owner_some", person=person)}
+                if exc.code == "last_manager":
+                    collections = self._admin_collections_named(state, data.get("collections"))
+                    return {"deleted": False, "code": "last_manager", "person": person, "collections": collections,
+                            "error": tr("teams.admin_last_manager", count=max(1, len(collections)), person=person)}
+                raise
+        return {"deleted": True, "person": person}
+
+    def _admin_orgs_named(self, state, orgs):
+        cached = {o.get("id"): o.get("name") for o in (self.vault.team_view().get("admin") or {}).get("orgs") or []}
+        found = []
+        for org in orgs if isinstance(orgs, list) else []:
+            oid = org.get("id") if isinstance(org, dict) else org
+            if not isinstance(oid, str):
+                continue
+            name = (org.get("name") if isinstance(org, dict) else None) or cached.get(oid) \
+                or ((state.get("orgs") or {}).get(oid) or {}).get("name")
+            found.append({"id": oid, "name": name if isinstance(name, str) else None})
+        return found
+
+    @staticmethod
+    def _admin_collections_named(state, collections):
+        """The server knows collections by id only (names are encrypted): named here if this user is in them."""
+        found = []
+        for coll in collections if isinstance(collections, list) else []:
+            cid = coll.get("id") if isinstance(coll, dict) else coll
+            if not isinstance(cid, str):
+                continue
+            mine = (state.get("collections") or {}).get(cid) or {}
+            found.append({"id": cid, "name": mine.get("name"), "org": mine.get("org") or (
+                coll.get("org") if isinstance(coll, dict) else None), "direct": bool(mine.get("direct"))})
+        return found
+
+    def admin_transfer_owner(self, oid, uid):
+        """Make a confirmed member an organization's owner (its owners stay owners)."""
+        self._admin_change("POST", f"/orgs/{_uuid(oid)}/owner", {"user_id": _uuid(uid)}, about=True)
+        return {"person": self._admin_person(uid)}
+
+    def admin_signup_token(self, days=None):
+        """A single-use code to create an account when sign-ups are by invitation. → {token, expires}"""
+        body = {}
+        if days is not None:
+            try:
+                body["days"] = max(1, min(90, int(days)))
+            except (TypeError, ValueError):
+                pass
+        result = self._admin_change("POST", "/invites", body)
+        if not isinstance(result.get("token"), str):
+            raise TeamError(tr("teams.team_server_answered_something_unexpecte"), "bad_server")
+        return {"token": result["token"], "expires": result.get("expires")}
+
     # ------------------------------------------------------------------ collections
 
     def collections(self):
@@ -1734,7 +1961,8 @@ class Team:
                 "collections": self.collections(), "members": members, "events": view.get("events") or {},
                 "collection_members": view.get("collection_members") or {}, "devices": view.get("devices") or [],
                 "unsent": self.unsent(),
-                "offboarding": self.offboarding()}
+                "offboarding": self.offboarding(),
+                "admin": self.admin_view()}  # the «Servidor» tab, for the server's admin only
 
     def unsent(self):
         """{entry id: why} for shared credentials changed here and not on the server yet: "rekey" while their

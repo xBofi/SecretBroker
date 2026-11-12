@@ -6,6 +6,7 @@ inside a database transaction (write transaction for anything but GET), so they 
 
 import json
 import logging
+import time
 import uuid
 from contextlib import asynccontextmanager
 
@@ -60,6 +61,11 @@ class Server:
         self.invite_window = security.Window(settings.max_invites_per_hour, 3600)  # per organization and per account
         self.challenges = security.Challenges()  # proofs that a device holds the account's keys (accounts.py)
         self.oldest_client = config.parse_version(settings.oldest_client)
+        self.started = time.monotonic()
+        # Server admin endpoints, per admin account: reads and changes in a minute, backups in an hour.
+        self.admin_window = security.Window(120, 60)
+        self.admin_change_window = security.Window(30, 600)
+        self.admin_backup_window = security.Window(6, 3600)
 
 
 class Ctx:
@@ -211,8 +217,9 @@ class SecurityHeaders:
 
 
 def create_app(settings):
-    from . import accounts, orgs, sharing  # noqa: F401 - importing registers their routes
+    from . import accounts, admin_api, orgs, sharing  # noqa: F401 - importing registers their routes
 
+    config.apply_overrides(settings)
     settings.check()
     server = Server(settings)
     routes = [Route(PREFIX + path, _endpoint(server, handler, auth, tx, any_client, method), methods=[method])

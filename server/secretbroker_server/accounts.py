@@ -89,8 +89,10 @@ def _check_signup(ctx, address, token):
         if not admin and _org_invite(ctx, address, token):
             return None
         digest = security.token_hash(token)
-        if ctx.conn.execute("SELECT 1 FROM signup_tokens WHERE token_hash = ? AND used_by IS NULL AND expires > ?",
-                            (digest, now_epoch())).fetchone():
+        row = ctx.conn.execute("SELECT email FROM signup_tokens WHERE token_hash = ? AND used_by IS NULL AND "
+                               "expires > ?", (digest, now_epoch())).fetchone()
+        # A token made for one address (the installer's, for the admin) works for that address only.
+        if row and (row["email"] is None or row["email"] == address):
             return digest
     if admin:
         raise ApiError(403, "invite_required", "Para crear la cuenta de administrador necesitas un código de "
@@ -595,20 +597,11 @@ def users_keys(ctx):
     return [dict(row) for row in rows if row is not None]
 
 
-@route("POST", "/admin/invites")
-def create_signup_token(ctx):
-    """Server admins hand out single-use tokens that let someone register when SB_SIGNUPS=invite."""
-    if not is_server_admin(ctx.settings, ctx.user):
-        raise ApiError(403, "forbidden", "Solo un administrador del servidor puede hacer esto.")
-    days = body(ctx.body, {}, {"days": integer(1, 90)})["days"] or 7
-    token, expires = create_token(ctx.conn, ctx.uid, days)
-    return {"token": token, "expires": expires}
-
-
-def create_token(conn, created_by, days):
+def create_token(conn, created_by, days, address=None):
+    """A single-use signup token; with `address`, only that e-mail can register with it."""
     token = "sbi_" + security.new_token()
     expires = now_epoch() + days * 86400
-    conn.execute("INSERT INTO signup_tokens (token_hash, created, created_by, expires) VALUES (?, ?, ?, ?)",
-                 (security.token_hash(token), now_iso(), created_by, expires))
+    conn.execute("INSERT INTO signup_tokens (token_hash, created, created_by, expires, email) VALUES (?, ?, ?, ?, ?)",
+                 (security.token_hash(token), now_iso(), created_by, expires, address))
     event(conn, None, created_by, "signup_token.create", None)
     return token, expires

@@ -34,6 +34,45 @@ What changed for people who use SecretBroker. The commit history has the details
 The team server needs this version for recovery codes, «La he olvidado» and «Ha perdido el acceso» (its database
 upgrades by itself to schema 4, and it now needs the `cryptography` package, installed with it).
 
+### Run the team server from the app
+- **Equipo › Servidor**, only for whoever runs the team server: everything that used to need a terminal on the
+  server, with clicks. The team server needs the version that adds these pages.
+- **Resumen**: the server's version and whether it is up to date, automatic updates on or off, the last backup and
+  «Hacer copia ahora», how many accounts, organizations, collections and credentials it holds, whether it sends
+  e-mail (and what to do when it doesn't), and who may create an account: Abierto, Solo con invitación or Cerrado.
+  With invitations only, «Crear código de registro» gives a single-use code with instructions to pass on.
+- It says plainly whether the server is up to date, and if not, whether it will update itself tonight or needs you.
+  An open sign-up is shown as a risk, suggesting «Solo con invitación».
+- Restoring a backup stays on the server, on purpose (it takes the whole team back in time): the app shows the exact
+  commands for the newest backup, ready to copy, for the way the server was installed (the one-command install or
+  Docker), or points to the server's guide.
+- **Cuentas**: every account, verified or not, disabled, its organizations and when it was last seen. «Verificar
+  e-mail» for a server without e-mail, «Desactivar» (sessions closed, out of its teams; the collections it could open
+  are re-encrypted and their credentials flagged to change, as when someone is removed), «Reactivar», and «Borrar la
+  cuenta» with the e-mail typed to confirm. If the account is still the only owner of an organization, the dialog
+  says so and lets you pick the new owner there and then.
+- **Organizaciones** with their owners, people and collections, and «Cambiar propietario»; **Registro**, what was
+  done to accounts and settings.
+- In every language the app speaks, in the light and dark themes.
+### Team server
+- **One command installs the team server** on an Ubuntu 22.04 or 24.04 server, without Docker:
+  `curl -fsSL https://github.com/xBofi/SecretBroker/releases/latest/download/install-server.sh | sudo bash`. It asks
+  the domain name and your e-mail, sets up HTTPS (Caddy, with a certificate it renews by itself), a nightly backup
+  (14 kept) and the server as a locked-down system service, and prints what to do next in the app, with a one-time
+  code that only your e-mail can use to become the server's administrator. Running it again repairs and upgrades.
+  `--local` installs it without Caddy, for a tunnel (Cloudflare Tunnel, Tailscale). Docker still works.
+- **The server updates itself**, every night, only with releases signed with the SecretBroker release key (checked
+  before anything is used; never an older version). It backs up first, and if the new version does not answer
+  within a minute it goes back to the previous one and its database. It can be switched off.
+- **Administration API for the app's server panel**: accounts (disable, enable, verify, delete), organizations
+  (hand over ownership), backups (list, back up now), signups and automatic updates, and a log of everything the
+  server's administrators did, from the app or the command line. Only server administrators can use it; the last
+  one can't lock themselves out. Restoring a backup stays on the server's command line
+  (`sudo secretbroker-server restore <file>`), because the server has to be stopped.
+- Signup codes can be made for one e-mail only (`create-invite --email`).
+- The app's choices for signups and automatic updates are kept in the server's data folder and win over its
+  `SB_SIGNUPS` / `SB_AUTO_UPDATE` settings.
+
 ### Windows installer
 - **The installer speaks the app's 32 languages**, not only Spanish and English: it opens in the language of Windows
   without asking, and lists the languages only when Windows speaks one SecretBroker doesn't. Its own texts say «PC»

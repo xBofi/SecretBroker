@@ -1177,6 +1177,364 @@ def test_schema_1_upgrade():
         stop()
 
 
+def test_admin_api():
+    print("Server admin API (/admin/...)")
+    import json as _json
+    status_file = Path(tempfile.mkdtemp(prefix="sb-updater-status-")) / "status.json"
+    status_file.write_text(_json.dumps({"latest": "0.99.0", "last_check": "2026-11-12T04:00:00+00:00",
+                                        "last_result": "disabled", "detail": "0.99.0 is available"}))
+    base, stop, settings = start(update_status=str(status_file))
+    try:
+        alice = Api(base).signup("alice@example.com")  # the first account of an open server: server admin
+        bob, carol, dave = (Api(base).signup(f"{n}@example.com") for n in ("bob", "carol", "dave"))
+        oid = alice.ok("POST", "/orgs", {"name": "Acme"})["id"]
+        for person, role in ((bob, "member"), (carol, "admin")):
+            alice.ok("POST", f"/orgs/{oid}/invites", {"email": person.email, "role": role})
+            person.ok("POST", f"/invites/{person.ok('GET', '/invites')[0]['id']}/accept")
+            alice.ok("POST", f"/orgs/{oid}/members/{person.id}/confirm", {})
+        cid, solo = str(uuid.uuid4()), str(uuid.uuid4())
+        alice.ok("POST", f"/orgs/{oid}/collections", {"id": cid, "encrypted_name": box(), "grant": alice.grant()})
+        alice.ok("PUT", f"/collections/{cid}/members/{bob.id}", {"permission": "edit", "grant": alice.grant()})
+        carol.ok("POST", f"/orgs/{oid}/collections", {"id": solo, "encrypted_name": box(), "grant": carol.grant()})
+        dave_org = dave.ok("POST", "/orgs", {"name": "Solo de Dave"})["id"]
+        unknown = str(uuid.uuid4())
+
+        calls = [("GET", "/admin/overview", None), ("GET", "/admin/users", None), ("GET", "/admin/orgs", None),
+                 ("GET", "/admin/backups", None), ("GET", "/admin/events", None),
+                 ("POST", f"/admin/users/{alice.id}/disable", {}), ("POST", f"/admin/users/{alice.id}/enable", {}),
+                 ("POST", f"/admin/users/{alice.id}/verify", {}), ("DELETE", f"/admin/users/{alice.id}", None),
+                 ("POST", f"/admin/users/{unknown}/disable", {}), ("DELETE", "/admin/users/not-an-id", None),
+                 ("POST", f"/admin/orgs/{oid}/owner", {"user_id": bob.id}), ("POST", "/admin/backups", {}),
+                 ("POST", "/admin/invites", {}), ("PUT", "/admin/settings", {"signups": "open"})]
+        codes = {(m, p): bob.call(m, p, j).status_code for m, p, j in calls}
+        check(set(codes.values()) == {403}, f"every admin endpoint is 403 for a non-admin, unknown ids too ({codes})")
+        check(all(Api(base).call(m, p, j).status_code == 401 for m, p, j in calls[:3]), "and 401 without a session")
+        check(alice.call("GET", "/me").status_code == 200 and bob.ok("GET", "/me")["user"]["admin"] is False,
+              "bob is not an admin")
+
+        view = alice.ok("GET", "/admin/overview")
+        expected = {"version", "latest", "updates", "uptime_s", "counts", "db_bytes", "backups", "mail", "signups",
+                    "verification", "restore"}
+        check(expected <= set(view) and set(view["updates"]) >= {"auto", "last_check", "last_result"}
+              and set(view["counts"]) >= {"users", "orgs", "collections", "items"}
+              and set(view["backups"]) >= {"last", "count", "keep"}, "overview has every field of the contract")
+        check(view["counts"]["users"] == 4 and view["counts"]["orgs"] == 2 and view["counts"]["collections"] == 2
+              and view["db_bytes"] > 0 and view["restore"] == "cli" and view["signups"] == "open"
+              and view["mail"] is False and view["backups"] == {"last": None, "count": 0, "keep": 14},
+              "with the right counts, no backups yet, restore on the command line")
+        check(view["install"] == "other" and view["restore_command"][1].startswith("secretbroker-server restore ")
+              and view["restore_command"][1].endswith("/<file>"), "how it was installed, and how to restore there")
+        from secretbroker_server import admin_api
+        for kind, first in (("systemd", "sudo secretbroker-server restore "), ("docker", "docker compose stop")):
+            check(admin_api.restore_command(config.Settings(data_dir=Path("/var/lib/secretbroker-server"),
+                                                             install=kind))[0].startswith(first),
+                  f"the restore command for a {kind} install")
+        check(config.from_env({"SB_INSTALL": "systemd"}).install == "systemd"
+              and config.from_env({"SB_INSTALL": "weird"}).install == "other", "SB_INSTALL")
+        login = Api(base)
+        login.email, login.auth_hash = alice.email, alice.auth_hash
+        check(login.login().json()["user"]["admin"] is True and alice.ok("GET", "/me")["user"]["admin"] is True,
+              "user.admin is in the login answer and in /me")
+        check(view["latest"] == "0.99.0" and view["updates"]["last_result"] == "disabled"
+              and view["updates"]["auto"] is True and view["updates"]["updater"] is True,
+              "and what the updater last wrote")
+
+        users = {u["email"]: u for u in alice.ok("GET", "/admin/users")}
+        check(set(users["bob@example.com"]) >= {"id", "email", "name", "verified", "admin", "disabled", "created",
+                                                "last_seen", "orgs"}
+              and users["bob@example.com"]["orgs"][0]["id"] == oid and users["bob@example.com"]["orgs"][0]["role"] == "member"
+              and users["alice@example.com"]["admin"] and not users["bob@example.com"]["admin"]
+              and users["bob@example.com"]["last_seen"], "users lists accounts with their organizations and roles")
+        raw = alice.call("GET", "/admin/users").text
+        check(bob.auth_hash not in raw and "verifier" not in raw and "private_blob" not in raw, "never keys or verifiers")
+        orgs = {o["name"]: o for o in alice.ok("GET", "/admin/orgs")}
+        check(orgs["Acme"]["members"] == 3 and orgs["Acme"]["collections"] == 2
+              and [o["email"] for o in orgs["Acme"]["owners"]] == ["alice@example.com"]
+              and orgs["Solo de Dave"]["owners"][0]["id"] == dave.id, "orgs lists members, collections and owners")
+
+        for method, path, payload in (("POST", f"/admin/users/{unknown}/disable", {}),
+                                      ("POST", f"/admin/users/{unknown}/enable", {}),
+                                      ("POST", f"/admin/users/{unknown}/verify", {}),
+                                      ("DELETE", f"/admin/users/{unknown}", None),
+                                      ("DELETE", "/admin/users/not-an-id", None),
+                                      ("POST", f"/admin/orgs/{unknown}/owner", {"user_id": bob.id}),
+                                      ("POST", f"/admin/orgs/{oid}/owner", {"user_id": unknown})):
+            r = alice.call(method, path, payload)
+            check(r.status_code == 404 and r.json()["code"] == "not_found", f"{method} {path.split('/')[2]}… unknown: 404")
+
+        r = alice.call("POST", f"/admin/users/{bob.id}/disable", {})
+        check(r.status_code == 200 and r.json()["left"] == [{"org": oid, "name": "Acme", "collections": 1}]
+              and r.json()["held"] == [], "disable answers which organizations it left")
+        check(bob.call("GET", "/me").status_code == 401 and bob.login().json()["code"] == "account_disabled",
+              "its sessions end and it can't sign in")
+        listed = next(c for c in alice.ok("GET", "/collections") if c["id"] == cid)
+        check(listed["needs_rekey"], "its collections wait for a re-key")
+        org_events = [(e["action"], e["target"], e["actor"]) for e in alice.ok("GET", f"/orgs/{oid}/events")]
+        check(("member.disable", "bob@example.com", None) in org_events, "the organization's events record it")
+        log = alice.ok("GET", "/admin/events")
+        check(log[0]["action"] == "user.disable" and log[0]["actor"] == alice.id and log[0]["via"] == "api"
+              and log[0]["actor_email"] == "alice@example.com" and log[0]["target"] == bob.id
+              and log[0]["detail"]["left"] == [oid], "and the server admin log, with who did it")
+        check(alice.ok("POST", f"/admin/users/{bob.id}/enable", {}) == {} and bob.login().status_code == 200,
+              "enable lets it sign in again")
+
+        server_db(settings, "UPDATE users SET verified = 0 WHERE id = ?", (dave.id,))
+        check(alice.ok("POST", f"/admin/users/{dave.id}/verify", {}) == {}
+              and next(u for u in alice.ok("GET", "/admin/users") if u["id"] == dave.id)["verified"],
+              "verify marks the e-mail verified")
+
+        r = alice.call("DELETE", f"/admin/users/{carol.id}")
+        check(r.status_code == 400 and r.json()["code"] == "last_manager" and r.json()["collections"] == [solo]
+              and carol.login().status_code == 200, "delete refuses the only manager of a collection (last_manager)")
+        r = alice.call("DELETE", f"/admin/users/{dave.id}")
+        check(r.status_code == 400 and r.json()["code"] == "last_owner"
+              and r.json()["orgs"] == [{"id": dave_org, "name": "Solo de Dave"}], "and an organization's last owner")
+        r = alice.call("POST", f"/admin/users/{carol.id}/disable", {})
+        check(r.status_code == 200 and r.json()["left"] == [] and r.json()["held"][0]["reason"] == "last_manager"
+              and carol.login().status_code == 403, "disable blocks them and says what keeps them in")
+        alice.ok("POST", f"/admin/users/{carol.id}/enable", {})
+
+        r = alice.call("POST", f"/admin/orgs/{dave_org}/owner", {"user_id": bob.id})
+        check(r.status_code == 400 and r.json()["code"] == "not_member", "transfer-owner needs a confirmed member")
+        check(alice.call("POST", f"/admin/orgs/{oid}/owner", {}).status_code == 400, "and a user_id")
+        check(alice.ok("POST", f"/admin/orgs/{oid}/owner", {"user_id": carol.id}) == {}
+              and next(m for m in alice.ok("GET", f"/orgs/{oid}/members") if m["user_id"] == carol.id)["role"] == "owner"
+              and ("member.role", f"{carol.id}:owner", None) in
+              [(e["action"], e["target"], e["actor"]) for e in alice.ok("GET", f"/orgs/{oid}/events")],
+              "transfer-owner makes them owner, in the organization's events")
+
+        made = alice.ok("POST", "/admin/backups", {})
+        listed = alice.ok("GET", "/admin/backups")
+        check(made["file"].startswith("secretbroker-backup-") and "/" not in made["file"] and made["at"]
+              and listed[0]["file"] == made["file"] and listed[0]["bytes"] > 0, "back up now, and list the backups")
+        check((settings.data_dir / "backups" / made["file"]).exists(), "in the backup folder")
+        view = alice.ok("GET", "/admin/overview")
+        check(view["backups"]["count"] == 1 and view["backups"]["last"] == made["at"], "the overview counts it")
+
+        token = alice.ok("POST", "/admin/invites", {"days": 3})
+        check(token["token"].startswith("sbi_") and token["expires"] > time.time() + 2 * 86400, "signup tokens")
+        bound = alice.ok("POST", "/admin/invites", {"email": "erin@example.com"})["token"]
+
+        check(alice.ok("PUT", "/admin/settings", {"signups": "invite", "auto_update": False}) == {},
+              "settings: signups and automatic updates")
+        check(Api(base).ok("GET", "/info")["signups"] == "invite" and alice.ok("GET", "/admin/overview")["updates"]["auto"]
+              is False, "take effect at once")
+        r = Api(base).register("mallory@example.com", invite_token=bound)
+        check(r.status_code == 403, "a token made for one e-mail does not work for another")
+        check(Api(base).register("erin@example.com", invite_token=bound).status_code == 200, "and works for its own")
+        for bad in ({}, {"signups": "maybe"}, {"auto_update": "yes"}, {"other": 1}):
+            check(alice.call("PUT", "/admin/settings", bad).status_code == 400, f"settings refuses {bad}")
+        stored = _json.loads((settings.data_dir / "settings.json").read_text())
+        check(stored == {"signups": "invite", "auto_update": False}, "kept in the data folder")
+        actions = [e["action"] for e in alice.ok("GET", "/admin/events")]
+        check({"settings", "signup_token.create", "backup.create", "org.owner", "user.verify", "user.enable",
+               "user.disable"} <= set(actions), "every admin action is in the admin log")
+        page = alice.ok("GET", "/admin/events")
+        check(alice.ok("GET", f"/admin/events?before={page[1]['id']}")[0]["id"] == page[2]["id"], "paged with before")
+
+        r = alice.call("DELETE", f"/admin/users/{alice.id}")
+        check(r.status_code == 400 and r.json()["code"] == "last_admin", "the last server admin can't delete itself")
+        r = alice.call("POST", f"/admin/users/{alice.id}/disable", {})
+        check(r.status_code == 400 and r.json()["code"] == "last_admin", "nor disable itself")
+        server_db(settings, "UPDATE users SET is_admin = 1 WHERE id = ?", (bob.id,))
+        bob.token = bob.login().json()["token"]
+        check(bob.ok("GET", "/admin/overview")["version"], "another admin (users.is_admin) can use the API")
+
+        responses = [alice.call("GET", "/admin/backups") for _ in range(130)]
+        limited = [r for r in responses if r.status_code == 429]
+        check(responses[0].status_code == 200 and limited and limited[0].json()["code"] == "rate_limited"
+              and int(limited[0].headers["retry-after"]) > 0, "admin endpoints are rate limited per admin")
+        check(bob.call("GET", "/admin/backups").status_code == 200, "each admin on its own")
+        r = bob.call("POST", f"/admin/users/{alice.id}/disable", {})
+        check(r.status_code == 200 and alice.call("GET", "/me").status_code == 401,
+              "with two admins, one may disable the other")
+    finally:
+        stop()
+    base, stop, _ = start(data_dir=settings.data_dir, signups="open")
+    try:
+        check(Api(base).ok("GET", "/info")["signups"] == "invite", "the app's settings win over SB_SIGNUPS after a restart")
+    finally:
+        stop()
+
+
+def test_admin_token_cli():
+    print("Signup token for one e-mail (create-invite --email)")
+    base, stop, settings = start(signups="invite", admin_emails=frozenset({"boss@example.com"}))
+    try:
+        code, out = cli_out(settings, ["create-invite", "--email", "boss@example.com"])
+        token = out.split()[0]
+        check(code == 0 and token.startswith("sbi_") and "only for boss@example.com" in out, "create-invite --email")
+        check(Api(base).register("intruder@example.com", invite_token=token).status_code == 403,
+              "another address can't use it")
+        boss = Api(base)
+        check(boss.register("boss@example.com", invite_token=token).status_code == 200, "the admin's address can")
+        boss.token = boss.login().json()["token"]
+        check(boss.ok("GET", "/me")["user"]["admin"], "and is server admin")
+        log = boss.ok("GET", "/admin/events")
+        check(log[-1]["action"] == "signup_token.create" and log[-1]["via"] == "cli", "the command line is in the log")
+    finally:
+        stop()
+
+
+# ---------------------------------------------------------------------- the updater
+
+def _artifact(version, stated=None):
+    """A minimal server artifact: what Layout.unpack checks (VERSION, python/bin/python3, systemd/)."""
+    import io
+    import tarfile
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for name, data in (("VERSION", (stated or version) + "\n"), ("python/bin/python3", "#!/bin/sh\n"),
+                           ("systemd/secretbroker-server.service", f"[Unit]\nDescription={version}\n")):
+            raw = data.encode()
+            info = tarfile.TarInfo(name)
+            info.size, info.mode = len(raw), 0o755
+            tar.addfile(info, io.BytesIO(raw))
+    return buf.getvalue()
+
+
+class FakeSystem:
+    def __init__(self, healthy=True):
+        self.healthy_versions = set() if not healthy else None
+        self.calls = []
+        self.backups = 0
+
+    def backup(self):
+        self.backups += 1
+        self.calls.append("backup")
+        return Path(f"secretbroker-backup-{self.backups}.zip")
+
+    def stop(self):
+        self.calls.append("stop")
+
+    def start(self):
+        self.calls.append("start")
+
+    def restart(self):
+        self.calls.append("restart")
+
+    def healthy(self, version):
+        self.calls.append(f"healthy {version}")
+        return self.healthy_versions is None or version in self.healthy_versions
+
+    def restore(self, backup_file, version_dir):
+        self.calls.append(f"restore {backup_file.name} with {version_dir.name}")
+
+    def install_units(self, version_dir):
+        self.calls.append(f"units {version_dir.name}")
+
+
+def test_updater():
+    print("Server updater: signatures, versions, rollback")
+    import base64 as _b64
+    import json as _json
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from secretbroker_server import updater
+
+    def keypair():
+        key = Ed25519PrivateKey.generate()
+        raw = key.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw,
+                                serialization.NoEncryption())
+        pub = key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+        return _b64.b64encode(raw).decode(), _b64.b64encode(pub).decode()
+
+    private, public = keypair()
+    other_private, _ = keypair()
+    work = Path(tempfile.mkdtemp(prefix="sb-updater-"))
+    layout = updater.Layout(work / "opt")
+    layout.point(layout.current, layout.unpack("0.17.0", _artifact("0.17.0")))
+    status = work / "status" / "status.json"
+    keys = [public]
+
+    def release(version, sign_with=private, signed_version=None, stated=None, sig=True):
+        folder = work / f"src-{version}-{len(list(work.iterdir()))}"
+        folder.mkdir()
+        data = _artifact(version, stated)
+        name = f"secretbroker-server-{version}-linux-x86_64.tar.gz"
+        (folder / name).write_bytes(data)
+        if sig:
+            (folder / (name + ".sig")).write_text(updater.sign(sign_with, signed_version or version, data) + "\n")
+        return updater.DirSource(folder)
+
+    def go(source, system=None, **kw):
+        system = system or FakeSystem()
+        result = updater.run(source, layout, system, keys, status, "x86_64", log=lambda *_: None, **kw)
+        return result, system
+
+    real = re.search(r'PUBLIC_KEY = "([^"]+)"', (Path(__file__).resolve().parents[2] / "secretbroker" / "update.py")
+                     .read_text(encoding="utf-8"))
+    check(real and real[1] == updater.PUBLIC_KEY and updater.trusted_keys({})[0] == updater.PUBLIC_KEY,
+          "the server updater trusts the same release key as the desktop app")
+    installer = re.search(r'^RELEASE_KEY="([^"]+)"', (Path(__file__).resolve().parents[1] / "install-server.sh")
+                          .read_text(encoding="utf-8"), re.M)
+    check(installer and installer[1] == updater.PUBLIC_KEY, "and so does install-server.sh")
+    check(updater.trusted_keys({"SB_UPDATE_TRUST": f" {public} ,"}) == [updater.PUBLIC_KEY, public],
+          "and the extra keys of the root-only SB_UPDATE_TRUST")
+
+    result, system = go(release("0.18.0"))
+    check(result["last_result"] == "updated" and layout.current_version() == "0.18.0"
+          and layout.version_of(layout.previous) == "0.17.0", "a newer, signed version is installed")
+    check(system.calls == ["backup", "units 0.18.0", "restart", "healthy 0.18.0"],
+          f"after a backup, then restarted and checked ({system.calls})")
+    saved = _json.loads(status.read_text())
+    check(saved["current"] == "0.18.0" and saved["latest"] == "0.18.0" and saved["last_check"]
+          and saved["last_update"], "the status file says so")
+
+    for label, source in (("an older version", release("0.16.0")), ("the same version", release("0.18.0"))):
+        result, system = go(source)
+        check(result["last_result"] == "up_to_date" and system.calls == [] and layout.current_version() == "0.18.0",
+              f"{label} is never installed")
+    for label, source in (("a bad signature", release("0.19.0", sign_with=other_private)),
+                          ("a missing signature", release("0.19.0", sig=False)),
+                          ("a signature of another version", release("0.19.0", signed_version="0.18.5")),
+                          ("an artifact that says another version", release("0.19.0", stated="0.20.0"))):
+        result, system = go(source)
+        check(result["last_result"] == "refused" and "backup" not in system.calls
+              and layout.current_version() == "0.18.0" and not (layout.versions / "0.19.0").exists(),
+              f"{label} is refused, nothing used ({result['detail']})")
+    folder = work / "garbage"
+    folder.mkdir()
+    (folder / "secretbroker-server-0.19.0-linux-x86_64.tar.gz").write_bytes(b"x" * 100)
+    (folder / "secretbroker-server-0.19.0-linux-x86_64.tar.gz.sig").write_text("not base64 !!!")
+    check(go(updater.DirSource(folder))[0]["last_result"] == "refused", "a signature that is not one is refused")
+    check(updater.run(release("0.19.0", sign_with=other_private), layout, FakeSystem(), keys + [
+        _b64.b64encode(Ed25519PrivateKey.from_private_bytes(_b64.b64decode(other_private)).public_key().public_bytes(
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw)).decode()], status, "x86_64",
+        log=lambda *_: None)["last_result"] == "updated", "a key in SB_UPDATE_TRUST is accepted")
+    layout.point(layout.current, layout.versions / "0.18.0")  # back to 0.18.0 for what follows
+    layout.point(layout.previous, layout.unpack("0.17.0", _artifact("0.17.0")))
+
+    result, system = go(release("0.20.0"), auto=False)
+    check(result["last_result"] == "disabled" and result["latest"] == "0.20.0" and system.calls == []
+          and layout.current_version() == "0.18.0", "with automatic updates off it only reports what is available")
+    (work / "nothing").mkdir()
+    check(updater.run(release("0.20.0"), layout, FakeSystem(), keys, status, "aarch64", log=lambda *_: None)
+          ["last_result"] == "up_to_date" and layout.current_version() == "0.18.0",
+          "a source without an artifact for this processor changes nothing")
+
+    broken = FakeSystem(healthy=False)
+    broken.healthy_versions = {"0.18.0"}
+    result, system = go(release("0.20.0"), broken)
+    check(result["last_result"] == "rolled_back" and layout.current_version() == "0.18.0"
+          and layout.version_of(layout.previous) == "0.17.0"
+          and not (layout.versions / "0.20.0").exists() and result["failed_version"] == "0.20.0",
+          "a version that is not healthy is rolled back and removed")
+    check(system.calls == ["backup", "units 0.20.0", "restart", "healthy 0.20.0", "stop",
+                           "restore secretbroker-backup-1.zip with 0.18.0", "units 0.18.0", "start", "healthy 0.18.0"],
+          f"with the previous code and the database of the backup taken just before ({system.calls})")
+    result, system = go(release("0.20.0"))
+    check(result["last_result"] == "skipped" and system.calls == [], "the failed version is not tried every day")
+    result, system = go(release("0.20.0"), force=True)
+    check(result["last_result"] == "updated" and layout.current_version() == "0.20.0", "unless forced")
+    check(sorted(p.name for p in layout.versions.iterdir()) == ["0.18.0", "0.20.0"],
+          "only the current and the previous version are kept")
+
+    check(not updater._allowed("http://github.com/x") and not updater._allowed("https://evil.example/x")
+          and updater._allowed("https://objects.githubusercontent.com/x"), "downloads only over https from GitHub")
+    check(isinstance(updater.source_from(""), updater.GithubSource) and
+          isinstance(updater.source_from("file:///srv/x"), updater.DirSource), "the release source")
+
 class Keyed(Api):
     """An account with a real Ed25519 signing key, to prove it holds its keys (recovery, password reset)."""
 
@@ -1499,6 +1857,9 @@ def main():
     test_versions_and_health()
     test_admin_cli()
     test_backup_restore()
+    test_admin_api()
+    test_admin_token_cli()
+    test_updater()
     test_recovery()
     test_replace_account()
     print("\nAll good." if not failures else f"\n{failures} check(s) failed.")
