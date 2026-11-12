@@ -335,10 +335,12 @@ jobs:
   # The one-command install on a real Ubuntu with systemd, from the archive built from this tree: install-server.sh
   # --local, non-interactive; the service, its sandbox and timers; the admin's one-time token and the admin API; a
   # second run that repairs; the updater installing a signed newer version, refusing a wrongly signed and an unsigned
-  # one, rolling back one that does not start; then Caddy from its repository in front of it.
+  # one, rolling back one that does not start. Ports 80/443 already taken: with nginx on them a plain install stops
+  # before changing anything; behind nginx (its own site, health through nginx, HTTP then HTTPS, nginx's other files
+  # untouched); then Caddy from its repository on 8443 when 443 is taken, kept on a re-run, and back on 443.
   server-install:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
         with:
@@ -347,9 +349,9 @@ jobs:
       - name: Build the server archive (hash-pinned packages)
         run: bash tools/build_server.sh
 
-      - name: Install, repair, update, refuse, roll back, Caddy
-        run: sudo SB_TEST_CADDY=1 bash server/tests/test_install.sh dist/secretbroker-server-*-linux-x86_64.tar.gz
+      - name: Install, repair, update, refuse, roll back; ports taken (nginx, another HTTPS port), Caddy
+        run: sudo SB_TEST_NGINX=1 SB_TEST_CADDY=1 bash server/tests/test_install.sh dist/secretbroker-server-*-linux-x86_64.tar.gz
 
       - name: Logs
         if: failure()
-        run: sudo journalctl -u 'secretbroker-server*' -u caddy --no-pager -n 200
+        run: sudo journalctl -u 'secretbroker-server*' -u caddy -u nginx --no-pager -n 200

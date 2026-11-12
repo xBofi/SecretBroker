@@ -11,7 +11,9 @@ one command there is nothing else to do on the server: you administer it from th
 itself up every day, and signed updates install themselves.
 
 **You need:** an x86-64 server with **Ubuntu 22.04, 24.04 or 26.04** (1 vCPU and 1 GB of RAM are plenty), a domain name
-you can add a DNS record to, and the server's **ports 80 and 443** open.
+you can add a DNS record to, and the server's **ports 80 and 443** open. If another program already uses them
+(nginx, Apache, Docker...), see [Ports 80 and 443 already in use](#ports-80-and-443-already-in-use): the installer
+checks that first, never touches that program on its own, and offers the ways that fit.
 
 1. **Point a name at the server.** In your DNS provider, add an `A` record such as `secrets.example.com` → the
    server's public IP address (your provider's panel shows it).
@@ -41,7 +43,9 @@ curl -fsSL https://github.com/xBofi/SecretBroker/releases/latest/download/instal
          SB_SMTP_FROM=secrets@example.com bash
 ```
 
-Any variable from [Configuration](#configuration) can be given this way, plus `SB_PORT` (the local port, 8080).
+Any variable from [Configuration](#configuration) can be given this way, plus `SB_PORT` (the local port, 8080; when
+it is taken the installer picks the next free one and says so) and the way it is reached: `SB_MODE`,
+`SB_HTTPS_PORT`, `SB_PROXY_CONFIGURE` (below). Running it again keeps all of them.
 
 ### What it installs
 
@@ -53,7 +57,8 @@ Any variable from [Configuration](#configuration) can be given this way, plus `S
 | `secretbroker-server.service`: the server on `127.0.0.1:8080` only, sandboxed by systemd (read-only system, no privileges, private /tmp, its own folder only) | `/etc/systemd/system` |
 | `secretbroker-server-backup.timer`: a backup every night, the last 14 kept | `/var/lib/secretbroker-server/backups` |
 | `secretbroker-server-update.timer`: signed automatic updates every night (below) | |
-| Caddy, from [its official repository](https://caddyserver.com/docs/install#debian-ubuntu-raspbian): HTTPS for your domain with a free Let's Encrypt certificate it renews by itself | `/etc/caddy/secretbroker.caddy` |
+| Caddy, from [its official repository](https://caddyserver.com/docs/install#debian-ubuntu-raspbian): HTTPS for your domain with a free Let's Encrypt certificate it renews by itself (not behind your own web server, nor with `--local`) | `/etc/caddy/secretbroker.caddy` |
+| Behind nginx, with your yes: SecretBroker's site, and nothing else in nginx | `/etc/nginx/sites-available/secretbroker-<domain>` |
 
 The installer only downloads from GitHub (the server) and Caddy's repository, and installs the server only if its
 Ed25519 signature verifies with the SecretBroker release key built into the installer (the same key the desktop app's
@@ -104,13 +109,90 @@ curl -fsSL https://github.com/xBofi/SecretBroker/releases/latest/download/instal
   | sudo SB_DOMAIN=secrets.example.com SB_ADMIN_EMAIL=you@example.com bash -s -- --local
 ```
 
-The server then answers only on `http://127.0.0.1:8080`; point the tunnel at that address (Cloudflare Tunnel:
-service `http://127.0.0.1:8080`; Tailscale: `tailscale serve --bg 8080`). Be honest with yourself about the
-trade-off: with **Cloudflare Tunnel, TLS ends at Cloudflare**, which therefore sees the requests in clear (metadata
+The server then answers only on `http://127.0.0.1:8080` (the installer's last lines say the port, and these steps);
+point the tunnel at that address:
+
+- **Cloudflare Tunnel** (free, with a domain whose DNS is on Cloudflare): in the Cloudflare dashboard, **Zero Trust ›
+  Networks › Tunnels › Create a tunnel** (type Cloudflared), name it `secretbroker`; on the server, run the install
+  commands it shows for Debian/Ubuntu (the last one is `sudo cloudflared service install <token>`); then add a
+  **public hostname** `secrets.example.com`, service type `HTTP`, URL `127.0.0.1:8080`. Cloudflare creates the DNS
+  record. From the command line instead: `cloudflared tunnel login`, `cloudflared tunnel create secretbroker`,
+  `cloudflared tunnel route dns secretbroker secrets.example.com`, a `config.yml` with `ingress: [{hostname:
+  secrets.example.com, service: http://127.0.0.1:8080}, {service: http_status:404}]`, and
+  `sudo cloudflared service install`.
+- **Tailscale**: turn on MagicDNS and HTTPS certificates in the Tailscale admin console (DNS page), then on the
+  server `curl -fsSL https://tailscale.com/install.sh | sh`, `sudo tailscale up`, and
+  `sudo tailscale serve --bg 8080` (for your tailnet only) or `sudo tailscale funnel --bg 8080` (public).
+  `sudo tailscale serve status` shows the address, `https://<machine>.<tailnet>.ts.net`: run the installer again
+  with `SB_DOMAIN=<machine>.<tailnet>.ts.net` (and `--local`, or nothing: the mode is kept).
+
+Be honest with yourself about the trade-off: with **Cloudflare Tunnel, TLS ends at Cloudflare**, which therefore sees the requests in clear (metadata
 and session tokens, never credentials or collection names, which the apps encrypt) and is as trusted as the server
 itself (docs/THREAT_MODEL.md 3.5); with **Tailscale** TLS ends on your machine, but every teammate needs Tailscale
 (with `serve`) or the address is public (with `funnel`). The details are in [Tunnels](#your-own-pc-or-a-home-server-docker-desktop-tunnels)
 below. `--local` without `SB_DOMAIN` is a server for this machine only, over plain HTTP: for tests.
+
+### Ports 80 and 443 already in use
+
+Before installing anything, the installer looks at who listens on ports 80 and 443 (`ss -ltnp`) and names it:
+nginx, Apache, a Caddy that is not the one it set up, a Docker container, or any other program. It **never stops,
+removes or reconfigures a program that is not its own** unless you say so. When both ports are free nothing changes:
+Caddy takes them. Otherwise it explains, in plain words, what uses them and which of these ways fit; run
+interactively it lets you choose, and run without questions it stops before changing anything, unless `SB_MODE` (or
+`SB_HTTPS_PORT`) says which way. Its own port on 127.0.0.1 (`SB_PORT`, 8080) is checked too, and another free one is
+taken (and said) when that one is used.
+
+**1. Behind your web server** (`--behind-proxy`, or `SB_MODE=proxy`). No Caddy: SecretBroker listens on
+`127.0.0.1:8080` only and your web server keeps ports 80 and 443 and forwards your domain to it.
+
+```sh
+curl -fsSL https://github.com/xBofi/SecretBroker/releases/latest/download/install-server.sh \
+  | sudo SB_MODE=proxy SB_DOMAIN=secrets.example.com SB_ADMIN_EMAIL=you@example.com bash
+```
+
+- **nginx**: the installer writes one file, `/etc/nginx/sites-available/secretbroker-<domain>` (enabled in
+  `sites-enabled`), with the forwarding, the headers the server needs (`Host`, and `X-Forwarded-For` set to the
+  client's address) and a body limit that matches `SB_MAX_BODY`; it checks the result with `nginx -t` and reloads
+  nginx. It shows you the file and asks first; without questions it only does it with `SB_PROXY_CONFIGURE=1`, and
+  otherwise prints the exact commands to do it yourself. Once added, later runs keep that file up to date without
+  asking again (unless you removed the installer's mark from its first line). If `nginx -t` fails, the file is taken out again and nginx
+  keeps running as it was. If nginx already has a site for that name, it is left alone and the installer prints the
+  `location` block to add to it. **HTTPS**: it uses certbot's certificate for the domain if there is one, or your
+  own (`SB_TLS_CERT=/path/fullchain.pem SB_TLS_KEY=/path/privkey.pem`); otherwise, if certbot is installed, it
+  offers to get one (same rule: it asks, or `SB_PROXY_CONFIGURE=1`), through the site's
+  `/.well-known/acme-challenge/` (renewals reload nginx by themselves). Until there is a certificate, only the
+  health check gets through on plain HTTP. Without certbot: `sudo apt install certbot` and run the installer again.
+- **Apache**: it prints a ready VirtualHost (mod_proxy, mod_headers) and the `a2enmod` / `a2ensite` / `certbot
+  --apache` commands to run; it does not change Apache.
+- **Anything else** (Traefik, another Caddy, a Docker container): it prints what that proxy must do: HTTPS for the
+  domain, forward to `http://127.0.0.1:8080`, keep `Host`, set `X-Forwarded-For`, allow 10 MB bodies. A proxy
+  inside a Docker container reaches the host's 127.0.0.1 only with `network_mode: host`; otherwise use a tunnel.
+
+`SB_TRUST_PROXY=1`: the server takes the client's address (for the login throttling) from the **last**
+`X-Forwarded-For` entry, the one your web server adds or sets; it listens on 127.0.0.1, so only programs on the
+server can reach it. If your web server's public port is not 443, give it as `SB_HTTPS_PORT` and the address
+becomes `https://<domain>:<port>`.
+
+**2. Caddy on another HTTPS port** (`SB_HTTPS_PORT=8443`, or `--https-port 8443`), when 443 is taken but **80 is
+free**: Let's Encrypt checks the domain on port 80, so Caddy still gets the certificate, and serves SecretBroker on
+`https://secrets.example.com:8443` (the site `secrets.example.com:8443`, which also makes Caddy's redirect from
+port 80 point there; ufw opens 80 and 8443). Open that port in your provider's firewall too. The apps take an address with a port like any other. If 80 is
+taken as well, this way can't get a certificate: use 1 or 3.
+
+```sh
+curl -fsSL https://github.com/xBofi/SecretBroker/releases/latest/download/install-server.sh \
+  | sudo SB_HTTPS_PORT=8443 SB_DOMAIN=secrets.example.com SB_ADMIN_EMAIL=you@example.com bash
+```
+
+**3. Through a tunnel** (`--local`, or `SB_MODE=local`): no ports at all; [above](#behind-a-tunnel-instead-no-open-ports).
+
+The system's own Caddy with sites of its own is a fourth case: SecretBroker's site can join them (one `import` line
+at the end of `/etc/caddy/Caddyfile`), with your yes or `SB_PROXY_CONFIGURE=1`.
+
+**Changing later.** Running the installer again keeps the way and the ports it was installed with. To change, run it
+with the new flag or variables (`--caddy`, `--behind-proxy`, `--local`, `SB_HTTPS_PORT`; `--https-port 443` goes
+back to the usual port): it removes what the previous way set up that is SecretBroker's own (its Caddy site, and
+Caddy is stopped if it served nothing else; its nginx file, and only that file), never anything else of yours.
 
 ### Removing it
 
@@ -119,7 +201,8 @@ curl -fsSL https://github.com/xBofi/SecretBroker/releases/latest/download/instal
 ```
 
 removes the programs and services and keeps the data, backups and settings (`--uninstall --purge` deletes those too).
-Caddy stays installed, without the SecretBroker site.
+Caddy stays installed, without the SecretBroker site (and stopped, if it served nothing else); behind nginx, the
+installer's own nginx file goes and nginx is reloaded.
 
 ## What it stores
 
@@ -380,6 +463,10 @@ monitor at `https://secrets.example.com/api/v1/health`.
 | `SB_AUTO_UPDATE` | `1` | Signed automatic updates (`install-server.sh` installs only); the app's switch wins once used |
 | `SB_INSTALL` | `other` | How the server was installed (`systemd` by install-server.sh, `docker` in the image): the app's server panel shows the matching restore command |
 | `SB_PORT` | `8080` | (`install-server.sh`) The local port the server listens on, on 127.0.0.1 |
+| `SB_MODE` | `caddy` | (`install-server.sh`) `caddy`, `proxy` (behind your web server) or `local` (a tunnel); kept as `SB_INSTALL_MODE` |
+| `SB_HTTPS_PORT` | `443` | (`install-server.sh`) The public HTTPS port: Caddy's (when 443 is taken, port 80 must be free) or your web server's |
+| `SB_PROXY_CONFIGURE` | empty | (`install-server.sh`, not kept) `1`: add SecretBroker's site to nginx and get its certificate with certbot, or add it to a Caddy with other sites, without asking |
+| `SB_TLS_CERT`, `SB_TLS_KEY` | empty | (`install-server.sh`, behind nginx) Your own certificate and key for the domain (PEM) |
 | `SB_UPDATE_SOURCE` | GitHub | (`install-server.sh`) Where the updater looks for releases: an `https://` GitHub API URL or a folder. Signatures are checked the same |
 | `SB_UPDATE_TRUST` | empty | (`install-server.sh`) Extra Ed25519 public keys (base64, comma-separated) the updater and installer accept besides the release key: for a fork that signs its own releases, and for CI |
 
@@ -412,3 +499,7 @@ The installer and the updater for real (a throwaway Ubuntu with systemd only: it
 bash tools/build_server.sh
 sudo bash server/tests/test_install.sh dist/secretbroker-server-*-linux-x86_64.tar.gz
 ```
+
+With `SB_TEST_NGINX=1` it also installs nginx on ports 80 and 443 first (a plain install must stop and change
+nothing; then behind nginx over HTTP and HTTPS), and with `SB_TEST_CADDY=1` Caddy on 8443 while 443 is taken, then
+back on 443. CI runs both. Remove nginx and Caddy afterwards if the machine is not a throwaway one.

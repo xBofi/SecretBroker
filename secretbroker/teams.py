@@ -560,6 +560,7 @@ def server_base(url):
     try:
         parts = urlsplit(url)
         host = parts.hostname
+        parts.port  # a port is fine (https://host:8443); one that is not a number 0-65535 raises here
     except ValueError:
         host = None
     if not host or parts.query or parts.fragment or parts.username or parts.password:

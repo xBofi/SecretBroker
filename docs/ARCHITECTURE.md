@@ -503,7 +503,24 @@ item says and what is deleted is signed with the author's Ed25519 key and checke
   sandboxed: `ProtectSystem=strict`, `NoNewPrivileges`, no capabilities, `@system-service` system calls, private
   /tmp and devices; `systemd-analyze security` rates it 1.4), `secretbroker-server-backup.{service,timer}` (daily,
   `SB_BACKUP_KEEP` kept) and `secretbroker-server-update.{service,timer}`. Caddy from its official apt repository
-  proxies `SB_DOMAIN` with automatic HTTPS; `--local` leaves Caddy out (a tunnel, or tests). It prints a signup
+  proxies `SB_DOMAIN` with automatic HTTPS; `--local` leaves Caddy out (a tunnel, or tests). **Ports taken**: before
+  anything is installed, a preflight reads `ss -ltnp` for 80, 443 (or `SB_HTTPS_PORT`) and `SB_PORT` and names the
+  owner (nginx, Apache, the system's Caddy with or without our site, another Caddy, `docker-proxy` with its
+  container, other). It never stops or reconfigures what is not its own: with both web ports free it is the Caddy
+  mode as before; otherwise it explains and, interactively, offers the modes that fit; without a terminal it exits
+  before writing anything unless `SB_MODE` / `SB_HTTPS_PORT` chooses. Modes, persisted as `SB_INSTALL_MODE` (and
+  `SB_HTTPS_PORT`, `SB_PORT`) and kept on re-runs: `caddy` (80/443); `caddy` on another HTTPS port, only with 80
+  free (HTTP-01): the site address `<domain>:<p>` with `disable_tlsalpn_challenge` (that check always comes to 443,
+  someone else's); not the global `https_port`, which is meant for a port forwarded from 443 and makes the HTTP→HTTPS
+  redirect leave the port out (seen in testing); `proxy` (`--behind-proxy`): no Caddy, `SB_PUBLIC_URL =
+  https://<domain>[:port]`; for nginx, with the user's yes or `SB_PROXY_CONFIGURE=1`, one file
+  `sites-available/secretbroker-<domain>` (marked as the installer's; `Host`, `X-Forwarded-For $remote_addr`,
+  `client_max_body_size` from `SB_MAX_BODY`), `nginx -t` or rolled back, reload; certificate from `SB_TLS_CERT/KEY`,
+  certbot's live one, or `certbot certonly --webroot` with the same consent (until then the HTTP site forwards only
+  `/api/v1/health`); Apache and others get a printed configuration; `local`. Switching mode removes only what the
+  previous mode created (our Caddy site, Caddy stopped if it then serves nothing; our nginx file if it still carries
+  the mark). `SB_TRUST_PROXY=1` in every mode: the server binds 127.0.0.1 and takes the **last** `X-Forwarded-For`
+  entry, the one the local proxy (or tunnel) added or set; a client-sent value can only come before it. It prints a signup
   token bound to the admin's e-mail (`create-invite --email`), so nobody else can register that address first.
   Running it again repairs and upgrades; `--uninstall [--purge]` removes it. `sudo secretbroker-server <command>`
   runs the command line as the server's account with its settings (`restore` stops and starts the service around it).
