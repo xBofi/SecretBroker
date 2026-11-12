@@ -204,9 +204,9 @@ jobs:
           compose exec -T backup sh -c 'f=$(ls -t /backups/secretbroker-backup-*.zip | head -1) && [ "$(stat -c "%a %u" "$f")" = "600 10001" ] && [ "$(stat -c %a /backups)" = 700 ] && python -c "import sys, zipfile; z = zipfile.ZipFile(sys.argv[1]); assert sorted(z.namelist()) == [\"secretbroker.db\", \"server_secret\"], z.namelist(); assert z.testzip() is None" "$f"' \
             || fail "no private, valid backup zip"
           latest=$(compose exec -T backup sh -c 'ls -t /backups/secretbroker-backup-*.zip | head -1' | tr -d '\r')
-          if compose run --rm -T backup secretbroker-server restore "$latest"; then fail "restore ran while the server was serving"; fi
+          if compose run --rm --no-deps -T backup secretbroker-server restore "$latest"; then fail "restore ran while the server was serving"; fi
           compose stop server backup
-          compose run --rm -T backup secretbroker-server restore "$latest" || fail "restore failed"
+          compose run --rm --no-deps -T backup secretbroker-server restore "$latest" || fail "restore failed"
           compose up -d server backup
           for i in $(seq 60); do
             curl -fsS http://127.0.0.1:8080/api/v1/health >/dev/null 2>&1 && break

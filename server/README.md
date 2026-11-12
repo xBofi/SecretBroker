@@ -190,9 +190,10 @@ in `before-restore-<time>/` inside the data volume:
 
 ```sh
 docker compose stop server backup
-docker compose run --rm backup secretbroker-server restore /backups/secretbroker-backup-20261112-031500.zip
+# --no-deps: without it Compose would start the server again first, and the restore would refuse
+docker compose run --rm --no-deps backup secretbroker-server restore /backups/secretbroker-backup-20261112-031500.zip
 # or a file from this machine:
-docker compose run --rm -v "$PWD/my-backup.zip:/restore.zip:ro" backup secretbroker-server restore /restore.zip
+docker compose run --rm --no-deps -v "$PWD/my-backup.zip:/restore.zip:ro" backup secretbroker-server restore /restore.zip
 docker compose up -d
 ```
 
