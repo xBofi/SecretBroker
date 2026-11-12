@@ -2,6 +2,13 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
+## 0.18.2 (2026-11-12)
+
+- **macOS: the app always reaches its own service.** The setup that runs at install, at boot and when an account is
+  added gave the owner's permission on the service's file (broker.json) and then took it away again (macOS's `find`
+  runs batched commands last-first). Whenever it ran after the service had started, the app could not reach the
+  service until the service wrote the file again. Each file now gets the two steps in order.
+
 ## 0.18.1 (2026-11-12)
 
 ### Team server

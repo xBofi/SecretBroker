@@ -1,3 +1,3 @@
 """SecretBroker: lets AI agents use credentials without ever reading them."""
 
-__version__ = "0.18.1"
+__version__ = "0.18.2"
