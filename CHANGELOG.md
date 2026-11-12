@@ -2,6 +2,17 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
+## 0.18.3 (2026-11-13)
+
+- **The app's window always loads whole.** Its page asks for six files at once from a small local server that only
+  queued five connections; on Windows the sixth was refused and that part of the app was missing (the last steps of
+  the setup, the .env import...). It now queues 64, and the tests check every part loaded.
+- **The setup no longer appears over your vault.** If the app shows it while the service already has a vault (for
+  example right after an update), it goes to your vault by itself, and it never checks an empty master password
+  (which said «Contraseña maestra incorrecta»).
+- **Updating installs the newest version.** The app asks GitHub again when you click «Actualizar» and when the
+  update window opens, instead of installing the version an earlier check found; it checks every hour.
+
 ## 0.18.2 (2026-11-12)
 
 - **macOS: the app always reaches its own service.** The setup that runs at install, at boot and when an account is
