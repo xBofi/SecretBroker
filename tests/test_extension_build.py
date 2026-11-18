@@ -1,6 +1,7 @@
 """The extension's packages for the stores (tools/build_extension.py): what each zip holds, the manifest each store
 gets, that nothing only for development goes in, and that the same source always gives the same bytes. Also that
-the ids the native host answers are well formed, since a store's id is added there by hand (docs/STORES.md).
+the ids the native host answers are well formed, since a store's id is added there by hand (docs/STORES.md), and
+that the listings' images (tools/store_images.py) have the sizes the stores ask for.
 
 Builds into a temporary folder; extension/ and dist/ are not touched.
 Run with:  .venv\\Scripts\\python.exe tests\\test_extension_build.py
@@ -146,6 +147,31 @@ def check_package(store, path, source):
           "and it still passes the upload checks")
 
 
+def check_images():
+    """tools/store_images.py: the sizes the stores ask for, exactly."""
+    print("Images for the listings")
+    spec = importlib.util.spec_from_file_location("store_images", ROOT / "tools" / "store_images.py")
+    store_images = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(store_images)
+    out = HOME / "store"
+    check(store_images.main(["--out", str(out)]) == 0, "the logo and the promotional images are written")
+    sizes = {p.name: build_extension._png_size(p.read_bytes()) for p in out.iterdir()}
+    check(sizes == {"logo-300x300.png": (300, 300), "promo-small-440x280.png": (440, 280), "promo-marquee-1400x560.png": (1400, 560)},
+          "300x300, 440x280 and 1400x560")
+    # A screenshot of the test (the popup, a page, the app's window) becomes 1280x800 whatever its size.
+    popup = store_images.plain(360, 315, (250, 250, 250))
+    page = store_images.plain(1256, 808, (255, 255, 255))
+    window = store_images.plain(1104, 701, (30, 30, 30))
+    fitted = [store_images.store_screenshot(popup, "popup", None), store_images.store_screenshot(page, "page", (-640, 0)),
+              store_images.store_screenshot(window, "window", None)]
+    check(all((w, h) == (1280, 800) and len(rows) == 800 and all(len(r) == 3840 for r in rows) for w, h, rows in fitted),
+          "screenshots are fitted to 1280x800")
+    path = out / "roundtrip.png"
+    store_images.write_png(path, fitted[0])
+    again = store_images.read_png(path)
+    check(again[:2] == (1280, 800) and again[2] == fitted[0][2], "and are written as PNGs that read back the same")
+
+
 def main():
     before = tree_digest(EXTENSION)
     check_source()
@@ -157,6 +183,7 @@ def main():
           "two zips are written: Chrome Web Store + Edge Add-ons, and addons.mozilla.org")
     for store, path in written.items():
         check_package(store, path, source)
+    check_images()
     print("The source")
     check(tree_digest(EXTENSION) == before, "extension/ is as it was")
     check(chrome_id(source["key"]) == native_host.CHROME_EXTENSION_IDS[0] and source["background"] ==
