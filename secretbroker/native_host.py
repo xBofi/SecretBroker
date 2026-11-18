@@ -22,8 +22,15 @@ from . import __version__, client, paths, platform
 from .i18n import tr
 
 HOST_NAME = "com.secretbroker.autofill"
-# The extension's id is pinned by the "key" in extension/manifest.json. Store builds get their own ids: add them here.
-CHROME_EXTENSION_IDS = ("cekklnambceaikefialdjijgolamnnab",)
+# The ids of our extension, the only ones the host and the service answer. Chromium-based browsers: one line each;
+# a store gives the extension its own id when it is first uploaded (docs/STORES.md, "The ids the stores give back"),
+# and the app must be released with it before that store's build goes live.
+CHROME_EXTENSION_IDS = (
+    "cekklnambceaikefialdjijgolamnnab",  # unpacked, from the app's folder: pinned by "key" in extension/manifest.json
+    # "<the 32 letters>",                # Chrome Web Store (Brave installs from it too)
+    # "<the 32 letters>",                # Microsoft Edge Add-ons
+)
+# Firefox: browser_specific_settings.gecko.id, the same loaded temporarily and from addons.mozilla.org.
 FIREFOX_EXTENSION_IDS = ("autofill@secretbroker",)
 ALLOWED_ORIGINS = tuple(f"chrome-extension://{i}/" for i in CHROME_EXTENSION_IDS) + \
     tuple(f"moz-extension:{i}" for i in FIREFOX_EXTENSION_IDS)
