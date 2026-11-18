@@ -73,13 +73,16 @@ function toast(message, kind = '') {
     node = el('div', { class: `toast ${kind ? `is-${kind}` : ''}`, role: kind === 'error' ? 'alert' : null, 'data-kind': kind, 'data-text': text },
       icon(TOAST_ICONS[kind] || 'info', 'sm'),
       el('div', { class: 'message' }, text, el('span', { class: 'times' })),
-      el('button', { class: 'close', type: 'button', title: t('common.close'), 'aria-label': t('common.close'), onclick: () => node.remove() }, icon('x', 'sm')));
+      el('button', { class: 'close', type: 'button', title: t('common.close'), 'aria-label': t('common.close'), onclick: () => leave() }, icon('x', 'sm')));
     node.count = 1;
     root.append(node);
     while (root.children.length > MAX_TOASTS) root.firstElementChild.remove();
   }
+  // It leaves as it came (styles.css: .toast.leaving), and comes back whole if the same message arrives meanwhile.
+  const leave = () => { node.classList.add('leaving'); node.timer = setTimeout(() => node.remove(), 150); };
+  node.classList.remove('leaving');
   clearTimeout(node.timer);
-  node.timer = setTimeout(() => node.remove(), life);
+  node.timer = setTimeout(leave, life);
 }
 
 function clearToasts() {
@@ -5900,7 +5903,7 @@ function appearanceGroup() {
     ['large', t('settings.text_size_large')], ['xlarge', t('settings.text_size_xlarge')]], look.text_size, (value) => setAppearance('text_size', value));
   const density = choiceGroup(t('settings.density'), [['comfortable', t('settings.density_comfortable')], ['compact', t('settings.density_compact')]],
     look.density, (value) => setAppearance('density', value));
-  const motion = el('input', { type: 'checkbox', class: 'switch', checked: look.reduce_motion, 'aria-label': t('settings.reduce_motion') });
+  const motion = el('input', { type: 'checkbox', role: 'switch', class: 'switch', checked: look.reduce_motion, 'aria-label': t('settings.reduce_motion') });
   motion.addEventListener('change', () => setAppearance('reduce_motion', motion.checked));
   const color = setting(t('settings.color'), t('settings.color_help'), palettes.node);
   color.classList.add('stacked');
@@ -5942,7 +5945,8 @@ function renderSettings(content) {
     if (result.ok) { toast(t('common.saved_2')); await refreshStatus(); } else { lockSelect.value = String(status.auto_lock_minutes || 0); if (result.code !== 'cancelled') toast(result.error, 'error'); }
   });
 
-  const sessionToggle = el('input', { type: 'checkbox', checked: !!(status.session_unlock && state.info.session_unlock_here) });
+  const sessionToggle = el('input', { type: 'checkbox', role: 'switch', class: 'switch', checked: !!(status.session_unlock && state.info.session_unlock_here),
+    'aria-label': t('common.open_with_my_windows_session') });
   sessionToggle.addEventListener('change', async () => {
     const result = sessionToggle.checked
       ? await withProof((p) => api().enable_session_unlock(p), t('settings.open_vault_with_your_windows'))
@@ -5955,7 +5959,7 @@ function renderSettings(content) {
   });
   const backupSlot = el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, t('common.backup_copy')));
   renderBackup(backupSlot);
-  const startToggle = el('input', { type: 'checkbox', checked: !!state.info.start_with_windows });
+  const startToggle = el('input', { type: 'checkbox', role: 'switch', class: 'switch', checked: !!state.info.start_with_windows, 'aria-label': t('settings.start_with_windows') });
   startToggle.addEventListener('change', async () => {
     await api().set_start_with_windows(startToggle.checked);
     state.info.start_with_windows = startToggle.checked;
@@ -5990,7 +5994,8 @@ function renderSettings(content) {
   });
   checkControl.select.style.width = '';  // the same width as the other selects here
 
-  const autoScan = el('input', { type: 'checkbox', checked: state.info.prefs.auto_scan !== false });
+  const autoScan = el('input', { type: 'checkbox', role: 'switch', class: 'switch', checked: state.info.prefs.auto_scan !== false,
+    'aria-label': t('settings.search_for_copies_when_unlocking') });
   autoScan.addEventListener('change', async () => {
     state.info.prefs.auto_scan = autoScan.checked;
     await api().set_pref('auto_scan', autoScan.checked);

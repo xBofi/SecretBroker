@@ -98,7 +98,7 @@ function reducedMotion() {
 const CUSTOM_TOKENS = ['--accent', '--accent-hover', '--accent-text', '--interactive', '--interactive-hover'];
 // Grafito's surfaces (styles.css): «Personalizado» keeps them neutral, so any colour sits well on them.
 const CUSTOM_SURFACES = {
-  light: { on: ['#fbfbfb', '#f4f4f4', '#ffffff'], soft: 0.12, interactive: '#3a64b0', labels: ['#ffffff', '#111111'] },
+  light: { on: ['#fbfbfb', '#f4f4f4', '#ffffff'], soft: 0.12, interactive: '#3963ae', labels: ['#ffffff', '#111111'] },
   dark: { on: ['#161616', '#1b1b1b', '#202020'], soft: 0.16, interactive: '#8eaee6', labels: ['#111111', '#ffffff'] },
 };
 const TEXT_CONTRAST = 4.5;
