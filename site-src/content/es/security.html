@@ -1,0 +1,109 @@
+title: Cómo protege SecretBroker tus secretos, y hasta dónde llega
+description: El modelo de seguridad de SecretBroker dicho claro: la bóveda cifrada, el servicio aislado, lo que puede y no puede hacer un agente de IA, el relleno en el navegador, los equipos y las actualizaciones, cada parte con sus límites conocidos.
+h1: La seguridad, dicha claro
+lede: Lo que hace SecretBroker para proteger tus contraseñas y claves, parte por parte, y junto a cada parte aquello de lo que no puede protegerte. La versión completa es el <a href="[[GH]]/blob/main/docs/THREAT_MODEL.md" rel="noopener">modelo de amenazas en GitHub</a> (en inglés).
+section: security
+---
+<h2 id="short">En pocas palabras</h2>
+<ul>
+  <li>Tu bóveda es un archivo cifrado en tu ordenador. No se sube nada, salvo que te unas a un equipo, y entonces solo lo que compartes, ya cifrado.</li>
+  <li>La parte que guarda tus secretos funciona como un servicio aparte, con una cuenta propia del sistema, fuera del alcance de los programas que usas.</li>
+  <li>Un agente de IA puede pedirle a SecretBroker que use una clave. Nunca recibe la clave, y lo que vuelve llega limpio.</li>
+  <li>El servidor de equipos solo guarda lo que no puede leer.</li>
+  <li>SecretBroker es joven, de código abierto, y <b>aún no ha pasado una auditoría de seguridad independiente</b>.</li>
+</ul>
+
+<h2 id="vault">La bóveda en tu disco</h2>
+<p>La bóveda se cifra con AES-256-GCM y una clave aleatoria. Esa clave se cierra a su vez con tu contraseña maestra, reforzada con scrypt usando 128 MiB de memoria, lo que hace cada intento lento y caro. Las copias de seguridad son ese mismo archivo cifrado, y los intentos fallidos en la app se frenan con esperas cada vez más largas.</p>
+<p>En tu propio PC se guarda una segunda copia de la clave bajo la protección del sistema (DPAPI en Windows), para que Windows Hello o la contraseña del sistema puedan abrir allí la bóveda. Eso es lo que permite <a href="[[L]]guide/#forgot">recuperar el acceso en ese PC</a>.</p>
+<h3>Límites</h3>
+<ul>
+  <li>Una copia robada es tan fuerte como tu contraseña maestra. Una corta o repetida se puede adivinar, despacio. Usa una frase larga.</li>
+  <li>En el PC donde está la bóveda, es también tan fuerte como tu inicio de sesión del sistema.</li>
+  <li>En Ubuntu, un disco robado que no esté cifrado abre la bóveda sin la contraseña maestra. Cifra el disco entero. En Windows está en la misma situación un atacante capaz de recuperar del disco las claves protegidas de la cuenta del servicio.</li>
+</ul>
+
+<h2 id="service">Un servicio aparte de tus programas</h2>
+<p>SecretBroker son dos programas. La ventana que ves funciona con tu usuario. El <b>servicio</b> que guarda la bóveda funciona con una cuenta propia: una cuenta de Windows oculta que no puede iniciar sesión, el usuario <code>secretbroker</code> en Ubuntu, un usuario oculto en macOS. Solo esa cuenta puede leer los archivos de la bóveda, y su código está donde solo los administradores pueden cambiarlo.</p>
+<p>Así, un programa que se ejecuta con tu usuario, un agente de IA incluido, no puede leer la memoria del servicio, sus archivos ni su código. El servicio firma sus respuestas, de modo que un servicio falso no puede hacerse pasar por él ante la app.</p>
+<h3>Límites</h3>
+<ul>
+  <li>Cualquier cosa con permisos de administrador (root en Linux) puede saltárselo. <b>No ejecutes nunca un agente de IA como administrador.</b></li>
+</ul>
+
+<h2 id="ai">Qué puede y qué no puede hacer un agente de IA</h2>
+<ul>
+  <li><b>Ninguna herramienta devuelve un secreto.</b> El agente nombra una credencial; el servicio añade la clave a la petición y la borra de la respuesta: en texto literal, en base64, codificada en una URL, dentro de un JSON y en cadenas de conexión.</li>
+  <li><b>Una clave solo va adonde tú permitiste.</b> Cada credencial lista sus dominios (solo HTTPS, sin seguir redirecciones), sus programas y sus variables de entorno. El servidor SSH sale de la bóveda, no del agente.</li>
+  <li><b>Apruebas tú.</b> Los usos que preguntan los apruebas tú, en la app. Los cambios de la IA que ampliarían adónde puede ir una clave esperan tu aprobación, y la IA no puede cambiar el valor de un secreto ni cómo se aprueba una credencial.</li>
+  <li><b>Puedes pararla.</b> «Pausar la IA» corta todo el acceso al instante. Un número inusual de usos vuelve a preguntar.</li>
+  <li><b>Las páginas web no llegan a ella.</b> El punto de entrada del agente solo escucha en tu propia máquina, exige un token y comprueba de dónde vienen las peticiones.</li>
+</ul>
+<h3>Límites</h3>
+<ul>
+  <li>Un programa que permites en <code>run_command</code>, o que arrancas con <code>sb run</code>, recibe la clave en claro. Un agente que pueda ejecutar su propio código dentro de un programa así puede sacarla.</li>
+  <li>La censura hace lo que puede. Un destino permitido que devuelva los datos con una codificación que la app no conoce, o un destino que controle el agente, puede filtrar una clave.</li>
+  <li>«Permitir 24 horas» cubre cualquier operación que esa credencial permita durante ese tiempo.</li>
+  <li>Un aviso se puede aprobar sin leerlo. El diálogo muestra lo que se pide; leerlo es tu parte.</li>
+</ul>
+
+<h2 id="desktop">Tu escritorio</h2>
+<p>Lo que copias se borra del portapapeles a los 30 segundos y, en Windows, no pasa al historial del portapapeles. La ventana de la app solo muestra su propia página.</p>
+<h3>Límites</h3>
+<ul>
+  <li>Lo que se muestra o se escribe en tu escritorio queda expuesto a un programa malicioso que se ejecute con tu usuario: puede registrar teclas, capturar la pantalla, leer el portapapeles o dibujar una ventana falsa. Todos los gestores de contraseñas comparten este límite.</li>
+  <li>Con <b>Abrir con mi sesión de Windows</b> activado, cualquier persona o programa que use tu sesión desbloqueada puede abrir la bóveda. Ver, copiar, exportar y compartir siguen pidiendo Windows Hello o una contraseña una vez; las aprobaciones normales de la IA siguen siendo un clic, así que un programa así podría aprobar una.</li>
+</ul>
+
+<h2 id="browser">El relleno en el navegador</h2>
+<ul>
+  <li>El servicio decide qué accesos corresponden a una página, por el dominio registrable de la web. Los dominios parecidos, las páginas <code>http</code> para accesos <code>https</code> y otras webs de un alojamiento compartido no reciben nada, ni siquiera los nombres.</li>
+  <li>No se rellena nada al cargar la página. Un valor solo se entrega tras tu clic en el menú de la propia extensión, o su atajo, y solo a la página que el servicio ha comprobado. Los campos ocultos y los marcos de otras webs no se rellenan nunca.</li>
+  <li>La extensión habla con la app por la mensajería nativa del navegador. No se abre ningún puerto de red.</li>
+  <li>Las credenciales de equipo que solo puedes usar no se rellenan nunca.</li>
+</ul>
+<h3>Límites</h3>
+<ul>
+  <li>Una web auténtica que haya sido comprometida recibe lo que rellenas en ella.</li>
+  <li>Por defecto, un acceso guardado para <code>ejemplo.com</code> se ofrece también en sus subdominios. «Solo esta dirección exacta» lo restringe.</li>
+  <li>Trata un navegador conectado como la bóveda desbloqueada: un programa con tu usuario que lea la clave de conexión de la extensión puede pedir accesos mientras la bóveda esté desbloqueada. Cada uno queda anotado en Actividad.</li>
+  <li>La extensión aún no está en las tiendas de los navegadores; se carga desde la carpeta de la app.</li>
+</ul>
+
+<h2 id="teams">Equipos</h2>
+<ul>
+  <li><b>Cifrado de extremo a extremo.</b> Las credenciales, sus nombres y los nombres de las colecciones se cifran en tu PC (X25519 y AES-256-GCM). El servidor guarda texto cifrado y claves públicas.</li>
+  <li><b>Firmado por personas, no por el servidor.</b> Quién está en una colección, cada cambio y cada borrado van firmados por el miembro que los hizo. Un servidor hostil no puede añadir a alguien, falsificar un cambio ni borrar una credencial sin que tu app lo note.</li>
+  <li><b>Claves que comparas.</b> Confirmas a un compañero comparando un código de seguridad de viva voz. Si su clave cambia alguna vez, la app te lo dice antes de compartir nada más.</li>
+  <li><b>Los cambios delicados esperan.</b> Si un compañero cambia adónde puede ir una clave compartida, o la descripción que lee tu IA, el cambio queda retenido hasta que lo aceptas. Muchos borrados de golpe también.</li>
+  <li><b>Al irse alguien, claves nuevas.</b> Cuando se quita a una persona, sus colecciones reciben claves nuevas y todo lo que pudo ver queda en una lista para cambiarlo.</li>
+</ul>
+<h3>Límites</h3>
+<ul>
+  <li>El servidor, y quien lo comprometa, ve metadatos: correos, nombres de organizaciones, quién pertenece a qué, permisos, cantidades, tamaños y fechas. También puede negarse a dar servicio o retener cambios.</li>
+  <li><b>Solo uso</b> lo hace cumplir la app, no la criptografía. Un compañero con una app modificada podría sacar una clave que tiene permiso para usar.</li>
+  <li>Las claves nuevas protegen el futuro. Lo que vio un antiguo miembro hay que cambiarlo en el proveedor.</li>
+  <li>La primera vez que ves a un compañero nuevo te fías de la clave que muestra el servidor, salvo que compares los códigos. Compáralos.</li>
+  <li>Quien controle el servidor puede intentar adivinar sin conexión una contraseña de cuenta débil. El código de recuperación abre la cuenta a quien lo tenga: guárdalo como una contraseña, lejos del PC que protege.</li>
+</ul>
+
+<h2 id="updates">Actualizaciones e instaladores</h2>
+<p>La app solo instala una actualización si va firmada con la clave de publicación del proyecto, cuya mitad pública está dentro de la app que ya tienes. La firma incluye la versión, así que una versión antigua no puede colarse como nueva. El proceso de publicación instala las dependencias a partir de listas con sus hashes fijados y firma en un paso separado que no ve nada más.</p>
+<h3>Límites</h3>
+<ul>
+  <li>Los instaladores <b>aún no llevan firma de código</b> para Windows ni para macOS. SmartScreen y macOS avisan en la primera instalación, y esa primera descarga solo la avala la conexión HTTPS con GitHub. <a href="[[L]]guide/#install">La guía</a> te enseña lo que vas a ver.</li>
+  <li>La versión para macOS es una vista previa que aún no se ha probado en un Mac real, y Touch ID espera a la versión firmada.</li>
+  <li>Quien tenga la clave de publicación puede enviar código a todas las instalaciones. Se guarda como un secreto del proceso de compilación del proyecto.</li>
+</ul>
+
+<h2 id="not-yet">Lo que aún no se ha hecho</h2>
+<ul>
+  <li>Una auditoría de seguridad independiente y profesional.</li>
+  <li>Instaladores con firma de código y compilaciones reproducibles.</li>
+  <li>La extensión en las tiendas de Chrome, Edge y Firefox.</li>
+  <li>Pruebas en Mac reales, y una app para móvil.</li>
+</ul>
+<p>Todo ello está en la <a href="[[GH]]/blob/main/docs/ROADMAP.md" rel="noopener">hoja de ruta</a> (en inglés). Hasta entonces, la mejor prueba es el propio código, que es abierto.</p>
+
+<h2 id="report">Avisar de una vulnerabilidad</h2>
+<p>Por favor, no abras una incidencia pública. Usa <a href="[[GH]]/security/advisories/new" rel="noopener">Report a vulnerability</a> en GitHub, con la versión, los pasos y el impacto, y solo con credenciales falsas. El proyecto procura acusar recibo en 3 días laborables y dar una primera valoración en 10. Las correcciones se hacen sobre la última versión, así que actualiza antes de avisar. Los detalles están en la <a href="[[GH]]/blob/main/SECURITY.md" rel="noopener">política de seguridad</a> (en inglés).</p>

@@ -1,0 +1,109 @@
+title: How SecretBroker protects your secrets, and where the protection ends
+description: SecretBroker's security model in plain language: the encrypted vault, the isolated service, what an AI agent can and cannot do, browser autofill, team sharing and updates, each with its known limits.
+h1: Security, in plain words
+lede: What SecretBroker does to protect your passwords and keys, part by part, and next to each part what it cannot protect you from. The complete version is the <a href="[[GH]]/blob/main/docs/THREAT_MODEL.md" rel="noopener">threat model on GitHub</a>.
+section: security
+---
+<h2 id="short">In short</h2>
+<ul>
+  <li>Your vault is an encrypted file on your computer. Nothing is uploaded unless you join a team, and then only what you share, already encrypted.</li>
+  <li>The part that holds your secrets runs as a separate service, under its own system account, out of reach of the programs you run.</li>
+  <li>An AI agent can ask SecretBroker to use a key. It never receives the key, and what comes back is scrubbed.</li>
+  <li>The team server stores only what it cannot read.</li>
+  <li>SecretBroker is young, open source, and has <b>not had an independent security audit yet</b>.</li>
+</ul>
+
+<h2 id="vault">The vault on your disk</h2>
+<p>The vault is encrypted with AES-256-GCM under a random key. That key is itself locked with your master password, stretched with scrypt using 128 MiB of memory, which makes every guess slow and expensive. Backups are copies of that same encrypted file, and wrong guesses in the app are slowed with growing delays.</p>
+<p>On your own PC a second copy of the key is kept under the system's protection (DPAPI on Windows), so that Windows Hello or your system password can open the vault there. That is what makes it possible to <a href="[[L]]guide/#forgot">recover access on that PC</a>.</p>
+<h3>Limits</h3>
+<ul>
+  <li>A stolen backup is as strong as your master password. A short or reused one can be guessed, slowly. Use a long phrase.</li>
+  <li>On the PC where the vault lives, it is also as strong as your system sign-in.</li>
+  <li>On Ubuntu, a stolen disk that is not encrypted opens the vault without the master password. Use full-disk encryption. On Windows an attacker who can recover the service account's protected keys from the disk is in the same position.</li>
+</ul>
+
+<h2 id="service">A service apart from your programs</h2>
+<p>SecretBroker is two programs. The window you see runs as you. The <b>service</b> that holds the vault runs under an account of its own: a hidden Windows account that cannot log in, the <code>secretbroker</code> user on Ubuntu, a hidden user on macOS. Only that account can read the vault's files, and its code lives where only administrators can change it.</p>
+<p>So a program running as you, an AI agent included, cannot read the service's memory, its files or its code. The service signs its answers, so a fake service cannot pass itself off to the app.</p>
+<h3>Limits</h3>
+<ul>
+  <li>Anything with administrator rights (root on Linux) can get past this. <b>Never run an AI agent as administrator.</b></li>
+</ul>
+
+<h2 id="ai">What an AI agent can and cannot do</h2>
+<ul>
+  <li><b>No tool returns a secret.</b> The agent names a credential; the service adds the key to the request and removes it from the reply, in plain text, base64, URL-encoded, JSON and connection-string forms.</li>
+  <li><b>A key only goes where you allowed.</b> Each credential lists its domains (HTTPS only, redirects not followed), its programs and its environment variables. An SSH host comes from the vault, not from the agent.</li>
+  <li><b>You approve.</b> Uses that ask are approved by you, in the app. Changes by the AI that would widen where a key may go wait for your approval, and the AI cannot change a secret's value or how a credential is approved.</li>
+  <li><b>You can stop it.</b> “Pause the AI” cuts all access at once. An unusual number of uses asks again.</li>
+  <li><b>Web pages cannot reach it.</b> The agent's entry point listens only on your own machine, asks for a token and checks where requests come from.</li>
+</ul>
+<h3>Limits</h3>
+<ul>
+  <li>A program you allow in <code>run_command</code>, or start with <code>sb run</code>, receives the key in clear. An agent that can run its own code inside such a program can take the key out.</li>
+  <li>Redaction is best effort. An allowed host that echoes data back in an encoding the app does not know, or a host the agent controls, can leak a key.</li>
+  <li>“Allow for 24 hours” covers every operation that credential permits during that time.</li>
+  <li>A prompt can be approved without being read. The dialog shows what is being asked; reading it is your part.</li>
+</ul>
+
+<h2 id="desktop">Your desktop</h2>
+<p>Copied secrets are cleared from the clipboard after 30 seconds and, on Windows, kept out of the clipboard history. The app's window shows only its own page.</p>
+<h3>Limits</h3>
+<ul>
+  <li>Whatever is shown or typed on your desktop is exposed to malware running as you: it can record keys, capture the screen, read the clipboard or draw a fake window. Every password manager shares this limit.</li>
+  <li>With <b>Open with my Windows session</b> on, anyone or any program using your unlocked session can open the vault. Revealing, copying, exporting and sharing still ask for Windows Hello or a password once; ordinary AI approvals stay one click, so such a program could approve one.</li>
+</ul>
+
+<h2 id="browser">Browser autofill</h2>
+<ul>
+  <li>The service decides which logins belong to a page, by the site's registrable domain. Look-alike domains, plain <code>http</code> pages for <code>https</code> logins and other sites on shared hosting get nothing, not even names.</li>
+  <li>Nothing is filled on page load. A value is handed over only after your click in the extension's own menu, or its shortcut, and only to the page the service matched. Hidden fields and frames from other sites are never filled.</li>
+  <li>The extension talks to the app through the browser's native messaging. No network port is opened.</li>
+  <li>Team credentials you may only use are never filled.</li>
+</ul>
+<h3>Limits</h3>
+<ul>
+  <li>A genuine site that has itself been compromised receives what you fill in there.</li>
+  <li>By default a login saved for <code>example.com</code> is offered on its subdomains too. “Only this exact address” restricts it.</li>
+  <li>Treat a connected browser like the unlocked vault: a program running as you that reads the extension's connection key can ask for logins while the vault is unlocked. Each one is recorded in Activity.</li>
+  <li>The extension is not in the browser stores yet; it is loaded from the app's folder.</li>
+</ul>
+
+<h2 id="teams">Teams</h2>
+<ul>
+  <li><b>End-to-end encrypted.</b> Credentials, their names and collection names are encrypted on your PC (X25519 and AES-256-GCM). The server stores ciphertext and public keys.</li>
+  <li><b>Signed by people, not by the server.</b> Who is in a collection, every change and every deletion is signed by the member who made it. A hostile server cannot add someone, forge a change or delete a credential without your app noticing.</li>
+  <li><b>Keys you compare.</b> You confirm a teammate by comparing a security code out loud. If their key ever changes, the app tells you before anything else is shared.</li>
+  <li><b>Risky changes wait.</b> A teammate's change to where a shared key may go, or to the description your AI reads, is held until you accept it. Many deletions at once are held too.</li>
+  <li><b>Leaving re-keys.</b> When someone is removed, their collections get new keys and everything they could see is listed to be changed.</li>
+</ul>
+<h3>Limits</h3>
+<ul>
+  <li>The server, and anyone who compromises it, sees metadata: e-mail addresses, organization names, who belongs to what, permissions, counts, sizes and times. It can also refuse service or withhold changes.</li>
+  <li><b>Use only</b> is enforced by the app, not by cryptography. A teammate with a modified app could extract a key they may use.</li>
+  <li>Re-keying protects the future. What a former member saw must be changed at the provider.</li>
+  <li>The first time you see a new teammate you trust the key the server shows, unless you compare codes. Compare them.</li>
+  <li>A weak account password can be guessed offline by someone who controls the server. The recovery code opens the account for whoever holds it: keep it like a password, away from the PC it protects.</li>
+</ul>
+
+<h2 id="updates">Updates and installers</h2>
+<p>The app installs an update only if it is signed with the project's release key, whose public half is built into the app you already have. The signature covers the version, so an old release cannot be passed off as new. The release pipeline installs dependencies from hash-pinned lists and signs in a separate step that sees nothing else.</p>
+<h3>Limits</h3>
+<ul>
+  <li>The installers are <b>not code-signed</b> for Windows or macOS yet. Windows SmartScreen and macOS warn on the first install, and nothing but HTTPS to GitHub vouches for that first download. <a href="[[L]]guide/#install">The guide</a> shows what you will see.</li>
+  <li>The macOS version is a preview that has not been tried on real Macs, and Touch ID waits for the signed version.</li>
+  <li>Whoever holds the release key can ship code to every installation. It is kept as a secret of the project's build pipeline.</li>
+</ul>
+
+<h2 id="not-yet">What has not been done yet</h2>
+<ul>
+  <li>An independent, professional security audit.</li>
+  <li>Code-signed installers and reproducible builds.</li>
+  <li>The browser extension in the Chrome, Edge and Firefox stores.</li>
+  <li>Testing on real Macs, and a mobile app.</li>
+</ul>
+<p>These are on the <a href="[[GH]]/blob/main/docs/ROADMAP.md" rel="noopener">roadmap</a>. Until then the best evidence is the code itself, which is open.</p>
+
+<h2 id="report">Report a vulnerability</h2>
+<p>Please do not open a public issue. Use <a href="[[GH]]/security/advisories/new" rel="noopener">Report a vulnerability</a> on GitHub, with the version, the steps and the impact, using fake credentials only. The project aims to acknowledge within 3 working days and to give a first assessment within 10. Fixes are made on the latest release, so update before reporting. The details are in the <a href="[[GH]]/blob/main/SECURITY.md" rel="noopener">security policy</a>.</p>

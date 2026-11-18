@@ -1,0 +1,208 @@
+title: Primeros pasos con SecretBroker: la guía de uso
+description: Instala SecretBroker en Windows, Ubuntu o macOS, crea tu bóveda, añade e importa contraseñas, rellénalas en el navegador, haz copias de seguridad y pásate a otro PC. Escrita para quien nunca ha usado un gestor de contraseñas.
+h1: Primeros pasos
+lede: Desde la descarga hasta tu primera contraseña guardada, para quien nunca ha usado un gestor de contraseñas. Los botones y las pantallas se llaman aquí igual que en la app en español.
+section: guide
+---
+<h2 id="basics">La idea, en un minuto</h2>
+<p>Un gestor de contraseñas guarda todas tus contraseñas en un único archivo cifrado, la <b>bóveda</b>. La abres con una sola contraseña, la <b>contraseña maestra</b>. Como ya no tienes que recordar las demás, cada una puede ser larga, aleatoria y distinta.</p>
+<ul>
+  <li>SecretBroker guarda la bóveda <b>en tu ordenador</b>. No hay que crear ninguna cuenta y no se sube nada.</li>
+  <li>Una <b>credencial</b> es como llama la app a cualquier cosa que guarda: el acceso a una web, una API key, el acceso a un servidor.</li>
+  <li>Si no usas herramientas de IA, no hagas caso de lo que hable de «la IA». Cuando la instalación te ofrezca conectar una, elige <b>Ahora no</b>.</li>
+</ul>
+
+<h2 id="install">Instalarlo</h2>
+<p>Descarga el instalador de tu sistema en la <a href="[[HOME]]#download">sección de descargas</a>. SecretBroker funciona en Windows 10 y 11 y en Ubuntu 22.04, 24.04 y 26.04. La versión para macOS es una vista previa.</p>
+
+<h3 id="install-windows">Windows</h3>
+<ol class="steps">
+  <li>Descarga <code>SecretBroker-Setup-&lt;versión&gt;.exe</code>. Puede que el navegador te diga que el archivo no se descarga habitualmente; elige conservarlo.</li>
+  <li>Abre el archivo. Hoy por hoy, Windows se detiene aquí con una ventana azul:
+    <div class="seen"><span class="label">Lo que muestra Windows</span><p class="title">Windows protegió su PC</p><p><u>Más información</u></p></div>
+    <p>El texto dice que SmartScreen ha impedido el inicio de una aplicación desconocida. Pulsa <b>Más información</b>. La ventana muestra entonces el nombre del archivo, indica que el editor es desconocido y aparece un botón nuevo: pulsa <b>Ejecutar de todas formas</b>.</p>
+  </li>
+  <li>Windows te pregunta si permites que el programa haga cambios en el equipo, otra vez con un editor desconocido. Responde <b>Sí</b>.</li>
+  <li>El instalador se abre en el idioma de Windows. Síguelo y termina con <b>Abrir SecretBroker</b>. No necesita conexión a internet.</li>
+</ol>
+<aside class="note warn"><p><b>¿Por qué sale ese aviso?</b> El instalador aún no está firmado con un certificado de firma de código, así que Windows no puede saber quién lo publica. Muestra la misma ventana con cualquier programa de un editor que no reconoce; no ha encontrado nada en el archivo. Firmar el instalador está en la hoja de ruta. Hasta entonces, descárgalo solo desde los botones de esta web o desde la página de <a href="[[GH]]/releases" rel="noopener">GitHub Releases</a> del proyecto.</p></aside>
+<p>Por qué pide permiso de administrador: el instalador crea una cuenta de Windows oculta llamada <code>SecretBroker</code>, que no puede iniciar sesión, y una carpeta que solo esa cuenta puede leer. Eso es lo que mantiene a tus otros programas lejos de la bóveda. La app se instala en <code>C:\Program Files\SecretBroker</code>, arranca con Windows y se queda junto al reloj.</p>
+
+<h3 id="install-ubuntu">Ubuntu</h3>
+<ol class="steps">
+  <li>Descarga <code>secretbroker_&lt;versión&gt;_amd64.deb</code>.</li>
+  <li>Haz doble clic en él y elige <b>Instalar</b> en el instalador de software. Te pide la contraseña una vez. Si el doble clic no te ofrece instalarlo, abre una terminal en la carpeta de descargas y ejecuta <code>sudo apt install ./secretbroker_*_amd64.deb</code>.</li>
+  <li>Abre <b>SecretBroker</b> desde la cuadrícula de aplicaciones. El icono junto al reloj necesita la extensión AppIndicator, que Ubuntu trae activada.</li>
+</ol>
+<p>El paquete no viene de los repositorios de Ubuntu, así que Ubuntu puede recordarte que es software de terceros. Todavía no hay repositorio apt: la app se actualiza sola y te pide la contraseña al hacerlo.</p>
+<aside class="note warn"><p><b>En Ubuntu, cifra el disco.</b> Para que la contraseña del sistema pueda abrir la bóveda, Ubuntu guarda lo necesario en archivos del disco. En un equipo sin el disco cifrado, quien se lleve el disco puede abrir la bóveda sin la contraseña maestra. El instalador de Ubuntu ofrece cifrar el disco entero: úsalo.</p></aside>
+
+<h3 id="install-macos">macOS (vista previa)</h3>
+<aside class="note"><p><b>Qué significa «vista previa».</b> La versión para Mac la compilan e instalan las pruebas automáticas, pero el proyecto aún no la ha probado en un Mac real. El paquete no está firmado, Touch ID no funciona hasta que lo esté y no hay desinstalador. Úsala si te apetece probar.</p></aside>
+<ol class="steps">
+  <li>Descarga el paquete de tu Mac: <code>…-macos-arm64.pkg</code> para Apple silicon (M1 y posteriores) o <code>…-macos-x86_64.pkg</code> para Intel. El menú Apple › Acerca de este Mac te dice cuál tienes.</li>
+  <li>Ábrelo. macOS se niega y dice que no se puede verificar, porque aún no está firmado con un Developer ID de Apple.</li>
+  <li>Haz clic derecho (o Control-clic) en el archivo y elige <b>Abrir</b>. Si por ahí no te deja, que es lo que ocurre en las versiones recientes de macOS, abre <b>Ajustes del Sistema › Privacidad y seguridad</b>, baja hasta Seguridad y pulsa <b>Abrir igualmente</b>.</li>
+  <li>Sigue el instalador. Te pide la contraseña de un administrador.</li>
+</ol>
+<p>Hasta que exista la versión firmada, desbloqueas con la contraseña del Mac o con la maestra una vez por sesión; después, aprobar es un clic.</p>
+
+<h3 id="updates">Actualizar y desinstalar</h3>
+<p>Cuando hay una versión nueva, la barra lateral muestra <b>Actualizar a &lt;versión&gt;</b>. Púlsalo: el instalador se descarga de GitHub y solo se instala si lleva la firma del proyecto. Tu bóveda y tus ajustes se conservan y la app se reabre sola. <b>Ajustes › Actualizaciones › Buscar ahora</b> lo comprueba cuando quieras.</p>
+<p>Para desinstalar en Windows, usa «Aplicaciones instaladas». El desinstalador pregunta si quieres borrar también la bóveda; si no dices que sí, se conserva. En Ubuntu, quitar el paquete conserva las bóvedas y purgarlo las borra.</p>
+
+<h2 id="vault">Crear tu bóveda</h2>
+<p>La primera vez que abres SecretBroker te lleva por cuatro pantallas cortas.</p>
+[[shot:welcome|La primera pantalla de SecretBroker, con el botón Empezar y los enlaces Restaurar una copia e Importar de otro gestor.|La primera pantalla.]]
+<ol class="steps">
+  <li>En la primera pantalla, pulsa <b>Empezar</b>. El idioma se cambia abajo. Si vienes de otro ordenador, aquí está también <b>Restaurar una copia</b>.</li>
+  <li><b>Elige una contraseña maestra</b>: escríbela dos veces (12 caracteres o más) y pulsa <b>Crear bóveda</b>. El <a href="#master-password">apartado siguiente</a> te ayuda a elegirla.</li>
+  <li><b>¿Cómo quieres abrirla cada día?</b> Elige una opción y pulsa <b>Continuar</b>:
+    <ul>
+      <li><b>Windows Hello (PIN, huella o cara)</b>, si tu PC lo tiene. Te lo pide al abrir la bóveda y al ver o copiar una contraseña.</li>
+      <li><b>Abrir con mi sesión de Windows</b>. La bóveda se abre al entrar en Windows y se cierra al bloquearlo. Es cómodo, con un coste que la app dice sin rodeos: te protege de los errores de la IA, no de alguien que use tu sesión de Windows, porque cualquier programa tuyo podría abrirla.</li>
+      <li><b>Escribir la contraseña maestra cada vez</b>. Lo más estricto, y lo más pesado.</li>
+    </ul>
+  </li>
+  <li><b>Conecta tu IA</b> es el último paso. Si no usas herramientas de IA, pulsa <b>Ahora no</b>. Si las usas, mira <a href="developers.html#connect">la guía para desarrolladores</a>.</li>
+</ol>
+[[shot:setup-unlock|La pantalla que pregunta cómo abrir la bóveda cada día, con Abrir con mi sesión de Windows elegida y marcada como recomendada.|El tercer paso: cómo se abre la bóveda en el día a día. En Ubuntu y macOS la pantalla nombra tu sistema en lugar de Windows.]]
+
+<h2 id="master-password">Elegir una buena contraseña maestra</h2>
+<p>Es la contraseña que protege a todas las demás, y la única que nadie puede restablecer por ti desde fuera de tu PC.</p>
+<ul>
+  <li><b>Que sea larga.</b> La app pide al menos 12 caracteres. Cuatro o cinco palabras sin relación entre sí forman una frase fácil de recordar y difícil de adivinar.</li>
+  <li><b>No la uses en ningún otro sitio.</b></li>
+  <li><b>Apúntala en papel</b> y guarda el papel en casa. Con Windows Hello o con la sesión de Windows la escribirás tan pocas veces que es fácil olvidarla, y la necesitas para restaurar una copia o pasarte a otro PC.</li>
+</ul>
+<p>Para cambiarla más adelante: <b>Ajustes › Seguridad › Contraseña maestra › Cambiar</b>.</p>
+
+<h2 id="first-password">Añadir tu primera contraseña</h2>
+<ol class="steps">
+  <li>En <b>Credenciales</b>, pulsa <b>Nueva</b> (o <kbd>Ctrl</kbd>+<kbd>N</kbd>) y elige <b>Web o servicio</b>.</li>
+  <li>Rellena <b>Nombre</b>, <b>Dirección web</b>, <b>Usuario o e-mail</b> y <b>Contraseña</b>. Si estás creando la cuenta en ese momento, <b>Generar</b> te escribe una contraseña fuerte.</li>
+  <li>Pulsa <b>Guardar</b>. Puede que la app te pida confirmar que eres tú.</li>
+</ol>
+[[shot:new-item|El diálogo Nueva credencial con sus tipos: Web o servicio, API key o token, Servidor SSH, Base de datos, Nube (AWS), Otro secreto y Configuración (no secreta).|Nueva credencial: para el acceso a una web, elige Web o servicio.|focus]]
+<p>Tu acceso ya está en la lista. El ojo muestra la contraseña y los dos cuadrados la copian; el portapapeles se borra a los 30 segundos. Las <b>Etiquetas</b> agrupan credenciales, por ejemplo por proyecto, y <kbd>Ctrl</kbd>+<kbd>F</kbd> busca.</p>
+<p>El <b>Generador de contraseñas</b> también va por libre, al pie de la barra lateral o con <kbd>Ctrl</kbd>+<kbd>G</kbd>: una contraseña <b>Aleatoria</b> de 12 a 128 caracteres o una <b>Frase de palabras</b> cortas.</p>
+
+<h2 id="import">Importar de un navegador o de otro gestor</h2>
+<p>SecretBroker lee lo que exportan <b>Chrome, Edge, Firefox, Bitwarden, 1Password, KeePass y KeePassXC</b>. Nunca lee por su cuenta los datos de otro programa: tú exportas un archivo allí y lo eliges aquí.</p>
+<ol class="steps">
+  <li>Abre la importación: con la bóveda vacía, <b>Importar de otro gestor</b>; más adelante, el botón <b>⋯</b> junto a Nueva, o <b>Ajustes › Importar y exportar</b>.</li>
+  <li>Elige de dónde vienes. El diálogo te dice dónde está la exportación en ese programa. Por ejemplo:
+    <ul>
+      <li><b>Chrome</b>: Configuración → Autocompletar y contraseñas → Gestor de contraseñas de Google → Configuración → Exportar contraseñas → Descargar archivo.</li>
+      <li><b>Edge</b>: Configuración → Perfiles → Contraseñas → … (Más acciones) → Exportar contraseñas.</li>
+      <li><b>Bitwarden</b>: exporta en <code>.json</code>, no en «.json (Encrypted)». Trae carpetas, notas y códigos 2FA; también vale <code>.csv</code>.</li>
+      <li><b>1Password</b>: exporta en CSV. El formato <code>.1pux</code> no se puede leer.</li>
+    </ul>
+  </li>
+  <li>Pulsa <b>Elegir el archivo…</b>. Primero ves la lista, solo los nombres: las que ya tienes salen marcadas y tú decides cuáles traer. Después, <b>Importar</b>.</li>
+  <li>Al terminar, la app te recuerda que el archivo exportado tiene todas tus contraseñas sin cifrar. Pulsa <b>Borrar el archivo</b>, y borra también las copias que queden en Descargas, en el correo o en la nube.</li>
+</ol>
+[[shot:import|El diálogo Importar de otro gestor, con una pestaña por origen y los pasos para exportar desde cada uno.|El diálogo explica cómo exportar desde cada programa.]]
+<p>Las carpetas pasan a ser etiquetas, y las notas y los campos extra van a <b>Notas privadas</b>. Después, <b>Ver la salud</b> te enseña las contraseñas débiles o repetidas que traías.</p>
+
+<h2 id="browser">Rellenar contraseñas en el navegador</h2>
+<p>La extensión del navegador rellena el usuario, la contraseña y el código 2FA en <b>Chrome, Edge, Brave y Firefox</b>. Aún no está en las tiendas de extensiones, así que por ahora se carga desde la carpeta de la app. Son dos minutos y no hace falta terminal.</p>
+<ol class="steps">
+  <li>En la app, abre <b>Ajustes › Navegador</b> y pulsa <b>Instalar la extensión</b>. Elige tu navegador en la parte de arriba del diálogo.</li>
+  <li><b>Chrome, Edge, Brave</b>: pulsa <b>Abrir extensiones de Chrome</b> (o de tu navegador), activa <b>Modo de desarrollador</b>, pulsa <b>Cargar descomprimida</b> y elige la carpeta de la extensión de SecretBroker. El diálogo muestra la carpeta, con <b>Copiar ruta</b> y <b>Mostrar</b>.
+    <p><b>Firefox</b>: pulsa <b>Abrir Firefox</b>, después <b>Cargar complemento temporal…</b> y elige el archivo <code>manifest.json</code> de esa carpeta. En el botón de extensiones de la barra, permite que SecretBroker acceda a todas las webs.</p></li>
+  <li>Fija el icono de SecretBroker en la barra, ábrelo y pulsa <b>Conectar</b>. La app pregunta <b>¿Conectar Chrome?</b> y muestra un código de seis cifras: comprueba que la extensión muestra el mismo y pulsa <b>Conectar</b>. Si no acabas de pulsar Conectar en el navegador, elige <b>Rechazar</b>.</li>
+</ol>
+[[shot:extension-install|El diálogo Instalar la extensión con los cuatro pasos para Chrome.|Las instrucciones de la propia app, para cada navegador.]]
+[[shot:extension-pair|El diálogo ¿Conectar Chrome? con un código de seis cifras para compararlo con el de la extensión.|En la extensión tiene que aparecer el mismo código.]]
+<p>A partir de ahí, en una página de inicio de sesión, pulsa el botón de SecretBroker dentro del campo o <kbd>Alt</kbd>+<kbd>Mayús</kbd>+<kbd>L</kbd>. <kbd>Ctrl</kbd>+<kbd>Mayús</kbd>+<kbd>Y</kbd> abre la extensión. También te ofrece guardar los accesos nuevos y las contraseñas que cambies.</p>
+<ul>
+  <li>Un acceso solo se ofrece en la web donde se guardó. Una dirección parecida, el truco habitual de los correos de <i>phishing</i>, no recibe nada.</li>
+  <li>No se rellena nada hasta que tú lo pides.</li>
+  <li>Chrome, Edge y Brave pueden avisar al arrancar de que hay extensiones en modo de desarrollador: es esta. Firefox olvida los complementos temporales al cerrarse, así que hasta que la extensión esté en addons.mozilla.org hay que cargarla cada vez.</li>
+</ul>
+
+<h2 id="2fa">Códigos de dos pasos (2FA)</h2>
+<p>Muchas webs ofrecen la verificación en dos pasos con una «app de autenticación»: además de la contraseña escribes un código de seis cifras que cambia cada 30 segundos. SecretBroker puede ser esa app.</p>
+<ol class="steps">
+  <li>En la web, activa la verificación en dos pasos y elige la opción de app de autenticación. La web muestra un código QR y, debajo o tras un enlace del tipo «¿no puedes escanearlo?», una clave de letras y números.</li>
+  <li>Copia esa clave. En SecretBroker, abre el acceso, pulsa <b>Editar</b> y pégala en <b>Código 2FA (TOTP)</b>. Pulsa <b>Guardar</b>.</li>
+  <li>El acceso muestra ya el código del momento, con <b>Mostrar el código</b> y <b>Copiar el código</b>. Escríbelo en la web para terminar de activarlo.</li>
+</ol>
+[[shot:vault|Un acceso abierto en la bóveda: su dirección, el usuario, la contraseña oculta y el código 2FA de seis cifras con su cuenta atrás.|El código está junto a la contraseña y se renueva solo.]]
+<p>Guarda en las <b>Notas privadas</b> del acceso los códigos de recuperación que te dé la web. Algo que conviene pensar: una bóveda que guarda la contraseña y el código guarda los dos pasos. Para las pocas cuentas más importantes quizá prefieras tener el código en el móvil.</p>
+
+<h2 id="backups">Copias de seguridad, restaurar y cambiar de PC</h2>
+<p>Tu bóveda solo existe en tu ordenador. Sin una copia, un disco estropeado se lleva todas las contraseñas.</p>
+<h3>Activa la copia diaria</h3>
+<p>Abre <b>Ajustes › Copia de seguridad</b> y pulsa <b>Activar</b> junto a <b>Copia diaria automática</b>. Cada día se copia la bóveda cifrada a una carpeta: OneDrive si lo tienes, para que la copia esté fuera del PC, y si no, Documentos. <b>Cambiar carpeta</b> elige otra, como un USB. Se guardan las 10 últimas, y <b>Hacer copia ahora</b> hace una al momento.</p>
+<h3>Restaurar una copia</h3>
+<p><b>Ajustes › Copia de seguridad › Restaurar…</b> sustituye la bóveda por una copia. Necesitas la contraseña maestra que tenía la bóveda cuando se hizo esa copia. La bóveda actual se guarda aparte, por si acaso.</p>
+<h3>Pasarte a otro PC</h3>
+<p><b>Ajustes › Cambiar de PC › Pasar a otro PC › Ver los pasos</b> te guía:</p>
+<ol class="steps">
+  <li><b>Guardar copia…</b> escribe tu bóveda en un archivo cifrado. Llévalo en un USB o déjalo en una carpeta de tu nube.</li>
+  <li>En el PC nuevo, instala SecretBroker. En la primera pantalla elige <b>Restaurar una copia</b>, abre ese archivo y escribe tu contraseña maestra.</li>
+  <li>Cuando todo funcione, desinstala SecretBroker del PC antiguo si no vas a usarlo más.</li>
+</ol>
+[[shot:move-pc|El diálogo Pasar a otro PC con sus pasos numerados.|Los pasos, tal como los muestra la app.]]
+<p>Windows Hello y «Abrir con mi sesión de Windows» son de cada PC: actívalos otra vez en el nuevo, en <b>Ajustes › Seguridad</b>.</p>
+<h3>Exportar, que es otra cosa</h3>
+<p><b>Ajustes › Importar y exportar › Exportar…</b> escribe tus credenciales en un archivo para otra herramienta: <b>Cifrada</b>, con la contraseña que elijas, o <b>Sin cifrar (CSV)</b> o <b>(JSON)</b>, que leen Bitwarden, 1Password, KeePassXC y los navegadores. Una exportación sin cifrar tiene todas las contraseñas a la vista: impórtala enseguida y bórrala.</p>
+
+<h2 id="forgot">Si olvidas la contraseña maestra</h2>
+<p>Lo que puedes hacer depende de dónde esté tu bóveda.</p>
+<h3>En el ordenador donde está la bóveda</h3>
+<ol class="steps">
+  <li>En la pantalla de bloqueo, pulsa <b>¿Has olvidado la contraseña maestra?</b></li>
+  <li>El diálogo <b>Recuperar el acceso</b> te deja entrar con <b>Windows Hello</b> o con tu <b>Contraseña de Windows</b> (en Ubuntu y macOS, la contraseña del sistema).</li>
+  <li>Una vez dentro, la app te pide elegir una contraseña maestra nueva.</li>
+</ol>
+[[shot:lock|La pantalla de bloqueo, con el enlace ¿Has olvidado la contraseña maestra? bajo el botón de desbloquear.|El enlace está en la pantalla de bloqueo.]]
+<p>Si la bóveda ya está abierta, <b>Ajustes › Seguridad › Contraseña maestra › Cambiar</b> hace lo mismo tras confirmar con Windows.</p>
+<p>Esto solo funciona en ese PC, y tiene una consecuencia que conviene saber: en ese PC, tu bóveda es tan segura como tu inicio de sesión de Windows. Usa una buena contraseña o un buen PIN de Windows.</p>
+<h3>Desde una copia, o en otro ordenador</h3>
+<p>Una copia solo se abre con la contraseña maestra que tenía la bóveda cuando se hizo. Si el ordenador se pierde o se rompe y no recuerdas esa contraseña, nadie puede abrir la copia: ni tú, ni el proyecto, que nunca tiene tu bóveda ni tu contraseña. Por eso importa el papel.</p>
+
+<h2 id="locking">Bloquear y desbloquear</h2>
+<ul>
+  <li><b>Bloquear ahora</b>: <kbd>Ctrl</kbd>+<kbd>L</kbd>, el candado al pie de la barra lateral, o <b>Bloquear</b> en el menú del icono junto al reloj.</li>
+  <li><b>Bloqueo automático</b> (Ajustes › Seguridad): tras 15 minutos, 30 minutos, 1 hora o 4 horas sin uso, o nunca.</li>
+  <li><b>Windows Hello</b> (Ajustes › Seguridad): <b>Activar</b> para desbloquear y mostrar contraseñas con tu PIN, huella o cara. Ubuntu no tiene equivalente; en Mac, Touch ID llegará con la versión firmada.</li>
+  <li><b>Abrir con mi sesión de Windows</b> (Ajustes › Seguridad): la bóveda sigue a tu sesión de Windows. Recuerda lo que significa: cualquier persona, o cualquier programa, que use tu sesión desbloqueada puede abrirla.</li>
+</ul>
+[[shot:settings|La pantalla de Ajustes, apartado Seguridad: Windows Hello, Contraseña maestra, Abrir con mi sesión de Windows y Bloqueo automático.|Ajustes › Seguridad.]]
+<p>Cerrar la ventana no cierra SecretBroker: se queda junto al reloj, donde están <b>Abrir SecretBroker</b>, <b>Bloquear</b> y <b>Salir</b>. <b>Ajustes › Aplicación › Arrancar con Windows</b> decide si arranca solo.</p>
+<aside class="note"><p>Desbloquea solo en la ventana de SecretBroker. La app nunca te pide la contraseña en ningún otro sitio.</p></aside>
+
+<h2 id="health">Revisar la salud de tus contraseñas</h2>
+<p><b>Salud</b>, en la barra lateral, da una puntuación de 0 a 100 y la lista de lo que conviene arreglar primero: contraseñas débiles, repetidas en varios sitios, antiguas, caducadas o que aparecen en filtraciones conocidas. <b>Revisar ahora</b> la pone al día.</p>
+[[shot:health|La pantalla Salud con una puntuación de 50, la lista de credenciales por cambiar y un botón Rotar con ayuda en cada una.|Cada problema tiene su botón.]]
+<p>Cada línea tiene <b>Rotar con ayuda</b>: la app genera una contraseña nueva, te la copia para que la pegues en la página de «cambiar contraseña» de la web y la guarda cuando confirmas que la web la ha aceptado.</p>
+<p>Para saber si una contraseña está en una filtración conocida, la app pregunta al servicio Have I Been Pwned de una forma que no la revela: de tu PC solo salen los cinco primeros caracteres de una huella de la contraseña. La <a href="[[L]]privacy.html">página de privacidad</a> da los detalles.</p>
+
+<h2 id="trouble">Cuando algo va mal</h2>
+<h3>«No se puede conectar con el servicio»</h3>
+<p>El servicio de SecretBroker arranca con el ordenador. Si acabas de instalar, espera unos segundos o reinicia el PC.</p>
+<h3>He cerrado la ventana y no encuentro la app</h3>
+<p>Sigue en marcha junto al reloj. Pulsa su icono y elige <b>Abrir SecretBroker</b>. En Ubuntu el icono necesita la extensión AppIndicator.</p>
+<h3>La extensión no me ofrece mi acceso</h3>
+<ul>
+  <li>¿Está la bóveda desbloqueada? La extensión solo puede rellenar mientras lo está.</li>
+  <li><b>Ajustes › Navegador</b> debe decir que el navegador está <b>Conectado</b>. Si no, abre la extensión y pulsa <b>Conectar</b> otra vez. En Firefox hay que cargar el complemento de nuevo tras cada reinicio.</li>
+  <li>Puede que el acceso esté guardado con otra dirección. Edítalo y revisa <b>Dirección web</b>; <b>Otras direcciones</b> añade más webs para la misma cuenta.</li>
+</ul>
+<h3>La importación no reconoce mi archivo</h3>
+<p>Exporta de nuevo en CSV o, desde Bitwarden, en <code>.json</code> sin cifrar. Las exportaciones cifradas de Bitwarden y el <code>.1pux</code> de 1Password no se pueden leer.</p>
+<h3>Una actualización no se instala</h3>
+<p>Descarga el instalador actual en esta web y ejecútalo encima del que tienes. Tu bóveda y tus ajustes se conservan.</p>
+
+<h2 id="help">Pedir ayuda</h2>
+<ul>
+  <li><b>Dudas y fallos</b>: abre una incidencia en <a href="[[GH]]/issues" rel="noopener">GitHub</a>. Las incidencias son públicas: no pegues nunca una contraseña ni una clave, y revisa las capturas antes de adjuntarlas. Di qué versión tienes; está al final de Ajustes.</li>
+  <li><b>Problemas de seguridad</b>: por favor, no abras una incidencia pública. Avisa en privado desde la pestaña Security del repositorio, <a href="[[GH]]/security/advisories/new" rel="noopener">Report a vulnerability</a>. La <a href="[[GH]]/blob/main/SECURITY.md" rel="noopener">política de seguridad</a> (en inglés) dice qué incluir y cuándo esperar respuesta.</li>
+</ul>
+<div class="next">
+  <a href="developers.html"><b>Para desarrolladores</b><span>Conectar tu IA, las aprobaciones, los .env, sb run, la rotación y la búsqueda de filtraciones.</span></a>
+  <a href="teams.html"><b>Para equipos</b><span>El servidor de equipos, las invitaciones, los permisos y qué pasa cuando alguien se va.</span></a>
+</div>

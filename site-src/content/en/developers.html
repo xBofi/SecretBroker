@@ -1,0 +1,133 @@
+title: SecretBroker for developers: AI agents, .env files, rotation and leak scanning
+description: Connect Claude Code, Cursor or another AI agent to SecretBroker, decide what it may do, move a project's .env into the vault, run apps with sb run, rotate keys with help and find the ones that leaked.
+h1: For developers
+lede: Connect an AI agent, decide what it may do, run your own apps from the vault, rotate keys and find the ones that leaked. If you have not installed SecretBroker yet, <a href="[[L]]guide/#install">start with the guide</a>.
+section: developers
+---
+<h2 id="connect">Connect your AI</h2>
+<p>SecretBroker is an MCP server on your own machine. The app connects the clients it knows with one click: <b>Claude Code, Claude Desktop, Cursor, VS Code (Copilot), Windsurf and Codex</b>.</p>
+<ol class="steps">
+  <li>Open <b>AI access</b> and click <b>Connect another AI</b>. The same screen is the last step of the setup, and <b>Connect your AI</b> on an empty vault.</li>
+  <li>Click <b>Connect</b> next to your client. Then let it notice: open a new session in Claude Code or Codex, restart Cursor or Windsurf, reload VS Code and use Copilot Chat in Agent mode, or quit Claude Desktop completely (next to the clock too) and open it again.</li>
+  <li>Try it. The screen offers a phrase to paste into your AI: <i>“Use SecretBroker: call list_secrets and tell me which credentials I have saved, without showing any value.”</i> When the request arrives, the app says who it came from.</li>
+</ol>
+[[shot:connect-ai|The Connect your AI screen: a list of AI clients with a Connect button each, a phrase to try and a line waiting for the first request.|Connect your AI.]]
+<p>On Windows the installer already connects Claude Code and Claude Desktop if they are installed. The MCP endpoint listens on <code>127.0.0.1</code> only, asks for a token and checks where requests come from, so a web page cannot drive it.</p>
+
+<h2 id="add-key">Add an API key</h2>
+<ol class="steps">
+  <li>In <b>Credentials</b>, click <b>New</b> and choose <b>API key or token</b>.</li>
+  <li>Paste the key. For known providers (OpenAI, Anthropic, GitHub, Stripe, Cloudflare and others) the <b>API URL</b>, <b>How the key is sent</b> and the <b>Environment variable</b> are filled in for you.</li>
+  <li>Write <b>Instructions for the AI</b> if it helps: what the key is for and how it should be used. The AI reads this text, so put nothing secret in it. <b>Private notes</b> are only for you.</li>
+</ol>
+[[shot:api-key|An API key credential open in the vault: the key hidden, its API URL, how it is sent, its environment variable and the instructions for the AI.|An API key. The AI knows its name and instructions, never its value.]]
+<p>Under <b>AI permissions</b> each credential says where it may go:</p>
+<ul>
+  <li><b>Websites where it can use it</b>: domains, separated by commas. The key is never sent anywhere else, only over HTTPS, and redirects are not followed.</li>
+  <li><b>Programs that can use it</b>: names such as <code>gh</code> or <code>psql</code>. They receive the key in the <b>Environment variables</b> you list.</li>
+  <li><b>Ask for your approval</b>: <b>Once per session</b>, <b>Always</b> or <b>Never</b>.</li>
+</ul>
+<p>Your agent can also prepare a credential with everything but the secret. It appears in the app as <i>“The AI prepared this credential. Paste the key and it's ready to use.”</i> The other types are <b>SSH server</b>, <b>Database</b>, <b>Cloud (AWS)</b>, <b>Other secret</b> and <b>Configuration (not secret)</b>, for IDs your programs need that are not secrets.</p>
+
+<h2 id="approvals">How approvals work</h2>
+<p>When the agent uses a credential that asks, the app comes to the front with the request: who is asking, <b>What for, according to the AI</b>, which credential, and the exact request or command.</p>
+[[shot:approval|The approval dialog: Claude Code wants to use a credential, the reason it gave, the Stripe credential, the GET request and the buttons Deny, Just this once and Allow for 24 hours.|One click. The request shown is the one that will be made.|focus]]
+<ul>
+  <li><b>Just this once</b> allows this request. <b>Allow for 24 hours</b> lets that client use that credential without asking again. <b>Deny</b> refuses, and <b>Decide later</b> leaves it waiting until it expires, when the agent gets an error.</li>
+  <li><b>Settings › Security › Remember approvals</b> sets how long “allow” lasts: 8 hours, 24 hours or until you lock. Locking by hand forgets every approval.</li>
+  <li><b>One request per task.</b> An agent can ask at the start for everything a task needs, with its reasons, and you allow them together.</li>
+  <li><b>Ask again if it's used a lot.</b> Even an approved credential asks again after 100 uses in an hour (50, 100, 500 or no limit). It stops loops and surprises.</li>
+  <li>If a command looks like it deletes, stops or modifies data, the dialog says so before you allow it.</li>
+</ul>
+<h3>The AI access page</h3>
+[[shot:ai-access|The AI access page: connected clients, the Pause the AI switch and the table of what the AI can do.|AI access.]]
+<ul>
+  <li><b>Approved now</b> lists what the AI may use without asking, and until when. <b>Withdraw</b> takes one approval back; <b>Withdraw all</b>, every one.</li>
+  <li><b>Pause the AI</b> cuts everything off at once without locking the vault: the AI cannot use, create or even list credentials. It is also in the menu of the icon next to the clock.</li>
+  <li><b>What the AI can do</b>, besides using credentials: for each action (handing keys to programs on this PC, preparing new credentials, changing names and notes, changing where a key may go, uploading to GitHub) you choose <b>Free</b>, <b>Notify me</b>, <b>Ask me</b> or <b>Never</b>.</li>
+</ul>
+
+<h2 id="env">Move a project's .env into the vault</h2>
+<p><b>In the app</b>: <b>Import a project's .env</b>, on an empty vault or in the <b>⋯</b> menu next to New. Pick the file, tick its keys (you only see names) and click <b>Import</b>. Then <b>Remove from file</b> takes them out of the <code>.env</code>; the other variables stay.</p>
+[[shot:env-import|The Import a project's .env dialog: variable names with a tick each, and a note on the ones that do not look like keys.|Names only. The values go straight into the vault.]]
+<p><b>From a terminal</b>, or by asking your agent, since the command never prints a value:</p>
+<pre><code>sb import .env --delete</code></pre>
+<p>It stores the variables that look like keys (names with KEY, TOKEN, SECRET, PASSWORD…, or URLs with a password), leaves the rest (<code>PORT</code>, <code>NODE_ENV</code>…) where they were, and shows you the list of names in the app to confirm. <code>--all</code> imports every variable and <code>--project</code> sets the prefix of the new names. Keys of known providers arrive already configured.</p>
+<p>Either way the project folder gets a <code>.secretbroker</code> file with the names of the credentials and no values. It can be committed.</p>
+
+<h2 id="sb-run">Run your apps with sb run</h2>
+<p><code>.secretbroker</code> says which credential each environment variable comes from:</p>
+<pre><code>OPENAI_API_KEY = openai                  # that variable's template in the credential, or {{value}}
+DATABASE_URL   = shop-db:connection_url  # one field of the credential
+aws-prod                                 # every environment variable of the credential</code></pre>
+<pre><code>sb run -- npm run dev     # or python app.py, dotnet run…
+sb check                  # is every credential in .secretbroker ready?</code></pre>
+<ul>
+  <li>The variables go from the vault to the process, never through a file.</li>
+  <li>Only credentials with <b>Environment variables</b> in their AI permissions are handed over: that is how you say a credential may be used by local programs.</li>
+  <li>Approval follows each credential's setting, and every delivery is in <b>Activity</b> with the command and the folder.</li>
+  <li>When the output is not a terminal, for example when an agent started the app, <code>sb</code> redacts the keys line by line.</li>
+  <li>Your code just reads environment variables, so production works the same with whatever the platform provides. The agent can store a credential as a GitHub Actions secret without seeing it.</li>
+</ul>
+<aside class="note warn"><p><b>The limit.</b> A program started with <code>sb run</code> receives the key in clear. This keeps the AI from seeing it by accident, in a <code>cat .env</code> or a log, but not from code written on purpose to leak it. Allow only the programs you need.</p></aside>
+
+<h2 id="rotate">Rotate a key with help</h2>
+<p>For providers that issue keys through their API (today <b>Cloudflare</b> and <b>GitLab</b>), <b>Rotate key</b> asks for a new one, saves it and uploads it again to the GitHub secrets it was in. The old key stops working at once.</p>
+<p>For everything else, <b>Rotate with help</b> walks you through it:</p>
+<ol class="steps">
+  <li><b>Where it's used.</b> Every place that holds the key: develop, staging, production, each server, Vercel, CI. The app keeps this list on the credential, and the AI adds to it when it sets a place up.</li>
+  <li><b>Create the new key</b> on the provider's site, with a direct link and a suggested name. The current one keeps working, so nothing breaks.</li>
+  <li><b>Paste the new key</b> and click <b>Test and save</b>. It is tested with the provider before it replaces the current one: if it does not work, nothing changes.</li>
+  <li><b>Put it in each place</b> and tick each one off.</li>
+  <li><b>Revoke the old key</b> at the provider. <b>Check that it no longer works</b> confirms it is dead.</li>
+</ol>
+[[shot:rotate|The rotation wizard for an OpenAI key, on its first step: where the key is used, with a field to add places.|Step 1: where the key is used.|focus]]
+<ul>
+  <li><b>Databases</b>: the app generates a password and gives the exact command for PostgreSQL, MySQL, SQL Server, MongoDB or Redis, or the link to a managed provider's console. <b>Save and let the AI apply it</b> hands the job to your agent, which never sees the password.</li>
+  <li><b>Secrets with an ID</b> (an OAuth client, an app ID): the wizard asks whether the ID changed and keeps both in step.</li>
+  <li>A rotation left half-done is remembered, and the credential says what is missing.</li>
+  <li><b>Reminders</b>: each credential, or <b>Settings › Security › Remind me to rotate keys</b>. Expiry dates warn 14 days ahead.</li>
+  <li>For a provider the app does not know, <b>Ask the AI for a guide</b>. The app marks it as written by the AI, with its sources: check the links before following it.</li>
+</ul>
+
+<h2 id="exposure">Find keys that leaked</h2>
+<p>Each credential shows whether it still lives only in the vault. <b>Health › Search for copies</b> looks for your keys, on your PC, in:</p>
+<ul>
+  <li>AI conversations (Claude Code and Codex transcripts) and terminal histories (PowerShell, bash);</li>
+  <li>program settings such as <code>.claude.json</code>, <code>.npmrc</code>, <code>.aws</code> and <code>.ssh</code>, and environment variables;</li>
+  <li>your project folders and their git history. Folders where you used Claude Code are added by themselves; <b>Settings › Copies of your keys › Project folders</b> adds more.</li>
+</ul>
+<p>It also recognises JSON, URL-encoded and base64 forms, and after the first run reads only what changed. By default it runs when you unlock, at most every 12 hours. Nothing it reads leaves your PC.</p>
+[[shot:health|The Health screen: a score, credentials to change and the Copies found section with a key that was in plain text in an AI conversation.|Copies found, in Health.]]
+<p>For each copy: <b>See which files</b> (after confirming it's you), <b>Remove from this file</b>, which puts <code>[REDACTED:name]</code> in its place and keeps a <code>.secretbroker.bak</code> next to it, <b>Delete the copy</b>, or <b>Ignore</b> for a test file. If the AI already saw the key, the app says so: rotate it.</p>
+<p><b>Check that keys work</b> (Settings › Security, every day by default) tests each key with a read-only call to its own provider. A working key that suddenly stops was probably revoked after a leak. The <a href="[[L]]privacy.html#connections">privacy page</a> lists exactly what is sent.</p>
+
+<h2 id="tools">What the agent can call</h2>
+<div class="table-scroll"><table>
+  <thead><tr><th>Tool</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><code>list_secrets</code></td><td>The catalogue: names, notes and what each credential is for. No values.</td></tr>
+    <tr><td><code>http_request</code></td><td>An HTTPS request to an allowed domain, with the key added automatically or through <code>{{value}}</code>, <code>{{username}}</code> and <code>{{password}}</code>.</td></tr>
+    <tr><td><code>ssh_exec</code>, <code>ssh_upload</code>, <code>ssh_download</code></td><td>Commands, also with sudo, and files over SFTP.</td></tr>
+    <tr><td><code>run_command</code></td><td>Runs an allowed program (<code>gh</code>, <code>psql</code>, <code>aws</code>…) with the credential in its environment.</td></tr>
+    <tr><td><code>request_access</code></td><td>Asks once, at the start of a task, for every credential it will need.</td></tr>
+    <tr><td><code>create_credential</code>, <code>update_credential</code></td><td>Prepares a credential without its secret, or changes names, notes and permissions. Anything that widens where a key may go waits for you.</td></tr>
+    <tr><td><code>check_credential</code>, <code>credential_activity</code></td><td>Whether a key still works, its age and its recent history. No values.</td></tr>
+    <tr><td><code>rotate_credential</code>, <code>delete_credential</code></td><td>Asks the provider for a new key, or proposes deleting a credential. You confirm.</td></tr>
+    <tr><td><code>push_github_secret</code></td><td>Stores a credential as a GitHub Actions secret, encrypted with the repository's key.</td></tr>
+  </tbody>
+</table></div>
+<p>No tool returns a secret value, and output is redacted before the agent sees it.</p>
+
+<h2 id="limits">Limits worth knowing</h2>
+<ul>
+  <li>A program allowed in <code>run_command</code> or started with <code>sb run</code> receives the key in clear. An agent that can write and run code in such a program, <code>node -e</code> or <code>python</code> for example, can take it out.</li>
+  <li>Redaction is best effort against the transformations it knows. An allowed host that echoes data back in an unusual encoding, or one the agent controls, can leak a key. Keep the lists of hosts tight.</li>
+  <li>A credential allowed for the day can be used for any operation it permits during that time.</li>
+  <li>Never run your AI agent as administrator: that defeats the isolation of the service.</li>
+</ul>
+<p>The <a href="[[L]]security.html">security page</a> has the whole picture.</p>
+<div class="next">
+  <a href="[[L]]guide/"><b>Getting started</b><span>Install, the vault, passwords, the browser extension and backups.</span></a>
+  <a href="teams.html"><b>For teams</b><span>Share credentials end-to-end encrypted, on your own server.</span></a>
+</div>

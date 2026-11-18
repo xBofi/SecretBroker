@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - "site/**"
+      - "site-src/**"
   workflow_dispatch:
 
 permissions:
@@ -37,7 +38,9 @@ jobs:
       # Every link, anchor and image resolves, both languages have the same pages, and nothing loads from
       # another server (standard library only: nothing is installed).
       - name: Check the site
-        run: python tools/check_site.py site
+        run: |
+          python site-src/build.py --check
+          python tools/check_site.py site
 
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d  # v6.0.0
 

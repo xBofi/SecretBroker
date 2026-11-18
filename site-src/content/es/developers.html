@@ -1,0 +1,133 @@
+title: SecretBroker para desarrolladores: agentes de IA, .env, rotación y filtraciones
+description: Conecta Claude Code, Cursor u otro agente de IA a SecretBroker, decide qué puede hacer, pasa el .env de un proyecto a la bóveda, arranca tus apps con sb run, rota claves con ayuda y encuentra las que se han filtrado.
+h1: Para desarrolladores
+lede: Conecta un agente de IA, decide qué puede hacer, arranca tus apps desde la bóveda, rota claves y encuentra las que se han filtrado. Si aún no has instalado SecretBroker, <a href="[[L]]guide/#install">empieza por la guía</a>.
+section: developers
+---
+<h2 id="connect">Conectar tu IA</h2>
+<p>SecretBroker es un servidor MCP en tu propia máquina. La app conecta con un clic los clientes que conoce: <b>Claude Code, Claude Desktop, Cursor, VS Code (Copilot), Windsurf y Codex</b>.</p>
+<ol class="steps">
+  <li>Abre <b>Acceso de la IA</b> y pulsa <b>Conectar otra IA</b>. La misma pantalla es el último paso de la instalación, y <b>Conectar tu IA</b> en una bóveda vacía.</li>
+  <li>Pulsa <b>Conectar</b> junto a tu cliente. Después, haz que se entere: abre una sesión nueva en Claude Code o Codex, reinicia Cursor o Windsurf, recarga VS Code y usa Copilot Chat en modo Agente, o cierra Claude Desktop del todo (también junto al reloj) y ábrelo otra vez.</li>
+  <li>Pruébalo. La pantalla te da una frase para pegar en tu IA: <i>«Usa SecretBroker: llama a list_secrets y dime qué credenciales tengo guardadas, sin mostrar ningún valor.»</i> Cuando llega la petición, la app te dice de quién.</li>
+</ol>
+[[shot:connect-ai|La pantalla Conecta tu IA: una lista de clientes de IA con su botón Conectar, una frase para probar y una línea que espera la primera petición.|Conecta tu IA.]]
+<p>En Windows, el instalador ya conecta Claude Code y Claude Desktop si están instalados. El punto de entrada MCP solo escucha en <code>127.0.0.1</code>, exige un token y comprueba de dónde vienen las peticiones, así que una página web no puede manejarlo.</p>
+
+<h2 id="add-key">Añadir una API key</h2>
+<ol class="steps">
+  <li>En <b>Credenciales</b>, pulsa <b>Nueva</b> y elige <b>API key o token</b>.</li>
+  <li>Pega la clave. Con los proveedores conocidos (OpenAI, Anthropic, GitHub, Stripe, Cloudflare y otros), la <b>URL de la API</b>, <b>Cómo se envía la clave</b> y la <b>Variable de entorno</b> se rellenan solas.</li>
+  <li>Escribe unas <b>Instrucciones para la IA</b> si ayudan: para qué es la clave y cómo debe usarla. La IA lee ese texto, así que no pongas nada secreto. Las <b>Notas privadas</b> son solo para ti.</li>
+</ol>
+[[shot:api-key|Una credencial de API key abierta en la bóveda: la clave oculta, la URL de la API, cómo se envía, su variable de entorno y las instrucciones para la IA.|Una API key. La IA conoce su nombre y sus instrucciones, nunca su valor.]]
+<p>En <b>Permisos de la IA</b>, cada credencial dice adónde puede ir:</p>
+<ul>
+  <li><b>Webs donde puede usarla</b>: dominios separados por comas. La clave no se envía nunca a otro sitio, solo por HTTPS, y no se siguen las redirecciones.</li>
+  <li><b>Programas que pueden usarla</b>: nombres como <code>gh</code> o <code>psql</code>. Reciben la clave en las <b>Variables de entorno</b> que indiques.</li>
+  <li><b>Pedir tu aprobación</b>: <b>Una vez por sesión</b>, <b>Siempre</b> o <b>Nunca</b>.</li>
+</ul>
+<p>Tu agente también puede dejar preparada una credencial con todo menos el secreto. Aparece en la app como <i>«La IA ha preparado esta credencial. Pega la clave y ya se podrá usar.»</i> Los demás tipos son <b>Servidor SSH</b>, <b>Base de datos</b>, <b>Nube (AWS)</b>, <b>Otro secreto</b> y <b>Configuración (no secreta)</b>, para los identificadores que necesitan tus programas y que no son secretos.</p>
+
+<h2 id="approvals">Cómo funcionan las aprobaciones</h2>
+<p>Cuando el agente usa una credencial que pregunta, la app pasa al frente con la petición: quién la hace, <b>Para qué, según la IA</b>, qué credencial y la petición o el comando exactos.</p>
+[[shot:approval|El diálogo de aprobación: Claude Code quiere usar una credencial, el motivo que ha dado, la credencial de Stripe, la petición GET y los botones Denegar, Solo esta vez y Permitir 24 horas.|Un clic. La petición que ves es la que se va a hacer.|focus]]
+<ul>
+  <li><b>Solo esta vez</b> permite esta petición. <b>Permitir 24 horas</b> deja que ese cliente use esa credencial sin volver a preguntar. <b>Denegar</b> la rechaza, y <b>Decidir luego</b> la deja esperando hasta que caduca; entonces el agente recibe un error.</li>
+  <li><b>Ajustes › Seguridad › Recordar aprobaciones</b> fija cuánto dura un «permitir»: 8 horas, 24 horas o hasta que bloquees. Bloquear a mano olvida todas las aprobaciones.</li>
+  <li><b>Una petición por tarea.</b> Un agente puede pedir al empezar todo lo que va a necesitar, con sus motivos, y lo permites de una vez.</li>
+  <li><b>Volver a preguntar si se usa mucho.</b> Incluso una credencial aprobada vuelve a preguntar tras 100 usos en una hora (50, 100, 500 o sin límite). Frena bucles y sustos.</li>
+  <li>Si un comando parece que borra, detiene o modifica datos, el diálogo lo avisa antes de que lo permitas.</li>
+</ul>
+<h3>La página Acceso de la IA</h3>
+[[shot:ai-access|La página Acceso de la IA: los clientes conectados, el interruptor Pausar la IA y la tabla de lo que puede hacer la IA.|Acceso de la IA.]]
+<ul>
+  <li><b>Aprobadas ahora</b> lista lo que la IA puede usar sin preguntar, y hasta cuándo. <b>Retirar</b> quita una aprobación; <b>Retirar todas</b>, todas.</li>
+  <li><b>Pausar la IA</b> lo corta todo al instante sin bloquear la bóveda: la IA no puede usar, crear ni siquiera listar credenciales. También está en el menú del icono junto al reloj.</li>
+  <li><b>Qué puede hacer la IA</b>, además de usar credenciales: para cada cosa (pasar claves a programas de este PC, preparar credenciales nuevas, cambiar nombres y notas, cambiar adónde puede ir una clave, subir a GitHub) eliges <b>Libre</b>, <b>Avisarme</b>, <b>Preguntarme</b> o <b>Nunca</b>.</li>
+</ul>
+
+<h2 id="env">Pasar el .env de un proyecto a la bóveda</h2>
+<p><b>En la app</b>: <b>Importar un .env de un proyecto</b>, en una bóveda vacía o en el menú <b>⋯</b> junto a Nueva. Eliges el archivo, marcas sus claves (solo ves los nombres) y pulsas <b>Importar</b>. Después, <b>Quitar del archivo</b> las saca del <code>.env</code>; las demás variables se quedan.</p>
+[[shot:env-import|El diálogo Importar un .env de un proyecto: los nombres de las variables con su casilla, y una nota en las que no parecen claves.|Solo nombres. Los valores van directos a la bóveda.]]
+<p><b>Desde la terminal</b>, o pidiéndoselo a tu agente, porque el comando no imprime nunca un valor:</p>
+<pre><code>sb import .env --delete</code></pre>
+<p>Guarda las variables que parecen claves (nombres con KEY, TOKEN, SECRET, PASSWORD…, o URLs con contraseña), deja las demás (<code>PORT</code>, <code>NODE_ENV</code>…) donde estaban y te enseña en la app la lista de nombres para que la confirmes. <code>--all</code> importa todas las variables y <code>--project</code> fija el prefijo de los nombres nuevos. Las claves de proveedores conocidos llegan ya configuradas.</p>
+<p>En los dos casos queda en la carpeta del proyecto un archivo <code>.secretbroker</code> con los nombres de las credenciales y ningún valor. Se puede subir al repositorio.</p>
+
+<h2 id="sb-run">Arrancar tus apps con sb run</h2>
+<p><code>.secretbroker</code> dice de qué credencial sale cada variable de entorno:</p>
+<pre><code>OPENAI_API_KEY = openai                   # la plantilla de esa variable en la credencial, o {{value}}
+DATABASE_URL   = tienda-db:connection_url # un dato concreto de la credencial
+aws-prod                                  # todas las variables de entorno de la credencial</code></pre>
+<pre><code>sb run -- npm run dev     # o python app.py, dotnet run…
+sb check                  # ¿están listas todas las credenciales del .secretbroker?</code></pre>
+<ul>
+  <li>Las variables van de la bóveda al proceso, sin pasar por ningún archivo.</li>
+  <li>Solo se entregan las credenciales que tienen <b>Variables de entorno</b> en sus permisos de la IA: es tu forma de decir que esa credencial puede usarse en programas locales.</li>
+  <li>La aprobación sigue la de cada credencial, y cada entrega queda en <b>Actividad</b> con el comando y la carpeta.</li>
+  <li>Cuando la salida no va a una terminal, por ejemplo si la app la ha arrancado un agente, <code>sb</code> censura las claves línea a línea.</li>
+  <li>Tu código solo lee variables de entorno, así que en producción funciona igual con las que ponga la plataforma. El agente puede guardar una credencial como secret de GitHub Actions sin verla.</li>
+</ul>
+<aside class="note warn"><p><b>El límite.</b> Un programa arrancado con <code>sb run</code> recibe la clave en claro. Esto evita que la IA la vea por accidente, en un <code>cat .env</code> o en un log, pero no protege de código escrito a propósito para filtrarla. Permite solo los programas que necesites.</p></aside>
+
+<h2 id="rotate">Rotar una clave con ayuda</h2>
+<p>Con los proveedores que dan claves por su API (hoy, <b>Cloudflare</b> y <b>GitLab</b>), <b>Rotar clave</b> pide una nueva, la guarda y la vuelve a subir a los secrets de GitHub donde estaba. La anterior deja de funcionar al momento.</p>
+<p>Para todo lo demás, <b>Rotar con ayuda</b> te lleva paso a paso:</p>
+<ol class="steps">
+  <li><b>Dónde se usa.</b> Todos los sitios que tienen la clave: develop, pre, pro, cada servidor, Vercel, CI. La app guarda esa lista en la credencial, y la IA la amplía cuando configura un sitio.</li>
+  <li><b>Crea la clave nueva</b> en la web del proveedor, con enlace directo y un nombre sugerido. La actual sigue funcionando, así que no se corta nada.</li>
+  <li><b>Pega la clave nueva</b> y pulsa <b>Probar y guardar</b>. Se prueba con el proveedor antes de sustituir la actual: si no funciona, no cambia nada.</li>
+  <li><b>Ponla en cada sitio</b> y ve marcándolos.</li>
+  <li><b>Anula la clave anterior</b> en el proveedor. <b>Comprobar que ya no funciona</b> confirma que está muerta.</li>
+</ol>
+[[shot:rotate|El asistente para rotar una clave de OpenAI, en su primer paso: dónde se usa la clave, con un campo para añadir sitios.|Paso 1: dónde se usa la clave.|focus]]
+<ul>
+  <li><b>Bases de datos</b>: la app genera una contraseña y te da el comando exacto para PostgreSQL, MySQL, SQL Server, MongoDB o Redis, o el enlace al panel si es gestionada. <b>Guardar y que la aplique la IA</b> le pasa el trabajo a tu agente, que no ve la contraseña en ningún momento.</li>
+  <li><b>Secretos con un ID</b> (un cliente OAuth, un ID de aplicación): el asistente pregunta si el ID ha cambiado y mantiene los dos a la par.</li>
+  <li>Una rotación a medias no se olvida: la credencial indica lo que falta.</li>
+  <li><b>Recordatorios</b>: en cada credencial, o en <b>Ajustes › Seguridad › Recordar rotar las claves</b>. Las fechas de caducidad avisan 14 días antes.</li>
+  <li>Para un proveedor que la app no conoce, <b>Pedir una guía a la IA</b>. La app la marca como escrita por la IA, con sus fuentes: comprueba los enlaces antes de seguirla.</li>
+</ul>
+
+<h2 id="exposure">Encontrar claves filtradas</h2>
+<p>Cada credencial indica si sigue estando solo en la bóveda. <b>Salud › Buscar copias</b> busca tus claves, en tu PC, en:</p>
+<ul>
+  <li>las conversaciones con IA (Claude Code y Codex) y los historiales de la terminal (PowerShell, bash);</li>
+  <li>la configuración de programas como <code>.claude.json</code>, <code>.npmrc</code>, <code>.aws</code> y <code>.ssh</code>, y las variables de entorno;</li>
+  <li>las carpetas de tus proyectos y su historial de git. Las carpetas donde has usado Claude Code se añaden solas; <b>Ajustes › Copias de tus claves › Carpetas de proyectos</b> añade más.</li>
+</ul>
+<p>También reconoce las formas en JSON, en URL y en base64, y después de la primera vez solo lee lo que ha cambiado. Por defecto se ejecuta al desbloquear, como mucho cada 12 horas. Nada de lo que lee sale de tu PC.</p>
+[[shot:health|La pantalla Salud: una puntuación, credenciales por cambiar y el apartado Copias encontradas con una clave que estuvo en claro en una conversación con IA.|Copias encontradas, en Salud.]]
+<p>Con cada copia: <b>Ver en qué archivos</b> (tras confirmar que eres tú), <b>Borrar de este archivo</b>, que pone <code>[REDACTED:nombre]</code> en su lugar y deja un <code>.secretbroker.bak</code> al lado, <b>Borrar la copia</b>, o <b>Ignorar</b> si es un archivo de pruebas. Si la IA ya ha visto la clave, la app lo dice: rótala.</p>
+<p><b>Comprobar que las claves funcionan</b> (Ajustes › Seguridad, cada día por defecto) prueba cada clave con una llamada de solo lectura a su propio proveedor. Si una clave que funcionaba deja de hacerlo de repente, lo normal es que la hayan revocado tras una filtración. La <a href="[[L]]privacy.html#connections">página de privacidad</a> detalla qué se envía.</p>
+
+<h2 id="tools">Lo que puede llamar el agente</h2>
+<div class="table-scroll"><table>
+  <thead><tr><th>Herramienta</th><th>Qué hace</th></tr></thead>
+  <tbody>
+    <tr><td><code>list_secrets</code></td><td>El catálogo: nombres, notas y para qué es cada credencial. Sin valores.</td></tr>
+    <tr><td><code>http_request</code></td><td>Una petición HTTPS a un dominio permitido, con la clave añadida automáticamente o mediante <code>{{value}}</code>, <code>{{username}}</code> y <code>{{password}}</code>.</td></tr>
+    <tr><td><code>ssh_exec</code>, <code>ssh_upload</code>, <code>ssh_download</code></td><td>Comandos, también con sudo, y archivos por SFTP.</td></tr>
+    <tr><td><code>run_command</code></td><td>Ejecuta un programa permitido (<code>gh</code>, <code>psql</code>, <code>aws</code>…) con la credencial en su entorno.</td></tr>
+    <tr><td><code>request_access</code></td><td>Pide de una vez, al empezar una tarea, todas las credenciales que va a necesitar.</td></tr>
+    <tr><td><code>create_credential</code>, <code>update_credential</code></td><td>Prepara una credencial sin su secreto, o cambia nombres, notas y permisos. Lo que amplía adónde puede ir una clave espera tu aprobación.</td></tr>
+    <tr><td><code>check_credential</code>, <code>credential_activity</code></td><td>Si una clave sigue funcionando, su antigüedad y su historial reciente. Sin valores.</td></tr>
+    <tr><td><code>rotate_credential</code>, <code>delete_credential</code></td><td>Pide una clave nueva al proveedor, o propone borrar una credencial. Lo confirmas tú.</td></tr>
+    <tr><td><code>push_github_secret</code></td><td>Guarda una credencial como secret de GitHub Actions, cifrada con la clave del repositorio.</td></tr>
+  </tbody>
+</table></div>
+<p>Ninguna herramienta devuelve un valor secreto, y la salida se censura antes de que la vea el agente.</p>
+
+<h2 id="limits">Límites que conviene conocer</h2>
+<ul>
+  <li>Un programa permitido en <code>run_command</code>, o arrancado con <code>sb run</code>, recibe la clave en claro. Un agente que pueda escribir y ejecutar código en un programa así, <code>node -e</code> o <code>python</code> por ejemplo, puede sacarla.</li>
+  <li>La censura hace lo que puede con las transformaciones que conoce. Un destino permitido que devuelva los datos con una codificación rara, o uno que controle el agente, puede filtrar una clave. Mantén cortas las listas de dominios.</li>
+  <li>Una credencial permitida para todo el día sirve para cualquier operación que permita durante ese tiempo.</li>
+  <li>No ejecutes nunca tu agente de IA como administrador: eso anula el aislamiento del servicio.</li>
+</ul>
+<p>La <a href="[[L]]security.html">página de seguridad</a> lo cuenta entero.</p>
+<div class="next">
+  <a href="[[L]]guide/"><b>Primeros pasos</b><span>Instalar, la bóveda, las contraseñas, la extensión del navegador y las copias.</span></a>
+  <a href="teams.html"><b>Para equipos</b><span>Compartir credenciales cifradas de extremo a extremo, en vuestro servidor.</span></a>
+</div>
