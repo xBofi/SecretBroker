@@ -336,6 +336,12 @@ def session_locked():
     return _cgsession_locked()
 
 
+def prefers_dark():
+    """System Settings › Appearance: the key only exists while the Mac is dark."""
+    result = _run(["defaults", "read", "-g", "AppleInterfaceStyle"], timeout=2)
+    return bool(result and "dark" in result.stdout.lower())
+
+
 def _agent_file():
     return Path.home() / "Library" / "LaunchAgents" / f"{AGENT_LABEL.format(suffix=_suffix())}.plist"
 

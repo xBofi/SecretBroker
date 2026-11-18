@@ -144,6 +144,16 @@ def session_locked():
         wtsapi.WTSFreeMemory(buffer)
 
 
+def prefers_dark():
+    """Settings › Personalization › Colours › «Choose your default app mode»."""
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as key:
+            return winreg.QueryValueEx(key, "AppsUseLightTheme")[0] == 0
+    except OSError:
+        return None
+
+
 def autostart_command():
     pythonw = Path(sys.executable).with_name("pythonw.exe")
     return f'"{pythonw if pythonw.exists() else sys.executable}" -I -m secretbroker.app --background'

@@ -187,13 +187,11 @@ const state = {
 let TEMPLATES = {};
 let DB_ENGINES = {};
 
-const DEFAULT_PALETTE = 'grafito';
-const PALETTES = localized(() => ([
-  ['grafito', t('palette.graphite'), '#171717'],
-  ['salvia', t('palette.sage'), '#0f766e'],
-  ['cobalto', t('palette.cobalt'), '#1f5fbf'],
-  ['terracota', t('palette.terracotta'), '#b5441b'],
-]));
+// The palettes' names; their order and swatch colours are APPEARANCE.palettes (appearance.js).
+const PALETTE_NAMES = localized(() => ({
+  grafito: t('palette.graphite'), cobalto: t('palette.cobalt'), violeta: t('palette.violet'), frambuesa: t('palette.raspberry'),
+  terracota: t('palette.terracotta'), oliva: t('palette.olive'), salvia: t('palette.sage'), custom: t('palette.custom'),
+}));
 const ACTION_LABELS = localized(() => ({
   http_request: t('activity_action.web_request'),
   ssh_exec: t('activity_action.command_on_server'),
@@ -242,7 +240,7 @@ async function boot() {
   state.info = await api().info();
   window.SB_OS_LABEL = state.info.os_label;
   window.SB_BIOMETRIC_LABEL = state.info.biometric_label;
-  applyPalette(state.info.prefs.palette);
+  applyAppearance(state.info.prefs);  // already applied before the first frame (appearance.js); these are the saved ones
   I18N.available = state.info.languages || ['en'];
   await applyLanguage(state.info.prefs.language || matchLanguage(navigator.languages || [navigator.language], I18N.available));
   document.addEventListener('keydown', onShortcut);
@@ -287,11 +285,6 @@ function languageSelect(onChanged) {
     onChanged();
   });
   return select;
-}
-
-function applyPalette(name) {
-  if (name && name !== DEFAULT_PALETTE) document.documentElement.dataset.palette = name;
-  else delete document.documentElement.dataset.palette;
 }
 
 function onShortcut(event) {
@@ -1564,7 +1557,7 @@ function statusStrip(entry) {
   if (entry.pending_rotation) {
     chip('warning', t('common.rotation_half_done'), t('common.new_password_is_ready_but'), () => rotateWithHelp(entry));
   } else if (entry.retired) {
-    chip('warning', t('status_strip.old_one_still_needs_revoking'), t('common.new_key_active_old_one'), () => document.querySelector('.retired-box')?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    chip('warning', t('status_strip.old_one_still_needs_revoking'), t('common.new_key_active_old_one'), () => document.querySelector('.retired-box')?.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' }));
   } else if (entry.secret_since && (entry.rotation || canChangePassword(entry) || entry.guide)) {
     const reminder = state.reminders && state.reminders[entry.id];
     const { days } = rotateEvery(entry);
@@ -5783,6 +5776,144 @@ function setting(title, description, control) {
     control ? el('div', { class: 'control' }, control) : null);
 }
 
+// ----------------------------------------------------------------------- appearance
+
+// One choice of Ajustes › Apariencia: shown at once (appearance.js), then saved with the user's preferences.
+function showAppearance(key, value) {
+  state.info.prefs[key] = value;
+  applyAppearance(state.info.prefs);
+}
+
+async function setAppearance(key, value) {
+  showAppearance(key, value);
+  await api().set_pref(key, value);
+}
+
+// A few exclusive choices side by side; `options`: [value, label, icon name]. The arrow keys move between them.
+function choiceGroup(label, options, current, onPick) {
+  const pick = (value) => { mark(value); onPick(value); };
+  const buttons = options.map(([value, text, iconName]) => el('button', { type: 'button', role: 'radio', 'data-value': value,
+    onclick: () => pick(value) }, iconName ? icon(iconName, 'sm') : null, text));
+  const mark = (value) => buttons.forEach((button) => {
+    const on = button.dataset.value === value;
+    button.classList.toggle('active', on);
+    button.setAttribute('aria-checked', String(on));
+    button.tabIndex = on ? 0 : -1;
+  });
+  mark(current);
+  return el('div', { class: 'segmented', role: 'radiogroup', 'aria-label': label, onkeydown: (event) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    const at = buttons.indexOf(document.activeElement);
+    if (!step || at < 0) return;
+    event.preventDefault();
+    const next = buttons[(at + step + buttons.length) % buttons.length];
+    next.focus();
+    pick(next.dataset.value);
+  } }, buttons);
+}
+
+// «#abc» or «abc123», with or without the #: the colour as #rrggbb, or null.
+function parseColor(text) {
+  const hex = text.trim().replace(/^#/, '').toLowerCase();
+  if (/^[0-9a-f]{3}$/.test(hex)) return `#${[...hex].map((c) => c + c).join('')}`;
+  return /^[0-9a-f]{6}$/.test(hex) ? `#${hex}` : null;
+}
+
+// Colours to start «Personalizado» from with one click; the well next to them opens the system's picker.
+const ACCENT_IDEAS = ['#e5484d', '#f76b15', '#ffc53d', '#46a758', '#12a594', '#0090ff', '#7a5af5', '#d6409f'];
+
+// The swatches (one per palette, then «Personalizado») and, under them, the colour of «Personalizado».
+function palettePicker() {
+  const swatches = el('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('settings.color') });
+  const custom = el('div', { class: 'custom-color' });
+  const well = el('input', { type: 'color', class: 'color-well', 'aria-label': t('settings.custom_color') });
+  const hex = el('input', { class: 'input mono compact color-hex', maxlength: '7', spellcheck: 'false', autocomplete: 'off', 'aria-label': t('settings.custom_color') });
+  const note = el('p', { class: 'help' });
+  const ideas = el('div', { class: 'color-ideas' }, ACCENT_IDEAS.map((color) => el('button', { type: 'button', class: 'color-idea',
+    style: `--swatch:${color}`, title: color, 'aria-label': color, onclick: () => choose(color, true) })));
+
+  // The colour is shown while it is being picked (the picker reports every move) and saved when it is chosen.
+  const choose = (color, save) => {
+    showAppearance('accent', color);
+    draw();
+    if (save) api().set_pref('accent', color);
+  };
+  well.addEventListener('input', () => choose(well.value, false));
+  well.addEventListener('change', () => choose(well.value, true));
+  hex.addEventListener('input', () => { const color = parseColor(hex.value); if (color) choose(color, true); });
+  hex.addEventListener('blur', () => { hex.value = APPEARANCE.current.accent; });
+  hex.addEventListener('keydown', (event) => { if (event.key === 'Enter') hex.blur(); });
+
+  const draw = () => {
+    const look = APPEARANCE.current;
+    const options = [...APPEARANCE.palettes, ['custom', look.accent, look.accent]];
+    const buttons = options.map(([id, light, dark]) => {
+      const on = look.palette === id;
+      return el('button', { type: 'button', role: 'radio', class: `swatch ${on ? 'active' : ''} ${id === 'custom' ? 'is-custom' : ''}`,
+        'aria-checked': String(on), tabindex: on ? '0' : '-1', 'data-palette': id, style: `--swatch-light:${light};--swatch-dark:${dark}`,
+        onclick: () => { if (!on) setAppearance('palette', id).then(() => { draw(); swatches.querySelector('.swatch.active')?.focus(); }); },
+      }, el('span', { class: 'swatch-dot' }, on ? icon('check', 'sm') : null), el('span', { class: 'swatch-name' }, PALETTE_NAMES[id]));
+    });
+    swatches.replaceChildren(buttons);
+    custom.classList.toggle('hidden', look.palette !== 'custom');
+    if (look.palette !== 'custom') return;
+    well.value = look.accent;
+    if (document.activeElement !== hex) hex.value = look.accent;
+    const shown = customTokens(look.accent, document.documentElement.dataset.scheme);
+    const moved = [shown['--accent'], shown['--interactive']].some((color) => contrast(color, look.accent) > 1.06);
+    note.textContent = t(moved ? 'settings.custom_color_adjusted' : 'settings.custom_color_help');
+    for (const idea of ideas.children) idea.classList.toggle('active', idea.title === look.accent);
+  };
+  swatches.addEventListener('keydown', (event) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    const all = [...swatches.children];
+    const at = all.indexOf(document.activeElement);
+    if (!step || at < 0) return;
+    event.preventDefault();
+    all[(at + step + all.length) % all.length].click();
+  });
+  custom.append(el('div', { class: 'color-row' }, well, hex, ideas), note);
+  draw();
+  palettePicker.redraw = draw;
+  return { node: el('div', { class: 'palette-picker' }, swatches, custom), draw };
+}
+// «Sistema» changing with the system changes what «Personalizado» had to adjust (after appearance.js applied it).
+DARK_SCHEME.addEventListener('change', () => { if (palettePicker.redraw) palettePicker.redraw(); });
+
+// What the choices look like on the things they change most: a credential in the list, a button, a link, a tag.
+function appearancePreview() {
+  return el('div', { class: 'appearance-preview', 'aria-hidden': 'true' },
+    el('div', { class: 'row selected' }, el('div', { class: 'glyph globe' }, icon('globe')),
+      el('div', { class: 'meta' }, el('div', { class: 'title' }, 'Gmail'), el('div', { class: 'subtitle' }, 'mail.google.com'))),
+    el('div', { class: 'preview-side' },
+      el('span', { class: 'tag active static' }, t('settings.preview_tag')),
+      el('span', { class: 'link' }, t('common.copy')),
+      el('span', { class: 'btn primary' }, icon('plus', 'sm'), t('common.new'))));
+}
+
+function appearanceGroup() {
+  const look = APPEARANCE.current;
+  const palettes = palettePicker();
+  const theme = choiceGroup(t('settings.theme'), [['system', t('settings.theme_system'), 'monitor'], ['light', t('settings.theme_light'), 'sun'],
+    ['dark', t('settings.theme_dark'), 'moon']], look.theme, (value) => setAppearance('theme', value).then(palettes.draw));
+  const size = choiceGroup(t('settings.text_size'), [['small', t('settings.text_size_small')], ['normal', t('settings.text_size_normal')],
+    ['large', t('settings.text_size_large')], ['xlarge', t('settings.text_size_xlarge')]], look.text_size, (value) => setAppearance('text_size', value));
+  const density = choiceGroup(t('settings.density'), [['comfortable', t('settings.density_comfortable')], ['compact', t('settings.density_compact')]],
+    look.density, (value) => setAppearance('density', value));
+  const motion = el('input', { type: 'checkbox', class: 'switch', checked: look.reduce_motion, 'aria-label': t('settings.reduce_motion') });
+  motion.addEventListener('change', () => setAppearance('reduce_motion', motion.checked));
+  const color = setting(t('settings.color'), t('settings.color_help'), palettes.node);
+  color.classList.add('stacked');
+  return el('div', { class: 'settings-group appearance' }, el('h3', { class: 'muted' }, t('settings.appearance')),
+    appearancePreview(),
+    setting(t('settings.language'), t('settings.language_help'), languageSelect(() => renderMain())),
+    setting(t('settings.theme'), t('settings.theme_help'), theme),
+    color,
+    setting(t('settings.text_size'), t('settings.text_size_help'), size),
+    setting(t('settings.density'), t('settings.density_help'), density),
+    setting(t('settings.reduce_motion'), t('settings.reduce_motion_help'), motion));
+}
+
 function renderSettings(content) {
   const status = state.status;
   const helloSupported = state.info.hello_supported;
@@ -5879,11 +6010,6 @@ function renderSettings(content) {
   renderFolders();
   const addFolder = el('button', { class: 'btn', onclick: async () => { if (await api().add_scan_folder()) renderFolders(); } }, t('settings.add_folder'));
 
-  const palettes = el('div', { class: 'segmented' }, PALETTES.map(([id, label, color]) => el('button', {
-    class: (state.info.prefs.palette || DEFAULT_PALETTE) === id ? 'active' : '',
-    onclick: async () => { state.info.prefs.palette = id; applyPalette(id); await api().set_pref('palette', id); renderView(); },
-  }, el('span', { style: `display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:7px;vertical-align:-1px` }), label)));
-
   const ai = state.info.integrations || {};
   const claudeControl = ai.claude_code === 'connected'
     ? el('span', { class: 'state-text ok' }, icon('check', 'sm'), t('common.connected'))
@@ -5939,9 +6065,7 @@ function renderSettings(content) {
         setting(t('settings.search_for_copies_when_unlocking'), t('settings.searches_this_pc_for_copies'), autoScan),
         setting(t('settings.project_folders'), t('settings.they_re_checked_along_with'), addFolder),
         folderList),
-      el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, t('settings.appearance')),
-        setting(t('settings.language'), t('settings.language_help'), languageSelect(() => renderMain())),
-        setting(t('settings.color'), t('settings.light_or_dark_theme_follows'), palettes)),
+      appearanceGroup(),
       el('div', { class: 'settings-group' }, el('h3', { class: 'muted' }, t('settings.updates')),
         setting(t('settings.version', { version: state.info.version }), updateSummary(), el('button', { class: 'btn', onclick: async (event) => {
           busy(event.currentTarget, true);

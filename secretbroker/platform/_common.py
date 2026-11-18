@@ -40,6 +40,7 @@ INTERFACE = [
     "start_service",              # () -> bool: ask the system to start the installed service for this user
     # the desktop session
     "session_locked",             # () -> bool: the lock screen is showing
+    "prefers_dark",               # () -> bool | None: the desktop shows apps in the dark theme (None: it doesn't say)
     "autostart_command",          # () -> str: what starting with the session runs
     "set_autostart",              # (enabled) -> None
     "remove_autostart",           # () -> None: the uninstaller's cleanup
