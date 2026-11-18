@@ -78,9 +78,9 @@
   "activity_detail.created": "создана",
   "activity_detail.credentials": {
     "=0": "пусто",
-    "one": "{count} запись",
     "few": "{count} записи",
     "many": "{count} записей",
+    "one": "{count} запись",
     "other": "{count} записи"
   },
   "activity_detail.from_collection": "Из {name}",
@@ -99,17 +99,17 @@
   "activity_filter.all": "Все",
   "activity_filter.denied": "Отклонённые",
   "ai.requests_count": {
-    "one": "{count} запрос",
     "few": "{count} запроса",
     "many": "{count} запросов",
+    "one": "{count} запрос",
     "other": "{count} запроса"
   },
   "ai_change.rotation_guide": "Инструкция по ротации",
   "ai_change.sources": "источники: {sources}",
   "ai_change.steps": {
-    "one": "{count} шаг",
     "few": "{count} шага",
     "many": "{count} шагов",
+    "one": "{count} шаг",
     "other": "{count} шага"
   },
   "ai_change.test_request": "Тестовый запрос",
@@ -145,16 +145,16 @@
   "approval.allow_for_24_hours": "Разрешить на 24 часа",
   "approval.allow_for_8_hours": "Разрешить на 8 часов",
   "approval.for_hours": {
-    "one": "на {count} час",
     "few": "на {count} часа",
     "many": "на {count} часов",
+    "one": "на {count} час",
     "other": "на {count} часа"
   },
   "approval.position": "{position} из {total}",
   "approval.times_today": {
-    "one": "{count} раз сегодня",
     "few": "{count} раза сегодня",
     "many": "{count} раз сегодня",
+    "one": "{count} раз сегодня",
     "other": "{count} раза сегодня"
   },
   "approval.until_you_lock_vault": "до блокировки хранилища",
@@ -223,6 +223,7 @@
   "change_line.new_programs": "Новые программы",
   "change_line.new_variables": "Новые или изменённые переменные",
   "change_line.new_websites": "Новые сайты",
+  "change_line.secret_value_deleted": "сохранённое секретное значение удаляется",
   "change_master_password.change_master_password": "Чтобы сменить мастер-пароль.",
   "change_master_password.change_master_password_2": "Сменить мастер-пароль",
   "change_master_password.choose_new_master_password": "Задайте новый мастер-пароль",
@@ -319,9 +320,9 @@
   "common.create_collection": "Чтобы создать коллекцию.",
   "common.credentials": "Записи",
   "common.credentials_count": {
-    "one": "{count} запись",
     "few": "{count} записи",
     "many": "{count} записей",
+    "one": "{count} запись",
     "other": "{count} записи"
   },
   "common.delete": "Удалить",
@@ -381,9 +382,9 @@
   "common.optional_suffix": " · необязательно",
   "common.organization": "Организация",
   "common.people_count": {
-    "one": "{count} человек",
     "few": "{count} человека",
     "many": "{count} человек",
+    "one": "{count} человек",
     "other": "{count} человека"
   },
   "common.private_notes": "Личные заметки",
@@ -483,6 +484,7 @@
   "describe_permissions.run_on_this_pc": "Запуск {value} на этом ПК",
   "destination_label.github": "GitHub {repo}{value} · {name}",
   "detail.ai_knows_as": "ИИ знает её как ",
+  "detail.config_not_secret": "Не секрет: ИИ видит эти данные, а sb run передаёт их программам, не спрашивая тебя. Её не нужно менять, и она не считается раскрытой.",
   "detail.copied_cleared_in": "Скопировано · удалится через {result} с",
   "detail.copy": "Чтобы скопировать «{label}» из {name}.",
   "detail.decide_in_team": "решите в разделе «Команда»",
@@ -503,24 +505,24 @@
   "direct_block.stop_proof": "Чтобы перестать делиться с {name}.",
   "direct_block.stop_sharing_with": "Перестать делиться с {name}",
   "direct_block.stop_text": {
-    "one": "{name} перестанет получать {count} запись, которой вы делитесь. На этом ПК она остаётся вашей.",
     "few": "{name} перестанет получать {count} записи, которыми вы делитесь. На этом ПК они остаются вашими.",
     "many": "{name} перестанет получать {count} записей, которыми вы делитесь. На этом ПК они остаются вашими.",
+    "one": "{name} перестанет получать {count} запись, которой вы делитесь. На этом ПК она остаётся вашей.",
     "other": "{name} перестанет получать {count} записи, которыми вы делитесь. На этом ПК они остаются вашими."
   },
   "direct_block.stop_title": "Перестать делиться с {name}?",
   "direct_block.stop_warning": {
-    "one": "Этот человек мог её увидеть или скопировать: мы напомним вам её сменить.",
     "few": "Этот человек мог их увидеть или скопировать: мы напомним вам их сменить.",
     "many": "Этот человек мог их увидеть или скопировать: мы напомним вам их сменить.",
+    "one": "Этот человек мог её увидеть или скопировать: мы напомним вам её сменить.",
     "other": "Этот человек мог их увидеть или скопировать: мы напомним вам их сменить."
   },
   "direct_block.stopped": "Вы больше ничем не делитесь с {name}",
   "direct_block.their_permission": "{name}: {value}",
   "direct_share.already_sharing": {
-    "one": "Вы уже делитесь с {name}: {count} запись. Выбранное разрешение действует для всего, чем вы делитесь с этим человеком.",
     "few": "Вы уже делитесь с {name}: {count} записи. Выбранное разрешение действует для всего, чем вы делитесь с этим человеком.",
     "many": "Вы уже делитесь с {name}: {count} записей. Выбранное разрешение действует для всего, чем вы делитесь с этим человеком.",
+    "one": "Вы уже делитесь с {name}: {count} запись. Выбранное разрешение действует для всего, чем вы делитесь с этим человеком.",
     "other": "Вы уже делитесь с {name}: {count} записи. Выбранное разрешение действует для всего, чем вы делитесь с этим человеком."
   },
   "direct_share.compare_code": "Попросите этого человека прочитать вам свой код безопасности (по телефону или лично) и сравните его с этим. Так никто, даже сервер, не сможет подменить ключ.",
@@ -549,6 +551,7 @@
   "draw_team.sync_now": "Синхронизировать",
   "draw_team.synced": "Синхронизировано",
   "editor.aws_placeholder": "Личный AWS",
+  "editor.config_placeholder": "Client ID моего приложения",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
   "editor.tags_placeholder": "shop, prod",
   "empty_credentials.add_credential": "Добавить запись",
@@ -564,9 +567,9 @@
   "env_import.config_written": "В папке проекта теперь есть файл .secretbroker с именами записей, без значений. Его можно добавить в репозиторий.",
   "env_import.file_deleted": "{name} удалён",
   "env_import.import_keys": {
-    "one": "Импортировать {count} ключ",
     "few": "Импортировать {count} ключа",
     "many": "Импортировать {count} ключей",
+    "one": "Импортировать {count} ключ",
     "other": "Импортировать {count} ключа"
   },
   "env_import.keep_file": "Оставить",
@@ -577,9 +580,9 @@
   "env_import.remove_explained": "Уберите их из файла: остальные переменные останутся, а если не останется ни одной, файл будет удалён.",
   "env_import.remove_from_file": "Убрать из файла",
   "env_import.skipped_existing": {
-    "one": "{count} уже была в хранилище.",
     "few": "{count} уже были в хранилище.",
     "many": "{count} уже были в хранилище.",
+    "one": "{count} уже была в хранилище.",
     "other": "{count} уже были в хранилище."
   },
   "env_import.still_in_file": "В {name} эти ключи всё ещё лежат в открытом виде.",
@@ -595,9 +598,9 @@
   "exposure.couldn_load_status": "Не удалось загрузить состояние.",
   "exposure.ignored": "игнорируется",
   "exposure.ignored_count": {
-    "one": "{count} игнорируется",
     "few": "{count} игнорируются",
     "many": "{count} игнорируются",
+    "one": "{count} игнорируется",
     "other": "{count} игнорируются"
   },
   "exposure.last_search_files": "Последний поиск: {when} · файлов: {files}",
@@ -606,27 +609,27 @@
   "exposure.no_search_for_copies_yet": "Поиск копий ещё не выполнялся",
   "exposure.paths_are_only_shown_after": "Пути показываются только после подтверждения личности. ",
   "exposure.places": {
-    "one": "{count} место",
     "few": "{count} места",
     "many": "{count} мест",
+    "one": "{count} место",
     "other": "{count} места"
   },
   "exposure.removed_from_file": {
-    "one": "Удалён из файла ({count} раз)",
     "few": "Удалён из файла ({count} раза)",
     "many": "Удалён из файла ({count} раз)",
+    "one": "Удалён из файла ({count} раз)",
     "other": "Удалён из файла ({count} раза)"
   },
   "exposure.revealed_times": {
-    "one": "Показан или скопирован {count} раз",
     "few": "Показан или скопирован {count} раза",
     "many": "Показан или скопирован {count} раз",
+    "one": "Показан или скопирован {count} раз",
     "other": "Показан или скопирован {count} раза"
   },
   "exposure.search_done_exposed": {
-    "one": "Поиск завершён: раскрыта {count} запись",
     "few": "Поиск завершён: раскрыты {count} записи",
     "many": "Поиск завершён: раскрыто {count} записей",
+    "one": "Поиск завершён: раскрыта {count} запись",
     "other": "Поиск завершён: раскрыто {count} записи"
   },
   "exposure.search_for_copies": "Найти копии",
@@ -706,87 +709,87 @@
   "generator_panel.very_weak": "Очень слабый",
   "generator_panel.words": "Слова",
   "health.count_expired": {
-    "one": "{count} истёкшая",
     "few": "{count} истёкшие",
     "many": "{count} истёкших",
+    "one": "{count} истёкшая",
     "other": "{count} истёкших"
   },
   "health.count_expiring": {
-    "one": "{count} скоро истекает",
     "few": "{count} скоро истекают",
     "many": "{count} скоро истекают",
+    "one": "{count} скоро истекает",
     "other": "{count} скоро истекают"
   },
   "health.count_exposed": {
-    "one": "{count} раскрытая",
     "few": "{count} раскрытые",
     "many": "{count} раскрытых",
+    "one": "{count} раскрытая",
     "other": "{count} раскрытых"
   },
   "health.count_half_rotated": {
-    "one": "{count} незавершённая смена",
     "few": "{count} незавершённые смены",
     "many": "{count} незавершённых смен",
+    "one": "{count} незавершённая смена",
     "other": "{count} незавершённой смены"
   },
   "health.count_old": {
-    "one": "{count} старая",
     "few": "{count} старые",
     "many": "{count} старых",
+    "one": "{count} старая",
     "other": "{count} старых"
   },
   "health.count_old_alive": {
-    "one": "{count} — старый ключ ещё действует",
     "few": "{count} — старый ключ ещё действует",
     "many": "{count} — старый ключ ещё действует",
+    "one": "{count} — старый ключ ещё действует",
     "other": "{count} — старый ключ ещё действует"
   },
   "health.count_pwned": {
-    "one": "{count} в утечках",
     "few": "{count} в утечках",
     "many": "{count} в утечках",
+    "one": "{count} в утечках",
     "other": "{count} в утечках"
   },
   "health.count_retired_pending": {
-    "one": "{count} — старый ключ ещё не отозван",
     "few": "{count} — старый ключ ещё не отозван",
     "many": "{count} — старый ключ ещё не отозван",
+    "one": "{count} — старый ключ ещё не отозван",
     "other": "{count} — старый ключ ещё не отозван"
   },
   "health.count_reused": {
-    "one": "{count} повторяющаяся",
     "few": "{count} повторяющиеся",
     "many": "{count} повторяющихся",
+    "one": "{count} повторяющаяся",
     "other": "{count} повторяющихся"
   },
   "health.count_team_access": {
-    "one": "{count} — доступ был у ушедшего участника",
     "few": "{count} — доступ был у ушедшего участника",
     "many": "{count} — доступ был у ушедшего участника",
+    "one": "{count} — доступ был у ушедшего участника",
     "other": "{count} — доступ был у ушедшего участника"
   },
   "health.count_unchecked": {
-    "one": "{count} не проверена",
     "few": "{count} не проверены",
     "many": "{count} не проверено",
+    "one": "{count} не проверена",
     "other": "{count} не проверено"
   },
   "health.count_upload_failed": {
-    "one": "{count} не загружена",
     "few": "{count} не загружены",
     "many": "{count} не загружено",
+    "one": "{count} не загружена",
     "other": "{count} не загружено"
   },
   "health.count_was_exposed": {
-    "one": "{count} была раскрыта",
     "few": "{count} были раскрыты",
     "many": "{count} были раскрыты",
+    "one": "{count} была раскрыта",
     "other": "{count} были раскрыты"
   },
   "health.count_weak": {
-    "one": "{count} слабая",
     "few": "{count} слабые",
     "many": "{count} слабых",
+    "one": "{count} слабая",
     "other": "{count} слабых"
   },
   "health.missing_both": "Осталось: {what}. «Проверить сейчас» сделает и то и другое.",
@@ -809,45 +812,45 @@
   "health_section.see_less": "Свернуть",
   "health_section.test_them_with_their_providers": "проверить их у провайдеров",
   "held.deleted": {
-    "one": "{count} запись удалена с этого ПК",
     "few": "{count} записи удалены с этого ПК",
     "many": "{count} записей удалено с этого ПК",
+    "one": "{count} запись удалена с этого ПК",
     "other": "{count} записи удалено с этого ПК"
   },
   "held.deleted_by": {
-    "one": "{who} разом удалил(а) {count} запись из «{collection_name}».",
     "few": "{who} разом удалил(а) {count} записи из «{collection_name}».",
     "many": "{who} разом удалил(а) {count} записей из «{collection_name}».",
+    "one": "{who} разом удалил(а) {count} запись из «{collection_name}».",
     "other": "{who} разом удалил(а) {count} записи из «{collection_name}»."
   },
   "held.kept": {
-    "one": "{count} запись сохранена на этом ПК",
     "few": "{count} записи сохранены на этом ПК",
     "many": "{count} записей сохранено на этом ПК",
+    "one": "{count} запись сохранена на этом ПК",
     "other": "{count} записи сохранено на этом ПК"
   },
   "held.proof_delete": {
-    "one": "Чтобы удалить {count} запись с этого ПК.",
     "few": "Чтобы удалить {count} записи с этого ПК.",
     "many": "Чтобы удалить {count} записей с этого ПК.",
+    "one": "Чтобы удалить {count} запись с этого ПК.",
     "other": "Чтобы удалить {count} записи с этого ПК."
   },
   "held.proof_keep": {
-    "one": "Чтобы сохранить {count} запись.",
     "few": "Чтобы сохранить {count} записи.",
     "many": "Чтобы сохранить {count} записей.",
+    "one": "Чтобы сохранить {count} запись.",
     "other": "Чтобы сохранить {count} записи."
   },
   "held.restored": {
-    "one": "{count} запись восстановлена для всей команды",
     "few": "{count} записи восстановлены для всей команды",
     "many": "{count} записей восстановлено для всей команды",
+    "one": "{count} запись восстановлена для всей команды",
     "other": "{count} записи восстановлено для всей команды"
   },
   "held.waiting": {
-    "one": "{count} запись ждёт вашего решения",
     "few": "{count} записи ждут вашего решения",
     "many": "{count} записей ждут вашего решения",
+    "one": "{count} запись ждёт вашего решения",
     "other": "{count} записи ждут вашего решения"
   },
   "held_deletions_card.collection_no_longer_appears_on": "Коллекции «{collection_name}» больше нет на сервере (у вас отозвали доступ, её удалили или сервер сбоит).",
@@ -859,58 +862,58 @@
   "held_deletions_card.restoring_them_puts_them_back": "Восстановление вернёт их всей команде.",
   "import.already_in": "Уже есть",
   "import.count_conflict": {
-    "one": "{count} с другим паролем",
     "few": "{count} с другим паролем",
     "many": "{count} с другим паролем",
+    "one": "{count} с другим паролем",
     "other": "{count} с другим паролем"
   },
   "import.count_duplicate": {
-    "one": "{count} уже в хранилище",
     "few": "{count} уже в хранилище",
     "many": "{count} уже в хранилище",
+    "one": "{count} уже в хранилище",
     "other": "{count} уже в хранилище"
   },
   "import.count_new": {
-    "one": "{count} новая",
     "few": "{count} новые",
     "many": "{count} новых",
+    "one": "{count} новая",
     "other": "{count} новых"
   },
   "import.different_password": "Другой пароль",
   "import.imported": {
-    "one": "Импортирована {count} запись",
     "few": "Импортированы {count} записи",
     "many": "Импортировано {count} записей",
+    "one": "Импортирована {count} запись",
     "other": "Импортировано {count} записи"
   },
   "import.in_file": {
-    "one": "В файле {count} запись: ",
     "few": "В файле {count} записи: ",
     "many": "В файле {count} записей: ",
+    "one": "В файле {count} запись: ",
     "other": "В файле {count} записи: "
   },
   "import.skipped_summary": {
-    "one": "{count} не будет импортирована",
     "few": "{count} не будут импортированы",
     "many": "{count} не будут импортированы",
+    "one": "{count} не будет импортирована",
     "other": "{count} не будут импортированы"
   },
   "import.stat_created": {
-    "one": "создана",
     "few": "созданы",
     "many": "создано",
+    "one": "создана",
     "other": "создано"
   },
   "import.stat_failed": {
-    "one": "с ошибкой",
     "few": "с ошибками",
     "many": "с ошибками",
+    "one": "с ошибкой",
     "other": "с ошибками"
   },
   "import.stat_skipped": {
-    "one": "пропущена",
     "few": "пропущены",
     "many": "пропущено",
+    "one": "пропущена",
     "other": "пропущено"
   },
   "import_done.any_program_or_person_who": "Любая программа или человек, прочитавшие его, получат их. Удалите его сейчас, а также копии в «Загрузках», почте или облаке.",
@@ -995,9 +998,9 @@
   "key_source_picker.where_do_i_get_key": "Где взять ключ?",
   "level.not_checked": "Не проверено",
   "list.selected": {
-    "one": "Выбрано: {count}",
     "few": "Выбрано: {count}",
     "many": "Выбрано: {count}",
+    "one": "Выбрано: {count}",
     "other": "Выбрано: {count}"
   },
   "lock.couldn_open_with_windows_session": "Не удалось открыть через сеанс Windows. Используйте пароль.",
@@ -1054,33 +1057,33 @@
   "new_org_modal.new_organization": "Новая организация",
   "new_org_modal.organization_is_team_has_its": "Организация — это команда: у неё есть свои люди и свои коллекции.",
   "offboarding.changed": {
-    "one": "{count} изменена",
     "few": "{count} изменены",
     "many": "{count} изменено",
+    "one": "{count} изменена",
     "other": "{count} изменено"
   },
   "offboarding.could_see": {
-    "one": "{person} мог(ла) видеть {count} запись",
     "few": "{person} мог(ла) видеть {count} записи",
     "many": "{person} мог(ла) видеть {count} записей",
+    "one": "{person} мог(ла) видеть {count} запись",
     "other": "{person} мог(ла) видеть {count} записи"
   },
   "offboarding.done_of_total": {
-    "one": "Изменено {done} из {count}",
     "few": "Изменено {done} из {count}",
     "many": "Изменено {done} из {count}",
+    "one": "Изменено {done} из {count}",
     "other": "Изменено {done} из {count}"
   },
   "offboarding.gone_to_change": {
-    "one": "{person} больше нет: нужно сменить {count} запись",
     "few": "{person} больше нет: нужно сменить {count} записи",
     "many": "{person} больше нет: нужно сменить {count} записей",
+    "one": "{person} больше нет: нужно сменить {count} запись",
     "other": "{person} больше нет: нужно сменить {count} записи"
   },
   "offboarding.unshared_to_change": {
-    "one": "У {person} больше нет доступа: нужно сменить {count} запись",
     "few": "У {person} больше нет доступа: нужно сменить {count} записи",
     "many": "У {person} больше нет доступа: нужно сменить {count} записей",
+    "one": "У {person} больше нет доступа: нужно сменить {count} запись",
     "other": "У {person} больше нет доступа: нужно сменить {count} записи"
   },
   "offboarding_card.they_could_see_or_copy": "Этот человек мог её видеть или скопировать. Смените её; если не вы ею управляете, её сменит менеджер.",
@@ -1093,9 +1096,9 @@
   "open_export.export_vault": "Экспорт хранилища",
   "open_export.export_vault_2": "Чтобы экспортировать хранилище.",
   "open_export.exported_to": {
-    "one": "{count} запись экспортирована в {path}",
     "few": "{count} записи экспортированы в {path}",
     "many": "{count} записей экспортировано в {path}",
+    "one": "{count} запись экспортирована в {path}",
     "other": "{count} записи экспортировано в {path}"
   },
   "open_export.file_password": "Пароль файла",
@@ -1139,9 +1142,9 @@
   "palette.sage": "Шалфей",
   "palette.terracotta": "Терракота",
   "password.chars_left": {
-    "one": "Ещё {count} символ",
     "few": "Ещё {count} символа",
     "many": "Ещё {count} символов",
+    "one": "Ещё {count} символ",
     "other": "Ещё {count} символа"
   },
   "pending_change_box.accept_new_description": "Принять новое описание",
@@ -1225,57 +1228,57 @@
   "recovery_code.used": "Вы использовали код восстановления, поэтому он больше не действует. Вот новый: храните его так же, как прежний.",
   "recovery_code.vault_note": "Хранить его в личном хранилище можно, но это не поможет, если вы потеряете само хранилище (этот ПК и его копии): сохраните его и в другом месте.",
   "reminder.ask_manager_in_case": {
-    "one": "Попросите менеджера сменить её на случай, если её видели.",
     "few": "Попросите менеджера сменить её на случай, если её видели.",
     "many": "Попросите менеджера сменить её на случай, если её видели.",
+    "one": "Попросите менеджера сменить её на случай, если её видели.",
     "other": "Попросите менеджера сменить её на случай, если её видели."
   },
   "reminder.change_in_case": {
-    "one": "Смените её на случай, если её видели.",
     "few": "Смените её на случай, если её видели.",
     "many": "Смените её на случай, если её видели.",
+    "one": "Смените её на случай, если её видели.",
     "other": "Смените её на случай, если её видели."
   },
   "reminder.change_people_had_it": {
-    "one": "Сменить: она была у {names}",
     "few": "Сменить: она была у {names}",
     "many": "Сменить: она была у {names}",
+    "one": "Сменить: она была у {names}",
     "other": "Сменить: она была у {names}"
   },
   "reminder.change_people_left": {
-    "one": "Сменить: {names} покинул(а) команду",
     "few": "Сменить: {names} покинули команду",
     "many": "Сменить: {names} покинули команду",
+    "one": "Сменить: {names} покинул(а) команду",
     "other": "Сменить: {names} покинули команду"
   },
   "reminder.expired_ago": {
-    "one": "Истекла {count} день назад. Создайте новый ключ или смените его.",
     "few": "Истекла {count} дня назад. Создайте новый ключ или смените его.",
     "many": "Истекла {count} дней назад. Создайте новый ключ или смените его.",
+    "one": "Истекла {count} день назад. Создайте новый ключ или смените его.",
     "other": "Истекла {count} дня назад. Создайте новый ключ или смените его."
   },
   "reminder.expires_in": {
-    "one": "Истекает через {count} день. Смените ключ, пока он не перестал работать.",
     "few": "Истекает через {count} дня. Смените ключ, пока он не перестал работать.",
     "many": "Истекает через {count} дней. Смените ключ, пока он не перестал работать.",
+    "one": "Истекает через {count} день. Смените ключ, пока он не перестал работать.",
     "other": "Истекает через {count} дня. Смените ключ, пока он не перестал работать."
   },
   "reminder.key_age": {
-    "one": "Ключу {count} день. Время от времени его стоит менять.",
     "few": "Ключу {count} дня. Время от времени его стоит менять.",
     "many": "Ключу {count} дней. Время от времени его стоит менять.",
+    "one": "Ключу {count} день. Время от времени его стоит менять.",
     "other": "Ключу {count} дня. Время от времени его стоит менять."
   },
   "reminder.team_access_left": {
-    "one": "У {names} был доступ к этой командной записи, но этого человека больше нет в команде.",
     "few": "У {names} был доступ к этой командной записи, но их больше нет в команде.",
     "many": "У {names} был доступ к этой командной записи, но их больше нет в команде.",
+    "one": "У {names} был доступ к этой командной записи, но этого человека больше нет в команде.",
     "other": "У {names} был доступ к этой командной записи, но их больше нет в команде."
   },
   "reminder.unshared_access": {
-    "one": "У {names} был доступ к этой записи, но больше его нет.",
     "few": "У {names} был доступ к этой записи, но больше его нет.",
     "many": "У {names} был доступ к этой записи, но больше его нет.",
+    "one": "У {names} был доступ к этой записи, но больше его нет.",
     "other": "У {names} был доступ к этой записи, но больше его нет."
   },
   "reminder_short.change_had_it": "Сменить: была у {length} чел.",
@@ -1426,25 +1429,25 @@
   "rotation.id_changed_app": "Изменился: создано новое приложение.",
   "rotation.id_changed_client": "Изменился: создан новый клиент.",
   "rotation.n_places": {
-    "one": "{count} место",
     "few": "{count} места",
     "many": "{count} мест",
+    "one": "{count} место",
     "other": "{count} места"
   },
   "rotation.no_places_noted": "Места не записаны. Если вы используете его где-то ещё (сервер, Vercel, другое приложение…), смените его и там.",
   "rotation.no_places_noted_revoke": "Места не записаны. Если вы используете его где-то ещё (сервер, Vercel, другое приложение…), смените его и там, прежде чем отзывать старый.",
   "rotation.old_key_exposed": {
-    "one": "Старый ключ был в открытом виде в {count} месте. Как только вы его отзовёте, эта копия перестанет быть риском.",
     "few": "Старый ключ был в открытом виде в {count} местах. Как только вы его отзовёте, эти копии перестанут быть риском.",
     "many": "Старый ключ был в открытом виде в {count} местах. Как только вы его отзовёте, эти копии перестанут быть риском.",
+    "one": "Старый ключ был в открытом виде в {count} месте. Как только вы его отзовёте, эта копия перестанет быть риском.",
     "other": "Старый ключ был в открытом виде в {count} места. Как только вы его отзовёте, эти копии перестанут быть риском."
   },
   "rotation.pending_kept_key": "Новый ключ остаётся здесь как ожидающий: когда вернётесь в «Сменить с подсказками», сможете закончить.",
   "rotation.pending_kept_password": "Новый пароль остаётся здесь как ожидающий: когда вернётесь в «Сменить с подсказками», сможете закончить.",
   "rotation.places_missing": {
-    "one": "Осталось: {count}. {then}",
     "few": "Осталось: {count}. {then}",
     "many": "Осталось: {count}. {then}",
+    "one": "Осталось: {count}. {then}",
     "other": "Осталось: {count}. {then}"
   },
   "rotation.proof_copy_key": "Чтобы скопировать новый ключ {name}.",
@@ -1498,9 +1501,9 @@
   "server_admin.backup_reason": "Чтобы сделать резервную копию сервера.",
   "server_admin.backups": "Резервные копии",
   "server_admin.backups_kept": {
-    "one": "{count} хранится",
     "few": "{count} хранятся",
     "many": "{count} хранятся",
+    "one": "{count} хранится",
     "other": "{count} хранятся"
   },
   "server_admin.being_replaced": "Доступ потерян: новый аккаунт ждёт, чтобы заменить его",
@@ -1508,9 +1511,9 @@
   "server_admin.change_owner_text": "Выберите человека, который уже состоит в организации. Прежний владелец остаётся владельцем; новый может изменить это в разделе «Люди».",
   "server_admin.change_owner_title": "Владелец {org}",
   "server_admin.collections_count": {
-    "one": "{count} коллекция",
     "few": "{count} коллекции",
     "many": "{count} коллекций",
+    "one": "{count} коллекция",
     "other": "{count} коллекции"
   },
   "server_admin.copy_code_only": "Скопировать только код",
@@ -1641,9 +1644,9 @@
   "settings.app": "Приложение",
   "settings.appearance": "Внешний вид",
   "settings.approved_now": {
-    "one": "Сейчас одобрена {count} запись.",
     "few": "Сейчас одобрены {count} записи.",
     "many": "Сейчас одобрено {count} записей.",
+    "one": "Сейчас одобрена {count} запись.",
     "other": "Сейчас одобрено {count} записи."
   },
   "settings.ask_again_if_used_lot": "Спрашивать снова при частом использовании",
@@ -1729,27 +1732,27 @@
   "setup.you_ll_only_type_master": "Мастер-пароль понадобится только для восстановления копий или на другом ПК.",
   "setup.your_keys_used_without_being": "Ваши ключи используются, но не видны",
   "share.credentials_shared_in": {
-    "one": "{count} запись передана в {name}",
     "few": "{count} записи переданы в {name}",
     "many": "{count} записей передано в {name}",
+    "one": "{count} запись передана в {name}",
     "other": "{count} записи передано в {name}"
   },
   "share.not_shared": {
-    "one": "{count} не удалось передать: {error}",
     "few": "{count} не удалось передать: {error}",
     "many": "{count} не удалось передать: {error}",
+    "one": "{count} не удалось передать: {error}",
     "other": "{count} не удалось передать: {error}"
   },
   "share.shared_in": {
-    "one": "{count} передана в {name}",
     "few": "{count} переданы в {name}",
     "many": "{count} передано в {name}",
+    "one": "{count} передана в {name}",
     "other": "{count} передано в {name}"
   },
   "share.shared_with_count": {
-    "one": "Общих с {name}: {count}",
     "few": "Общих с {name}: {count}",
     "many": "Общих с {name}: {count}",
+    "one": "Общих с {name}: {count}",
     "other": "Общих с {name}: {count}"
   },
   "share.shared_with_one": "Общая с {name}",
@@ -1773,9 +1776,9 @@
   "share_with_person.nothing_to_share": "У вас нет своих записей, которыми можно поделиться.",
   "share_with_person.search": "Поиск",
   "share_with_person.share_count": {
-    "one": "Поделиться: {count}",
     "few": "Поделиться: {count}",
     "many": "Поделиться: {count}",
+    "one": "Поделиться: {count}",
     "other": "Поделиться: {count}"
   },
   "shared_badge.shared": "Общая · {value}",
@@ -1834,6 +1837,7 @@
   "show_form.change_type": "Изменить тип",
   "show_form.changed_while_you_were_editing": "Изменилась, пока вы редактировали",
   "show_form.changes_saved": "Изменения сохранены",
+  "show_form.config_not_secret": "Это не секрет: ИИ видит эти данные, а sb run передаёт их, не спрашивая тебя. Поэтому здесь нет разрешений, смены ключа и проверок.",
   "show_form.data_ai_can_insert_without": "Данные, которые ИИ может подставлять, не видя их",
   "show_form.deploy_token": "Токен развёртывания",
   "show_form.discard_changes": "Отбросить изменения?",
@@ -1883,15 +1887,15 @@
   "sidebar.closes_with_windows": "Хранилище закрывается при блокировке Windows.",
   "sidebar.closes_with_windows_or_idle": "Хранилище закрывается при блокировке Windows или после периода бездействия и открывается снова само.",
   "sidebar.drafts_waiting": {
-    "one": "{count} запись, подготовленная ИИ, ждёт ключа.",
     "few": "{count} записи, подготовленные ИИ, ждут ключей.",
     "many": "{count} записей, подготовленных ИИ, ждут ключей.",
+    "one": "{count} запись, подготовленная ИИ, ждёт ключа.",
     "other": "{count} записи, подготовленной ИИ, ждут ключей."
   },
   "sidebar.to_review": {
-    "one": "На проверку: {count}",
     "few": "На проверку: {count}",
     "many": "На проверку: {count}",
+    "one": "На проверку: {count}",
     "other": "На проверку: {count}"
   },
   "sort.need_attention": "Требуют внимания",
@@ -1904,9 +1908,9 @@
   "source.settings": "Настройки",
   "source.terminal_history": "История терминала",
   "status.used_in_places": {
-    "one": "Используется в {count} месте",
     "few": "Используется в {count} местах",
     "many": "Используется в {count} местах",
+    "one": "Используется в {count} месте",
     "other": "Используется в {count} места"
   },
   "status_strip.app_doesn_know_how_test": "Приложение не знает, как проверить этот ключ: укажите, каким запросом его проверять",
@@ -1942,39 +1946,39 @@
   "sync_line.will_retry_by_itself": "Повторная попытка будет автоматически.",
   "team.another_account": "другой аккаунт",
   "team.changes_wait_rekey": {
-    "one": "{count} изменение ждёт перешифрования своей коллекции.",
     "few": "{count} изменения ждут перешифрования своих коллекций.",
     "many": "{count} изменений ждут перешифрования своих коллекций.",
+    "one": "{count} изменение ждёт перешифрования своей коллекции.",
     "other": "{count} изменения ждут перешифрования своих коллекций."
   },
   "team.disconnect_removes": {
-    "one": "{count} командная запись будет удалена с этого ПК; на сервере она останется для остальных. Записи, которыми вы поделились из своего хранилища, и неотправленные изменения останутся личными.",
     "few": "{count} командные записи будут удалены с этого ПК; на сервере они останутся для остальных. Записи, которыми вы поделились из своего хранилища, и неотправленные изменения останутся личными.",
     "many": "{count} командных записей будут удалены с этого ПК; на сервере они останутся для остальных. Записи, которыми вы поделились из своего хранилища, и неотправленные изменения останутся личными.",
+    "one": "{count} командная запись будет удалена с этого ПК; на сервере она останется для остальных. Записи, которыми вы поделились из своего хранилища, и неотправленные изменения останутся личными.",
     "other": "{count} командной записи будут удалены с этого ПК; на сервере они останутся для остальных. Записи, которыми вы поделились из своего хранилища, и неотправленные изменения останутся личными."
   },
   "team.people_to_verify": {
-    "one": "{count} человека нужно проверить",
     "few": "{count} человека нужно проверить",
     "many": "{count} человек нужно проверить",
+    "one": "{count} человека нужно проверить",
     "other": "{count} человека нужно проверить"
   },
   "team.rekey_by_managers": {
-    "one": "Ещё {count} коллекцию перешифрует её менеджер.",
     "few": "Ещё {count} коллекции перешифруют их менеджеры.",
     "many": "Ещё {count} коллекций перешифруют их менеджеры.",
+    "one": "Ещё {count} коллекцию перешифрует её менеджер.",
     "other": "Ещё {count} коллекции перешифруют их менеджеры."
   },
   "team.rekey_next_sync": {
-    "one": "{count} коллекция будет перешифрована при следующей синхронизации.",
     "few": "{count} коллекции будут перешифрованы при следующей синхронизации.",
     "many": "{count} коллекций будут перешифрованы при следующей синхронизации.",
+    "one": "{count} коллекция будет перешифрована при следующей синхронизации.",
     "other": "{count} коллекции будут перешифрованы при следующей синхронизации."
   },
   "team.rekey_on_reconnect": {
-    "one": "{count} коллекция будет перешифрована при повторном подключении.",
     "few": "{count} коллекции будут перешифрованы при повторном подключении.",
     "many": "{count} коллекций будут перешифрованы при повторном подключении.",
+    "one": "{count} коллекция будет перешифрована при повторном подключении.",
     "other": "{count} коллекции будут перешифрованы при повторном подключении."
   },
   "team.this_pc": "этот ПК: {device}",
@@ -2153,79 +2157,79 @@
   "time.date_at": "{date} в {time}",
   "time.day_time": "{day} {time}",
   "time.days_ago": {
-    "one": "{count} день назад",
     "few": "{count} дня назад",
     "many": "{count} дней назад",
+    "one": "{count} день назад",
     "other": "{count} дня назад"
   },
   "time.every_hours": {
     "=1": "каждый час",
-    "one": "каждый {count} час",
     "few": "каждые {count} часа",
     "many": "каждые {count} часов",
+    "one": "каждый {count} час",
     "other": "каждые {count} часа"
   },
   "time.every_months": {
     "=1": "каждый месяц",
-    "one": "каждый {count} месяц",
     "few": "каждые {count} месяца",
     "many": "каждые {count} месяцев",
+    "one": "каждый {count} месяц",
     "other": "каждые {count} месяца"
   },
   "time.hours": {
-    "one": "{count} час",
     "few": "{count} часа",
     "many": "{count} часов",
+    "one": "{count} час",
     "other": "{count} часа"
   },
   "time.hours_ago": "{count} ч назад",
   "time.hours_label": "часов",
   "time.hours_short": "{count} ч",
   "time.in_days": {
-    "one": "через {count} день",
     "few": "через {count} дня",
     "many": "через {count} дней",
+    "one": "через {count} день",
     "other": "через {count} дня"
   },
   "time.in_months": {
-    "one": "через {count} месяц",
     "few": "через {count} месяца",
     "many": "через {count} месяцев",
+    "one": "через {count} месяц",
     "other": "через {count} месяца"
   },
   "time.in_years": {
     "=1": "через год",
-    "one": "через {count} год",
     "few": "через {count} года",
     "many": "через {count} лет",
+    "one": "через {count} год",
     "other": "через {count} года"
   },
   "time.minutes": {
-    "one": "{count} минута",
     "few": "{count} минуты",
     "many": "{count} минут",
+    "one": "{count} минута",
     "other": "{count} минуты"
   },
   "time.minutes_ago": "{count} мин назад",
   "time.minutes_short": "{count} мин",
   "time.months": {
-    "one": "{count} месяц",
     "few": "{count} месяца",
     "many": "{count} месяцев",
+    "one": "{count} месяц",
     "other": "{count} месяца"
   },
   "time.months_ago": {
-    "one": "{count} месяц назад",
     "few": "{count} месяца назад",
     "many": "{count} месяцев назад",
+    "one": "{count} месяц назад",
     "other": "{count} месяца назад"
   },
   "time.now": "только что",
   "time.relative_day_at": "{day} в {time}",
   "time.years_ago": {
-    "one": "{count} год назад",
     "few": "{count} года назад",
     "many": "{count} лет назад",
+    "one": "{count} год назад",
     "other": "{count} года назад"
   },
   "totp_prop.2fa_code_copied_valid_for": "Код 2FA скопирован · действует ещё {remaining} с",
@@ -2271,9 +2275,9 @@
   "used_in_modal.where_is_used": "Где используется {name}",
   "used_in_modal.where_used_hasn_been_noted": "Не записано, где используется.",
   "verify.shares_collections": {
-    "one": "Делится с вами {count} коллекцией: проверьте его, чтобы её получить.",
     "few": "Делится с вами {count} коллекциями: проверьте его, чтобы их получить.",
     "many": "Делится с вами {count} коллекциями: проверьте его, чтобы их получить.",
+    "one": "Делится с вами {count} коллекцией: проверьте его, чтобы её получить.",
     "other": "Делится с вами {count} коллекции: проверьте его, чтобы их получить."
   },
   "verify_email_card.e_mail_code": "Код из письма",

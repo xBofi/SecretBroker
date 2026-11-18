@@ -213,6 +213,7 @@
   "change_line.new_programs": "Novos programas",
   "change_line.new_variables": "Variáveis novas ou alteradas",
   "change_line.new_websites": "Novos sites",
+  "change_line.secret_value_deleted": "o valor secreto guardado é apagado",
   "change_master_password.change_master_password": "Para alterar a palavra-passe mestra.",
   "change_master_password.change_master_password_2": "Alterar palavra-passe mestra",
   "change_master_password.choose_new_master_password": "Escolhe uma nova palavra-passe mestra",
@@ -469,6 +470,7 @@
   "describe_permissions.run_on_this_pc": "Executar {value} neste PC",
   "destination_label.github": "GitHub {repo}{value} · {name}",
   "detail.ai_knows_as": "A IA conhece-a como ",
+  "detail.config_not_secret": "Não é secreta: a IA vê estes dados e o sb run dá-os aos programas sem te pedir permissão. Não é rodada nem conta como exposta.",
   "detail.copied_cleared_in": "Copiado · apagado dentro de {result} s",
   "detail.copy": "Para copiar «{label}» de {name}.",
   "detail.decide_in_team": "decide em Equipa",
@@ -529,6 +531,7 @@
   "draw_team.sync_now": "Sincronizar agora",
   "draw_team.synced": "Sincronizado",
   "editor.aws_placeholder": "AWS pessoal",
+  "editor.config_placeholder": "Client ID da minha app",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
   "editor.tags_placeholder": "loja, produção",
   "empty_credentials.add_credential": "Adicionar uma credencial",
@@ -1364,8 +1367,8 @@
   "server_admin.backup_reason": "Para fazer uma cópia de segurança do servidor.",
   "server_admin.backups": "Cópias de segurança",
   "server_admin.backups_kept": {
-    "one": "{count} guardada",
     "many": "{count} guardadas",
+    "one": "{count} guardada",
     "other": "{count} guardadas"
   },
   "server_admin.being_replaced": "Perdeu o acesso: uma conta nova está à espera para a substituir",
@@ -1373,8 +1376,8 @@
   "server_admin.change_owner_text": "Escolhe alguém que já esteja na organização. Quem já era proprietário continua a sê-lo; o novo pode alterar isso em Pessoas.",
   "server_admin.change_owner_title": "Proprietário de {org}",
   "server_admin.collections_count": {
-    "one": "{count} coleção",
     "many": "{count} coleções",
+    "one": "{count} coleção",
     "other": "{count} coleções"
   },
   "server_admin.copy_code_only": "Copiar só o código",
@@ -1687,6 +1690,7 @@
   "show_form.change_type": "Mudar tipo",
   "show_form.changed_while_you_were_editing": "Foi alterada enquanto a editavas",
   "show_form.changes_saved": "Alterações guardadas",
+  "show_form.config_not_secret": "Não é um segredo: a IA vê estes dados e o sb run dá-os sem te pedir permissão. Por isso não tem permissões, rotação nem verificações.",
   "show_form.data_ai_can_insert_without": "Dados que a IA pode inserir sem os ver",
   "show_form.deploy_token": "Token de implementação",
   "show_form.discard_changes": "Descartar as alterações?",

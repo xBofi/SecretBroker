@@ -79,8 +79,8 @@
   "activity_detail.credentials": {
     "=0": "prazan",
     "=1": "1 vjerodajnica",
-    "one": "{count} vjerodajnica",
     "few": "{count} vjerodajnice",
+    "one": "{count} vjerodajnica",
     "other": "{count} vjerodajnica"
   },
   "activity_detail.from_collection": "Iz zbirke {name}",
@@ -99,15 +99,15 @@
   "activity_filter.all": "Sve",
   "activity_filter.denied": "Odbijeno",
   "ai.requests_count": {
-    "one": "{count} zahtjev",
     "few": "{count} zahtjeva",
+    "one": "{count} zahtjev",
     "other": "{count} zahtjeva"
   },
   "ai_change.rotation_guide": "Vodič za rotaciju",
   "ai_change.sources": "izvori: {sources}",
   "ai_change.steps": {
-    "one": "{count} korak",
     "few": "{count} koraka",
+    "one": "{count} korak",
     "other": "{count} koraka"
   },
   "ai_change.test_request": "Testni zahtjev",
@@ -143,14 +143,14 @@
   "approval.allow_for_24_hours": "Dopusti 24 sata",
   "approval.allow_for_8_hours": "Dopusti 8 sati",
   "approval.for_hours": {
-    "one": "na {count} sat",
     "few": "na {count} sata",
+    "one": "na {count} sat",
     "other": "na {count} sati"
   },
   "approval.position": "{position} od {total}",
   "approval.times_today": {
-    "one": "{count} put danas",
     "few": "{count} puta danas",
+    "one": "{count} put danas",
     "other": "{count} puta danas"
   },
   "approval.until_you_lock_vault": "dok ne zaključaš trezor",
@@ -219,6 +219,7 @@
   "change_line.new_programs": "Novi programi",
   "change_line.new_variables": "Nove ili promijenjene varijable",
   "change_line.new_websites": "Nove web-stranice",
+  "change_line.secret_value_deleted": "spremljena tajna vrijednost briše se",
   "change_master_password.change_master_password": "Za promjenu glavne lozinke.",
   "change_master_password.change_master_password_2": "Promijeni glavnu lozinku",
   "change_master_password.choose_new_master_password": "Odaberi novu glavnu lozinku",
@@ -315,8 +316,8 @@
   "common.create_collection": "Za stvaranje zbirke.",
   "common.credentials": "Vjerodajnice",
   "common.credentials_count": {
-    "one": "{count} vjerodajnica",
     "few": "{count} vjerodajnice",
+    "one": "{count} vjerodajnica",
     "other": "{count} vjerodajnica"
   },
   "common.delete": "Izbriši",
@@ -376,8 +377,8 @@
   "common.optional_suffix": " · neobavezno",
   "common.organization": "Organizacija",
   "common.people_count": {
-    "one": "{count} osoba",
     "few": "{count} osobe",
+    "one": "{count} osoba",
     "other": "{count} osoba"
   },
   "common.private_notes": "Privatne bilješke",
@@ -477,6 +478,7 @@
   "describe_permissions.run_on_this_pc": "Pokretanje {value} na ovom računalu",
   "destination_label.github": "GitHub {repo}{value} · {name}",
   "detail.ai_knows_as": "AI je poznaje kao ",
+  "detail.config_not_secret": "Nije tajna: AI vidi ove podatke, a sb run ih daje programima bez pitanja. Ne rotira se i ne računa se kao izložena.",
   "detail.copied_cleared_in": "Kopirano · briše se za {result} s",
   "detail.copy": "Za kopiranje polja „{label}” za {name}.",
   "detail.decide_in_team": "odluči u Timu",
@@ -497,21 +499,21 @@
   "direct_block.stop_proof": "Za prestanak dijeljenja s osobom {name}.",
   "direct_block.stop_sharing_with": "Prestani dijeliti s osobom {name}",
   "direct_block.stop_text": {
-    "one": "{name} više neće primati {count} vjerodajnicu koju dijeliš s tom osobom. Na ovom računalu ostaje tvoja.",
     "few": "{name} više neće primati {count} vjerodajnice koje dijeliš s tom osobom. Na ovom računalu ostaju tvoje.",
+    "one": "{name} više neće primati {count} vjerodajnicu koju dijeliš s tom osobom. Na ovom računalu ostaje tvoja.",
     "other": "{name} više neće primati {count} vjerodajnica koje dijeliš s tom osobom. Na ovom računalu ostaju tvoje."
   },
   "direct_block.stop_title": "Prestati dijeliti s osobom {name}?",
   "direct_block.stop_warning": {
-    "one": "Ta ju je osoba mogla vidjeti ili kopirati: podsjetit ćemo te da je promijeniš.",
     "few": "Ta ih je osoba mogla vidjeti ili kopirati: podsjetit ćemo te da ih promijeniš.",
+    "one": "Ta ju je osoba mogla vidjeti ili kopirati: podsjetit ćemo te da je promijeniš.",
     "other": "Ta ih je osoba mogla vidjeti ili kopirati: podsjetit ćemo te da ih promijeniš."
   },
   "direct_block.stopped": "Više ništa ne dijeliš s osobom {name}",
   "direct_block.their_permission": "{name}: {value}",
   "direct_share.already_sharing": {
-    "one": "S osobom {name} već dijeliš {count} vjerodajnicu. Dopuštenje koje odabereš vrijedi za sve što dijeliš s tom osobom.",
     "few": "S osobom {name} već dijeliš {count} vjerodajnice. Dopuštenje koje odabereš vrijedi za sve što dijeliš s tom osobom.",
+    "one": "S osobom {name} već dijeliš {count} vjerodajnicu. Dopuštenje koje odabereš vrijedi za sve što dijeliš s tom osobom.",
     "other": "S osobom {name} već dijeliš {count} vjerodajnica. Dopuštenje koje odabereš vrijedi za sve što dijeliš s tom osobom."
   },
   "direct_share.compare_code": "Zamoli tu osobu da ti pročita svoj sigurnosni kôd (telefonom ili uživo) i usporedi ga s ovim. Tako nitko, pa ni poslužitelj, ne može podmetnuti drugi ključ.",
@@ -540,6 +542,7 @@
   "draw_team.sync_now": "Sinkroniziraj sada",
   "draw_team.synced": "Sinkronizirano",
   "editor.aws_placeholder": "Osobni AWS",
+  "editor.config_placeholder": "Client ID moje aplikacije",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
   "editor.tags_placeholder": "trgovina, produkcija",
   "empty_credentials.add_credential": "Dodaj vjerodajnicu",
@@ -555,8 +558,8 @@
   "env_import.config_written": "U mapi projekta sada je datoteka .secretbroker s nazivima vjerodajnica, bez vrijednosti. Može ići u repozitorij.",
   "env_import.file_deleted": "{name} izbrisan",
   "env_import.import_keys": {
-    "one": "Uvezi {count} ključ",
     "few": "Uvezi {count} ključa",
+    "one": "Uvezi {count} ključ",
     "other": "Uvezi {count} ključeva"
   },
   "env_import.keep_file": "Ostavi tako",
@@ -567,8 +570,8 @@
   "env_import.remove_explained": "Ukloni ih iz datoteke: ostale varijable ostaju, a ako ne ostane nijedna, datoteka se briše.",
   "env_import.remove_from_file": "Ukloni iz datoteke",
   "env_import.skipped_existing": {
-    "one": "{count} je već bio u trezoru.",
     "few": "{count} su već bila u trezoru.",
+    "one": "{count} je već bio u trezoru.",
     "other": "{count} ih je već bilo u trezoru."
   },
   "env_import.still_in_file": "{name} još uvijek sadrži ove ključeve u otvorenom tekstu.",
@@ -584,8 +587,8 @@
   "exposure.couldn_load_status": "Stanje se nije moglo učitati.",
   "exposure.ignored": "zanemareno",
   "exposure.ignored_count": {
-    "one": "{count} zanemarena",
     "few": "{count} zanemarene",
+    "one": "{count} zanemarena",
     "other": "{count} zanemarenih"
   },
   "exposure.last_search_files": "Zadnja pretraga: {when} · datoteka: {files}",
@@ -594,23 +597,23 @@
   "exposure.no_search_for_copies_yet": "Još nije bilo pretrage kopija",
   "exposure.paths_are_only_shown_after": "Putanje se prikazuju tek nakon potvrde tvog identiteta. ",
   "exposure.places": {
-    "one": "{count} mjesto",
     "few": "{count} mjesta",
+    "one": "{count} mjesto",
     "other": "{count} mjesta"
   },
   "exposure.removed_from_file": {
-    "one": "Uklonjeno iz datoteke ({count} put)",
     "few": "Uklonjeno iz datoteke ({count} puta)",
+    "one": "Uklonjeno iz datoteke ({count} put)",
     "other": "Uklonjeno iz datoteke ({count} puta)"
   },
   "exposure.revealed_times": {
-    "one": "Prikazano ili kopirano {count} put",
     "few": "Prikazano ili kopirano {count} puta",
+    "one": "Prikazano ili kopirano {count} put",
     "other": "Prikazano ili kopirano {count} puta"
   },
   "exposure.search_done_exposed": {
-    "one": "Pretraga dovršena: izložena {count} vjerodajnica",
     "few": "Pretraga dovršena: izložene {count} vjerodajnice",
+    "one": "Pretraga dovršena: izložena {count} vjerodajnica",
     "other": "Pretraga dovršena: izloženo {count} vjerodajnica"
   },
   "exposure.search_for_copies": "Traži kopije",
@@ -690,73 +693,73 @@
   "generator_panel.very_weak": "Vrlo slaba",
   "generator_panel.words": "Riječi",
   "health.count_expired": {
-    "one": "{count} istekla",
     "few": "{count} istekle",
+    "one": "{count} istekla",
     "other": "{count} isteklih"
   },
   "health.count_expiring": {
-    "one": "{count} uskoro istječe",
     "few": "{count} uskoro istječu",
+    "one": "{count} uskoro istječe",
     "other": "{count} uskoro istječe"
   },
   "health.count_exposed": {
-    "one": "{count} izložena",
     "few": "{count} izložene",
+    "one": "{count} izložena",
     "other": "{count} izloženih"
   },
   "health.count_half_rotated": {
-    "one": "{count} napola dovršena rotacija",
     "few": "{count} napola dovršene rotacije",
+    "one": "{count} napola dovršena rotacija",
     "other": "{count} napola dovršenih rotacija"
   },
   "health.count_old": {
-    "one": "{count} stara",
     "few": "{count} stare",
+    "one": "{count} stara",
     "other": "{count} starih"
   },
   "health.count_old_alive": {
-    "one": "{count} sa starim ključem još aktivnim",
     "few": "{count} sa starim ključem još aktivnim",
+    "one": "{count} sa starim ključem još aktivnim",
     "other": "{count} sa starim ključem još aktivnim"
   },
   "health.count_pwned": {
-    "one": "{count} u curenjima podataka",
     "few": "{count} u curenjima podataka",
+    "one": "{count} u curenjima podataka",
     "other": "{count} u curenjima podataka"
   },
   "health.count_retired_pending": {
-    "one": "{count} sa starim ključem koji treba opozvati",
     "few": "{count} sa starim ključem koji treba opozvati",
+    "one": "{count} sa starim ključem koji treba opozvati",
     "other": "{count} sa starim ključem koji treba opozvati"
   },
   "health.count_reused": {
-    "one": "{count} ponovno korištena",
     "few": "{count} ponovno korištene",
+    "one": "{count} ponovno korištena",
     "other": "{count} ponovno korištenih"
   },
   "health.count_team_access": {
-    "one": "{count} s pristupom osobe koja je otišla",
     "few": "{count} s pristupom osobe koja je otišla",
+    "one": "{count} s pristupom osobe koja je otišla",
     "other": "{count} s pristupom osobe koja je otišla"
   },
   "health.count_unchecked": {
-    "one": "{count} netestirana",
     "few": "{count} netestirane",
+    "one": "{count} netestirana",
     "other": "{count} netestiranih"
   },
   "health.count_upload_failed": {
-    "one": "{count} nije prenesena",
     "few": "{count} nisu prenesene",
+    "one": "{count} nije prenesena",
     "other": "{count} nije preneseno"
   },
   "health.count_was_exposed": {
-    "one": "{count} bila je izložena",
     "few": "{count} bile su izložene",
+    "one": "{count} bila je izložena",
     "other": "{count} bilo je izloženo"
   },
   "health.count_weak": {
-    "one": "{count} slaba",
     "few": "{count} slabe",
+    "one": "{count} slaba",
     "other": "{count} slabih"
   },
   "health.missing_both": "Još treba: {what}. „Provjeri sada” radi oboje.",
@@ -779,38 +782,38 @@
   "health_section.see_less": "Prikaži manje",
   "health_section.test_them_with_their_providers": "testirati ih kod njihovih pružatelja",
   "held.deleted": {
-    "one": "{count} vjerodajnica izbrisana s ovog računala",
     "few": "{count} vjerodajnice izbrisane s ovog računala",
+    "one": "{count} vjerodajnica izbrisana s ovog računala",
     "other": "{count} vjerodajnica izbrisano s ovog računala"
   },
   "held.deleted_by": {
-    "one": "{who} je odjednom izbrisao {count} vjerodajnicu iz zbirke „{collection_name}”.",
     "few": "{who} je odjednom izbrisao {count} vjerodajnice iz zbirke „{collection_name}”.",
+    "one": "{who} je odjednom izbrisao {count} vjerodajnicu iz zbirke „{collection_name}”.",
     "other": "{who} je odjednom izbrisao {count} vjerodajnica iz zbirke „{collection_name}”."
   },
   "held.kept": {
-    "one": "{count} vjerodajnica zadržana na ovom računalu",
     "few": "{count} vjerodajnice zadržane na ovom računalu",
+    "one": "{count} vjerodajnica zadržana na ovom računalu",
     "other": "{count} vjerodajnica zadržano na ovom računalu"
   },
   "held.proof_delete": {
-    "one": "Za brisanje {count} vjerodajnice s ovog računala.",
     "few": "Za brisanje {count} vjerodajnice s ovog računala.",
+    "one": "Za brisanje {count} vjerodajnice s ovog računala.",
     "other": "Za brisanje {count} vjerodajnica s ovog računala."
   },
   "held.proof_keep": {
-    "one": "Za zadržavanje {count} vjerodajnice.",
     "few": "Za zadržavanje {count} vjerodajnice.",
+    "one": "Za zadržavanje {count} vjerodajnice.",
     "other": "Za zadržavanje {count} vjerodajnica."
   },
   "held.restored": {
-    "one": "{count} vjerodajnica vraćena za cijeli tim",
     "few": "{count} vjerodajnice vraćene za cijeli tim",
+    "one": "{count} vjerodajnica vraćena za cijeli tim",
     "other": "{count} vjerodajnica vraćeno za cijeli tim"
   },
   "held.waiting": {
-    "one": "{count} vjerodajnica čeka tvoju odluku",
     "few": "{count} vjerodajnice čekaju tvoju odluku",
+    "one": "{count} vjerodajnica čeka tvoju odluku",
     "other": "{count} vjerodajnica čeka tvoju odluku"
   },
   "held_deletions_card.collection_no_longer_appears_on": "Zbirka „{collection_name}” više se ne pojavljuje na poslužitelju (tvoj pristup je uklonjen, izbrisana je ili poslužitelj ne radi kako treba).",
@@ -822,49 +825,49 @@
   "held_deletions_card.restoring_them_puts_them_back": "Vraćanjem ih ponovno dobiva cijeli tim.",
   "import.already_in": "Već postoji",
   "import.count_conflict": {
-    "one": "{count} s drugačijom lozinkom",
     "few": "{count} s drugačijom lozinkom",
+    "one": "{count} s drugačijom lozinkom",
     "other": "{count} s drugačijom lozinkom"
   },
   "import.count_duplicate": {
-    "one": "{count} već je u trezoru",
     "few": "{count} već su u trezoru",
+    "one": "{count} već je u trezoru",
     "other": "{count} već je u trezoru"
   },
   "import.count_new": {
-    "one": "{count} nova",
     "few": "{count} nove",
+    "one": "{count} nova",
     "other": "{count} novih"
   },
   "import.different_password": "Drugačija lozinka",
   "import.imported": {
-    "one": "{count} vjerodajnica uvezena",
     "few": "{count} vjerodajnice uvezene",
+    "one": "{count} vjerodajnica uvezena",
     "other": "{count} vjerodajnica uvezeno"
   },
   "import.in_file": {
-    "one": "{count} vjerodajnica u datoteci: ",
     "few": "{count} vjerodajnice u datoteci: ",
+    "one": "{count} vjerodajnica u datoteci: ",
     "other": "{count} vjerodajnica u datoteci: "
   },
   "import.skipped_summary": {
-    "one": "{count} neće biti uvezena",
     "few": "{count} neće biti uvezene",
+    "one": "{count} neće biti uvezena",
     "other": "{count} neće biti uvezeno"
   },
   "import.stat_created": {
-    "one": "stvorena",
     "few": "stvorene",
+    "one": "stvorena",
     "other": "stvoreno"
   },
   "import.stat_failed": {
-    "one": "nije uspjela",
     "few": "nisu uspjele",
+    "one": "nije uspjela",
     "other": "nije uspjelo"
   },
   "import.stat_skipped": {
-    "one": "preskočena",
     "few": "preskočene",
+    "one": "preskočena",
     "other": "preskočeno"
   },
   "import_done.any_program_or_person_who": "Ima ih svaki program ili osoba koja ga pročita. Izbriši ga sada, zajedno sa svim kopijama u Preuzimanjima, e-pošti ili oblaku.",
@@ -949,8 +952,8 @@
   "key_source_picker.where_do_i_get_key": "Gdje mogu dobiti ključ?",
   "level.not_checked": "Nije provjereno",
   "list.selected": {
-    "one": "{count} odabrana",
     "few": "{count} odabrane",
+    "one": "{count} odabrana",
     "other": "{count} odabranih"
   },
   "lock.couldn_open_with_windows_session": "Otvaranje sesijom sustava Windows nije uspjelo. Koristi lozinku.",
@@ -1007,28 +1010,28 @@
   "new_org_modal.new_organization": "Nova organizacija",
   "new_org_modal.organization_is_team_has_its": "Organizacija je tim: ima svoje osobe i svoje zbirke.",
   "offboarding.changed": {
-    "one": "{count} promijenjena",
     "few": "{count} promijenjene",
+    "one": "{count} promijenjena",
     "other": "{count} promijenjenih"
   },
   "offboarding.could_see": {
-    "one": "{person} je mogao vidjeti {count} vjerodajnicu",
     "few": "{person} je mogao vidjeti {count} vjerodajnice",
+    "one": "{person} je mogao vidjeti {count} vjerodajnicu",
     "other": "{person} je mogao vidjeti {count} vjerodajnica"
   },
   "offboarding.done_of_total": {
-    "one": "Promijenjeno {done} od {count}",
     "few": "Promijenjeno {done} od {count}",
+    "one": "Promijenjeno {done} od {count}",
     "other": "Promijenjeno {done} od {count}"
   },
   "offboarding.gone_to_change": {
-    "one": "{person} je otišao: {count} vjerodajnica za promjenu",
     "few": "{person} je otišao: {count} vjerodajnice za promjenu",
+    "one": "{person} je otišao: {count} vjerodajnica za promjenu",
     "other": "{person} je otišao: {count} vjerodajnica za promjenu"
   },
   "offboarding.unshared_to_change": {
-    "one": "{person} više nema pristup: {count} vjerodajnica za promjenu",
     "few": "{person} više nema pristup: {count} vjerodajnice za promjenu",
+    "one": "{person} više nema pristup: {count} vjerodajnica za promjenu",
     "other": "{person} više nema pristup: {count} vjerodajnica za promjenu"
   },
   "offboarding_card.they_could_see_or_copy": "Mogao ju je vidjeti ili kopirati. Promijeni je; ako njome ne upravljaš ti, promijenit će je onaj tko njome upravlja.",
@@ -1041,8 +1044,8 @@
   "open_export.export_vault": "Izvezi trezor",
   "open_export.export_vault_2": "Za izvoz trezora.",
   "open_export.exported_to": {
-    "one": "{count} vjerodajnica izvezena u {path}",
     "few": "{count} vjerodajnice izvezene u {path}",
+    "one": "{count} vjerodajnica izvezena u {path}",
     "other": "{count} vjerodajnica izvezeno u {path}"
   },
   "open_export.file_password": "Lozinka datoteke",
@@ -1086,8 +1089,8 @@
   "palette.sage": "Kadulja",
   "palette.terracotta": "Terakota",
   "password.chars_left": {
-    "one": "Još {count} znak",
     "few": "Još {count} znaka",
+    "one": "Još {count} znak",
     "other": "Još {count} znakova"
   },
   "pending_change_box.accept_new_description": "Prihvati novi opis",
@@ -1171,48 +1174,48 @@
   "recovery_code.used": "Tvoj kôd za oporavak je iskorišten pa više ne vrijedi. Ovo je novi: čuvaj ga kao i stari.",
   "recovery_code.vault_note": "Možeš ga čuvati u osobnom trezoru, ali to ti ne pomaže ako izgubiš upravo trezor (ovo računalo i njegove sigurnosne kopije): čuvaj ga i negdje drugdje.",
   "reminder.ask_manager_in_case": {
-    "one": "Zamoli onoga tko njome upravlja da je promijeni, za slučaj da ju je ta osoba vidjela.",
     "few": "Zamoli onoga tko njome upravlja da je promijeni, za slučaj da su je te osobe vidjele.",
+    "one": "Zamoli onoga tko njome upravlja da je promijeni, za slučaj da ju je ta osoba vidjela.",
     "other": "Zamoli onoga tko njome upravlja da je promijeni, za slučaj da su je te osobe vidjele."
   },
   "reminder.change_in_case": {
-    "one": "Promijeni je, za slučaj da ju je ta osoba vidjela.",
     "few": "Promijeni je, za slučaj da su je te osobe vidjele.",
+    "one": "Promijeni je, za slučaj da ju je ta osoba vidjela.",
     "other": "Promijeni je, za slučaj da su je te osobe vidjele."
   },
   "reminder.change_people_had_it": {
-    "one": "Promijeni: imao ju je {names}",
     "few": "Promijeni: imali su je {names}",
+    "one": "Promijeni: imao ju je {names}",
     "other": "Promijeni: imali su je {names}"
   },
   "reminder.change_people_left": {
-    "one": "Promijeni: {names} je otišao",
     "few": "Promijeni: {names} su otišli",
+    "one": "Promijeni: {names} je otišao",
     "other": "Promijeni: {names} su otišli"
   },
   "reminder.expired_ago": {
-    "one": "Istekla je prije {count} dan. Stvori novi ključ ili je rotiraj.",
     "few": "Istekla je prije {count} dana. Stvori novi ključ ili je rotiraj.",
+    "one": "Istekla je prije {count} dan. Stvori novi ključ ili je rotiraj.",
     "other": "Istekla je prije {count} dana. Stvori novi ključ ili je rotiraj."
   },
   "reminder.expires_in": {
-    "one": "Istječe za {count} dan. Rotiraj je prije nego što prestane raditi.",
     "few": "Istječe za {count} dana. Rotiraj je prije nego što prestane raditi.",
+    "one": "Istječe za {count} dan. Rotiraj je prije nego što prestane raditi.",
     "other": "Istječe za {count} dana. Rotiraj je prije nego što prestane raditi."
   },
   "reminder.key_age": {
-    "one": "Ključ je star {count} dan. Isplati se povremeno ga rotirati.",
     "few": "Ključ je star {count} dana. Isplati se povremeno ga rotirati.",
+    "one": "Ključ je star {count} dan. Isplati se povremeno ga rotirati.",
     "other": "Ključ je star {count} dana. Isplati se povremeno ga rotirati."
   },
   "reminder.team_access_left": {
-    "one": "{names} je imao pristup ovoj timskoj vjerodajnici i više nije u timu.",
     "few": "{names} su imali pristup ovoj timskoj vjerodajnici i više nisu u timu.",
+    "one": "{names} je imao pristup ovoj timskoj vjerodajnici i više nije u timu.",
     "other": "{names} su imali pristup ovoj timskoj vjerodajnici i više nisu u timu."
   },
   "reminder.unshared_access": {
-    "one": "{names} je imao pristup ovoj vjerodajnici i više ga nema.",
     "few": "{names} su imali pristup ovoj vjerodajnici i više ga nemaju.",
+    "one": "{names} je imao pristup ovoj vjerodajnici i više ga nema.",
     "other": "{names} su imali pristup ovoj vjerodajnici i više ga nemaju."
   },
   "reminder_short.change_had_it": "Promijeni: imalo ju je više osoba ({length})",
@@ -1363,22 +1366,22 @@
   "rotation.id_changed_app": "Promijenio se: stvorio sam novu aplikaciju.",
   "rotation.id_changed_client": "Promijenio se: stvorio sam novi klijent.",
   "rotation.n_places": {
-    "one": "{count} mjesto",
     "few": "{count} mjesta",
+    "one": "{count} mjesto",
     "other": "{count} mjesta"
   },
   "rotation.no_places_noted": "Nema zabilježenih mjesta. Ako je koristiš negdje drugdje (poslužitelj, Vercel, druga aplikacija…), promijeni je i tamo.",
   "rotation.no_places_noted_revoke": "Nema zabilježenih mjesta. Ako je koristiš negdje drugdje (poslužitelj, Vercel, druga aplikacija…), promijeni je i tamo prije nego što opozoveš stari ključ.",
   "rotation.old_key_exposed": {
-    "one": "Stari ključ bio je u čitljivom obliku na {count} mjestu. Čim ga opozoveš, ta kopija više nije rizik.",
     "few": "Stari ključ bio je u čitljivom obliku na {count} mjesta. Čim ga opozoveš, te kopije više nisu rizik.",
+    "one": "Stari ključ bio je u čitljivom obliku na {count} mjestu. Čim ga opozoveš, ta kopija više nije rizik.",
     "other": "Stari ključ bio je u čitljivom obliku na {count} mjesta. Čim ga opozoveš, te kopije više nisu rizik."
   },
   "rotation.pending_kept_key": "Novi ključ ostaje ovdje spremljen kao nedovršen: kad se vratiš na „Rotiraj uz pomoć”, možeš završiti.",
   "rotation.pending_kept_password": "Nova lozinka ostaje ovdje spremljena kao nedovršena: kad se vratiš na „Rotiraj uz pomoć”, možeš završiti.",
   "rotation.places_missing": {
-    "one": "Preostaje {count}. {then}",
     "few": "Preostaju {count}. {then}",
+    "one": "Preostaje {count}. {then}",
     "other": "Preostaje {count}. {then}"
   },
   "rotation.proof_copy_key": "Za kopiranje novog ključa za {name}.",
@@ -1432,8 +1435,8 @@
   "server_admin.backup_reason": "Za izradu sigurnosne kopije poslužitelja.",
   "server_admin.backups": "Sigurnosne kopije",
   "server_admin.backups_kept": {
-    "one": "{count} sačuvana",
     "few": "{count} sačuvane",
+    "one": "{count} sačuvana",
     "other": "{count} sačuvanih"
   },
   "server_admin.being_replaced": "Izgubljen pristup: novi račun čeka da ga zamijeni",
@@ -1441,8 +1444,8 @@
   "server_admin.change_owner_text": "Odaberi nekoga tko je već u organizaciji. Tko je već bio vlasnik, to i ostaje; novi vlasnik to može promijeniti u kartici Osobe.",
   "server_admin.change_owner_title": "Vlasnik organizacije {org}",
   "server_admin.collections_count": {
-    "one": "{count} zbirka",
     "few": "{count} zbirke",
+    "one": "{count} zbirka",
     "other": "{count} zbirki"
   },
   "server_admin.copy_code_only": "Kopiraj samo kôd",
@@ -1573,8 +1576,8 @@
   "settings.app": "Aplikacija",
   "settings.appearance": "Izgled",
   "settings.approved_now": {
-    "one": "Trenutačno je odobrena {count} vjerodajnica.",
     "few": "Trenutačno su odobrene {count} vjerodajnice.",
+    "one": "Trenutačno je odobrena {count} vjerodajnica.",
     "other": "Trenutačno je odobreno {count} vjerodajnica."
   },
   "settings.ask_again_if_used_lot": "Pitaj ponovno ako se puno koristi",
@@ -1660,23 +1663,23 @@
   "setup.you_ll_only_type_master": "Glavnu lozinku upisivat ćeš samo za vraćanje sigurnosnih kopija ili na drugom računalu.",
   "setup.your_keys_used_without_being": "Tvoji ključevi, korišteni a da ih nitko ne vidi",
   "share.credentials_shared_in": {
-    "one": "{count} vjerodajnica dijeli se u {name}",
     "few": "{count} vjerodajnice dijele se u {name}",
+    "one": "{count} vjerodajnica dijeli se u {name}",
     "other": "{count} vjerodajnica dijeli se u {name}"
   },
   "share.not_shared": {
-    "one": "{count} se nije mogla dijeliti: {error}",
     "few": "{count} se nisu mogle dijeliti: {error}",
+    "one": "{count} se nije mogla dijeliti: {error}",
     "other": "{count} se nije moglo dijeliti: {error}"
   },
   "share.shared_in": {
-    "one": "{count} dijeli se u {name}",
     "few": "{count} dijele se u {name}",
+    "one": "{count} dijeli se u {name}",
     "other": "{count} dijeli se u {name}"
   },
   "share.shared_with_count": {
-    "one": "Dijeljeno s osobom {name}: {count}",
     "few": "Dijeljeno s osobom {name}: {count}",
+    "one": "Dijeljeno s osobom {name}: {count}",
     "other": "Dijeljeno s osobom {name}: {count}"
   },
   "share.shared_with_one": "Dijeljeno s osobom {name}",
@@ -1700,8 +1703,8 @@
   "share_with_person.nothing_to_share": "Nemaš vlastitih vjerodajnica za dijeljenje.",
   "share_with_person.search": "Pretraži",
   "share_with_person.share_count": {
-    "one": "Dijeli {count}",
     "few": "Dijeli {count}",
+    "one": "Dijeli {count}",
     "other": "Dijeli {count}"
   },
   "shared_badge.shared": "Dijeljeno · {value}",
@@ -1760,6 +1763,7 @@
   "show_form.change_type": "Promijeni vrstu",
   "show_form.changed_while_you_were_editing": "Promijenjena je dok si je uređivao",
   "show_form.changes_saved": "Promjene spremljene",
+  "show_form.config_not_secret": "Nije tajna: AI vidi ove podatke, a sb run ih daje bez pitanja. Zato nema dozvola, rotacije ni provjera.",
   "show_form.data_ai_can_insert_without": "Podaci koje AI može umetnuti a da ih ne vidi",
   "show_form.deploy_token": "Token za implementaciju",
   "show_form.discard_changes": "Odbaciti promjene?",
@@ -1809,13 +1813,13 @@
   "sidebar.closes_with_windows": "Trezor se zatvara kad zaključaš Windows.",
   "sidebar.closes_with_windows_or_idle": "Trezor se zatvara kad zaključaš Windows ili nakon nekog vremena nekorištenja i ponovno se otvara sam.",
   "sidebar.drafts_waiting": {
-    "one": "{count} vjerodajnica koju je pripremio AI čeka svoj ključ.",
     "few": "{count} vjerodajnice koje je pripremio AI čekaju svoje ključeve.",
+    "one": "{count} vjerodajnica koju je pripremio AI čeka svoj ključ.",
     "other": "{count} vjerodajnica koje je pripremio AI čeka svoje ključeve."
   },
   "sidebar.to_review": {
-    "one": "Za pregled: {count}",
     "few": "Za pregled: {count}",
+    "one": "Za pregled: {count}",
     "other": "Za pregled: {count}"
   },
   "sort.need_attention": "Trebaju pažnju",
@@ -1828,8 +1832,8 @@
   "source.settings": "Postavke",
   "source.terminal_history": "Povijest terminala",
   "status.used_in_places": {
-    "one": "Koristi se na {count} mjestu",
     "few": "Koristi se na {count} mjesta",
+    "one": "Koristi se na {count} mjestu",
     "other": "Koristi se na {count} mjesta"
   },
   "status_strip.app_doesn_know_how_test": "Aplikacija ne zna kako testirati ovaj ključ: reci joj koji ga zahtjev testira",
@@ -1865,33 +1869,33 @@
   "sync_line.will_retry_by_itself": "Ponovno će pokušati sam.",
   "team.another_account": "drugi račun",
   "team.changes_wait_rekey": {
-    "one": "{count} promjena čeka da se njezina zbirka ponovno šifrira.",
     "few": "{count} promjene čekaju da se njihova zbirka ponovno šifrira.",
+    "one": "{count} promjena čeka da se njezina zbirka ponovno šifrira.",
     "other": "{count} promjena čeka da se njihova zbirka ponovno šifrira."
   },
   "team.disconnect_removes": {
-    "one": "{count} timska vjerodajnica uklanja se s ovog računala; ostaje na poslužitelju za sve ostale. One koje si dijelio iz svog trezora i neposlane promjene ostaju kao osobne.",
     "few": "{count} timske vjerodajnice uklanjaju se s ovog računala; ostaju na poslužitelju za sve ostale. One koje si dijelio iz svog trezora i neposlane promjene ostaju kao osobne.",
+    "one": "{count} timska vjerodajnica uklanja se s ovog računala; ostaje na poslužitelju za sve ostale. One koje si dijelio iz svog trezora i neposlane promjene ostaju kao osobne.",
     "other": "{count} timskih vjerodajnica uklanja se s ovog računala; ostaju na poslužitelju za sve ostale. One koje si dijelio iz svog trezora i neposlane promjene ostaju kao osobne."
   },
   "team.people_to_verify": {
-    "one": "{count} osoba za provjeru",
     "few": "{count} osobe za provjeru",
+    "one": "{count} osoba za provjeru",
     "other": "{count} osoba za provjeru"
   },
   "team.rekey_by_managers": {
-    "one": "Još {count} zbirku ponovno šifrira onaj tko njome upravlja.",
     "few": "Još {count} zbirke ponovno šifrira onaj tko njima upravlja.",
+    "one": "Još {count} zbirku ponovno šifrira onaj tko njome upravlja.",
     "other": "Još {count} zbirki ponovno šifrira onaj tko njima upravlja."
   },
   "team.rekey_next_sync": {
-    "one": "{count} zbirka bit će ponovno šifrirana pri sljedećoj sinkronizaciji.",
     "few": "{count} zbirke bit će ponovno šifrirane pri sljedećoj sinkronizaciji.",
+    "one": "{count} zbirka bit će ponovno šifrirana pri sljedećoj sinkronizaciji.",
     "other": "{count} zbirki bit će ponovno šifrirano pri sljedećoj sinkronizaciji."
   },
   "team.rekey_on_reconnect": {
-    "one": "{count} zbirka bit će ponovno šifrirana pri ponovnom povezivanju.",
     "few": "{count} zbirke bit će ponovno šifrirane pri ponovnom povezivanju.",
+    "one": "{count} zbirka bit će ponovno šifrirana pri ponovnom povezivanju.",
     "other": "{count} zbirki bit će ponovno šifrirano pri ponovnom povezivanju."
   },
   "team.this_pc": "ovo računalo: {device}",
@@ -2070,68 +2074,68 @@
   "time.date_at": "{date} u {time}",
   "time.day_time": "{day} {time}",
   "time.days_ago": {
-    "one": "prije {count} dan",
     "few": "prije {count} dana",
+    "one": "prije {count} dan",
     "other": "prije {count} dana"
   },
   "time.every_hours": {
     "=1": "svaki sat",
-    "one": "svakih {count} sat",
     "few": "svaka {count} sata",
+    "one": "svakih {count} sat",
     "other": "svakih {count} sati"
   },
   "time.every_months": {
     "=1": "svaki mjesec",
-    "one": "svakih {count} mjesec",
     "few": "svaka {count} mjeseca",
+    "one": "svakih {count} mjesec",
     "other": "svakih {count} mjeseci"
   },
   "time.hours": {
-    "one": "{count} sat",
     "few": "{count} sata",
+    "one": "{count} sat",
     "other": "{count} sati"
   },
   "time.hours_ago": "prije {count} h",
   "time.hours_label": "sati",
   "time.hours_short": "{count} h",
   "time.in_days": {
-    "one": "za {count} dan",
     "few": "za {count} dana",
+    "one": "za {count} dan",
     "other": "za {count} dana"
   },
   "time.in_months": {
-    "one": "za {count} mjesec",
     "few": "za {count} mjeseca",
+    "one": "za {count} mjesec",
     "other": "za {count} mjeseci"
   },
   "time.in_years": {
     "=1": "za godinu dana",
-    "one": "za {count} godinu",
     "few": "za {count} godine",
+    "one": "za {count} godinu",
     "other": "za {count} godina"
   },
   "time.minutes": {
-    "one": "{count} minuta",
     "few": "{count} minute",
+    "one": "{count} minuta",
     "other": "{count} minuta"
   },
   "time.minutes_ago": "prije {count} min",
   "time.minutes_short": "{count} min",
   "time.months": {
-    "one": "{count} mjesec",
     "few": "{count} mjeseca",
+    "one": "{count} mjesec",
     "other": "{count} mjeseci"
   },
   "time.months_ago": {
-    "one": "prije {count} mjesec",
     "few": "prije {count} mjeseca",
+    "one": "prije {count} mjesec",
     "other": "prije {count} mjeseci"
   },
   "time.now": "upravo sada",
   "time.relative_day_at": "{day} u {time}",
   "time.years_ago": {
-    "one": "prije {count} godinu",
     "few": "prije {count} godine",
+    "one": "prije {count} godinu",
     "other": "prije {count} godina"
   },
   "totp_prop.2fa_code_copied_valid_for": "2FA kôd kopiran · vrijedi još {remaining} s",
@@ -2177,8 +2181,8 @@
   "used_in_modal.where_is_used": "Gdje se koristi {name}",
   "used_in_modal.where_used_hasn_been_noted": "Nije zabilježeno gdje se koristi.",
   "verify.shares_collections": {
-    "one": "Dijeli s tobom {count} zbirku: provjeri ga da je primiš.",
     "few": "Dijeli s tobom {count} zbirke: provjeri ga da ih primiš.",
+    "one": "Dijeli s tobom {count} zbirku: provjeri ga da je primiš.",
     "other": "Dijeli s tobom {count} zbirki: provjeri ga da ih primiš."
   },
   "verify_email_card.e_mail_code": "Kôd iz e-pošte",

@@ -79,33 +79,33 @@
   "exposure.credential_doesn_say_how_put": "Vjerodajnica ne navodi kako staviti ključ u zahtjev (Uredi › kako se ključ šalje)",
   "exposure.list_and": "{names} i {last}",
   "exposure.places_ai": {
-    "one": "{count} razgovor s AI-jem",
     "few": "{count} razgovora s AI-jem",
+    "one": "{count} razgovor s AI-jem",
     "other": "{count} razgovora s AI-jem"
   },
   "exposure.places_config": {
-    "one": "{count} postavka programa",
     "few": "{count} postavke programa",
+    "one": "{count} postavka programa",
     "other": "{count} postavki programa"
   },
   "exposure.places_env": {
-    "one": "{count} varijabla okruženja",
     "few": "{count} varijable okruženja",
+    "one": "{count} varijabla okruženja",
     "other": "{count} varijabli okruženja"
   },
   "exposure.places_git": {
-    "one": "{count} git povijest",
     "few": "{count} git povijesti",
+    "one": "{count} git povijest",
     "other": "{count} git povijesti"
   },
   "exposure.places_history": {
-    "one": "{count} povijest terminala",
     "few": "{count} povijesti terminala",
+    "one": "{count} povijest terminala",
     "other": "{count} povijesti terminala"
   },
   "exposure.places_project": {
-    "one": "{count} datoteka projekta",
     "few": "{count} datoteke projekta",
+    "one": "{count} datoteka projekta",
     "other": "{count} datoteka projekta"
   },
   "exposure.reason_ai_saw": "Vidio ju je AI: poslana je njegovu pružatelju.",
@@ -113,13 +113,13 @@
   "exposure.reason_invalid": "Ne radi: {message}.",
   "exposure.reason_present": "U čitljivom je obliku u: {places}.",
   "exposure.reason_pwned": {
-    "one": "Ova se lozinka pojavljuje {times} put u javnim curenjima podataka.",
     "few": "Ova se lozinka pojavljuje {times} puta u javnim curenjima podataka.",
+    "one": "Ova se lozinka pojavljuje {times} put u javnim curenjima podataka.",
     "other": "Ova se lozinka pojavljuje {times} puta u javnim curenjima podataka."
   },
   "exposure.reason_stale": {
-    "one": "Nije promijenjena {count} mjesec.",
     "few": "Nije promijenjena {count} mjeseca.",
+    "one": "Nije promijenjena {count} mjesec.",
     "other": "Nije promijenjena {count} mjeseci."
   },
   "exposure.reason_stopped": "Prestala je raditi: {message}. Ako je nisi opozvao, pružatelj ju je vjerojatno otkrio kao procurjelu.",
@@ -132,13 +132,13 @@
   "exposure.unexpected_response_http": "Neočekivan odgovor (HTTP {status_code}){_said}",
   "health.a_person": "Netko",
   "health.expired": {
-    "one": "Istekla je prije {count} dan.",
     "few": "Istekla je prije {count} dana.",
+    "one": "Istekla je prije {count} dan.",
     "other": "Istekla je prije {count} dana."
   },
   "health.expiring": {
-    "one": "Istječe za {count} dan.",
     "few": "Istječe za {count} dana.",
+    "one": "Istječe za {count} dan.",
     "other": "Istječe za {count} dana."
   },
   "health.exposed": "U čitljivom je obliku u datoteci na ovom računalu.",
@@ -158,25 +158,25 @@
   "health.label_was_exposed": "Bila je izložena",
   "health.label_weak": "Slaba",
   "health.left_team_ask": {
-    "one": "{who} je imao pristup i više nije u timu: zamoli onoga tko njome upravlja da je promijeni.",
     "few": "{who} su imali pristup i više nisu u timu: zamoli onoga tko njome upravlja da je promijeni.",
+    "one": "{who} je imao pristup i više nije u timu: zamoli onoga tko njome upravlja da je promijeni.",
     "other": "{who} su imali pristup i više nisu u timu: zamoli onoga tko njome upravlja da je promijeni."
   },
   "health.left_team_rotate": {
-    "one": "{who} je imao pristup i više nije u timu: promijeni je za slučaj da ju je vidio.",
     "few": "{who} su imali pristup i više nisu u timu: promijeni je za slučaj da su je vidjeli.",
+    "one": "{who} je imao pristup i više nije u timu: promijeni je za slučaj da ju je vidio.",
     "other": "{who} su imali pristup i više nisu u timu: promijeni je za slučaj da su je vidjeli."
   },
   "health.list_and": "{names} i {last}",
   "health.old": {
-    "one": "Ključ je star {count} dan.",
     "few": "Ključ je star {count} dana.",
+    "one": "Ključ je star {count} dan.",
     "other": "Ključ je star {count} dana."
   },
   "health.old_alive": "Rotirao si je, ali stari još radi: opozovi ga.",
   "health.pwned": {
-    "one": "Pojavljuje se {times} put u javnim curenjima podataka.",
     "few": "Pojavljuje se {times} puta u javnim curenjima podataka.",
+    "one": "Pojavljuje se {times} put u javnim curenjima podataka.",
     "other": "Pojavljuje se {times} puta u javnim curenjima podataka."
   },
   "health.retired_pending": "Novi ključ aktivan · stari još treba opozvati kod {provider}.",
@@ -187,14 +187,14 @@
   "health.thousands_separator": ".",
   "health.unchecked": "Još nije testirana.",
   "health.unshared_rotate": {
-    "one": "{who} je imao pristup i više ga nema: promijeni je za slučaj da ju je kopirao.",
     "few": "{who} su imali pristup i više ga nemaju: promijeni je za slučaj da su je kopirali.",
+    "one": "{who} je imao pristup i više ga nema: promijeni je za slučaj da ju je kopirao.",
     "other": "{who} su imali pristup i više ga nemaju: promijeni je za slučaj da su je kopirali."
   },
   "health.upload_failed": "Nova se nije mogla prenijeti na {place}: stara je još tamo.",
   "health.upload_failed_more": {
-    "one": "Nova se nije mogla prenijeti na {place} ni na još {count} mjesto: stara je još tamo.",
     "few": "Nova se nije mogla prenijeti na {place} ni na još {count} mjesta: stara je još tamo.",
+    "one": "Nova se nije mogla prenijeti na {place} ni na još {count} mjesto: stara je još tamo.",
     "other": "Nova se nije mogla prenijeti na {place} ni na još {count} mjesta: stara je još tamo."
   },
   "health.was_exposed": "Bila je u čitljivom obliku u datoteci. Isplati se rotirati je.",
@@ -297,8 +297,8 @@
   "resident.pause_ai": "Pauziraj AI",
   "resident.quit": "Izlaz",
   "resident.reminders_need_attention": {
-    "one": "{count} vjerodajnica treba pažnju",
     "few": "{count} vjerodajnice trebaju pažnju",
+    "one": "{count} vjerodajnica treba pažnju",
     "other": "{count} vjerodajnica treba pažnju"
   },
   "resident.resume_ai": "Nastavi AI",
@@ -342,8 +342,8 @@
   "service.change_every_days": "svakih {days} dana",
   "service.change_every_hours": {
     "=1": "svaki sat",
-    "one": "svakih {count} sat",
     "few": "svaka {count} sata",
+    "one": "svakih {count} sat",
     "other": "svakih {count} sati"
   },
   "service.change_expires": "Istječe",
@@ -356,14 +356,16 @@
   "service.change_rotate_every_days": "Podsjeti me na rotaciju",
   "service.change_rotation_guide": "Vodič za rotaciju",
   "service.change_steps": {
-    "one": "{count} korak",
     "few": "{count} koraka",
+    "one": "{count} korak",
     "other": "{count} koraka"
   },
   "service.change_tags": "Oznake",
+  "service.change_template": "Vrsta vjerodajnice",
   "service.change_test_request": "Testni zahtjev",
   "service.change_used_in": "Gdje se koristi",
   "service.collection_no_longer_appears_on": "Zbirka se više ne pojavljuje na poslužitelju. ",
+  "service.config_needs_variable_name": "„{id}” je konfiguracija: navedi naziv varijable u .secretbroker (VARIABLE = {id}).",
   "service.confirm_it_you_once_windows": "Potvrdi jednom da si to ti (Windows Hello ili lozinka) za ",
   "service.connect_this_browser_secretbroker_from": "Poveži ovaj preglednik s aplikacijom SecretBroker iz proširenja",
   "service.connection_request_has_expired_click": "Zahtjev za povezivanje je istekao: ponovno klikni „Poveži” u pregledniku",
@@ -376,16 +378,16 @@
   "service.expected_response_must_be_code": "Očekivani odgovor mora biti kôd između 200 i 399",
   "service.expected_response_must_be_http": "Očekivani odgovor mora biti HTTP kôd, npr. 200",
   "service.found_in_new_places": {
-    "one": "Pronađeno u čitljivom obliku na {count} novom mjestu",
     "few": "Pronađeno u čitljivom obliku na {count} nova mjesta",
+    "one": "Pronađeno u čitljivom obliku na {count} novom mjestu",
     "other": "Pronađeno u čitljivom obliku na {count} novih mjesta"
   },
   "service.generate_new_one": "generiraj novu",
   "service.give_between_1_and_20": "Navedi između 1 i 20 vjerodajnica u secret_ids",
   "service.has_no_environment_variables_in": "'{id}' nema varijabli okruženja u svojim dopuštenjima, pa se ne može predati lokalnim programima. Dodaj ih u aplikaciji SecretBroker.",
   "service.held_waiting": {
-    "one": "{count} vjerodajnica iz zbirke {collection} čeka tvoju odluku",
     "few": "{count} vjerodajnice iz zbirke {collection} čekaju tvoju odluku",
+    "one": "{count} vjerodajnica iz zbirke {collection} čeka tvoju odluku",
     "other": "{count} vjerodajnica iz zbirke {collection} čeka tvoju odluku"
   },
   "service.import_has_expired_choose_file": "Uvoz je istekao: ponovno odaberi datoteku",
@@ -419,6 +421,7 @@
   "service.only_api_keys_and_other": "Samo API ključevi i druge tajne imaju testni zahtjev",
   "service.only_api_keys_and_passwords": "Ovako se rotiraju samo API ključevi i lozinke",
   "service.only_api_keys_are_rotated": "rotiraju se samo API ključevi",
+  "service.only_convert_to_config": "Vjerodajnica se može pretvoriti samo u konfiguraciju (template config).",
   "service.only_database_password_is_applied": "Ovako se primjenjuje samo lozinka baze podataka",
   "service.only_user_can_write_value": "Samo korisnik može upisati vrijednost za „{name}”, u aplikaciji",
   "service.open_secretbroker_team_and_sign": "Otvori SecretBroker › Tim i ponovno se prijavi da i dalje primaš i šalješ promjene. U međuvremenu sve radi s onim što već imaš.",
@@ -454,8 +457,8 @@
   "service.purpose_totp_code": "prikaz 2FA kôda",
   "service.request_is_no_longer_pending": "Zahtjev više nije na čekanju",
   "service.rotate_after_leave": {
-    "one": "{names} je imao pristup i više nije u timu. Promijeni ih za slučaj da ih je vidio.",
     "few": "{names} su imali pristup i više nisu u timu. Promijeni ih za slučaj da su ih vidjeli.",
+    "one": "{names} je imao pristup i više nije u timu. Promijeni ih za slučaj da ih je vidio.",
     "other": "{names} su imali pristup i više nisu u timu. Promijeni ih za slučaj da su ih vidjeli."
   },
   "service.say_whether_is_still_same": "Reci je li {label} i dalje isti ili se promijenio",
@@ -523,8 +526,8 @@
   "teams.admin_bad_signups": "Odaberi jesu li registracije otvorene, samo uz pozivnicu ili zatvorene.",
   "teams.admin_last_admin": "To je jedini račun koji vodi poslužitelj: ne može se deaktivirati ni izbrisati.",
   "teams.admin_last_manager": {
-    "one": "Samo {person} upravlja {count} zbirkom: netko iz organizacije mora u njoj dobiti „Upravitelj“ (ili je izbrisati) prije brisanja računa.",
     "few": "Samo {person} upravlja {count} zbirkama: netko iz organizacije mora u njima dobiti „Upravitelj“ (ili ih izbrisati) prije brisanja računa.",
+    "one": "Samo {person} upravlja {count} zbirkom: netko iz organizacije mora u njoj dobiti „Upravitelj“ (ili je izbrisati) prije brisanja računa.",
     "other": "Samo {person} upravlja {count} zbirkama: netko iz organizacije mora u njima dobiti „Upravitelj“ (ili ih izbrisati) prije brisanja računa."
   },
   "teams.admin_last_owner": "{person} jedini je vlasnik u: {orgs}. Prije brisanja računa postavi nekog drugog za vlasnika.",
@@ -646,9 +649,11 @@
   "templates.clave_privada_51c4fa": "Privatni ključ",
   "templates.claves_de_acceso_de_aws_para_la_8fa404": "AWS pristupni ključevi za CLI",
   "templates.client_id_app_id_account_id_32451f": "client id, app id, account id…",
+  "templates.client_id_app_id_tenant_id_5ab3b0": "client id, app id, tenant id…",
   "templates.codigo_2fa_totp_opcional_c21467": "2FA kôd (TOTP) (neobavezno)",
   "templates.codigos_de_recuperacion_pregunta_2bfb4d": "Kôdovi za oporavak, sigurnosna pitanja…",
   "templates.como_se_envia_la_clave_92b57d": "Kako se ključ šalje",
+  "templates.configuracion_no_secreta_bf2c21": "Konfiguracija (nije tajna)",
   "templates.contrasena_5a6d1c": "Lozinka",
   "templates.cualquier_otro_dato_secreto_346338": "Bilo koji drugi tajni podatak",
   "templates.db_ejemplo_com_ef9904": "db.example.com",
@@ -658,11 +663,14 @@
   "templates.https_api_ejemplo_com_394db1": "https://api.example.com",
   "templates.https_panel_ejemplo_com_ba88d4": "https://dashboard.example.com",
   "templates.id_asociado_opcional_537b83": "Povezani ID (neobavezno)",
+  "templates.identificador_d05b0a": "Identifikator",
+  "templates.ids_y_datos_publicos_client_id_t_e0839c": "Javni ID-ovi i postavke: client ID, tenant, ID računa…",
   "templates.la_clave_que_da_la_web_al_activa_38af10": "Ključ koji ti web-stranica daje kad uključiš potvrdu u dva koraka (ispod QR koda). SecretBroker ti prikazuje 6-znamenkasti kôd; AI ga ne vidi.",
   "templates.la_ia_solo_podra_enviar_la_clave_d55a47": "AI će moći slati ključ samo na ovu domenu.",
   "templates.la_ia_solo_podra_usar_esta_crede_3899cf": "AI će moći koristiti ovu vjerodajnicu samo s ovom web-stranicom.",
   "templates.motor_ceaed7": "Sustav",
   "templates.no_anadirla_automaticamente_a70e1a": "Ne dodaj ga automatski",
+  "templates.no_es_secreto_la_ia_lo_ve_y_los_392166": "Nije tajna: AI ga vidi, a programi ga dobivaju bez pitanja.",
   "templates.notas_privadas_opcional_2621d7": "Privatne bilješke (neobavezno)",
   "templates.nube_aws_95df6b": "Oblak (AWS)",
   "templates.otpauth_totp_o_la_clave_en_base3_b0c780": "otpauth://totp/… ili ključ u base32",
@@ -681,11 +689,13 @@
   "templates.si_la_clave_va_emparejada_con_un_5f3d0f": "Ako je ključ uparen s identifikatorom. Kad ga rotiraš, pitat će te je li se promijenio.",
   "templates.solo_para_ti_la_ia_no_las_ve_90d40d": "Samo za tebe: AI ih ne vidi.",
   "templates.tambien_se_usa_para_sudo_f450d6": "Koristi se i za sudo.",
+  "templates.un_dato_de_configuracion_e7f7e9": "Konfiguracijski podatak",
   "templates.url_de_la_api_9c4317": "URL API-ja",
   "templates.usuario_3f2ecd": "Korisničko ime",
   "templates.usuario_o_e_mail_e4cfe2": "Korisničko ime ili e-adresa",
   "templates.usuario_opcional_6b549e": "Korisničko ime (neobavezno)",
   "templates.usuario_y_contrasena_de_una_web_17037d": "Korisničko ime i lozinka za web-stranicu, nadzornu ploču ili aplikaciju",
+  "templates.valor_opcional_0afb86": "Vrijednost (neobavezno)",
   "templates.variable_de_entorno_opcional_03da6c": "Varijabla okruženja (neobavezno)",
   "templates.web_o_servicio_f398c8": "Web-stranica ili usluga",
   "totp.2fa_code_has_invalid_parameters": "2FA kôd ima neispravne parametre",
@@ -713,6 +723,7 @@
   "update.this_version_has_no_signing": "Ova verzija nema ključ za potpisivanje: ne može se sama ažurirati",
   "update.too_many_redirects": "Previše preusmjeravanja",
   "vault.backup_is_damaged": "Sigurnosna kopija je oštećena",
+  "vault.config_needs_identifier_or_value": "Konfiguracija treba identifikator ili vrijednost.",
   "vault.couldn_use_this_pc_key": "Ključ ovog računala nije se mogao upotrijebiti. Otključaj glavnom lozinkom.",
   "vault.credential_with_identifier_already_exist": "Vjerodajnica s identifikatorom '{id}' već postoji",
   "vault.expiry_date_must_be_yyyy": "Datum isteka mora biti u obliku GGGG-MM-DD",

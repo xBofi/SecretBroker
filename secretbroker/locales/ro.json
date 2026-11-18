@@ -79,33 +79,33 @@
   "exposure.credential_doesn_say_how_put": "Credențiala nu spune cum se pune cheia într-o cerere (Editează › cum se trimite cheia)",
   "exposure.list_and": "{names} și {last}",
   "exposure.places_ai": {
-    "one": "{count} conversație cu IA",
     "few": "{count} conversații cu IA",
+    "one": "{count} conversație cu IA",
     "other": "{count} de conversații cu IA"
   },
   "exposure.places_config": {
-    "one": "{count} setare de program",
     "few": "{count} setări de program",
+    "one": "{count} setare de program",
     "other": "{count} de setări de program"
   },
   "exposure.places_env": {
-    "one": "{count} variabilă de mediu",
     "few": "{count} variabile de mediu",
+    "one": "{count} variabilă de mediu",
     "other": "{count} de variabile de mediu"
   },
   "exposure.places_git": {
-    "one": "{count} istoric git",
     "few": "{count} istorice git",
+    "one": "{count} istoric git",
     "other": "{count} de istorice git"
   },
   "exposure.places_history": {
-    "one": "{count} istoric de terminal",
     "few": "{count} istorice de terminal",
+    "one": "{count} istoric de terminal",
     "other": "{count} de istorice de terminal"
   },
   "exposure.places_project": {
-    "one": "{count} fișier de proiect",
     "few": "{count} fișiere de proiect",
+    "one": "{count} fișier de proiect",
     "other": "{count} de fișiere de proiect"
   },
   "exposure.reason_ai_saw": "O IA a văzut-o: a fost trimisă furnizorului ei.",
@@ -113,13 +113,13 @@
   "exposure.reason_invalid": "Nu funcționează: {message}.",
   "exposure.reason_present": "E în clar în {places}.",
   "exposure.reason_pwned": {
-    "one": "Această parolă apare de {times} dată în scurgeri publice de date.",
     "few": "Această parolă apare de {times} ori în scurgeri publice de date.",
+    "one": "Această parolă apare de {times} dată în scurgeri publice de date.",
     "other": "Această parolă apare de {times} de ori în scurgeri publice de date."
   },
   "exposure.reason_stale": {
-    "one": "Nu a mai fost schimbată de {count} lună.",
     "few": "Nu a mai fost schimbată de {count} luni.",
+    "one": "Nu a mai fost schimbată de {count} lună.",
     "other": "Nu a mai fost schimbată de {count} de luni."
   },
   "exposure.reason_stopped": "Nu mai funcționează: {message}. Dacă nu ai revocat-o tu, probabil furnizorul a detectat-o ca scursă.",
@@ -132,13 +132,13 @@
   "exposure.unexpected_response_http": "Răspuns neașteptat (HTTP {status_code}){_said}",
   "health.a_person": "Cineva",
   "health.expired": {
-    "one": "A expirat acum {count} zi.",
     "few": "A expirat acum {count} zile.",
+    "one": "A expirat acum {count} zi.",
     "other": "A expirat acum {count} de zile."
   },
   "health.expiring": {
-    "one": "Expiră în {count} zi.",
     "few": "Expiră în {count} zile.",
+    "one": "Expiră în {count} zi.",
     "other": "Expiră în {count} de zile."
   },
   "health.exposed": "E în clar într-un fișier de pe acest PC.",
@@ -158,25 +158,25 @@
   "health.label_was_exposed": "A fost expusă",
   "health.label_weak": "Slabă",
   "health.left_team_ask": {
-    "one": "{who} avea acces și nu mai face parte din echipă: roagă-l pe cel care o gestionează s-o schimbe.",
     "few": "{who} aveau acces și nu mai fac parte din echipă: roagă-l pe cel care o gestionează s-o schimbe.",
+    "one": "{who} avea acces și nu mai face parte din echipă: roagă-l pe cel care o gestionează s-o schimbe.",
     "other": "{who} aveau acces și nu mai fac parte din echipă: roagă-l pe cel care o gestionează s-o schimbe."
   },
   "health.left_team_rotate": {
-    "one": "{who} avea acces și nu mai face parte din echipă: schimb-o, în caz că a văzut-o.",
     "few": "{who} aveau acces și nu mai fac parte din echipă: schimb-o, în caz că au văzut-o.",
+    "one": "{who} avea acces și nu mai face parte din echipă: schimb-o, în caz că a văzut-o.",
     "other": "{who} aveau acces și nu mai fac parte din echipă: schimb-o, în caz că au văzut-o."
   },
   "health.list_and": "{names} și {last}",
   "health.old": {
-    "one": "Cheia are {count} zi.",
     "few": "Cheia are {count} zile.",
+    "one": "Cheia are {count} zi.",
     "other": "Cheia are {count} de zile."
   },
   "health.old_alive": "Ai rotit-o, dar cea veche încă funcționează: revoc-o.",
   "health.pwned": {
-    "one": "Apare de {times} dată în scurgeri publice de date.",
     "few": "Apare de {times} ori în scurgeri publice de date.",
+    "one": "Apare de {times} dată în scurgeri publice de date.",
     "other": "Apare de {times} de ori în scurgeri publice de date."
   },
   "health.retired_pending": "Cheia nouă e activă · cea veche trebuie încă revocată la {provider}.",
@@ -187,14 +187,14 @@
   "health.thousands_separator": ".",
   "health.unchecked": "Nu a fost testată încă.",
   "health.unshared_rotate": {
-    "one": "{who} avea acces și nu-l mai are: schimb-o, în caz că a copiat-o.",
     "few": "{who} aveau acces și nu-l mai au: schimb-o, în caz că au copiat-o.",
+    "one": "{who} avea acces și nu-l mai are: schimb-o, în caz că a copiat-o.",
     "other": "{who} aveau acces și nu-l mai au: schimb-o, în caz că au copiat-o."
   },
   "health.upload_failed": "Cea nouă nu a putut fi încărcată în {place}: cea veche e încă acolo.",
   "health.upload_failed_more": {
-    "one": "Cea nouă nu a putut fi încărcată în {place} sau în încă {count} loc: cea veche e încă acolo.",
     "few": "Cea nouă nu a putut fi încărcată în {place} sau în încă {count} locuri: cea veche e încă acolo.",
+    "one": "Cea nouă nu a putut fi încărcată în {place} sau în încă {count} loc: cea veche e încă acolo.",
     "other": "Cea nouă nu a putut fi încărcată în {place} sau în încă {count} de locuri: cea veche e încă acolo."
   },
   "health.was_exposed": "A fost în clar într-un fișier. Merită s-o rotești.",
@@ -297,8 +297,8 @@
   "resident.pause_ai": "Pune IA pe pauză",
   "resident.quit": "Ieșire",
   "resident.reminders_need_attention": {
-    "one": "O credențială necesită atenție",
     "few": "{count} credențiale necesită atenție",
+    "one": "O credențială necesită atenție",
     "other": "{count} de credențiale necesită atenție"
   },
   "resident.resume_ai": "Reia IA",
@@ -341,8 +341,8 @@
   "service.change_env_vars": "Variabile de mediu",
   "service.change_every_days": "la fiecare {days} zile",
   "service.change_every_hours": {
-    "one": "în fiecare oră",
     "few": "la fiecare {count} ore",
+    "one": "în fiecare oră",
     "other": "la fiecare {count} de ore"
   },
   "service.change_expires": "Expiră",
@@ -355,14 +355,16 @@
   "service.change_rotate_every_days": "Amintește-mi să o rotesc",
   "service.change_rotation_guide": "Ghid de rotație",
   "service.change_steps": {
-    "one": "{count} pas",
     "few": "{count} pași",
+    "one": "{count} pas",
     "other": "{count} de pași"
   },
   "service.change_tags": "Etichete",
+  "service.change_template": "Tipul credențialei",
   "service.change_test_request": "Cerere de test",
   "service.change_used_in": "Unde e folosită",
   "service.collection_no_longer_appears_on": "Colecția nu mai apare pe server. ",
+  "service.config_needs_variable_name": "„{id}” este o configurație: indică numele variabilei în .secretbroker (VARIABLE = {id}).",
   "service.confirm_it_you_once_windows": "Confirmă o dată că ești tu (Windows Hello sau parolă) pentru a ",
   "service.connect_this_browser_secretbroker_from": "Conectează acest browser la SecretBroker din extensie",
   "service.connection_request_has_expired_click": "Cererea de conectare a expirat: dă din nou clic pe „Conectează” în browser",
@@ -375,16 +377,16 @@
   "service.expected_response_must_be_code": "Răspunsul așteptat trebuie să fie un cod între 200 și 399",
   "service.expected_response_must_be_http": "Răspunsul așteptat trebuie să fie un cod HTTP, de ex. 200",
   "service.found_in_new_places": {
-    "one": "Găsită în clar în {count} loc nou",
     "few": "Găsită în clar în {count} locuri noi",
+    "one": "Găsită în clar în {count} loc nou",
     "other": "Găsită în clar în {count} de locuri noi"
   },
   "service.generate_new_one": "generează una nouă",
   "service.give_between_1_and_20": "Indică între 1 și 20 de credențiale în secret_ids",
   "service.has_no_environment_variables_in": "„{id}” nu are variabile de mediu în permisiuni, așa că nu poate fi transmisă programelor locale. Adaugă-le în aplicația SecretBroker.",
   "service.held_waiting": {
-    "one": "{count} credențială din {collection} așteaptă decizia ta",
     "few": "{count} credențiale din {collection} așteaptă decizia ta",
+    "one": "{count} credențială din {collection} așteaptă decizia ta",
     "other": "{count} de credențiale din {collection} așteaptă decizia ta"
   },
   "service.import_has_expired_choose_file": "Importul a expirat: alege din nou fișierul",
@@ -418,6 +420,7 @@
   "service.only_api_keys_and_other": "Doar cheile API și alte secrete au o cerere de test",
   "service.only_api_keys_and_passwords": "Doar cheile API și parolele se rotesc astfel",
   "service.only_api_keys_are_rotated": "se rotesc doar cheile API",
+  "service.only_convert_to_config": "O credențială poate fi transformată doar în configurație (template config).",
   "service.only_database_password_is_applied": "Doar parola unei baze de date se aplică astfel",
   "service.only_user_can_write_value": "Doar utilizatorul poate scrie valoarea pentru „{name}”, în aplicație",
   "service.open_secretbroker_team_and_sign": "Deschide SecretBroker › Echipă și conectează-te din nou ca să primești și să trimiți în continuare modificări. Între timp, totul funcționează cu ce ai deja.",
@@ -453,8 +456,8 @@
   "service.purpose_totp_code": "vedea codul 2FA",
   "service.request_is_no_longer_pending": "Cererea nu mai e în așteptare",
   "service.rotate_after_leave": {
-    "one": "{names} avea acces și nu mai face parte din echipă. Schimbă-le, în caz că le-a văzut.",
     "few": "{names} aveau acces și nu mai fac parte din echipă. Schimbă-le, în caz că le-au văzut.",
+    "one": "{names} avea acces și nu mai face parte din echipă. Schimbă-le, în caz că le-a văzut.",
     "other": "{names} aveau acces și nu mai fac parte din echipă. Schimbă-le, în caz că le-au văzut."
   },
   "service.say_whether_is_still_same": "Spune dacă {label} e același sau s-a schimbat",
@@ -522,8 +525,8 @@
   "teams.admin_bad_signups": "Alege dacă înregistrarea conturilor e deschisă, doar cu invitație sau închisă.",
   "teams.admin_last_admin": "Este singurul cont care administrează serverul: nu poate fi dezactivat sau șters.",
   "teams.admin_last_manager": {
-    "one": "{person} e singura persoană care gestionează o colecție: cineva din organizație trebuie să primească „Manager” în ea (sau s-o șteargă) înainte de ștergerea contului.",
     "few": "{person} e singura persoană care gestionează {count} colecții: cineva din organizație trebuie să primească „Manager” în ele (sau să le șteargă) înainte de ștergerea contului.",
+    "one": "{person} e singura persoană care gestionează o colecție: cineva din organizație trebuie să primească „Manager” în ea (sau s-o șteargă) înainte de ștergerea contului.",
     "other": "{person} e singura persoană care gestionează {count} de colecții: cineva din organizație trebuie să primească „Manager” în ele (sau să le șteargă) înainte de ștergerea contului."
   },
   "teams.admin_last_owner": "{person} e singura persoană proprietară în {orgs}: fă pe altcineva proprietar înainte de a șterge contul.",
@@ -645,9 +648,11 @@
   "templates.clave_privada_51c4fa": "Cheie privată",
   "templates.claves_de_acceso_de_aws_para_la_8fa404": "Chei de acces AWS pentru CLI",
   "templates.client_id_app_id_account_id_32451f": "client id, app id, account id…",
+  "templates.client_id_app_id_tenant_id_5ab3b0": "client id, app id, tenant id…",
   "templates.codigo_2fa_totp_opcional_c21467": "Cod 2FA (TOTP) (opțional)",
   "templates.codigos_de_recuperacion_pregunta_2bfb4d": "Coduri de recuperare, întrebări de securitate…",
   "templates.como_se_envia_la_clave_92b57d": "Cum se trimite cheia",
+  "templates.configuracion_no_secreta_bf2c21": "Configurație (nu e secretă)",
   "templates.contrasena_5a6d1c": "Parolă",
   "templates.cualquier_otro_dato_secreto_346338": "Orice altă dată secretă",
   "templates.db_ejemplo_com_ef9904": "db.example.com",
@@ -657,11 +662,14 @@
   "templates.https_api_ejemplo_com_394db1": "https://api.example.com",
   "templates.https_panel_ejemplo_com_ba88d4": "https://dashboard.example.com",
   "templates.id_asociado_opcional_537b83": "ID asociat (opțional)",
+  "templates.identificador_d05b0a": "Identificator",
+  "templates.ids_y_datos_publicos_client_id_t_e0839c": "ID-uri și date publice: client ID, tenant, ID de cont…",
   "templates.la_clave_que_da_la_web_al_activa_38af10": "Cheia pe care ți-o dă site-ul când activezi verificarea în doi pași (sub codul QR). SecretBroker îți arată codul de 6 cifre; IA nu îl vede.",
   "templates.la_ia_solo_podra_enviar_la_clave_d55a47": "IA va putea trimite cheia doar la acest domeniu.",
   "templates.la_ia_solo_podra_usar_esta_crede_3899cf": "IA va putea folosi această credențială doar cu acest site.",
   "templates.motor_ceaed7": "Motor",
   "templates.no_anadirla_automaticamente_a70e1a": "Nu o adăuga automat",
+  "templates.no_es_secreto_la_ia_lo_ve_y_los_392166": "Nu e un secret: IA îl vede, iar programele îl primesc fără să te întrebe.",
   "templates.notas_privadas_opcional_2621d7": "Note private (opțional)",
   "templates.nube_aws_95df6b": "Cloud (AWS)",
   "templates.otpauth_totp_o_la_clave_en_base3_b0c780": "otpauth://totp/… sau cheia base32",
@@ -680,11 +688,13 @@
   "templates.si_la_clave_va_emparejada_con_un_5f3d0f": "Dacă cheia e asociată cu un identificator. Când o rotești, ești întrebat dacă s-a schimbat.",
   "templates.solo_para_ti_la_ia_no_las_ve_90d40d": "Doar pentru tine: IA nu le vede.",
   "templates.tambien_se_usa_para_sudo_f450d6": "Se folosește și pentru sudo.",
+  "templates.un_dato_de_configuracion_e7f7e9": "O informație de configurare",
   "templates.url_de_la_api_9c4317": "URL-ul API",
   "templates.usuario_3f2ecd": "Utilizator",
   "templates.usuario_o_e_mail_e4cfe2": "Utilizator sau e-mail",
   "templates.usuario_opcional_6b549e": "Utilizator (opțional)",
   "templates.usuario_y_contrasena_de_una_web_17037d": "Utilizator și parolă pentru un site, un panou sau o aplicație",
+  "templates.valor_opcional_0afb86": "Valoare (opțional)",
   "templates.variable_de_entorno_opcional_03da6c": "Variabilă de mediu (opțional)",
   "templates.web_o_servicio_f398c8": "Site sau serviciu",
   "totp.2fa_code_has_invalid_parameters": "Codul 2FA are parametri nevalizi",
@@ -712,6 +722,7 @@
   "update.this_version_has_no_signing": "Această versiune nu are cheie de semnare: nu se poate actualiza singură",
   "update.too_many_redirects": "Prea multe redirecționări",
   "vault.backup_is_damaged": "Backupul e deteriorat",
+  "vault.config_needs_identifier_or_value": "O configurație are nevoie de un identificator sau de o valoare.",
   "vault.couldn_use_this_pc_key": "Cheia acestui PC nu a putut fi folosită. Deblochează cu parola principală.",
   "vault.credential_with_identifier_already_exist": "Există deja o credențială cu identificatorul „{id}”",
   "vault.expiry_date_must_be_yyyy": "Data de expirare trebuie să fie AAAA-LL-ZZ",

@@ -1313,7 +1313,8 @@ function renderDetail(panel) {
     sharedSection(entry),
     el('div', { class: 'section' },
       el('h3', {}, t('common.what_ai_can_do')),
-      perms.length ? perms : el('p', { class: 'muted' }, t('detail.nothing_yet_edit_credential_and')),
+      template.public ? el('p', { class: 'muted' }, t('detail.config_not_secret'))
+        : perms.length ? perms : el('p', { class: 'muted' }, t('detail.nothing_yet_edit_credential_and')),
       el('p', { class: 'help', style: 'margin-top:6px' }, t('detail.ai_knows_as'), el('code', { class: 'selectable' }, entry.id))),
     entry.draft ? null : recentActivity(entry));
 }
@@ -2231,7 +2232,7 @@ function showForm(templateId, entry) {
   const policy = isNew ? { approval: 'session' } : JSON.parse(JSON.stringify(entry.policy || {}));
   const touched = { id: !isNew, hosts: !isNew, auth: !isNew, commands: !isNew, env: !isNew };
 
-  const namePlaceholders = { web_login: t('show_form.hostinger_dashboard'), api_key: t('show_form.openai_production'), ssh: t('show_form.production_vps'), database: t('show_form.shop_database'), aws: t('editor.aws_placeholder'), generic: t('show_form.deploy_token') };
+  const namePlaceholders = { web_login: t('show_form.hostinger_dashboard'), api_key: t('show_form.openai_production'), ssh: t('show_form.production_vps'), database: t('show_form.shop_database'), aws: t('editor.aws_placeholder'), generic: t('show_form.deploy_token'), config: t('editor.config_placeholder') };
   const nameInput = el('input', { class: 'input', value: isNew ? '' : entry.name, placeholder: namePlaceholders[templateId] });
   const idInput = el('input', { class: 'input mono', value: isNew ? '' : entry.id, spellcheck: 'false' });
   nameInput.addEventListener('input', () => { if (!touched.id) idInput.value = slugify(nameInput.value); });
@@ -2429,8 +2430,10 @@ function showForm(templateId, entry) {
       if (index < 1) throw new Error(t('show_form.variable_is_missing_its', { value: line.trim() }));
       env[line.slice(0, index).trim()] = line.slice(index + 1).trim();
     }
-    const newPolicy = { approval: policy.approval || 'session' };
-    if (templateId !== 'ssh') {
+    const newPolicy = { approval: template.public ? 'never' : policy.approval || 'session' };
+    if (template.public) {
+      // Not a secret: nothing to approve, rotate or test (the service enforces it too).
+    } else if (templateId !== 'ssh') {
       const auth = { kind: authKind.value };
       if (['header', 'query'].includes(auth.kind)) {
         auth.name = authName.value.trim();
@@ -2439,7 +2442,7 @@ function showForm(templateId, entry) {
       newPolicy.http = { allowed_hosts: hostsInput.value.split(',').map((h) => h.trim().toLowerCase()).filter(Boolean), auth };
     }
     const allowed = commandsInput.value.split(',').map((c) => c.trim()).filter(Boolean);
-    if (allowed.length || Object.keys(env).length) newPolicy.commands = { allowed, env };
+    if (!template.public && (allowed.length || Object.keys(env).length)) newPolicy.commands = { allowed, env };
     if (templateId === 'web_login' && totpForAi.checked) newPolicy.ai_totp = true;
     return {
       // Derived from the name without asking; the advanced field changes it on purpose.
@@ -2448,8 +2451,8 @@ function showForm(templateId, entry) {
       description: notes.value.trim(), fields, policy: newPolicy,
       tags: [...new Set(tagsInput.value.split(',').map((t) => slugify(t.trim())).filter(Boolean))],
       ...(expiresInput.value ? { expires: expiresInput.value } : {}),
-      ...(everyInput.value !== '' ? { rotate_every_days: Number(everyInput.value) } : {}),
-      ...(checkEvery.value() !== null ? { check_every_hours: checkEvery.value() } : {}),
+      ...(everyInput.value !== '' && !template.public ? { rotate_every_days: Number(everyInput.value) } : {}),
+      ...(checkEvery.value() !== null && !template.public ? { check_every_hours: checkEvery.value() } : {}),
       used_in: usedInput.value.split('\n').map((line) => line.trim()).filter(Boolean),
       ...(autofillBox && autofillBox.value() ? { autofill: autofillBox.value() } : {}),
     };
@@ -2514,12 +2517,12 @@ function showForm(templateId, entry) {
         el('div', { class: 'field', style: 'flex:2' }, el('label', {}, t('common.tags'), el('span', { class: 'req' }, t('common.optional_suffix'))), tagsInput,
           el('div', { class: 'help' }, t('show_form.group_them_for_example_by'))),
         el('div', { class: 'field', style: 'flex:1' }, el('label', {}, t('common.expires'), el('span', { class: 'req' }, t('common.optional_suffix'))), expiresInput),
-        el('div', { class: 'field', style: 'flex:1' }, el('label', {}, t('common.remind_me_rotate')), everyInput)),
-      el('div', { class: 'field' }, el('label', {}, t('common.check_that_works')), checkEvery.node,
+        template.public ? null : el('div', { class: 'field', style: 'flex:1' }, el('label', {}, t('common.remind_me_rotate')), everyInput)),
+      template.public ? null : el('div', { class: 'field' }, el('label', {}, t('common.check_that_works')), checkEvery.node,
         el('div', { class: 'help' }, t('show_form.read_only_call_provider_or'))),
       el('div', { class: 'field' }, el('label', {}, t('common.where_used'), el('span', { class: 'req' }, t('common.optional_suffix'))), usedInput,
         el('div', { class: 'help' }, t('show_form.one_place_per_line_develop'))),
-      advanced,
+      template.public ? el('div', { class: 'warning' }, icon('info', 'sm'), el('span', {}, t('show_form.config_not_secret'))) : advanced,
       autofillBox ? autofillBox.node : null,
       errorText,
     ],
@@ -3366,7 +3369,8 @@ function changeLine(change) {
   if (change.kind === 'setting') return `${SETTING_LABELS[change.key] ? t(SETTING_LABELS[change.key]) : change.key}: ${settingValue(change.key, change.value)}`;
   if (LIST_KINDS[change.kind]) return `${t(LIST_KINDS[change.kind])}: ${(change.values || []).join(', ') || '—'}`;
   const value = change.values ? listJoin(change.values)
-    : change.kind === 'template' ? (TEMPLATES[change.new] || {}).label || change.new : change.new;
+    : change.kind === 'template' ? ((TEMPLATES[change.new] || {}).label || change.new) + (change.dropped ? ` — ${t('change_line.secret_value_deleted')}` : '')
+      : change.new;
   return CHANGE_KINDS[change.kind] ? `${t(CHANGE_KINDS[change.kind])}: ${value}` : String(value ?? '');
 }
 

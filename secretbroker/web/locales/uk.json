@@ -78,9 +78,9 @@
   "activity_detail.created": "створено",
   "activity_detail.credentials": {
     "=0": "порожньо",
-    "one": "{count} запис",
     "few": "{count} записи",
     "many": "{count} записів",
+    "one": "{count} запис",
     "other": "{count} запису"
   },
   "activity_detail.from_collection": "З колекції {name}",
@@ -99,17 +99,17 @@
   "activity_filter.all": "Усі",
   "activity_filter.denied": "Відхилені",
   "ai.requests_count": {
-    "one": "{count} запит",
     "few": "{count} запити",
     "many": "{count} запитів",
+    "one": "{count} запит",
     "other": "{count} запиту"
   },
   "ai_change.rotation_guide": "Інструкція з ротації",
   "ai_change.sources": "джерела: {sources}",
   "ai_change.steps": {
-    "one": "{count} крок",
     "few": "{count} кроки",
     "many": "{count} кроків",
+    "one": "{count} крок",
     "other": "{count} кроку"
   },
   "ai_change.test_request": "Тестовий запит",
@@ -145,16 +145,16 @@
   "approval.allow_for_24_hours": "Дозволити на 24 години",
   "approval.allow_for_8_hours": "Дозволити на 8 годин",
   "approval.for_hours": {
-    "one": "на {count} годину",
     "few": "на {count} години",
     "many": "на {count} годин",
+    "one": "на {count} годину",
     "other": "на {count} години"
   },
   "approval.position": "{position} з {total}",
   "approval.times_today": {
-    "one": "{count} раз сьогодні",
     "few": "{count} рази сьогодні",
     "many": "{count} разів сьогодні",
+    "one": "{count} раз сьогодні",
     "other": "{count} рази сьогодні"
   },
   "approval.until_you_lock_vault": "до блокування сховища",
@@ -223,6 +223,7 @@
   "change_line.new_programs": "Нові програми",
   "change_line.new_variables": "Нові або змінені змінні",
   "change_line.new_websites": "Нові сайти",
+  "change_line.secret_value_deleted": "збережене секретне значення видаляється",
   "change_master_password.change_master_password": "Щоб змінити майстер-пароль.",
   "change_master_password.change_master_password_2": "Змінити майстер-пароль",
   "change_master_password.choose_new_master_password": "Задайте новий майстер-пароль",
@@ -319,9 +320,9 @@
   "common.create_collection": "Щоб створити колекцію.",
   "common.credentials": "Записи",
   "common.credentials_count": {
-    "one": "{count} запис",
     "few": "{count} записи",
     "many": "{count} записів",
+    "one": "{count} запис",
     "other": "{count} запису"
   },
   "common.delete": "Видалити",
@@ -381,9 +382,9 @@
   "common.optional_suffix": " · необов'язково",
   "common.organization": "Організація",
   "common.people_count": {
-    "one": "{count} людина",
     "few": "{count} людини",
     "many": "{count} людей",
+    "one": "{count} людина",
     "other": "{count} людини"
   },
   "common.private_notes": "Особисті нотатки",
@@ -483,6 +484,7 @@
   "describe_permissions.run_on_this_pc": "Запуск {value} на цьому ПК",
   "destination_label.github": "GitHub {repo}{value} · {name}",
   "detail.ai_knows_as": "ШІ знає його як ",
+  "detail.config_not_secret": "Не секрет: ШІ бачить ці дані, а sb run передає їх програмам, не питаючи тебе. Її не треба змінювати, і вона не вважається розкритою.",
   "detail.copied_cleared_in": "Скопійовано · зникне через {result} с",
   "detail.copy": "Щоб скопіювати «{label}» з {name}.",
   "detail.decide_in_team": "вирішіть у розділі «Команда»",
@@ -503,24 +505,24 @@
   "direct_block.stop_proof": "Щоб припинити ділитися з {name}.",
   "direct_block.stop_sharing_with": "Припинити ділитися з {name}",
   "direct_block.stop_text": {
-    "one": "{name} більше не отримуватиме {count} запис, яким ви ділитеся. На цьому ПК він лишається вашим.",
     "few": "{name} більше не отримуватиме {count} записи, якими ви ділитеся. На цьому ПК вони лишаються вашими.",
     "many": "{name} більше не отримуватиме {count} записів, якими ви ділитеся. На цьому ПК вони лишаються вашими.",
+    "one": "{name} більше не отримуватиме {count} запис, яким ви ділитеся. На цьому ПК він лишається вашим.",
     "other": "{name} більше не отримуватиме {count} запису, якими ви ділитеся. На цьому ПК вони лишаються вашими."
   },
   "direct_block.stop_title": "Припинити ділитися з {name}?",
   "direct_block.stop_warning": {
-    "one": "Ця людина могла його бачити чи скопіювати: ми нагадаємо вам його змінити.",
     "few": "Ця людина могла їх бачити чи скопіювати: ми нагадаємо вам їх змінити.",
     "many": "Ця людина могла їх бачити чи скопіювати: ми нагадаємо вам їх змінити.",
+    "one": "Ця людина могла його бачити чи скопіювати: ми нагадаємо вам його змінити.",
     "other": "Ця людина могла їх бачити чи скопіювати: ми нагадаємо вам їх змінити."
   },
   "direct_block.stopped": "Ви більше нічим не ділитеся з {name}",
   "direct_block.their_permission": "{name}: {value}",
   "direct_share.already_sharing": {
-    "one": "Записів, якими ви вже ділитеся з {name}: {count}. Вибраний дозвіл діє для всього, чим ви ділитеся з цією людиною.",
     "few": "Записів, якими ви вже ділитеся з {name}: {count}. Вибраний дозвіл діє для всього, чим ви ділитеся з цією людиною.",
     "many": "Записів, якими ви вже ділитеся з {name}: {count}. Вибраний дозвіл діє для всього, чим ви ділитеся з цією людиною.",
+    "one": "Записів, якими ви вже ділитеся з {name}: {count}. Вибраний дозвіл діє для всього, чим ви ділитеся з цією людиною.",
     "other": "Записів, якими ви вже ділитеся з {name}: {count}. Вибраний дозвіл діє для всього, чим ви ділитеся з цією людиною."
   },
   "direct_share.compare_code": "Попросіть цю людину прочитати вам її код безпеки (телефоном або особисто) і звірте його з цим. Так ніхто, навіть сервер, не зможе підсунути інший ключ.",
@@ -549,6 +551,7 @@
   "draw_team.sync_now": "Синхронізувати",
   "draw_team.synced": "Синхронізовано",
   "editor.aws_placeholder": "Особистий AWS",
+  "editor.config_placeholder": "Client ID мого застосунку",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
   "editor.tags_placeholder": "shop, prod",
   "empty_credentials.add_credential": "Додати запис",
@@ -564,9 +567,9 @@
   "env_import.config_written": "У папці проєкту тепер є файл .secretbroker з назвами записів, без значень. Його можна додати до репозиторію.",
   "env_import.file_deleted": "{name} видалено",
   "env_import.import_keys": {
-    "one": "Імпортувати {count} ключ",
     "few": "Імпортувати {count} ключі",
     "many": "Імпортувати {count} ключів",
+    "one": "Імпортувати {count} ключ",
     "other": "Імпортувати {count} ключа"
   },
   "env_import.keep_file": "Залишити",
@@ -577,9 +580,9 @@
   "env_import.remove_explained": "Приберіть їх із файлу: інші змінні залишаться, а якщо не залишиться жодної, файл буде видалено.",
   "env_import.remove_from_file": "Прибрати з файлу",
   "env_import.skipped_existing": {
-    "one": "{count} уже був у сховищі.",
     "few": "{count} уже були у сховищі.",
     "many": "{count} уже були у сховищі.",
+    "one": "{count} уже був у сховищі.",
     "other": "{count} уже були у сховищі."
   },
   "env_import.still_in_file": "У {name} ці ключі досі лежать відкритим текстом.",
@@ -595,9 +598,9 @@
   "exposure.couldn_load_status": "Не вдалося завантажити стан.",
   "exposure.ignored": "ігнорується",
   "exposure.ignored_count": {
-    "one": "{count} ігнорується",
     "few": "{count} ігноруються",
     "many": "{count} ігноруються",
+    "one": "{count} ігнорується",
     "other": "{count} ігноруються"
   },
   "exposure.last_search_files": "Останній пошук: {when} · файлів: {files}",
@@ -606,27 +609,27 @@
   "exposure.no_search_for_copies_yet": "Пошук копій ще не виконувався",
   "exposure.paths_are_only_shown_after": "Шляхи показуються лише після підтвердження особи. ",
   "exposure.places": {
-    "one": "{count} місце",
     "few": "{count} місця",
     "many": "{count} місць",
+    "one": "{count} місце",
     "other": "{count} місця"
   },
   "exposure.removed_from_file": {
-    "one": "Видалено з файлу ({count} раз)",
     "few": "Видалено з файлу ({count} рази)",
     "many": "Видалено з файлу ({count} разів)",
+    "one": "Видалено з файлу ({count} раз)",
     "other": "Видалено з файлу ({count} рази)"
   },
   "exposure.revealed_times": {
-    "one": "Показано або скопійовано {count} раз",
     "few": "Показано або скопійовано {count} рази",
     "many": "Показано або скопійовано {count} разів",
+    "one": "Показано або скопійовано {count} раз",
     "other": "Показано або скопійовано {count} рази"
   },
   "exposure.search_done_exposed": {
-    "one": "Пошук завершено: розкрито {count} запис",
     "few": "Пошук завершено: розкрито {count} записи",
     "many": "Пошук завершено: розкрито {count} записів",
+    "one": "Пошук завершено: розкрито {count} запис",
     "other": "Пошук завершено: розкрито {count} запису"
   },
   "exposure.search_for_copies": "Знайти копії",
@@ -706,87 +709,87 @@
   "generator_panel.very_weak": "Дуже слабкий",
   "generator_panel.words": "Слова",
   "health.count_expired": {
-    "one": "{count} прострочений",
     "few": "{count} прострочені",
     "many": "{count} прострочених",
+    "one": "{count} прострочений",
     "other": "{count} прострочених"
   },
   "health.count_expiring": {
-    "one": "{count} скоро спливає",
     "few": "{count} скоро спливають",
     "many": "{count} скоро спливають",
+    "one": "{count} скоро спливає",
     "other": "{count} скоро спливають"
   },
   "health.count_exposed": {
-    "one": "{count} розкритий",
     "few": "{count} розкриті",
     "many": "{count} розкритих",
+    "one": "{count} розкритий",
     "other": "{count} розкритих"
   },
   "health.count_half_rotated": {
-    "one": "{count} незавершена зміна",
     "few": "{count} незавершені зміни",
     "many": "{count} незавершених змін",
+    "one": "{count} незавершена зміна",
     "other": "{count} незавершеної зміни"
   },
   "health.count_old": {
-    "one": "{count} старий",
     "few": "{count} старі",
     "many": "{count} старих",
+    "one": "{count} старий",
     "other": "{count} старих"
   },
   "health.count_old_alive": {
-    "one": "{count} — старий ключ ще діє",
     "few": "{count} — старий ключ ще діє",
     "many": "{count} — старий ключ ще діє",
+    "one": "{count} — старий ключ ще діє",
     "other": "{count} — старий ключ ще діє"
   },
   "health.count_pwned": {
-    "one": "{count} у витоках",
     "few": "{count} у витоках",
     "many": "{count} у витоках",
+    "one": "{count} у витоках",
     "other": "{count} у витоках"
   },
   "health.count_retired_pending": {
-    "one": "{count} — старий ключ ще не відкликано",
     "few": "{count} — старий ключ ще не відкликано",
     "many": "{count} — старий ключ ще не відкликано",
+    "one": "{count} — старий ключ ще не відкликано",
     "other": "{count} — старий ключ ще не відкликано"
   },
   "health.count_reused": {
-    "one": "{count} повторюваний",
     "few": "{count} повторювані",
     "many": "{count} повторюваних",
+    "one": "{count} повторюваний",
     "other": "{count} повторюваних"
   },
   "health.count_team_access": {
-    "one": "{count} — доступ мав учасник, який пішов",
     "few": "{count} — доступ мав учасник, який пішов",
     "many": "{count} — доступ мав учасник, який пішов",
+    "one": "{count} — доступ мав учасник, який пішов",
     "other": "{count} — доступ мав учасник, який пішов"
   },
   "health.count_unchecked": {
-    "one": "{count} не перевірений",
     "few": "{count} не перевірені",
     "many": "{count} не перевірених",
+    "one": "{count} не перевірений",
     "other": "{count} не перевірених"
   },
   "health.count_upload_failed": {
-    "one": "{count} не вивантажений",
     "few": "{count} не вивантажені",
     "many": "{count} не вивантажених",
+    "one": "{count} не вивантажений",
     "other": "{count} не вивантажених"
   },
   "health.count_was_exposed": {
-    "one": "{count} був розкритий",
     "few": "{count} були розкриті",
     "many": "{count} були розкриті",
+    "one": "{count} був розкритий",
     "other": "{count} були розкриті"
   },
   "health.count_weak": {
-    "one": "{count} слабкий",
     "few": "{count} слабкі",
     "many": "{count} слабких",
+    "one": "{count} слабкий",
     "other": "{count} слабких"
   },
   "health.missing_both": "Залишилося: {what}. «Перевірити зараз» зробить і те, і те.",
@@ -809,45 +812,45 @@
   "health_section.see_less": "Згорнути",
   "health_section.test_them_with_their_providers": "перевірити їх у провайдерів",
   "held.deleted": {
-    "one": "{count} запис видалено з цього ПК",
     "few": "{count} записи видалено з цього ПК",
     "many": "{count} записів видалено з цього ПК",
+    "one": "{count} запис видалено з цього ПК",
     "other": "{count} запису видалено з цього ПК"
   },
   "held.deleted_by": {
-    "one": "{who} одночасно видалив(-ла) {count} запис із «{collection_name}».",
     "few": "{who} одночасно видалив(-ла) {count} записи із «{collection_name}».",
     "many": "{who} одночасно видалив(-ла) {count} записів із «{collection_name}».",
+    "one": "{who} одночасно видалив(-ла) {count} запис із «{collection_name}».",
     "other": "{who} одночасно видалив(-ла) {count} запису із «{collection_name}»."
   },
   "held.kept": {
-    "one": "{count} запис збережено на цьому ПК",
     "few": "{count} записи збережено на цьому ПК",
     "many": "{count} записів збережено на цьому ПК",
+    "one": "{count} запис збережено на цьому ПК",
     "other": "{count} запису збережено на цьому ПК"
   },
   "held.proof_delete": {
-    "one": "Щоб видалити {count} запис із цього ПК.",
     "few": "Щоб видалити {count} записи з цього ПК.",
     "many": "Щоб видалити {count} записів із цього ПК.",
+    "one": "Щоб видалити {count} запис із цього ПК.",
     "other": "Щоб видалити {count} запису з цього ПК."
   },
   "held.proof_keep": {
-    "one": "Щоб зберегти {count} запис.",
     "few": "Щоб зберегти {count} записи.",
     "many": "Щоб зберегти {count} записів.",
+    "one": "Щоб зберегти {count} запис.",
     "other": "Щоб зберегти {count} запису."
   },
   "held.restored": {
-    "one": "{count} запис відновлено для всієї команди",
     "few": "{count} записи відновлено для всієї команди",
     "many": "{count} записів відновлено для всієї команди",
+    "one": "{count} запис відновлено для всієї команди",
     "other": "{count} запису відновлено для всієї команди"
   },
   "held.waiting": {
-    "one": "{count} запис чекає на ваше рішення",
     "few": "{count} записи чекають на ваше рішення",
     "many": "{count} записів чекають на ваше рішення",
+    "one": "{count} запис чекає на ваше рішення",
     "other": "{count} запису чекають на ваше рішення"
   },
   "held_deletions_card.collection_no_longer_appears_on": "Колекції «{collection_name}» більше немає на сервері (вам відкликали доступ, її видалили або сервер дає збій).",
@@ -859,58 +862,58 @@
   "held_deletions_card.restoring_them_puts_them_back": "Відновлення поверне їх усій команді.",
   "import.already_in": "Уже є",
   "import.count_conflict": {
-    "one": "{count} з іншим паролем",
     "few": "{count} з іншим паролем",
     "many": "{count} з іншим паролем",
+    "one": "{count} з іншим паролем",
     "other": "{count} з іншим паролем"
   },
   "import.count_duplicate": {
-    "one": "{count} уже у сховищі",
     "few": "{count} уже у сховищі",
     "many": "{count} уже у сховищі",
+    "one": "{count} уже у сховищі",
     "other": "{count} уже у сховищі"
   },
   "import.count_new": {
-    "one": "{count} новий",
     "few": "{count} нові",
     "many": "{count} нових",
+    "one": "{count} новий",
     "other": "{count} нових"
   },
   "import.different_password": "Інший пароль",
   "import.imported": {
-    "one": "Імпортовано {count} запис",
     "few": "Імпортовано {count} записи",
     "many": "Імпортовано {count} записів",
+    "one": "Імпортовано {count} запис",
     "other": "Імпортовано {count} запису"
   },
   "import.in_file": {
-    "one": "У файлі {count} запис: ",
     "few": "У файлі {count} записи: ",
     "many": "У файлі {count} записів: ",
+    "one": "У файлі {count} запис: ",
     "other": "У файлі {count} запису: "
   },
   "import.skipped_summary": {
-    "one": "{count} не буде імпортовано",
     "few": "{count} не буде імпортовано",
     "many": "{count} не буде імпортовано",
+    "one": "{count} не буде імпортовано",
     "other": "{count} не буде імпортовано"
   },
   "import.stat_created": {
-    "one": "створено",
     "few": "створено",
     "many": "створено",
+    "one": "створено",
     "other": "створено"
   },
   "import.stat_failed": {
-    "one": "з помилкою",
     "few": "з помилками",
     "many": "з помилками",
+    "one": "з помилкою",
     "other": "з помилками"
   },
   "import.stat_skipped": {
-    "one": "пропущено",
     "few": "пропущено",
     "many": "пропущено",
+    "one": "пропущено",
     "other": "пропущено"
   },
   "import_done.any_program_or_person_who": "Будь-яка програма чи людина, що його прочитає, отримає їх. Видаліть його зараз, а також копії в «Завантаженнях», пошті чи хмарі.",
@@ -995,9 +998,9 @@
   "key_source_picker.where_do_i_get_key": "Де взяти ключ?",
   "level.not_checked": "Не перевірено",
   "list.selected": {
-    "one": "Вибрано: {count}",
     "few": "Вибрано: {count}",
     "many": "Вибрано: {count}",
+    "one": "Вибрано: {count}",
     "other": "Вибрано: {count}"
   },
   "lock.couldn_open_with_windows_session": "Не вдалося відкрити через сеанс Windows. Скористайтеся паролем.",
@@ -1054,33 +1057,33 @@
   "new_org_modal.new_organization": "Нова організація",
   "new_org_modal.organization_is_team_has_its": "Організація — це команда: у неї є свої люди та свої колекції.",
   "offboarding.changed": {
-    "one": "{count} змінено",
     "few": "{count} змінено",
     "many": "{count} змінено",
+    "one": "{count} змінено",
     "other": "{count} змінено"
   },
   "offboarding.could_see": {
-    "one": "{person} міг(-ла) бачити {count} запис",
     "few": "{person} міг(-ла) бачити {count} записи",
     "many": "{person} міг(-ла) бачити {count} записів",
+    "one": "{person} міг(-ла) бачити {count} запис",
     "other": "{person} міг(-ла) бачити {count} запису"
   },
   "offboarding.done_of_total": {
-    "one": "Змінено {done} з {count}",
     "few": "Змінено {done} з {count}",
     "many": "Змінено {done} з {count}",
+    "one": "Змінено {done} з {count}",
     "other": "Змінено {done} з {count}"
   },
   "offboarding.gone_to_change": {
-    "one": "{person} більше немає: треба змінити {count} запис",
     "few": "{person} більше немає: треба змінити {count} записи",
     "many": "{person} більше немає: треба змінити {count} записів",
+    "one": "{person} більше немає: треба змінити {count} запис",
     "other": "{person} більше немає: треба змінити {count} запису"
   },
   "offboarding.unshared_to_change": {
-    "one": "{person} більше не має доступу: треба змінити {count} запис",
     "few": "{person} більше не має доступу: треба змінити {count} записи",
     "many": "{person} більше не має доступу: треба змінити {count} записів",
+    "one": "{person} більше не має доступу: треба змінити {count} запис",
     "other": "{person} більше не має доступу: треба змінити {count} запису"
   },
   "offboarding_card.they_could_see_or_copy": "Ця людина могла його бачити чи скопіювати. Змініть його; якщо ним керуєте не ви, його змінить менеджер.",
@@ -1093,9 +1096,9 @@
   "open_export.export_vault": "Експорт сховища",
   "open_export.export_vault_2": "Щоб експортувати сховище.",
   "open_export.exported_to": {
-    "one": "Експортовано {count} запис у {path}",
     "few": "Експортовано {count} записи у {path}",
     "many": "Експортовано {count} записів у {path}",
+    "one": "Експортовано {count} запис у {path}",
     "other": "Експортовано {count} запису у {path}"
   },
   "open_export.file_password": "Пароль файлу",
@@ -1139,9 +1142,9 @@
   "palette.sage": "Шавлія",
   "palette.terracotta": "Теракота",
   "password.chars_left": {
-    "one": "Ще {count} символ",
     "few": "Ще {count} символи",
     "many": "Ще {count} символів",
+    "one": "Ще {count} символ",
     "other": "Ще {count} символу"
   },
   "pending_change_box.accept_new_description": "Прийняти новий опис",
@@ -1225,57 +1228,57 @@
   "recovery_code.used": "Ви використали код відновлення, тому він більше не діє. Ось новий: зберігайте його так само, як попередній.",
   "recovery_code.vault_note": "Зберігати його в особистому сховищі можна, але це не допоможе, якщо ви втратите саме сховище (цей ПК і його копії): збережіть його ще й в іншому місці.",
   "reminder.ask_manager_in_case": {
-    "one": "Попросіть менеджера змінити його на випадок, якщо його бачили.",
     "few": "Попросіть менеджера змінити його на випадок, якщо його бачили.",
     "many": "Попросіть менеджера змінити його на випадок, якщо його бачили.",
+    "one": "Попросіть менеджера змінити його на випадок, якщо його бачили.",
     "other": "Попросіть менеджера змінити його на випадок, якщо його бачили."
   },
   "reminder.change_in_case": {
-    "one": "Змініть його на випадок, якщо його бачили.",
     "few": "Змініть його на випадок, якщо його бачили.",
     "many": "Змініть його на випадок, якщо його бачили.",
+    "one": "Змініть його на випадок, якщо його бачили.",
     "other": "Змініть його на випадок, якщо його бачили."
   },
   "reminder.change_people_had_it": {
-    "one": "Змінити: доступ мав(-ла) {names}",
     "few": "Змінити: доступ мали {names}",
     "many": "Змінити: доступ мали {names}",
+    "one": "Змінити: доступ мав(-ла) {names}",
     "other": "Змінити: доступ мали {names}"
   },
   "reminder.change_people_left": {
-    "one": "Змінити: {names} покинув(-ла) команду",
     "few": "Змінити: {names} покинули команду",
     "many": "Змінити: {names} покинули команду",
+    "one": "Змінити: {names} покинув(-ла) команду",
     "other": "Змінити: {names} покинули команду"
   },
   "reminder.expired_ago": {
-    "one": "Термін сплив {count} день тому. Створіть новий ключ або змініть його.",
     "few": "Термін сплив {count} дні тому. Створіть новий ключ або змініть його.",
     "many": "Термін сплив {count} днів тому. Створіть новий ключ або змініть його.",
+    "one": "Термін сплив {count} день тому. Створіть новий ключ або змініть його.",
     "other": "Термін сплив {count} дня тому. Створіть новий ключ або змініть його."
   },
   "reminder.expires_in": {
-    "one": "Спливає через {count} день. Змініть ключ, поки він не перестав працювати.",
     "few": "Спливає через {count} дні. Змініть ключ, поки він не перестав працювати.",
     "many": "Спливає через {count} днів. Змініть ключ, поки він не перестав працювати.",
+    "one": "Спливає через {count} день. Змініть ключ, поки він не перестав працювати.",
     "other": "Спливає через {count} дня. Змініть ключ, поки він не перестав працювати."
   },
   "reminder.key_age": {
-    "one": "Ключу {count} день. Час від часу його варто змінювати.",
     "few": "Ключу {count} дні. Час від часу його варто змінювати.",
     "many": "Ключу {count} днів. Час від часу його варто змінювати.",
+    "one": "Ключу {count} день. Час від часу його варто змінювати.",
     "other": "Ключу {count} дня. Час від часу його варто змінювати."
   },
   "reminder.team_access_left": {
-    "one": "{names} мав(-ла) доступ до цього командного запису, але вже не в команді.",
     "few": "{names} мали доступ до цього командного запису, але вже не в команді.",
     "many": "{names} мали доступ до цього командного запису, але вже не в команді.",
+    "one": "{names} мав(-ла) доступ до цього командного запису, але вже не в команді.",
     "other": "{names} мали доступ до цього командного запису, але вже не в команді."
   },
   "reminder.unshared_access": {
-    "one": "{names} мав(-ла) доступ до цього запису, але вже не має.",
     "few": "{names} мали доступ до цього запису, але вже не мають.",
     "many": "{names} мали доступ до цього запису, але вже не мають.",
+    "one": "{names} мав(-ла) доступ до цього запису, але вже не має.",
     "other": "{names} мали доступ до цього запису, але вже не мають."
   },
   "reminder_short.change_had_it": "Змінити: мали доступ {length}",
@@ -1426,25 +1429,25 @@
   "rotation.id_changed_app": "Змінився: створено новий застосунок.",
   "rotation.id_changed_client": "Змінився: створено новий клієнт.",
   "rotation.n_places": {
-    "one": "{count} місце",
     "few": "{count} місця",
     "many": "{count} місць",
+    "one": "{count} місце",
     "other": "{count} місця"
   },
   "rotation.no_places_noted": "Місця не записано. Якщо ви використовуєте його деінде (сервер, Vercel, інший застосунок…), змініть його й там.",
   "rotation.no_places_noted_revoke": "Місця не записано. Якщо ви використовуєте його деінде (сервер, Vercel, інший застосунок…), змініть його й там, перш ніж відкликати старий.",
   "rotation.old_key_exposed": {
-    "one": "Старий ключ був у відкритому вигляді в {count} місці. Щойно ви його відкличете, ця копія перестане бути ризиком.",
     "few": "Старий ключ був у відкритому вигляді в {count} місцях. Щойно ви його відкличете, ці копії перестануть бути ризиком.",
     "many": "Старий ключ був у відкритому вигляді в {count} місцях. Щойно ви його відкличете, ці копії перестануть бути ризиком.",
+    "one": "Старий ключ був у відкритому вигляді в {count} місці. Щойно ви його відкличете, ця копія перестане бути ризиком.",
     "other": "Старий ключ був у відкритому вигляді в {count} місця. Щойно ви його відкличете, ці копії перестануть бути ризиком."
   },
   "rotation.pending_kept_key": "Новий ключ лишається тут як очікуваний: коли повернетеся до «Змінити з підказками», зможете завершити.",
   "rotation.pending_kept_password": "Новий пароль лишається тут як очікуваний: коли повернетеся до «Змінити з підказками», зможете завершити.",
   "rotation.places_missing": {
-    "one": "Залишилося: {count}. {then}",
     "few": "Залишилося: {count}. {then}",
     "many": "Залишилося: {count}. {then}",
+    "one": "Залишилося: {count}. {then}",
     "other": "Залишилося: {count}. {then}"
   },
   "rotation.proof_copy_key": "Щоб скопіювати новий ключ {name}.",
@@ -1498,9 +1501,9 @@
   "server_admin.backup_reason": "Щоб створити резервну копію сервера.",
   "server_admin.backups": "Резервні копії",
   "server_admin.backups_kept": {
-    "one": "{count} зберігається",
     "few": "{count} зберігаються",
     "many": "{count} зберігаються",
+    "one": "{count} зберігається",
     "other": "{count} зберігаються"
   },
   "server_admin.being_replaced": "Доступ втрачено: новий акаунт чекає, щоб замінити його",
@@ -1508,9 +1511,9 @@
   "server_admin.change_owner_text": "Виберіть когось, хто вже є в організації. Хто вже був власником, залишається ним; новий власник може змінити це в розділі Люди.",
   "server_admin.change_owner_title": "Власник організації {org}",
   "server_admin.collections_count": {
-    "one": "{count} колекція",
     "few": "{count} колекції",
     "many": "{count} колекцій",
+    "one": "{count} колекція",
     "other": "{count} колекції"
   },
   "server_admin.copy_code_only": "Скопіювати лише код",
@@ -1641,9 +1644,9 @@
   "settings.app": "Застосунок",
   "settings.appearance": "Вигляд",
   "settings.approved_now": {
-    "one": "Зараз схвалено {count} запис.",
     "few": "Зараз схвалено {count} записи.",
     "many": "Зараз схвалено {count} записів.",
+    "one": "Зараз схвалено {count} запис.",
     "other": "Зараз схвалено {count} запису."
   },
   "settings.ask_again_if_used_lot": "Питати знову, якщо використовується часто",
@@ -1729,27 +1732,27 @@
   "setup.you_ll_only_type_master": "Майстер-пароль знадобиться лише для відновлення копій або на іншому ПК.",
   "setup.your_keys_used_without_being": "Ваші ключі використовуються, але їх не видно",
   "share.credentials_shared_in": {
-    "one": "{count} запис передано в {name}",
     "few": "{count} записи передано в {name}",
     "many": "{count} записів передано в {name}",
+    "one": "{count} запис передано в {name}",
     "other": "{count} запису передано в {name}"
   },
   "share.not_shared": {
-    "one": "{count} не вдалося передати: {error}",
     "few": "{count} не вдалося передати: {error}",
     "many": "{count} не вдалося передати: {error}",
+    "one": "{count} не вдалося передати: {error}",
     "other": "{count} не вдалося передати: {error}"
   },
   "share.shared_in": {
-    "one": "{count} передано в {name}",
     "few": "{count} передано в {name}",
     "many": "{count} передано в {name}",
+    "one": "{count} передано в {name}",
     "other": "{count} передано в {name}"
   },
   "share.shared_with_count": {
-    "one": "Спільні з {name}: {count}",
     "few": "Спільні з {name}: {count}",
     "many": "Спільні з {name}: {count}",
+    "one": "Спільні з {name}: {count}",
     "other": "Спільні з {name}: {count}"
   },
   "share.shared_with_one": "Спільний з {name}",
@@ -1773,9 +1776,9 @@
   "share_with_person.nothing_to_share": "У вас немає власних записів, якими можна поділитися.",
   "share_with_person.search": "Пошук",
   "share_with_person.share_count": {
-    "one": "Поділитися ({count})",
     "few": "Поділитися ({count})",
     "many": "Поділитися ({count})",
+    "one": "Поділитися ({count})",
     "other": "Поділитися ({count})"
   },
   "shared_badge.shared": "Спільний · {value}",
@@ -1834,6 +1837,7 @@
   "show_form.change_type": "Змінити тип",
   "show_form.changed_while_you_were_editing": "Змінився, поки ви редагували",
   "show_form.changes_saved": "Зміни збережено",
+  "show_form.config_not_secret": "Це не секрет: ШІ бачить ці дані, а sb run передає їх, не питаючи тебе. Тому тут немає дозволів, зміни ключа й перевірок.",
   "show_form.data_ai_can_insert_without": "Дані, які ШІ може підставляти, не бачачи їх",
   "show_form.deploy_token": "Токен розгортання",
   "show_form.discard_changes": "Відкинути зміни?",
@@ -1883,15 +1887,15 @@
   "sidebar.closes_with_windows": "Сховище закривається, коли ви блокуєте Windows.",
   "sidebar.closes_with_windows_or_idle": "Сховище закривається, коли ви блокуєте Windows або після періоду бездіяльності, і відкривається знову саме.",
   "sidebar.drafts_waiting": {
-    "one": "{count} запис, підготовлений ШІ, чекає на ключ.",
     "few": "{count} записи, підготовлені ШІ, чекають на ключі.",
     "many": "{count} записів, підготовлених ШІ, чекають на ключі.",
+    "one": "{count} запис, підготовлений ШІ, чекає на ключ.",
     "other": "{count} запису, підготовленого ШІ, чекають на ключі."
   },
   "sidebar.to_review": {
-    "one": "На перегляд: {count}",
     "few": "На перегляд: {count}",
     "many": "На перегляд: {count}",
+    "one": "На перегляд: {count}",
     "other": "На перегляд: {count}"
   },
   "sort.need_attention": "Потребують уваги",
@@ -1904,9 +1908,9 @@
   "source.settings": "Налаштування",
   "source.terminal_history": "Історія терміналу",
   "status.used_in_places": {
-    "one": "Використовується в {count} місці",
     "few": "Використовується в {count} місцях",
     "many": "Використовується в {count} місцях",
+    "one": "Використовується в {count} місці",
     "other": "Використовується в {count} місця"
   },
   "status_strip.app_doesn_know_how_test": "Застосунок не знає, як перевірити цей ключ: укажіть, яким запитом його перевіряти",
@@ -1942,39 +1946,39 @@
   "sync_line.will_retry_by_itself": "Повторна спроба буде автоматично.",
   "team.another_account": "інший акаунт",
   "team.changes_wait_rekey": {
-    "one": "{count} зміна чекає на перешифрування своєї колекції.",
     "few": "{count} зміни чекають на перешифрування своїх колекцій.",
     "many": "{count} змін чекають на перешифрування своїх колекцій.",
+    "one": "{count} зміна чекає на перешифрування своєї колекції.",
     "other": "{count} зміни чекають на перешифрування своїх колекцій."
   },
   "team.disconnect_removes": {
-    "one": "{count} командний запис буде видалено з цього ПК; на сервері він лишиться для інших. Записи, якими ви поділилися зі свого сховища, і ненадіслані зміни лишаться особистими.",
     "few": "{count} командні записи буде видалено з цього ПК; на сервері вони лишаться для інших. Записи, якими ви поділилися зі свого сховища, і ненадіслані зміни лишаться особистими.",
     "many": "{count} командних записів буде видалено з цього ПК; на сервері вони лишаться для інших. Записи, якими ви поділилися зі свого сховища, і ненадіслані зміни лишаться особистими.",
+    "one": "{count} командний запис буде видалено з цього ПК; на сервері він лишиться для інших. Записи, якими ви поділилися зі свого сховища, і ненадіслані зміни лишаться особистими.",
     "other": "{count} командного запису буде видалено з цього ПК; на сервері вони лишаться для інших. Записи, якими ви поділилися зі свого сховища, і ненадіслані зміни лишаться особистими."
   },
   "team.people_to_verify": {
-    "one": "{count} людину треба перевірити",
     "few": "{count} людини треба перевірити",
     "many": "{count} людей треба перевірити",
+    "one": "{count} людину треба перевірити",
     "other": "{count} людини треба перевірити"
   },
   "team.rekey_by_managers": {
-    "one": "Ще {count} колекцію перешифрує її менеджер.",
     "few": "Ще {count} колекції перешифрують їхні менеджери.",
     "many": "Ще {count} колекцій перешифрують їхні менеджери.",
+    "one": "Ще {count} колекцію перешифрує її менеджер.",
     "other": "Ще {count} колекції перешифрують їхні менеджери."
   },
   "team.rekey_next_sync": {
-    "one": "{count} колекцію буде перешифровано під час наступної синхронізації.",
     "few": "{count} колекції буде перешифровано під час наступної синхронізації.",
     "many": "{count} колекцій буде перешифровано під час наступної синхронізації.",
+    "one": "{count} колекцію буде перешифровано під час наступної синхронізації.",
     "other": "{count} колекції буде перешифровано під час наступної синхронізації."
   },
   "team.rekey_on_reconnect": {
-    "one": "{count} колекцію буде перешифровано під час повторного підключення.",
     "few": "{count} колекції буде перешифровано під час повторного підключення.",
     "many": "{count} колекцій буде перешифровано під час повторного підключення.",
+    "one": "{count} колекцію буде перешифровано під час повторного підключення.",
     "other": "{count} колекції буде перешифровано під час повторного підключення."
   },
   "team.this_pc": "цей ПК: {device}",
@@ -2153,79 +2157,79 @@
   "time.date_at": "{date} о {time}",
   "time.day_time": "{day} {time}",
   "time.days_ago": {
-    "one": "{count} день тому",
     "few": "{count} дні тому",
     "many": "{count} днів тому",
+    "one": "{count} день тому",
     "other": "{count} дня тому"
   },
   "time.every_hours": {
     "=1": "щогодини",
-    "one": "кожну {count} годину",
     "few": "кожні {count} години",
     "many": "кожні {count} годин",
+    "one": "кожну {count} годину",
     "other": "кожні {count} години"
   },
   "time.every_months": {
     "=1": "щомісяця",
-    "one": "кожен {count} місяць",
     "few": "кожні {count} місяці",
     "many": "кожні {count} місяців",
+    "one": "кожен {count} місяць",
     "other": "кожні {count} місяця"
   },
   "time.hours": {
-    "one": "{count} година",
     "few": "{count} години",
     "many": "{count} годин",
+    "one": "{count} година",
     "other": "{count} години"
   },
   "time.hours_ago": "{count} год тому",
   "time.hours_label": "годин",
   "time.hours_short": "{count} год",
   "time.in_days": {
-    "one": "через {count} день",
     "few": "через {count} дні",
     "many": "через {count} днів",
+    "one": "через {count} день",
     "other": "через {count} дня"
   },
   "time.in_months": {
-    "one": "через {count} місяць",
     "few": "через {count} місяці",
     "many": "через {count} місяців",
+    "one": "через {count} місяць",
     "other": "через {count} місяця"
   },
   "time.in_years": {
     "=1": "через рік",
-    "one": "через {count} рік",
     "few": "через {count} роки",
     "many": "через {count} років",
+    "one": "через {count} рік",
     "other": "через {count} року"
   },
   "time.minutes": {
-    "one": "{count} хвилина",
     "few": "{count} хвилини",
     "many": "{count} хвилин",
+    "one": "{count} хвилина",
     "other": "{count} хвилини"
   },
   "time.minutes_ago": "{count} хв тому",
   "time.minutes_short": "{count} хв",
   "time.months": {
-    "one": "{count} місяць",
     "few": "{count} місяці",
     "many": "{count} місяців",
+    "one": "{count} місяць",
     "other": "{count} місяця"
   },
   "time.months_ago": {
-    "one": "{count} місяць тому",
     "few": "{count} місяці тому",
     "many": "{count} місяців тому",
+    "one": "{count} місяць тому",
     "other": "{count} місяця тому"
   },
   "time.now": "щойно",
   "time.relative_day_at": "{day} о {time}",
   "time.years_ago": {
-    "one": "{count} рік тому",
     "few": "{count} роки тому",
     "many": "{count} років тому",
+    "one": "{count} рік тому",
     "other": "{count} року тому"
   },
   "totp_prop.2fa_code_copied_valid_for": "Код 2FA скопійовано · дійсний ще {remaining} с",
@@ -2271,9 +2275,9 @@
   "used_in_modal.where_is_used": "Де використовується {name}",
   "used_in_modal.where_used_hasn_been_noted": "Не записано, де використовується.",
   "verify.shares_collections": {
-    "one": "Ділиться з вами {count} колекцією: перевірте цю людину, щоб її отримати.",
     "few": "Ділиться з вами {count} колекціями: перевірте цю людину, щоб їх отримати.",
     "many": "Ділиться з вами {count} колекціями: перевірте цю людину, щоб їх отримати.",
+    "one": "Ділиться з вами {count} колекцією: перевірте цю людину, щоб її отримати.",
     "other": "Ділиться з вами {count} колекції: перевірте цю людину, щоб їх отримати."
   },
   "verify_email_card.e_mail_code": "Код із листа",

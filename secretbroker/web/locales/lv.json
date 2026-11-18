@@ -78,9 +78,9 @@
   "activity_detail.created": "izveidots",
   "activity_detail.credentials": {
     "=0": "tukšs",
-    "zero": "{count} piekļuves dati",
     "one": "{count} piekļuves dati",
-    "other": "{count} piekļuves dati"
+    "other": "{count} piekļuves dati",
+    "zero": "{count} piekļuves dati"
   },
   "activity_detail.from_collection": "No krājuma {name}",
   "activity_detail.idle_minutes": "{minutes} min neizmantots",
@@ -98,16 +98,16 @@
   "activity_filter.all": "Visi",
   "activity_filter.denied": "Noraidīti",
   "ai.requests_count": {
-    "zero": "{count} pieprasījumi",
     "one": "{count} pieprasījums",
-    "other": "{count} pieprasījumi"
+    "other": "{count} pieprasījumi",
+    "zero": "{count} pieprasījumi"
   },
   "ai_change.rotation_guide": "Rotācijas ceļvedis",
   "ai_change.sources": "avoti: {sources}",
   "ai_change.steps": {
-    "zero": "{count} soļu",
     "one": "{count} solis",
-    "other": "{count} soļi"
+    "other": "{count} soļi",
+    "zero": "{count} soļu"
   },
   "ai_change.test_request": "Testa pieprasījums",
   "ai_client_list.not_installed": "Nav instalēts: {names}.",
@@ -142,15 +142,15 @@
   "approval.allow_for_24_hours": "Atļaut uz 24 stundām",
   "approval.allow_for_8_hours": "Atļaut uz 8 stundām",
   "approval.for_hours": {
-    "zero": "uz {count} stundām",
     "one": "uz {count} stundu",
-    "other": "uz {count} stundām"
+    "other": "uz {count} stundām",
+    "zero": "uz {count} stundām"
   },
   "approval.position": "{position} no {total}",
   "approval.times_today": {
-    "zero": "šodien {count} reizes",
     "one": "šodien {count} reizi",
-    "other": "šodien {count} reizes"
+    "other": "šodien {count} reizes",
+    "zero": "šodien {count} reizes"
   },
   "approval.until_you_lock_vault": "līdz glabātavas aizslēgšanai",
   "approval_banner.ai_requests": "MI pieprasījumi: {length}",
@@ -218,6 +218,7 @@
   "change_line.new_programs": "Jaunas programmas",
   "change_line.new_variables": "Jauni vai mainīti mainīgie",
   "change_line.new_websites": "Jaunas vietnes",
+  "change_line.secret_value_deleted": "saglabātā slepenā vērtība tiek dzēsta",
   "change_master_password.change_master_password": "Lai mainītu galveno paroli.",
   "change_master_password.change_master_password_2": "Mainīt galveno paroli",
   "change_master_password.choose_new_master_password": "Izvēlieties jaunu galveno paroli",
@@ -314,9 +315,9 @@
   "common.create_collection": "Lai izveidotu krājumu.",
   "common.credentials": "Piekļuves dati",
   "common.credentials_count": {
-    "zero": "{count} piekļuves dati",
     "one": "{count} piekļuves dati",
-    "other": "{count} piekļuves dati"
+    "other": "{count} piekļuves dati",
+    "zero": "{count} piekļuves dati"
   },
   "common.delete": "Dzēst",
   "common.deleted": "Izdzēsts",
@@ -375,9 +376,9 @@
   "common.optional_suffix": " · neobligāti",
   "common.organization": "Organizācija",
   "common.people_count": {
-    "zero": "{count} personu",
     "one": "{count} persona",
-    "other": "{count} personas"
+    "other": "{count} personas",
+    "zero": "{count} personu"
   },
   "common.private_notes": "Privātas piezīmes",
   "common.provider_website": "nodrošinātāja vietne",
@@ -476,6 +477,7 @@
   "describe_permissions.run_on_this_pc": "Palaist šajā datorā: {value}",
   "destination_label.github": "GitHub {repo}{value} · {name}",
   "detail.ai_knows_as": "MI to pazīst kā ",
+  "detail.config_not_secret": "Nav slepena: MI redz šos datus, un sb run tos nodod programmām, tev neprasot. To nerotē un neuzskata par atklātu.",
   "detail.copied_cleared_in": "Nokopēts · tiks notīrīts pēc {result} s",
   "detail.copy": "Lai nokopētu „{label}” no {name}.",
   "detail.decide_in_team": "izlemiet sadaļā Komanda",
@@ -496,22 +498,22 @@
   "direct_block.stop_proof": "Lai pārtrauktu kopīgošanu ar {name}.",
   "direct_block.stop_sharing_with": "Pārtraukt kopīgošanu ar {name}",
   "direct_block.stop_text": {
-    "zero": "{name} vairs nesaņems piekļuves datus, ko kopīgojat ar šo personu ({count}). Šajā datorā tie paliek jūsu.",
     "one": "{name} vairs nesaņems piekļuves datus, ko kopīgojat ar šo personu ({count}). Šajā datorā tie paliek jūsu.",
-    "other": "{name} vairs nesaņems piekļuves datus, ko kopīgojat ar šo personu ({count}). Šajā datorā tie paliek jūsu."
+    "other": "{name} vairs nesaņems piekļuves datus, ko kopīgojat ar šo personu ({count}). Šajā datorā tie paliek jūsu.",
+    "zero": "{name} vairs nesaņems piekļuves datus, ko kopīgojat ar šo personu ({count}). Šajā datorā tie paliek jūsu."
   },
   "direct_block.stop_title": "Pārtraukt kopīgošanu ar {name}?",
   "direct_block.stop_warning": {
-    "zero": "Šī persona varēja tos redzēt vai nokopēt: mēs atgādināsim jums tos nomainīt.",
     "one": "Šī persona varēja tos redzēt vai nokopēt: mēs atgādināsim jums tos nomainīt.",
-    "other": "Šī persona varēja tos redzēt vai nokopēt: mēs atgādināsim jums tos nomainīt."
+    "other": "Šī persona varēja tos redzēt vai nokopēt: mēs atgādināsim jums tos nomainīt.",
+    "zero": "Šī persona varēja tos redzēt vai nokopēt: mēs atgādināsim jums tos nomainīt."
   },
   "direct_block.stopped": "Jūs vairs neko nekopīgojat ar {name}",
   "direct_block.their_permission": "{name}: {value}",
   "direct_share.already_sharing": {
-    "zero": "Jūs jau kopīgojat {count} piekļuves datus ar {name}. Izvēlētā atļauja attiecas uz visu, ko kopīgojat ar šo personu.",
     "one": "Jūs jau kopīgojat {count} piekļuves datus ar {name}. Izvēlētā atļauja attiecas uz visu, ko kopīgojat ar šo personu.",
-    "other": "Jūs jau kopīgojat {count} piekļuves datus ar {name}. Izvēlētā atļauja attiecas uz visu, ko kopīgojat ar šo personu."
+    "other": "Jūs jau kopīgojat {count} piekļuves datus ar {name}. Izvēlētā atļauja attiecas uz visu, ko kopīgojat ar šo personu.",
+    "zero": "Jūs jau kopīgojat {count} piekļuves datus ar {name}. Izvēlētā atļauja attiecas uz visu, ko kopīgojat ar šo personu."
   },
   "direct_share.compare_code": "Palūdziet šai personai nolasīt jums savu drošības kodu (pa tālruni vai klātienē) un salīdziniet to ar šo. Tā neviens, pat serveris, nevar iespraukties ar citu atslēgu.",
   "direct_share.go_to_people": "Atvērt sadaļu Personas",
@@ -539,6 +541,7 @@
   "draw_team.sync_now": "Sinhronizēt tagad",
   "draw_team.synced": "Sinhronizēts",
   "editor.aws_placeholder": "Personīgais AWS",
+  "editor.config_placeholder": "Manas lietotnes klienta ID",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
   "editor.tags_placeholder": "veikals, produkcija",
   "empty_credentials.add_credential": "Pievienot piekļuves datus",
@@ -554,9 +557,9 @@
   "env_import.config_written": "Projekta mapē tagad ir .secretbroker fails ar piekļuves datu nosaukumiem, bez vērtībām. To var ievietot repozitorijā.",
   "env_import.file_deleted": "{name} izdzēsts",
   "env_import.import_keys": {
-    "zero": "Importēt {count} atslēgas",
     "one": "Importēt {count} atslēgu",
-    "other": "Importēt {count} atslēgas"
+    "other": "Importēt {count} atslēgas",
+    "zero": "Importēt {count} atslēgas"
   },
   "env_import.keep_file": "Atstāt tā",
   "env_import.keys_removed": "Atslēgas izņemtas no {name}",
@@ -566,9 +569,9 @@
   "env_import.remove_explained": "Izņemiet tās no faila: pārējie mainīgie paliek, un, ja neviens nepaliek, fails tiek izdzēsts.",
   "env_import.remove_from_file": "Izņemt no faila",
   "env_import.skipped_existing": {
-    "zero": "{count} jau bija glabātavā.",
     "one": "{count} jau bija glabātavā.",
-    "other": "{count} jau bija glabātavā."
+    "other": "{count} jau bija glabātavā.",
+    "zero": "{count} jau bija glabātavā."
   },
   "env_import.still_in_file": "Failā {name} šīs atslēgas joprojām ir atklātā tekstā.",
   "env_import.tick_keys": "Atzīmējiet atslēgas, ko pārvietot uz glabātavu. Šeit redzami tikai nosaukumi: vērtības nonāk tieši glabātavā, šifrētas.",
@@ -583,9 +586,9 @@
   "exposure.couldn_load_status": "Neizdevās ielādēt statusu.",
   "exposure.ignored": "ignorēts",
   "exposure.ignored_count": {
-    "zero": "{count} ignorēti",
     "one": "{count} ignorēts",
-    "other": "{count} ignorēti"
+    "other": "{count} ignorēti",
+    "zero": "{count} ignorēti"
   },
   "exposure.last_search_files": "Pēdējā meklēšana: {when} · faili: {files}",
   "exposure.looks_for_your_keys_in": "Meklē jūsu atslēgas MI sarunās, termināļa vēsturē, jūsu programmu iestatījumos, vides mainīgajos, jūsu projektos un to git vēsturē. Viss notiek šajā datorā.",
@@ -593,24 +596,24 @@
   "exposure.no_search_for_copies_yet": "Kopijas vēl nav meklētas",
   "exposure.paths_are_only_shown_after": "Ceļi tiek rādīti tikai pēc jūsu identitātes pārbaudes. ",
   "exposure.places": {
-    "zero": "{count} vietās",
     "one": "{count} vietā",
-    "other": "{count} vietās"
+    "other": "{count} vietās",
+    "zero": "{count} vietās"
   },
   "exposure.removed_from_file": {
-    "zero": "Noņemts no faila ({count} reizes)",
     "one": "Noņemts no faila ({count} reizi)",
-    "other": "Noņemts no faila ({count} reizes)"
+    "other": "Noņemts no faila ({count} reizes)",
+    "zero": "Noņemts no faila ({count} reizes)"
   },
   "exposure.revealed_times": {
-    "zero": "Parādīts vai nokopēts {count} reizes",
     "one": "Parādīts vai nokopēts {count} reizi",
-    "other": "Parādīts vai nokopēts {count} reizes"
+    "other": "Parādīts vai nokopēts {count} reizes",
+    "zero": "Parādīts vai nokopēts {count} reizes"
   },
   "exposure.search_done_exposed": {
-    "zero": "Meklēšana pabeigta: atklāti {count} piekļuves dati",
     "one": "Meklēšana pabeigta: atklāti {count} piekļuves dati",
-    "other": "Meklēšana pabeigta: atklāti {count} piekļuves dati"
+    "other": "Meklēšana pabeigta: atklāti {count} piekļuves dati",
+    "zero": "Meklēšana pabeigta: atklāti {count} piekļuves dati"
   },
   "exposure.search_for_copies": "Meklēt kopijas",
   "exposure.searches_this_pc_for_copies": "Meklē šajā datorā jūsu atslēgu kopijas un pārbauda katru pie tās nodrošinātāja",
@@ -689,74 +692,74 @@
   "generator_panel.very_weak": "Ļoti vāja",
   "generator_panel.words": "Vārdi",
   "health.count_expired": {
-    "zero": "{count} beidzies termiņš",
     "one": "{count} beidzies termiņš",
-    "other": "{count} beidzies termiņš"
+    "other": "{count} beidzies termiņš",
+    "zero": "{count} beidzies termiņš"
   },
   "health.count_expiring": {
-    "zero": "{count} drīz beigsies termiņš",
     "one": "{count} drīz beigsies termiņš",
-    "other": "{count} drīz beigsies termiņš"
+    "other": "{count} drīz beigsies termiņš",
+    "zero": "{count} drīz beigsies termiņš"
   },
   "health.count_exposed": {
-    "zero": "{count} atklāti",
     "one": "{count} atklāti",
-    "other": "{count} atklāti"
+    "other": "{count} atklāti",
+    "zero": "{count} atklāti"
   },
   "health.count_half_rotated": {
-    "zero": "{count} nepabeigtas nomaiņas",
     "one": "{count} nepabeigta nomaiņa",
-    "other": "{count} nepabeigtas nomaiņas"
+    "other": "{count} nepabeigtas nomaiņas",
+    "zero": "{count} nepabeigtas nomaiņas"
   },
   "health.count_old": {
-    "zero": "{count} veci",
     "one": "{count} veci",
-    "other": "{count} veci"
+    "other": "{count} veci",
+    "zero": "{count} veci"
   },
   "health.count_old_alive": {
-    "zero": "{count} ar joprojām derīgu veco atslēgu",
     "one": "{count} ar joprojām derīgu veco atslēgu",
-    "other": "{count} ar joprojām derīgu veco atslēgu"
+    "other": "{count} ar joprojām derīgu veco atslēgu",
+    "zero": "{count} ar joprojām derīgu veco atslēgu"
   },
   "health.count_pwned": {
-    "zero": "{count} noplūdēs",
     "one": "{count} noplūdēs",
-    "other": "{count} noplūdēs"
+    "other": "{count} noplūdēs",
+    "zero": "{count} noplūdēs"
   },
   "health.count_retired_pending": {
-    "zero": "{count} ar vēl neatsauktu veco atslēgu",
     "one": "{count} ar vēl neatsauktu veco atslēgu",
-    "other": "{count} ar vēl neatsauktu veco atslēgu"
+    "other": "{count} ar vēl neatsauktu veco atslēgu",
+    "zero": "{count} ar vēl neatsauktu veco atslēgu"
   },
   "health.count_reused": {
-    "zero": "{count} atkārtoti izmantoti",
     "one": "{count} atkārtoti izmantoti",
-    "other": "{count} atkārtoti izmantoti"
+    "other": "{count} atkārtoti izmantoti",
+    "zero": "{count} atkārtoti izmantoti"
   },
   "health.count_team_access": {
-    "zero": "{count} ar piekļuvi kādam, kas aizgāja",
     "one": "{count} ar piekļuvi kādam, kas aizgāja",
-    "other": "{count} ar piekļuvi kādam, kas aizgāja"
+    "other": "{count} ar piekļuvi kādam, kas aizgāja",
+    "zero": "{count} ar piekļuvi kādam, kas aizgāja"
   },
   "health.count_unchecked": {
-    "zero": "{count} nepārbaudīti",
     "one": "{count} nepārbaudīti",
-    "other": "{count} nepārbaudīti"
+    "other": "{count} nepārbaudīti",
+    "zero": "{count} nepārbaudīti"
   },
   "health.count_upload_failed": {
-    "zero": "{count} nav augšupielādēti",
     "one": "{count} nav augšupielādēti",
-    "other": "{count} nav augšupielādēti"
+    "other": "{count} nav augšupielādēti",
+    "zero": "{count} nav augšupielādēti"
   },
   "health.count_was_exposed": {
-    "zero": "{count} bija atklāti",
     "one": "{count} bija atklāti",
-    "other": "{count} bija atklāti"
+    "other": "{count} bija atklāti",
+    "zero": "{count} bija atklāti"
   },
   "health.count_weak": {
-    "zero": "{count} vāji",
     "one": "{count} vāji",
-    "other": "{count} vāji"
+    "other": "{count} vāji",
+    "zero": "{count} vāji"
   },
   "health.missing_both": "Vēl jāizdara: {what}. „Pārbaudīt tagad” izdara abus.",
   "health.missing_one": "Vēl jāizdara: {what}. „Pārbaudīt tagad” to izdara.",
@@ -778,39 +781,39 @@
   "health_section.see_less": "Rādīt mazāk",
   "health_section.test_them_with_their_providers": "pārbaudīt tos pie to nodrošinātājiem",
   "held.deleted": {
-    "zero": "No šī datora izdzēsti {count} piekļuves dati",
     "one": "No šī datora izdzēsti {count} piekļuves dati",
-    "other": "No šī datora izdzēsti {count} piekļuves dati"
+    "other": "No šī datora izdzēsti {count} piekļuves dati",
+    "zero": "No šī datora izdzēsti {count} piekļuves dati"
   },
   "held.deleted_by": {
-    "zero": "{who} no „{collection_name}” vienlaikus izdzēsa {count} piekļuves datus.",
     "one": "{who} no „{collection_name}” vienlaikus izdzēsa {count} piekļuves datus.",
-    "other": "{who} no „{collection_name}” vienlaikus izdzēsa {count} piekļuves datus."
+    "other": "{who} no „{collection_name}” vienlaikus izdzēsa {count} piekļuves datus.",
+    "zero": "{who} no „{collection_name}” vienlaikus izdzēsa {count} piekļuves datus."
   },
   "held.kept": {
-    "zero": "Šajā datorā paturēti {count} piekļuves dati",
     "one": "Šajā datorā paturēti {count} piekļuves dati",
-    "other": "Šajā datorā paturēti {count} piekļuves dati"
+    "other": "Šajā datorā paturēti {count} piekļuves dati",
+    "zero": "Šajā datorā paturēti {count} piekļuves dati"
   },
   "held.proof_delete": {
-    "zero": "Lai no šī datora izdzēstu {count} piekļuves datus.",
     "one": "Lai no šī datora izdzēstu {count} piekļuves datus.",
-    "other": "Lai no šī datora izdzēstu {count} piekļuves datus."
+    "other": "Lai no šī datora izdzēstu {count} piekļuves datus.",
+    "zero": "Lai no šī datora izdzēstu {count} piekļuves datus."
   },
   "held.proof_keep": {
-    "zero": "Lai paturētu {count} piekļuves datus.",
     "one": "Lai paturētu {count} piekļuves datus.",
-    "other": "Lai paturētu {count} piekļuves datus."
+    "other": "Lai paturētu {count} piekļuves datus.",
+    "zero": "Lai paturētu {count} piekļuves datus."
   },
   "held.restored": {
-    "zero": "Visai komandai atjaunoti {count} piekļuves dati",
     "one": "Visai komandai atjaunoti {count} piekļuves dati",
-    "other": "Visai komandai atjaunoti {count} piekļuves dati"
+    "other": "Visai komandai atjaunoti {count} piekļuves dati",
+    "zero": "Visai komandai atjaunoti {count} piekļuves dati"
   },
   "held.waiting": {
-    "zero": "{count} piekļuves dati gaida jūsu lēmumu",
     "one": "{count} piekļuves dati gaida jūsu lēmumu",
-    "other": "{count} piekļuves dati gaida jūsu lēmumu"
+    "other": "{count} piekļuves dati gaida jūsu lēmumu",
+    "zero": "{count} piekļuves dati gaida jūsu lēmumu"
   },
   "held_deletions_card.collection_no_longer_appears_on": "Krājums „{collection_name}” serverī vairs nav redzams (jūsu piekļuve tika noņemta, tas tika izdzēsts vai serverim ir kļūme).",
   "held_deletions_card.delete_them_here_too": "Dzēst tos arī šeit",
@@ -821,50 +824,50 @@
   "held_deletions_card.restoring_them_puts_them_back": "Atjaunojot tie atkal būs pieejami visai komandai.",
   "import.already_in": "Jau ir",
   "import.count_conflict": {
-    "zero": "{count} ar citu paroli",
     "one": "{count} ar citu paroli",
-    "other": "{count} ar citu paroli"
+    "other": "{count} ar citu paroli",
+    "zero": "{count} ar citu paroli"
   },
   "import.count_duplicate": {
-    "zero": "{count} jau ir glabātavā",
     "one": "{count} jau ir glabātavā",
-    "other": "{count} jau ir glabātavā"
+    "other": "{count} jau ir glabātavā",
+    "zero": "{count} jau ir glabātavā"
   },
   "import.count_new": {
-    "zero": "{count} jauni",
     "one": "{count} jauni",
-    "other": "{count} jauni"
+    "other": "{count} jauni",
+    "zero": "{count} jauni"
   },
   "import.different_password": "Cita parole",
   "import.imported": {
-    "zero": "Importēti {count} piekļuves dati",
     "one": "Importēti {count} piekļuves dati",
-    "other": "Importēti {count} piekļuves dati"
+    "other": "Importēti {count} piekļuves dati",
+    "zero": "Importēti {count} piekļuves dati"
   },
   "import.in_file": {
-    "zero": "Failā ir {count} piekļuves dati: ",
     "one": "Failā ir {count} piekļuves dati: ",
-    "other": "Failā ir {count} piekļuves dati: "
+    "other": "Failā ir {count} piekļuves dati: ",
+    "zero": "Failā ir {count} piekļuves dati: "
   },
   "import.skipped_summary": {
-    "zero": "{count} netiks importēti",
     "one": "{count} netiks importēti",
-    "other": "{count} netiks importēti"
+    "other": "{count} netiks importēti",
+    "zero": "{count} netiks importēti"
   },
   "import.stat_created": {
-    "zero": "izveidoti",
     "one": "izveidoti",
-    "other": "izveidoti"
+    "other": "izveidoti",
+    "zero": "izveidoti"
   },
   "import.stat_failed": {
-    "zero": "neizdevās",
     "one": "neizdevās",
-    "other": "neizdevās"
+    "other": "neizdevās",
+    "zero": "neizdevās"
   },
   "import.stat_skipped": {
-    "zero": "izlaisti",
     "one": "izlaisti",
-    "other": "izlaisti"
+    "other": "izlaisti",
+    "zero": "izlaisti"
   },
   "import_done.any_program_or_person_who": "Jebkura programma vai persona, kas to izlasa, tās iegūst. Izdzēsiet to tūlīt, kopā ar visām kopijām mapē Lejupielādes, e-pastā vai mākonī.",
   "import_done.delete_file": "Dzēst failu",
@@ -948,9 +951,9 @@
   "key_source_picker.where_do_i_get_key": "Kur iegūt atslēgu?",
   "level.not_checked": "Nav pārbaudīts",
   "list.selected": {
-    "zero": "Atlasīti: {count}",
     "one": "Atlasīti: {count}",
-    "other": "Atlasīti: {count}"
+    "other": "Atlasīti: {count}",
+    "zero": "Atlasīti: {count}"
   },
   "lock.couldn_open_with_windows_session": "Neizdevās atvērt ar Windows sesiju. Izmantojiet paroli.",
   "lock.for_security_there_no_other": "Drošības nolūkos nav cita veida, kā to atšifrēt.",
@@ -1006,29 +1009,29 @@
   "new_org_modal.new_organization": "Jauna organizācija",
   "new_org_modal.organization_is_team_has_its": "Organizācija ir komanda: tai ir savas personas un krājumi.",
   "offboarding.changed": {
-    "zero": "Nomainīti: {count}",
     "one": "Nomainīti: {count}",
-    "other": "Nomainīti: {count}"
+    "other": "Nomainīti: {count}",
+    "zero": "Nomainīti: {count}"
   },
   "offboarding.could_see": {
-    "zero": "{person} varēja redzēt {count} piekļuves datus",
     "one": "{person} varēja redzēt {count} piekļuves datus",
-    "other": "{person} varēja redzēt {count} piekļuves datus"
+    "other": "{person} varēja redzēt {count} piekļuves datus",
+    "zero": "{person} varēja redzēt {count} piekļuves datus"
   },
   "offboarding.done_of_total": {
-    "zero": "Nomainīti {done} no {count}",
     "one": "Nomainīti {done} no {count}",
-    "other": "Nomainīti {done} no {count}"
+    "other": "Nomainīti {done} no {count}",
+    "zero": "Nomainīti {done} no {count}"
   },
   "offboarding.gone_to_change": {
-    "zero": "{person} aizgāja: jānomaina {count} piekļuves dati",
     "one": "{person} aizgāja: jānomaina {count} piekļuves dati",
-    "other": "{person} aizgāja: jānomaina {count} piekļuves dati"
+    "other": "{person} aizgāja: jānomaina {count} piekļuves dati",
+    "zero": "{person} aizgāja: jānomaina {count} piekļuves dati"
   },
   "offboarding.unshared_to_change": {
-    "zero": "{person} vairs nav piekļuves: jānomaina {count} piekļuves dati",
     "one": "{person} vairs nav piekļuves: jānomaina {count} piekļuves dati",
-    "other": "{person} vairs nav piekļuves: jānomaina {count} piekļuves dati"
+    "other": "{person} vairs nav piekļuves: jānomaina {count} piekļuves dati",
+    "zero": "{person} vairs nav piekļuves: jānomaina {count} piekļuves dati"
   },
   "offboarding_card.they_could_see_or_copy": "Viņš tos varēja redzēt vai nokopēt. Nomainiet tos; ja jūs tos nepārvaldāt, tos nomainīs to pārvaldnieks.",
   "offboarding_card.they_could_see_or_copy_2": "Viņš tos varēja redzēt vai nokopēt. Nomainiet tos pa vienam; tos, kurus nepārvaldāt, nomainīs to pārvaldnieks.",
@@ -1040,9 +1043,9 @@
   "open_export.export_vault": "Eksportēt glabātavu",
   "open_export.export_vault_2": "Lai eksportētu glabātavu.",
   "open_export.exported_to": {
-    "zero": "{count} piekļuves dati eksportēti uz {path}",
     "one": "{count} piekļuves dati eksportēti uz {path}",
-    "other": "{count} piekļuves dati eksportēti uz {path}"
+    "other": "{count} piekļuves dati eksportēti uz {path}",
+    "zero": "{count} piekļuves dati eksportēti uz {path}"
   },
   "open_export.file_password": "Faila parole",
   "open_export.file_password_needs_at_least": "Faila parolei jābūt vismaz 12 rakstzīmes garai.",
@@ -1085,9 +1088,9 @@
   "palette.sage": "Salvija",
   "palette.terracotta": "Terakota",
   "password.chars_left": {
-    "zero": "Vēl {count} rakstzīmes",
     "one": "Vēl {count} rakstzīme",
-    "other": "Vēl {count} rakstzīmes"
+    "other": "Vēl {count} rakstzīmes",
+    "zero": "Vēl {count} rakstzīmes"
   },
   "pending_change_box.accept_new_description": "Pieņemt jauno aprakstu",
   "pending_change_box.accept_new_guide": "Pieņemt jauno ceļvedi",
@@ -1170,49 +1173,49 @@
   "recovery_code.used": "Jūs izmantojāt savu atkopšanas kodu, tāpēc tas vairs nedarbojas. Šis ir jaunais: glabājiet to tāpat kā iepriekšējo.",
   "recovery_code.vault_note": "To var glabāt personīgajā glabātavā, taču tas nepalīdzēs, ja pazaudēsiet tieši glabātavu (šo datoru un tā rezerves kopijas): glabājiet to arī citur.",
   "reminder.ask_manager_in_case": {
-    "zero": "Palūdziet pārvaldniekam tos nomainīt, ja nu viņi tos redzēja.",
     "one": "Palūdziet pārvaldniekam tos nomainīt, ja nu viņš tos redzēja.",
-    "other": "Palūdziet pārvaldniekam tos nomainīt, ja nu viņi tos redzēja."
+    "other": "Palūdziet pārvaldniekam tos nomainīt, ja nu viņi tos redzēja.",
+    "zero": "Palūdziet pārvaldniekam tos nomainīt, ja nu viņi tos redzēja."
   },
   "reminder.change_in_case": {
-    "zero": "Nomainiet tos, ja nu viņi tos redzēja.",
     "one": "Nomainiet tos, ja nu viņš tos redzēja.",
-    "other": "Nomainiet tos, ja nu viņi tos redzēja."
+    "other": "Nomainiet tos, ja nu viņi tos redzēja.",
+    "zero": "Nomainiet tos, ja nu viņi tos redzēja."
   },
   "reminder.change_people_had_it": {
-    "zero": "Nomainīt: {names} bija piekļuve",
     "one": "Nomainīt: {names} bija piekļuve",
-    "other": "Nomainīt: {names} bija piekļuve"
+    "other": "Nomainīt: {names} bija piekļuve",
+    "zero": "Nomainīt: {names} bija piekļuve"
   },
   "reminder.change_people_left": {
-    "zero": "Nomainīt: {names} aizgāja",
     "one": "Nomainīt: {names} aizgāja",
-    "other": "Nomainīt: {names} aizgāja"
+    "other": "Nomainīt: {names} aizgāja",
+    "zero": "Nomainīt: {names} aizgāja"
   },
   "reminder.expired_ago": {
-    "zero": "Termiņš beidzās pirms {count} dienām. Izveidojiet jaunu atslēgu vai nomainiet to.",
     "one": "Termiņš beidzās pirms {count} dienas. Izveidojiet jaunu atslēgu vai nomainiet to.",
-    "other": "Termiņš beidzās pirms {count} dienām. Izveidojiet jaunu atslēgu vai nomainiet to."
+    "other": "Termiņš beidzās pirms {count} dienām. Izveidojiet jaunu atslēgu vai nomainiet to.",
+    "zero": "Termiņš beidzās pirms {count} dienām. Izveidojiet jaunu atslēgu vai nomainiet to."
   },
   "reminder.expires_in": {
-    "zero": "Termiņš beigsies pēc {count} dienām. Nomainiet to, pirms tā pārstāj darboties.",
     "one": "Termiņš beigsies pēc {count} dienas. Nomainiet to, pirms tā pārstāj darboties.",
-    "other": "Termiņš beigsies pēc {count} dienām. Nomainiet to, pirms tā pārstāj darboties."
+    "other": "Termiņš beigsies pēc {count} dienām. Nomainiet to, pirms tā pārstāj darboties.",
+    "zero": "Termiņš beigsies pēc {count} dienām. Nomainiet to, pirms tā pārstāj darboties."
   },
   "reminder.key_age": {
-    "zero": "Atslēga ir {count} dienas veca. Laiku pa laikam to vērts nomainīt.",
     "one": "Atslēga ir {count} dienu veca. Laiku pa laikam to vērts nomainīt.",
-    "other": "Atslēga ir {count} dienas veca. Laiku pa laikam to vērts nomainīt."
+    "other": "Atslēga ir {count} dienas veca. Laiku pa laikam to vērts nomainīt.",
+    "zero": "Atslēga ir {count} dienas veca. Laiku pa laikam to vērts nomainīt."
   },
   "reminder.team_access_left": {
-    "zero": "{names} bija piekļuve šiem komandas piekļuves datiem, un viņi vairs nav komandā.",
     "one": "{names} bija piekļuve šiem komandas piekļuves datiem, un viņš vairs nav komandā.",
-    "other": "{names} bija piekļuve šiem komandas piekļuves datiem, un viņi vairs nav komandā."
+    "other": "{names} bija piekļuve šiem komandas piekļuves datiem, un viņi vairs nav komandā.",
+    "zero": "{names} bija piekļuve šiem komandas piekļuves datiem, un viņi vairs nav komandā."
   },
   "reminder.unshared_access": {
-    "zero": "{names} bija piekļuve šiem piekļuves datiem, bet vairs nav.",
     "one": "{names} bija piekļuve šiem piekļuves datiem, bet vairs nav.",
-    "other": "{names} bija piekļuve šiem piekļuves datiem, bet vairs nav."
+    "other": "{names} bija piekļuve šiem piekļuves datiem, bet vairs nav.",
+    "zero": "{names} bija piekļuve šiem piekļuves datiem, bet vairs nav."
   },
   "reminder_short.change_had_it": "Nomainīt: piekļuve bija {length} personām",
   "reminder_short.change_left": "Nomainīt: {length} aizgāja",
@@ -1362,23 +1365,23 @@
   "rotation.id_changed_app": "Mainījās: izveidoju jaunu lietotni.",
   "rotation.id_changed_client": "Mainījās: izveidoju jaunu klientu.",
   "rotation.n_places": {
-    "zero": "{count} vietas",
     "one": "{count} vieta",
-    "other": "{count} vietas"
+    "other": "{count} vietas",
+    "zero": "{count} vietas"
   },
   "rotation.no_places_noted": "Vietas nav pierakstītas. Ja to izmantojat citur (serverī, Vercel, citā lietotnē…), nomainiet to arī tur.",
   "rotation.no_places_noted_revoke": "Vietas nav pierakstītas. Ja to izmantojat citur (serverī, Vercel, citā lietotnē…), pirms vecās atsaukšanas nomainiet to arī tur.",
   "rotation.old_key_exposed": {
-    "zero": "Vecā atslēga atklātā tekstā bija {count} vietās. Tiklīdz to atsauksiet, šīs kopijas vairs neradīs risku.",
     "one": "Vecā atslēga atklātā tekstā bija {count} vietā. Tiklīdz to atsauksiet, šī kopija vairs neradīs risku.",
-    "other": "Vecā atslēga atklātā tekstā bija {count} vietās. Tiklīdz to atsauksiet, šīs kopijas vairs neradīs risku."
+    "other": "Vecā atslēga atklātā tekstā bija {count} vietās. Tiklīdz to atsauksiet, šīs kopijas vairs neradīs risku.",
+    "zero": "Vecā atslēga atklātā tekstā bija {count} vietās. Tiklīdz to atsauksiet, šīs kopijas vairs neradīs risku."
   },
   "rotation.pending_kept_key": "Jaunā atslēga paliek šeit saglabāta kā gaidoša: atgriežoties pie „Nomainīt ar palīdzību”, varēsiet pabeigt.",
   "rotation.pending_kept_password": "Jaunā parole paliek šeit saglabāta kā gaidoša: atgriežoties pie „Nomainīt ar palīdzību”, varēsiet pabeigt.",
   "rotation.places_missing": {
-    "zero": "Atlikušas {count}. {then}",
     "one": "Atlikusi {count}. {then}",
-    "other": "Atlikušas {count}. {then}"
+    "other": "Atlikušas {count}. {then}",
+    "zero": "Atlikušas {count}. {then}"
   },
   "rotation.proof_copy_key": "Lai nokopētu jauno atslēgu: {name}.",
   "rotation.proof_copy_password": "Lai nokopētu jauno paroli: {name}.",
@@ -1431,18 +1434,18 @@
   "server_admin.backup_reason": "Lai izveidotu servera rezerves kopiju.",
   "server_admin.backups": "Rezerves kopijas",
   "server_admin.backups_kept": {
-    "zero": "{count} saglabātas",
     "one": "{count} saglabāta",
-    "other": "{count} saglabātas"
+    "other": "{count} saglabātas",
+    "zero": "{count} saglabātas"
   },
   "server_admin.being_replaced": "Zaudēta piekļuve: jauns konts gaida, lai to aizstātu",
   "server_admin.change_owner": "Mainīt īpašnieku",
   "server_admin.change_owner_text": "Izvēlieties kādu, kas jau ir organizācijā. Kas jau bija īpašnieks, tas arī paliek; jaunais īpašnieks to var mainīt sadaļā Personas.",
   "server_admin.change_owner_title": "Organizācijas {org} īpašnieks",
   "server_admin.collections_count": {
-    "zero": "{count} krājumu",
     "one": "{count} krājums",
-    "other": "{count} krājumi"
+    "other": "{count} krājumi",
+    "zero": "{count} krājumu"
   },
   "server_admin.copy_code_only": "Kopēt tikai kodu",
   "server_admin.database_size": "dati: {size}",
@@ -1572,9 +1575,9 @@
   "settings.app": "Lietotne",
   "settings.appearance": "Izskats",
   "settings.approved_now": {
-    "zero": "Pašlaik apstiprināti {count} piekļuves dati.",
     "one": "Pašlaik apstiprināti {count} piekļuves dati.",
-    "other": "Pašlaik apstiprināti {count} piekļuves dati."
+    "other": "Pašlaik apstiprināti {count} piekļuves dati.",
+    "zero": "Pašlaik apstiprināti {count} piekļuves dati."
   },
   "settings.ask_again_if_used_lot": "Jautāt vēlreiz, ja izmanto daudz",
   "settings.automatic_lock": "Automātiskā aizslēgšana",
@@ -1659,24 +1662,24 @@
   "setup.you_ll_only_type_master": "Galveno paroli ievadīsiet tikai, lai atjaunotu rezerves kopijas, vai citā datorā.",
   "setup.your_keys_used_without_being": "Jūsu atslēgas, izmantotas neredzot",
   "share.credentials_shared_in": {
-    "zero": "{count} piekļuves dati kopīgoti krājumā {name}",
     "one": "{count} piekļuves dati kopīgoti krājumā {name}",
-    "other": "{count} piekļuves dati kopīgoti krājumā {name}"
+    "other": "{count} piekļuves dati kopīgoti krājumā {name}",
+    "zero": "{count} piekļuves dati kopīgoti krājumā {name}"
   },
   "share.not_shared": {
-    "zero": "Neizdevās kopīgot {count}: {error}",
     "one": "Neizdevās kopīgot {count}: {error}",
-    "other": "Neizdevās kopīgot {count}: {error}"
+    "other": "Neizdevās kopīgot {count}: {error}",
+    "zero": "Neizdevās kopīgot {count}: {error}"
   },
   "share.shared_in": {
-    "zero": "{count} kopīgoti krājumā {name}",
     "one": "{count} kopīgoti krājumā {name}",
-    "other": "{count} kopīgoti krājumā {name}"
+    "other": "{count} kopīgoti krājumā {name}",
+    "zero": "{count} kopīgoti krājumā {name}"
   },
   "share.shared_with_count": {
-    "zero": "Kopīgots ar {name}: {count}",
     "one": "Kopīgots ar {name}: {count}",
-    "other": "Kopīgots ar {name}: {count}"
+    "other": "Kopīgots ar {name}: {count}",
+    "zero": "Kopīgots ar {name}: {count}"
   },
   "share.shared_with_one": "Kopīgots ar {name}",
   "share_entries.choose_collection": "Izvēlieties krājumu.",
@@ -1699,9 +1702,9 @@
   "share_with_person.nothing_to_share": "Jums nav savu piekļuves datu, ko kopīgot.",
   "share_with_person.search": "Meklēt",
   "share_with_person.share_count": {
-    "zero": "Kopīgot {count}",
     "one": "Kopīgot {count}",
-    "other": "Kopīgot {count}"
+    "other": "Kopīgot {count}",
+    "zero": "Kopīgot {count}"
   },
   "shared_badge.shared": "Kopīgots · {value}",
   "shared_badge.shared_by": "Kopīgo {name}",
@@ -1759,6 +1762,7 @@
   "show_form.change_type": "Mainīt tipu",
   "show_form.changed_while_you_were_editing": "Tie mainījās, kamēr rediģējāt",
   "show_form.changes_saved": "Izmaiņas saglabātas",
+  "show_form.config_not_secret": "Nav noslēpums: MI redz šos datus, un sb run tos nodod, tev neprasot. Tāpēc tai nav atļauju, rotācijas vai pārbaužu.",
   "show_form.data_ai_can_insert_without": "Dati, ko MI var ievietot, tos neredzot",
   "show_form.deploy_token": "Izvietošanas pilnvara",
   "show_form.discard_changes": "Atmest izmaiņas?",
@@ -1808,14 +1812,14 @@
   "sidebar.closes_with_windows": "Glabātava aizveras, kad aizslēdzat Windows.",
   "sidebar.closes_with_windows_or_idle": "Glabātava aizveras, kad aizslēdzat Windows vai pēc kāda laika bez lietošanas, un atkal atveras pati.",
   "sidebar.drafts_waiting": {
-    "zero": "{count} MI sagatavoti piekļuves dati gaida savas atslēgas.",
     "one": "{count} MI sagatavoti piekļuves dati gaida savu atslēgu.",
-    "other": "{count} MI sagatavoti piekļuves dati gaida savas atslēgas."
+    "other": "{count} MI sagatavoti piekļuves dati gaida savas atslēgas.",
+    "zero": "{count} MI sagatavoti piekļuves dati gaida savas atslēgas."
   },
   "sidebar.to_review": {
-    "zero": "Jāpārskata: {count}",
     "one": "Jāpārskata: {count}",
-    "other": "Jāpārskata: {count}"
+    "other": "Jāpārskata: {count}",
+    "zero": "Jāpārskata: {count}"
   },
   "sort.need_attention": "Nepieciešama uzmanība",
   "sort.recently_changed": "Nesen mainīti",
@@ -1827,9 +1831,9 @@
   "source.settings": "Iestatījumi",
   "source.terminal_history": "Termināļa vēsture",
   "status.used_in_places": {
-    "zero": "Izmanto {count} vietās",
     "one": "Izmanto {count} vietā",
-    "other": "Izmanto {count} vietās"
+    "other": "Izmanto {count} vietās",
+    "zero": "Izmanto {count} vietās"
   },
   "status_strip.app_doesn_know_how_test": "Lietotne nezina, kā pārbaudīt šo atslēgu: norādiet, kurš pieprasījums to pārbauda",
   "status_strip.can_be_tested": "Nevar pārbaudīt",
@@ -1864,34 +1868,34 @@
   "sync_line.will_retry_by_itself": "Tas mēģinās vēlreiz pats.",
   "team.another_account": "cits konts",
   "team.changes_wait_rekey": {
-    "zero": "{count} izmaiņas gaida, līdz to krājums tiks atkārtoti šifrēts.",
     "one": "{count} izmaiņa gaida, līdz tās krājums tiks atkārtoti šifrēts.",
-    "other": "{count} izmaiņas gaida, līdz to krājums tiks atkārtoti šifrēts."
+    "other": "{count} izmaiņas gaida, līdz to krājums tiks atkārtoti šifrēts.",
+    "zero": "{count} izmaiņas gaida, līdz to krājums tiks atkārtoti šifrēts."
   },
   "team.disconnect_removes": {
-    "zero": "{count} komandas piekļuves dati tiek noņemti no šī datora; citiem tie paliek serverī. Tie, ko kopīgojāt no savas glabātavas, un nenosūtītās izmaiņas paliek kā personīgie.",
     "one": "{count} komandas piekļuves dati tiek noņemti no šī datora; citiem tie paliek serverī. Tie, ko kopīgojāt no savas glabātavas, un nenosūtītās izmaiņas paliek kā personīgie.",
-    "other": "{count} komandas piekļuves dati tiek noņemti no šī datora; citiem tie paliek serverī. Tie, ko kopīgojāt no savas glabātavas, un nenosūtītās izmaiņas paliek kā personīgie."
+    "other": "{count} komandas piekļuves dati tiek noņemti no šī datora; citiem tie paliek serverī. Tie, ko kopīgojāt no savas glabātavas, un nenosūtītās izmaiņas paliek kā personīgie.",
+    "zero": "{count} komandas piekļuves dati tiek noņemti no šī datora; citiem tie paliek serverī. Tie, ko kopīgojāt no savas glabātavas, un nenosūtītās izmaiņas paliek kā personīgie."
   },
   "team.people_to_verify": {
-    "zero": "{count} personas jāverificē",
     "one": "{count} persona jāverificē",
-    "other": "{count} personas jāverificē"
+    "other": "{count} personas jāverificē",
+    "zero": "{count} personas jāverificē"
   },
   "team.rekey_by_managers": {
-    "zero": "Vēl {count} atkārtoti šifrē to pārvaldnieki.",
     "one": "Vēl {count} atkārtoti šifrē tā pārvaldnieks.",
-    "other": "Vēl {count} atkārtoti šifrē to pārvaldnieki."
+    "other": "Vēl {count} atkārtoti šifrē to pārvaldnieki.",
+    "zero": "Vēl {count} atkārtoti šifrē to pārvaldnieki."
   },
   "team.rekey_next_sync": {
-    "zero": "{count} krājumi tiks atkārtoti šifrēti nākamajā sinhronizācijā.",
     "one": "{count} krājums tiks atkārtoti šifrēts nākamajā sinhronizācijā.",
-    "other": "{count} krājumi tiks atkārtoti šifrēti nākamajā sinhronizācijā."
+    "other": "{count} krājumi tiks atkārtoti šifrēti nākamajā sinhronizācijā.",
+    "zero": "{count} krājumi tiks atkārtoti šifrēti nākamajā sinhronizācijā."
   },
   "team.rekey_on_reconnect": {
-    "zero": "{count} krājumi tiks atkārtoti šifrēti, atjaunojot savienojumu.",
     "one": "{count} krājums tiks atkārtoti šifrēts, atjaunojot savienojumu.",
-    "other": "{count} krājumi tiks atkārtoti šifrēti, atjaunojot savienojumu."
+    "other": "{count} krājumi tiks atkārtoti šifrēti, atjaunojot savienojumu.",
+    "zero": "{count} krājumi tiks atkārtoti šifrēti, atjaunojot savienojumu."
   },
   "team.this_pc": "šis dators: {device}",
   "team_account_panel.disconnect_team_account": "Atvienot komandas kontu?",
@@ -2069,69 +2073,69 @@
   "time.date_at": "{date} plkst. {time}",
   "time.day_time": "{day} {time}",
   "time.days_ago": {
-    "zero": "pirms {count} dienām",
     "one": "pirms {count} dienas",
-    "other": "pirms {count} dienām"
+    "other": "pirms {count} dienām",
+    "zero": "pirms {count} dienām"
   },
   "time.every_hours": {
     "=1": "katru stundu",
-    "zero": "ik pēc {count} stundām",
     "one": "ik pēc {count} stundas",
-    "other": "ik pēc {count} stundām"
+    "other": "ik pēc {count} stundām",
+    "zero": "ik pēc {count} stundām"
   },
   "time.every_months": {
     "=1": "katru mēnesi",
-    "zero": "ik pēc {count} mēnešiem",
     "one": "ik pēc {count} mēneša",
-    "other": "ik pēc {count} mēnešiem"
+    "other": "ik pēc {count} mēnešiem",
+    "zero": "ik pēc {count} mēnešiem"
   },
   "time.hours": {
-    "zero": "{count} stundas",
     "one": "{count} stunda",
-    "other": "{count} stundas"
+    "other": "{count} stundas",
+    "zero": "{count} stundas"
   },
   "time.hours_ago": "pirms {count} h",
   "time.hours_label": "stundas",
   "time.hours_short": "{count} h",
   "time.in_days": {
-    "zero": "pēc {count} dienām",
     "one": "pēc {count} dienas",
-    "other": "pēc {count} dienām"
+    "other": "pēc {count} dienām",
+    "zero": "pēc {count} dienām"
   },
   "time.in_months": {
-    "zero": "pēc {count} mēnešiem",
     "one": "pēc {count} mēneša",
-    "other": "pēc {count} mēnešiem"
+    "other": "pēc {count} mēnešiem",
+    "zero": "pēc {count} mēnešiem"
   },
   "time.in_years": {
     "=1": "pēc gada",
-    "zero": "pēc {count} gadiem",
     "one": "pēc {count} gada",
-    "other": "pēc {count} gadiem"
+    "other": "pēc {count} gadiem",
+    "zero": "pēc {count} gadiem"
   },
   "time.minutes": {
-    "zero": "{count} minūtes",
     "one": "{count} minūte",
-    "other": "{count} minūtes"
+    "other": "{count} minūtes",
+    "zero": "{count} minūtes"
   },
   "time.minutes_ago": "pirms {count} min",
   "time.minutes_short": "{count} min",
   "time.months": {
-    "zero": "{count} mēneši",
     "one": "{count} mēnesis",
-    "other": "{count} mēneši"
+    "other": "{count} mēneši",
+    "zero": "{count} mēneši"
   },
   "time.months_ago": {
-    "zero": "pirms {count} mēnešiem",
     "one": "pirms {count} mēneša",
-    "other": "pirms {count} mēnešiem"
+    "other": "pirms {count} mēnešiem",
+    "zero": "pirms {count} mēnešiem"
   },
   "time.now": "tikko",
   "time.relative_day_at": "{day} plkst. {time}",
   "time.years_ago": {
-    "zero": "pirms {count} gadiem",
     "one": "pirms {count} gada",
-    "other": "pirms {count} gadiem"
+    "other": "pirms {count} gadiem",
+    "zero": "pirms {count} gadiem"
   },
   "totp_prop.2fa_code_copied_valid_for": "2FA kods nokopēts · derīgs vēl {remaining} s",
   "totp_prop.copy_2fa_code": "Lai nokopētu 2FA kodu: {name}.",
@@ -2176,9 +2180,9 @@
   "used_in_modal.where_is_used": "Kur tiek izmantots {name}",
   "used_in_modal.where_used_hasn_been_noted": "Nav pierakstīts, kur to izmanto.",
   "verify.shares_collections": {
-    "zero": "Viņš ar jums kopīgo {count} krājumus: verificējiet viņu, lai tos saņemtu.",
     "one": "Viņš ar jums kopīgo {count} krājumu: verificējiet viņu, lai to saņemtu.",
-    "other": "Viņš ar jums kopīgo {count} krājumus: verificējiet viņu, lai tos saņemtu."
+    "other": "Viņš ar jums kopīgo {count} krājumus: verificējiet viņu, lai tos saņemtu.",
+    "zero": "Viņš ar jums kopīgo {count} krājumus: verificējiet viņu, lai tos saņemtu."
   },
   "verify_email_card.e_mail_code": "E-pasta kods",
   "verify_email_card.invitations_only_reach_verified_addresse": ". Uzaicinājumi sasniedz tikai apstiprinātas adreses, tāpēc neviens nevar piesavināties jūsējo.",

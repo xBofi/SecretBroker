@@ -79,48 +79,48 @@
   "exposure.credential_doesn_say_how_put": "Piekļuves datos nav norādīts, kā ievietot atslēgu pieprasījumā (Rediģēt › kā tiek sūtīta atslēga)",
   "exposure.list_and": "{names} un {last}",
   "exposure.places_ai": {
-    "zero": "{count} MI sarunas",
     "one": "{count} MI saruna",
-    "other": "{count} MI sarunas"
+    "other": "{count} MI sarunas",
+    "zero": "{count} MI sarunas"
   },
   "exposure.places_config": {
-    "zero": "{count} programmu iestatījumi",
     "one": "{count} programmas iestatījums",
-    "other": "{count} programmu iestatījumi"
+    "other": "{count} programmu iestatījumi",
+    "zero": "{count} programmu iestatījumi"
   },
   "exposure.places_env": {
-    "zero": "{count} vides mainīgie",
     "one": "{count} vides mainīgais",
-    "other": "{count} vides mainīgie"
+    "other": "{count} vides mainīgie",
+    "zero": "{count} vides mainīgie"
   },
   "exposure.places_git": {
-    "zero": "{count} git vēstures",
     "one": "{count} git vēsture",
-    "other": "{count} git vēstures"
+    "other": "{count} git vēstures",
+    "zero": "{count} git vēstures"
   },
   "exposure.places_history": {
-    "zero": "{count} termināļa vēstures",
     "one": "{count} termināļa vēsture",
-    "other": "{count} termināļa vēstures"
+    "other": "{count} termināļa vēstures",
+    "zero": "{count} termināļa vēstures"
   },
   "exposure.places_project": {
-    "zero": "{count} projektu faili",
     "one": "{count} projekta fails",
-    "other": "{count} projektu faili"
+    "other": "{count} projektu faili",
+    "zero": "{count} projektu faili"
   },
   "exposure.reason_ai_saw": "MI to ir redzējis: tā tika nosūtīta tā nodrošinātājam.",
   "exposure.reason_gone": "Tā bija atklātā tekstā: {places}. Lai gan tagad tās tur vairs nav, to vērts nomainīt.",
   "exposure.reason_invalid": "Tā nedarbojas: {message}.",
   "exposure.reason_present": "Tā ir atklātā tekstā: {places}.",
   "exposure.reason_pwned": {
-    "zero": "Šī parole publiskās noplūdēs parādās {times} reizes.",
     "one": "Šī parole publiskās noplūdēs parādās {times} reizi.",
-    "other": "Šī parole publiskās noplūdēs parādās {times} reizes."
+    "other": "Šī parole publiskās noplūdēs parādās {times} reizes.",
+    "zero": "Šī parole publiskās noplūdēs parādās {times} reizes."
   },
   "exposure.reason_stale": {
-    "zero": "Tā nav mainīta {count} mēnešus.",
     "one": "Tā nav mainīta {count} mēnesi.",
-    "other": "Tā nav mainīta {count} mēnešus."
+    "other": "Tā nav mainīta {count} mēnešus.",
+    "zero": "Tā nav mainīta {count} mēnešus."
   },
   "exposure.reason_stopped": "Tā ir pārstājusi darboties: {message}. Ja jūs to neatsaucāt, nodrošinātājs to droši vien ir atklājis kā noplūdušu.",
   "exposure.reason_unknown": "Jūsu faili vēl nav pārmeklēti.",
@@ -132,14 +132,14 @@
   "exposure.unexpected_response_http": "Negaidīta atbilde (HTTP {status_code}){_said}",
   "health.a_person": "Kāds",
   "health.expired": {
-    "zero": "Termiņš beidzās pirms {count} dienām.",
     "one": "Termiņš beidzās pirms {count} dienas.",
-    "other": "Termiņš beidzās pirms {count} dienām."
+    "other": "Termiņš beidzās pirms {count} dienām.",
+    "zero": "Termiņš beidzās pirms {count} dienām."
   },
   "health.expiring": {
-    "zero": "Termiņš beigsies pēc {count} dienām.",
     "one": "Termiņš beigsies pēc {count} dienas.",
-    "other": "Termiņš beigsies pēc {count} dienām."
+    "other": "Termiņš beigsies pēc {count} dienām.",
+    "zero": "Termiņš beigsies pēc {count} dienām."
   },
   "health.exposed": "Tā ir atklātā tekstā failā šajā datorā.",
   "health.half_rotated": "Jaunā parole ir gatava, bet nav saglabāta kā pašreizējā: pabeidziet nomaiņu vai atmetiet to.",
@@ -158,26 +158,26 @@
   "health.label_was_exposed": "Bija atklāts",
   "health.label_weak": "Vāja",
   "health.left_team_ask": {
-    "zero": "{who} bija piekļuve, un viņi vairs nav komandā: palūdziet pārvaldniekam to nomainīt.",
     "one": "{who} bija piekļuve, un viņš vairs nav komandā: palūdziet pārvaldniekam to nomainīt.",
-    "other": "{who} bija piekļuve, un viņi vairs nav komandā: palūdziet pārvaldniekam to nomainīt."
+    "other": "{who} bija piekļuve, un viņi vairs nav komandā: palūdziet pārvaldniekam to nomainīt.",
+    "zero": "{who} bija piekļuve, un viņi vairs nav komandā: palūdziet pārvaldniekam to nomainīt."
   },
   "health.left_team_rotate": {
-    "zero": "{who} bija piekļuve, un viņi vairs nav komandā: nomainiet to, ja nu viņi to redzēja.",
     "one": "{who} bija piekļuve, un viņš vairs nav komandā: nomainiet to, ja nu viņš to redzēja.",
-    "other": "{who} bija piekļuve, un viņi vairs nav komandā: nomainiet to, ja nu viņi to redzēja."
+    "other": "{who} bija piekļuve, un viņi vairs nav komandā: nomainiet to, ja nu viņi to redzēja.",
+    "zero": "{who} bija piekļuve, un viņi vairs nav komandā: nomainiet to, ja nu viņi to redzēja."
   },
   "health.list_and": "{names} un {last}",
   "health.old": {
-    "zero": "Atslēga ir {count} dienas veca.",
     "one": "Atslēga ir {count} dienu veca.",
-    "other": "Atslēga ir {count} dienas veca."
+    "other": "Atslēga ir {count} dienas veca.",
+    "zero": "Atslēga ir {count} dienas veca."
   },
   "health.old_alive": "Jūs to nomainījāt, bet vecā joprojām darbojas: atsauciet to.",
   "health.pwned": {
-    "zero": "Tā publiskās noplūdēs parādās {times} reizes.",
     "one": "Tā publiskās noplūdēs parādās {times} reizi.",
-    "other": "Tā publiskās noplūdēs parādās {times} reizes."
+    "other": "Tā publiskās noplūdēs parādās {times} reizes.",
+    "zero": "Tā publiskās noplūdēs parādās {times} reizes."
   },
   "health.retired_pending": "Jaunā atslēga aktīva · vecā vēl jāatsauc: {provider}.",
   "health.reused": "Tā pati parole vai atslēga ir arī šeit: {names}.",
@@ -187,15 +187,15 @@
   "health.thousands_separator": " ",
   "health.unchecked": "Tā vēl nav pārbaudīta.",
   "health.unshared_rotate": {
-    "zero": "{who} bija piekļuve, bet vairs nav: nomainiet tos, ja nu tie tika nokopēti.",
     "one": "{who} bija piekļuve, bet vairs nav: nomainiet tos, ja nu tie tika nokopēti.",
-    "other": "{who} bija piekļuve, bet vairs nav: nomainiet tos, ja nu tie tika nokopēti."
+    "other": "{who} bija piekļuve, bet vairs nav: nomainiet tos, ja nu tie tika nokopēti.",
+    "zero": "{who} bija piekļuve, bet vairs nav: nomainiet tos, ja nu tie tika nokopēti."
   },
   "health.upload_failed": "Neizdevās augšupielādēt jauno uz {place}: vecā joprojām ir tur.",
   "health.upload_failed_more": {
-    "zero": "Neizdevās augšupielādēt jauno uz {place} un vēl {count} vietām: vecā joprojām ir tur.",
     "one": "Neizdevās augšupielādēt jauno uz {place} un vēl {count} vietu: vecā joprojām ir tur.",
-    "other": "Neizdevās augšupielādēt jauno uz {place} un vēl {count} vietām: vecā joprojām ir tur."
+    "other": "Neizdevās augšupielādēt jauno uz {place} un vēl {count} vietām: vecā joprojām ir tur.",
+    "zero": "Neizdevās augšupielādēt jauno uz {place} un vēl {count} vietām: vecā joprojām ir tur."
   },
   "health.was_exposed": "Tā bija failā atklātā tekstā. To vērts nomainīt.",
   "health.weak_0": "Ļoti vāja parole: to ātri uzminētu.",
@@ -297,9 +297,9 @@
   "resident.pause_ai": "Apturēt MI",
   "resident.quit": "Iziet",
   "resident.reminders_need_attention": {
-    "zero": "{count} piekļuves datiem nepieciešama uzmanība",
     "one": "{count} piekļuves datiem nepieciešama uzmanība",
-    "other": "{count} piekļuves datiem nepieciešama uzmanība"
+    "other": "{count} piekļuves datiem nepieciešama uzmanība",
+    "zero": "{count} piekļuves datiem nepieciešama uzmanība"
   },
   "resident.resume_ai": "Atsākt MI darbību",
   "rotation.answered_http": "{provider} atbildēja HTTP {status_code}",
@@ -342,9 +342,9 @@
   "service.change_every_days": "ik pēc {days} dienām",
   "service.change_every_hours": {
     "=1": "katru stundu",
-    "zero": "ik pēc {count} stundām",
     "one": "ik pēc {count} stundas",
-    "other": "ik pēc {count} stundām"
+    "other": "ik pēc {count} stundām",
+    "zero": "ik pēc {count} stundām"
   },
   "service.change_expires": "Derīgs līdz",
   "service.change_keys": "Nomainiet {collection} atslēgas",
@@ -356,14 +356,16 @@
   "service.change_rotate_every_days": "Atgādināt par nomaiņu",
   "service.change_rotation_guide": "Rotācijas ceļvedis",
   "service.change_steps": {
-    "zero": "{count} soļu",
     "one": "{count} solis",
-    "other": "{count} soļi"
+    "other": "{count} soļi",
+    "zero": "{count} soļu"
   },
   "service.change_tags": "Birkas",
+  "service.change_template": "Akreditācijas datu veids",
   "service.change_test_request": "Testa pieprasījums",
   "service.change_used_in": "Kur tiek izmantots",
   "service.collection_no_longer_appears_on": "Krājums serverī vairs nav redzams. ",
+  "service.config_needs_variable_name": "“{id}” ir konfigurācija: norādi mainīgā nosaukumu failā .secretbroker (VARIABLE = {id}).",
   "service.confirm_it_you_once_windows": "Vienreiz apstipriniet, ka tas esat jūs (Windows Hello vai parole), lai ",
   "service.connect_this_browser_secretbroker_from": "Savienojiet šo pārlūku ar SecretBroker no paplašinājuma",
   "service.connection_request_has_expired_click": "Savienojuma pieprasījumam beidzās termiņš: pārlūkā vēlreiz noklikšķiniet uz „Savienot”",
@@ -376,17 +378,17 @@
   "service.expected_response_must_be_code": "Gaidītajai atbildei jābūt kodam no 200 līdz 399",
   "service.expected_response_must_be_http": "Gaidītajai atbildei jābūt HTTP kodam, piem., 200",
   "service.found_in_new_places": {
-    "zero": "Atrasts atklātā tekstā {count} jaunās vietās",
     "one": "Atrasts atklātā tekstā {count} jaunā vietā",
-    "other": "Atrasts atklātā tekstā {count} jaunās vietās"
+    "other": "Atrasts atklātā tekstā {count} jaunās vietās",
+    "zero": "Atrasts atklātā tekstā {count} jaunās vietās"
   },
   "service.generate_new_one": "ģenerējiet jaunu",
   "service.give_between_1_and_20": "Norādiet secret_ids no 1 līdz 20 piekļuves datiem",
   "service.has_no_environment_variables_in": "„{id}” atļaujās nav vides mainīgo, tāpēc to nevar nodot lokālām programmām. Pievienojiet tos SecretBroker lietotnē.",
   "service.held_waiting": {
-    "zero": "{count} piekļuves dati no {collection} gaida jūsu lēmumu",
     "one": "{count} piekļuves dati no {collection} gaida jūsu lēmumu",
-    "other": "{count} piekļuves dati no {collection} gaida jūsu lēmumu"
+    "other": "{count} piekļuves dati no {collection} gaida jūsu lēmumu",
+    "zero": "{count} piekļuves dati no {collection} gaida jūsu lēmumu"
   },
   "service.import_has_expired_choose_file": "Importēšanai beidzās termiņš: izvēlieties failu vēlreiz",
   "service.invalid_approval_duration": "Nederīgs apstiprinājuma ilgums",
@@ -419,6 +421,7 @@
   "service.only_api_keys_and_other": "Pārbaudes pieprasījums ir tikai API atslēgām un citiem noslēpumiem",
   "service.only_api_keys_and_passwords": "Šādā veidā tiek nomainītas tikai API atslēgas un paroles",
   "service.only_api_keys_are_rotated": "tiek nomainītas tikai API atslēgas",
+  "service.only_convert_to_config": "Akreditācijas datus var pārveidot tikai par konfigurāciju (template config).",
   "service.only_database_password_is_applied": "Šādā veidā tiek lietota tikai datubāzes parole",
   "service.only_user_can_write_value": "Tikai lietotājs var ievadīt „{name}” vērtību lietotnē",
   "service.open_secretbroker_team_and_sign": "Atveriet SecretBroker › Komanda un piesakieties vēlreiz, lai turpinātu saņemt un sūtīt izmaiņas. Pa to laiku viss darbojas ar to, kas jums jau ir.",
@@ -454,9 +457,9 @@
   "service.purpose_totp_code": "redzētu 2FA kodu",
   "service.request_is_no_longer_pending": "Pieprasījums vairs negaida",
   "service.rotate_after_leave": {
-    "zero": "{names} bija piekļuve, un viņi vairs nav komandā. Nomainiet tos, ja nu viņi tos redzēja.",
     "one": "{names} bija piekļuve, un viņš vairs nav komandā. Nomainiet tos, ja nu viņš tos redzēja.",
-    "other": "{names} bija piekļuve, un viņi vairs nav komandā. Nomainiet tos, ja nu viņi tos redzēja."
+    "other": "{names} bija piekļuve, un viņi vairs nav komandā. Nomainiet tos, ja nu viņi tos redzēja.",
+    "zero": "{names} bija piekļuve, un viņi vairs nav komandā. Nomainiet tos, ja nu viņi tos redzēja."
   },
   "service.say_whether_is_still_same": "Norādiet, vai {label} joprojām ir tas pats vai ir mainījies",
   "service.scan_session_has_expired": "Skenēšanas sesija ir beigusies",
@@ -523,9 +526,9 @@
   "teams.admin_bad_signups": "Izvēlieties, vai reģistrācija ir atvērta, tikai ar uzaicinājumu vai slēgta.",
   "teams.admin_last_admin": "Tas ir vienīgais konts, kas pārvalda serveri: to nevar deaktivizēt vai dzēst.",
   "teams.admin_last_manager": {
-    "zero": "{person} vienīgais pārvalda {count} krājumus: pirms konta dzēšanas kādam no organizācijas tajos jāsaņem tiesības “Pārvaldnieks” (vai tie jādzēš).",
     "one": "{person} vienīgais pārvalda {count} krājumu: pirms konta dzēšanas kādam no organizācijas tajā jāsaņem tiesības “Pārvaldnieks” (vai tas jādzēš).",
-    "other": "{person} vienīgais pārvalda {count} krājumus: pirms konta dzēšanas kādam no organizācijas tajos jāsaņem tiesības “Pārvaldnieks” (vai tie jādzēš)."
+    "other": "{person} vienīgais pārvalda {count} krājumus: pirms konta dzēšanas kādam no organizācijas tajos jāsaņem tiesības “Pārvaldnieks” (vai tie jādzēš).",
+    "zero": "{person} vienīgais pārvalda {count} krājumus: pirms konta dzēšanas kādam no organizācijas tajos jāsaņem tiesības “Pārvaldnieks” (vai tie jādzēš)."
   },
   "teams.admin_last_owner": "{person} ir vienīgais īpašnieks: {orgs}. Pirms konta dzēšanas padariet par īpašnieku kādu citu.",
   "teams.admin_last_owner_some": "{person} ir vienīgais kādas organizācijas īpašnieks: pirms konta dzēšanas padariet par īpašnieku kādu citu.",
@@ -646,9 +649,11 @@
   "templates.clave_privada_51c4fa": "Privātā atslēga",
   "templates.claves_de_acceso_de_aws_para_la_8fa404": "AWS piekļuves atslēgas CLI",
   "templates.client_id_app_id_account_id_32451f": "client id, app id, account id…",
+  "templates.client_id_app_id_tenant_id_5ab3b0": "client id, app id, tenant id…",
   "templates.codigo_2fa_totp_opcional_c21467": "2FA kods (TOTP) (neobligāti)",
   "templates.codigos_de_recuperacion_pregunta_2bfb4d": "Atkopšanas kodi, drošības jautājumi…",
   "templates.como_se_envia_la_clave_92b57d": "Kā tiek sūtīta atslēga",
+  "templates.configuracion_no_secreta_bf2c21": "Konfigurācija (nav slepena)",
   "templates.contrasena_5a6d1c": "Parole",
   "templates.cualquier_otro_dato_secreto_346338": "Jebkuri citi slepeni dati",
   "templates.db_ejemplo_com_ef9904": "db.example.com",
@@ -658,11 +663,14 @@
   "templates.https_api_ejemplo_com_394db1": "https://api.example.com",
   "templates.https_panel_ejemplo_com_ba88d4": "https://dashboard.example.com",
   "templates.id_asociado_opcional_537b83": "Saistītais ID (neobligāti)",
+  "templates.identificador_d05b0a": "Identifikators",
+  "templates.ids_y_datos_publicos_client_id_t_e0839c": "Publiski ID un iestatījumi: klienta ID, tenant, konta ID…",
   "templates.la_clave_que_da_la_web_al_activa_38af10": "Atslēga, ko vietne dod, ieslēdzot divpakāpju verifikāciju (zem QR koda). SecretBroker jums rāda 6 ciparu kodu; MI to neredz.",
   "templates.la_ia_solo_podra_enviar_la_clave_d55a47": "MI varēs sūtīt atslēgu tikai uz šo domēnu.",
   "templates.la_ia_solo_podra_usar_esta_crede_3899cf": "MI varēs izmantot šos piekļuves datus tikai ar šo vietni.",
   "templates.motor_ceaed7": "Dzinējs",
   "templates.no_anadirla_automaticamente_a70e1a": "Nepievienot automātiski",
+  "templates.no_es_secreto_la_ia_lo_ve_y_los_392166": "Nav noslēpums: MI to redz, un programmas to saņem, tev neprasot.",
   "templates.notas_privadas_opcional_2621d7": "Privātas piezīmes (neobligāti)",
   "templates.nube_aws_95df6b": "Mākonis (AWS)",
   "templates.otpauth_totp_o_la_clave_en_base3_b0c780": "otpauth://totp/… vai base32 atslēga",
@@ -681,11 +689,13 @@
   "templates.si_la_clave_va_emparejada_con_un_5f3d0f": "Ja atslēga ir sapārota ar identifikatoru. Nomainot tiek jautāts, vai tas mainījās.",
   "templates.solo_para_ti_la_ia_no_las_ve_90d40d": "Tikai jums: MI tās neredz.",
   "templates.tambien_se_usa_para_sudo_f450d6": "Izmanto arī sudo.",
+  "templates.un_dato_de_configuracion_e7f7e9": "Konfigurācijas dati",
   "templates.url_de_la_api_9c4317": "API URL",
   "templates.usuario_3f2ecd": "Lietotājvārds",
   "templates.usuario_o_e_mail_e4cfe2": "Lietotājvārds vai e-pasts",
   "templates.usuario_opcional_6b549e": "Lietotājvārds (neobligāti)",
   "templates.usuario_y_contrasena_de_una_web_17037d": "Vietnes, vadības paneļa vai lietotnes lietotājvārds un parole",
+  "templates.valor_opcional_0afb86": "Vērtība (neobligāta)",
   "templates.variable_de_entorno_opcional_03da6c": "Vides mainīgais (neobligāti)",
   "templates.web_o_servicio_f398c8": "Vietne vai pakalpojums",
   "totp.2fa_code_has_invalid_parameters": "2FA kodam ir nederīgi parametri",
@@ -713,6 +723,7 @@
   "update.this_version_has_no_signing": "Šai versijai nav parakstīšanas atslēgas: tā nevar sevi atjaunināt",
   "update.too_many_redirects": "Pārāk daudz novirzīšanu",
   "vault.backup_is_damaged": "Rezerves kopija ir bojāta",
+  "vault.config_needs_identifier_or_value": "Konfigurācijai vajag identifikatoru vai vērtību.",
   "vault.couldn_use_this_pc_key": "Neizdevās izmantot šī datora atslēgu. Atslēdziet ar galveno paroli.",
   "vault.credential_with_identifier_already_exist": "Piekļuves dati ar identifikatoru „{id}” jau eksistē",
   "vault.expiry_date_must_be_yyyy": "Derīguma termiņam jābūt formātā GGGG-MM-DD",

@@ -81,6 +81,16 @@ A teammate's change waiting for review (`pending_change.changes`) is a list of `
 values?}` from `teams.widening_changes`, worded by the page in its language (vaults from before keep Spanish lines). `replace_key` also
 accepts web logins and SSH passwords (the password-change helper behind "Rotar con ayuda" in *Salud*).
 
+**Configuration** (`template: config`, `templates.is_public`) is data that is not secret: `username` (the ID), `value`
+and `url`, at least one of the first two. It has no key fields, so `secret_values` is empty (nothing to look for in
+files, redact or call reused), it has no `secret_since` (no age, no rotation reminder), `exposure_report`, `rotation`
+and `ai_check` skip it, and its policy is always `{approval: never}` (`save_entry` and `create_draft` enforce it).
+`release_env` gives any of its fields by the variable's name without `local_env` or an approval, and doesn't redact
+them. The AI may change its data like notes (`edit_notes`). `update_credential {template: "config"}` turns another
+credential into configuration in place (same id, so `.secretbroker` keeps working): `_as_config` keeps `username`,
+`url` (or `base_url`) and the notes and **drops every secret field**, so converting never shows the AI a value; it
+always asks the user (`edit_config`, strict), and the card's `template` change carries `dropped: true`.
+
 Every template has an optional **private notes** field (`fields.notes`, `secret` + `note`): hidden and revealed like
 a secret, never given to the AI, programs, the scanner or the redactor, and not part of `secret_fields()` (editing it
 does not reset a key's age). Imported notes and custom fields go there. It travels with shared items like

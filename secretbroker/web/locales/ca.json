@@ -213,6 +213,7 @@
   "change_line.new_programs": "Programes nous",
   "change_line.new_variables": "Variables noves o canviades",
   "change_line.new_websites": "Webs noves",
+  "change_line.secret_value_deleted": "s'esborra el valor secret desat",
   "change_master_password.change_master_password": "Per canviar la contrasenya mestra.",
   "change_master_password.change_master_password_2": "Canvia la contrasenya mestra",
   "change_master_password.choose_new_master_password": "Tria una contrasenya mestra nova",
@@ -469,6 +470,7 @@
   "describe_permissions.run_on_this_pc": "Executar {value} en aquest PC",
   "destination_label.github": "GitHub {repo}{value} · {name}",
   "detail.ai_knows_as": "La IA la coneix com a ",
+  "detail.config_not_secret": "No és secreta: la IA veu aquestes dades i sb run les dona als programes sense demanar-te permís. No es rota ni compta com a exposada.",
   "detail.copied_cleared_in": "Copiat · s'esborrarà en {result} s",
   "detail.copy": "Per copiar «{label}» de {name}.",
   "detail.decide_in_team": "decideix a Equip",
@@ -529,6 +531,7 @@
   "draw_team.sync_now": "Sincronitza ara",
   "draw_team.synced": "Sincronitzat",
   "editor.aws_placeholder": "AWS personal",
+  "editor.config_placeholder": "Client ID de la meva app",
   "editor.hosts_placeholder": "api.exemple.com, *.exemple.com",
   "editor.tags_placeholder": "botiga, producció",
   "empty_credentials.add_credential": "Afegeix una credencial",
@@ -1364,8 +1367,8 @@
   "server_admin.backup_reason": "Per fer una còpia de seguretat del servidor.",
   "server_admin.backups": "Còpies de seguretat",
   "server_admin.backups_kept": {
-    "one": "{count} desada",
     "many": "{count} desades",
+    "one": "{count} desada",
     "other": "{count} desades"
   },
   "server_admin.being_replaced": "Ha perdut l'accés: un compte nou espera per substituir-lo",
@@ -1373,8 +1376,8 @@
   "server_admin.change_owner_text": "Tria algú que ja sigui a l'organització. Qui ja era propietari ho continua sent; el nou ho pot canviar a Persones.",
   "server_admin.change_owner_title": "Propietari de {org}",
   "server_admin.collections_count": {
-    "one": "{count} col·lecció",
     "many": "{count} col·leccions",
+    "one": "{count} col·lecció",
     "other": "{count} col·leccions"
   },
   "server_admin.copy_code_only": "Copia només el codi",
@@ -1686,6 +1689,7 @@
   "show_form.change_type": "Canvia el tipus",
   "show_form.changed_while_you_were_editing": "Ha canviat mentre l'editaves",
   "show_form.changes_saved": "Canvis desats",
+  "show_form.config_not_secret": "No és un secret: la IA veu aquestes dades i sb run les dona sense demanar-te permís. Per això no té permisos, rotació ni comprovacions.",
   "show_form.data_ai_can_insert_without": "Dades que la IA pot inserir sense veure-les",
   "show_form.deploy_token": "Token de desplegament",
   "show_form.discard_changes": "Vols descartar els canvis?",

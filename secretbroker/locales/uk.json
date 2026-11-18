@@ -79,39 +79,39 @@
   "exposure.credential_doesn_say_how_put": "У записі не вказано, як додавати ключ до запиту (Редагувати › як надсилається ключ)",
   "exposure.list_and": "{names} і {last}",
   "exposure.places_ai": {
-    "one": "{count} розмова з ШІ",
     "few": "{count} розмови з ШІ",
     "many": "{count} розмов із ШІ",
+    "one": "{count} розмова з ШІ",
     "other": "{count} розмови з ШІ"
   },
   "exposure.places_config": {
-    "one": "{count} налаштування програми",
     "few": "{count} налаштування програм",
     "many": "{count} налаштувань програм",
+    "one": "{count} налаштування програми",
     "other": "{count} налаштування програм"
   },
   "exposure.places_env": {
-    "one": "{count} змінна середовища",
     "few": "{count} змінні середовища",
     "many": "{count} змінних середовища",
+    "one": "{count} змінна середовища",
     "other": "{count} змінної середовища"
   },
   "exposure.places_git": {
-    "one": "{count} історія git",
     "few": "{count} історії git",
     "many": "{count} історій git",
+    "one": "{count} історія git",
     "other": "{count} історії git"
   },
   "exposure.places_history": {
-    "one": "{count} історія терміналу",
     "few": "{count} історії терміналу",
     "many": "{count} історій терміналу",
+    "one": "{count} історія терміналу",
     "other": "{count} історії терміналу"
   },
   "exposure.places_project": {
-    "one": "{count} файл проєкту",
     "few": "{count} файли проєктів",
     "many": "{count} файлів проєктів",
+    "one": "{count} файл проєкту",
     "other": "{count} файлу проєктів"
   },
   "exposure.reason_ai_saw": "Його бачив ШІ: ключ було надіслано його провайдеру.",
@@ -119,15 +119,15 @@
   "exposure.reason_invalid": "Не працює: {message}.",
   "exposure.reason_present": "Він у відкритому вигляді тут: {places}.",
   "exposure.reason_pwned": {
-    "one": "Цей пароль трапляється в публічних витоках {times} раз.",
     "few": "Цей пароль трапляється в публічних витоках {times} рази.",
     "many": "Цей пароль трапляється в публічних витоках {times} разів.",
+    "one": "Цей пароль трапляється в публічних витоках {times} раз.",
     "other": "Цей пароль трапляється в публічних витоках {times} рази."
   },
   "exposure.reason_stale": {
-    "one": "Не змінювався {count} місяць.",
     "few": "Не змінювався {count} місяці.",
     "many": "Не змінювався {count} місяців.",
+    "one": "Не змінювався {count} місяць.",
     "other": "Не змінювався {count} місяця."
   },
   "exposure.reason_stopped": "Перестав працювати: {message}. Якщо ви його не відкликали, імовірно, провайдер виявив витік.",
@@ -140,15 +140,15 @@
   "exposure.unexpected_response_http": "Неочікувана відповідь (HTTP {status_code}){_said}",
   "health.a_person": "Хтось",
   "health.expired": {
-    "one": "Термін сплив {count} день тому.",
     "few": "Термін сплив {count} дні тому.",
     "many": "Термін сплив {count} днів тому.",
+    "one": "Термін сплив {count} день тому.",
     "other": "Термін сплив {count} дня тому."
   },
   "health.expiring": {
-    "one": "Спливає через {count} день.",
     "few": "Спливає через {count} дні.",
     "many": "Спливає через {count} днів.",
+    "one": "Спливає через {count} день.",
     "other": "Спливає через {count} дня."
   },
   "health.exposed": "Лежить у відкритому вигляді у файлі на цьому ПК.",
@@ -168,29 +168,29 @@
   "health.label_was_exposed": "Був розкритий",
   "health.label_weak": "Слабкий",
   "health.left_team_ask": {
-    "one": "{who} мав(-ла) доступ, але вже не в команді: попросіть менеджера змінити його.",
     "few": "{who} мали доступ, але вже не в команді: попросіть менеджера змінити його.",
     "many": "{who} мали доступ, але вже не в команді: попросіть менеджера змінити його.",
+    "one": "{who} мав(-ла) доступ, але вже не в команді: попросіть менеджера змінити його.",
     "other": "{who} мали доступ, але вже не в команді: попросіть менеджера змінити його."
   },
   "health.left_team_rotate": {
-    "one": "{who} мав(-ла) доступ, але вже не в команді: змініть його на випадок, якщо його бачили.",
     "few": "{who} мали доступ, але вже не в команді: змініть його на випадок, якщо його бачили.",
     "many": "{who} мали доступ, але вже не в команді: змініть його на випадок, якщо його бачили.",
+    "one": "{who} мав(-ла) доступ, але вже не в команді: змініть його на випадок, якщо його бачили.",
     "other": "{who} мали доступ, але вже не в команді: змініть його на випадок, якщо його бачили."
   },
   "health.list_and": "{names} і {last}",
   "health.old": {
-    "one": "Ключу {count} день.",
     "few": "Ключу {count} дні.",
     "many": "Ключу {count} днів.",
+    "one": "Ключу {count} день.",
     "other": "Ключу {count} дня."
   },
   "health.old_alive": "Ви змінили ключ, але старий ще працює: відкличте його.",
   "health.pwned": {
-    "one": "Трапляється в публічних витоках {times} раз.",
     "few": "Трапляється в публічних витоках {times} рази.",
     "many": "Трапляється в публічних витоках {times} разів.",
+    "one": "Трапляється в публічних витоках {times} раз.",
     "other": "Трапляється в публічних витоках {times} рази."
   },
   "health.retired_pending": "Новий ключ активний · старий ще треба відкликати в {provider}.",
@@ -201,16 +201,16 @@
   "health.thousands_separator": " ",
   "health.unchecked": "Ще не перевірялося, чи працює.",
   "health.unshared_rotate": {
-    "one": "{who} мав(-ла) доступ, але вже не має: змініть його на випадок, якщо його скопіювали.",
     "few": "{who} мали доступ, але вже не мають: змініть його на випадок, якщо його скопіювали.",
     "many": "{who} мали доступ, але вже не мають: змініть його на випадок, якщо його скопіювали.",
+    "one": "{who} мав(-ла) доступ, але вже не має: змініть його на випадок, якщо його скопіювали.",
     "other": "{who} мали доступ, але вже не мають: змініть його на випадок, якщо його скопіювали."
   },
   "health.upload_failed": "Не вдалося вивантажити новий у {place}: там лишився старий.",
   "health.upload_failed_more": {
-    "one": "Не вдалося вивантажити новий у {place} і ще в {count} місце: там лишився старий.",
     "few": "Не вдалося вивантажити новий у {place} і ще в {count} місця: там лишився старий.",
     "many": "Не вдалося вивантажити новий у {place} і ще в {count} місць: там лишився старий.",
+    "one": "Не вдалося вивантажити новий у {place} і ще в {count} місце: там лишився старий.",
     "other": "Не вдалося вивантажити новий у {place} і ще в {count} місця: там лишився старий."
   },
   "health.was_exposed": "Був у відкритому вигляді у файлі. Його варто змінити.",
@@ -313,9 +313,9 @@
   "resident.pause_ai": "Призупинити ШІ",
   "resident.quit": "Вийти",
   "resident.reminders_need_attention": {
-    "one": "{count} запис потребує уваги",
     "few": "{count} записи потребують уваги",
     "many": "{count} записів потребують уваги",
+    "one": "{count} запис потребує уваги",
     "other": "{count} запису потребують уваги"
   },
   "resident.resume_ai": "Відновити ШІ",
@@ -359,9 +359,9 @@
   "service.change_every_days": "кожні {days} дн.",
   "service.change_every_hours": {
     "=1": "щогодини",
-    "one": "кожну {count} годину",
     "few": "кожні {count} години",
     "many": "кожні {count} годин",
+    "one": "кожну {count} годину",
     "other": "кожні {count} години"
   },
   "service.change_expires": "Спливає",
@@ -374,15 +374,17 @@
   "service.change_rotate_every_days": "Нагадувати змінити ключ",
   "service.change_rotation_guide": "Інструкція з ротації",
   "service.change_steps": {
-    "one": "{count} крок",
     "few": "{count} кроки",
     "many": "{count} кроків",
+    "one": "{count} крок",
     "other": "{count} кроку"
   },
   "service.change_tags": "Теги",
+  "service.change_template": "Тип облікових даних",
   "service.change_test_request": "Тестовий запит",
   "service.change_used_in": "Де використовується",
   "service.collection_no_longer_appears_on": "Колекції більше немає на сервері. ",
+  "service.config_needs_variable_name": "«{id}» — це конфігурація: вкажи назву змінної в .secretbroker (VARIABLE = {id}).",
   "service.confirm_it_you_once_windows": "Підтвердьте один раз, що це ви (Windows Hello або пароль), щоб ",
   "service.connect_this_browser_secretbroker_from": "Підключіть цей браузер до SecretBroker з розширення",
   "service.connection_request_has_expired_click": "Термін запиту на підключення сплив: знову натисніть «Підключити» в браузері",
@@ -395,18 +397,18 @@
   "service.expected_response_must_be_code": "Очікувана відповідь має бути кодом від 200 до 399",
   "service.expected_response_must_be_http": "Очікувана відповідь має бути HTTP-кодом, напр. 200",
   "service.found_in_new_places": {
-    "one": "Знайдено у відкритому вигляді в {count} новому місці",
     "few": "Знайдено у відкритому вигляді в {count} нових місцях",
     "many": "Знайдено у відкритому вигляді в {count} нових місцях",
+    "one": "Знайдено у відкритому вигляді в {count} новому місці",
     "other": "Знайдено у відкритому вигляді в {count} нового місця"
   },
   "service.generate_new_one": "згенеруйте новий",
   "service.give_between_1_and_20": "Укажіть від 1 до 20 записів у secret_ids",
   "service.has_no_environment_variables_in": "У дозволах '{id}' немає змінних середовища, тож його не можна передати локальним програмам. Додайте їх у застосунку SecretBroker.",
   "service.held_waiting": {
-    "one": "{count} запис із {collection} чекає на ваше рішення",
     "few": "{count} записи з {collection} чекають на ваше рішення",
     "many": "{count} записів із {collection} чекають на ваше рішення",
+    "one": "{count} запис із {collection} чекає на ваше рішення",
     "other": "{count} запису з {collection} чекають на ваше рішення"
   },
   "service.import_has_expired_choose_file": "Термін імпорту сплив: виберіть файл знову",
@@ -440,6 +442,7 @@
   "service.only_api_keys_and_other": "Перевірний запит є лише в API keys та інших секретів",
   "service.only_api_keys_and_passwords": "Так змінюються лише API keys і паролі",
   "service.only_api_keys_are_rotated": "змінюються лише API keys",
+  "service.only_convert_to_config": "Облікові дані можна перетворити лише на конфігурацію (template config).",
   "service.only_database_password_is_applied": "Так застосовується лише пароль бази даних",
   "service.only_user_can_write_value": "Значення «{name}» може ввести лише користувач, у застосунку",
   "service.open_secretbroker_team_and_sign": "Відкрийте SecretBroker › Команда й увійдіть знову, щоб і далі отримувати й надсилати зміни. Поки все працює з тим, що у вас уже є.",
@@ -475,9 +478,9 @@
   "service.purpose_totp_code": "побачити код 2FA",
   "service.request_is_no_longer_pending": "Запит більше не очікує відповіді",
   "service.rotate_after_leave": {
-    "one": "{names} мав(-ла) доступ, але вже не в команді. Змініть їх на випадок, якщо їх бачили.",
     "few": "{names} мали доступ, але вже не в команді. Змініть їх на випадок, якщо їх бачили.",
     "many": "{names} мали доступ, але вже не в команді. Змініть їх на випадок, якщо їх бачили.",
+    "one": "{names} мав(-ла) доступ, але вже не в команді. Змініть їх на випадок, якщо їх бачили.",
     "other": "{names} мали доступ, але вже не в команді. Змініть їх на випадок, якщо їх бачили."
   },
   "service.say_whether_is_still_same": "Укажіть, чи {label} лишився тим самим, чи змінився",
@@ -545,9 +548,9 @@
   "teams.admin_bad_signups": "Виберіть, чи реєстрація відкрита, лише за запрошенням або закрита.",
   "teams.admin_last_admin": "Це єдиний акаунт, який адмініструє сервер: його не можна деактивувати чи видалити.",
   "teams.admin_last_manager": {
-    "one": "{person} — єдина людина, яка керує {count} колекцією: хтось з організації має отримати в ній права «Менеджер» (або видалити її), перш ніж акаунт буде видалено.",
     "few": "{person} — єдина людина, яка керує {count} колекціями: хтось з організації має отримати в них права «Менеджер» (або видалити їх), перш ніж акаунт буде видалено.",
     "many": "{person} — єдина людина, яка керує {count} колекціями: хтось з організації має отримати в них права «Менеджер» (або видалити їх), перш ніж акаунт буде видалено.",
+    "one": "{person} — єдина людина, яка керує {count} колекцією: хтось з організації має отримати в ній права «Менеджер» (або видалити її), перш ніж акаунт буде видалено.",
     "other": "{person} — єдина людина, яка керує {count} колекції: хтось з організації має отримати в них права «Менеджер» (або видалити їх), перш ніж акаунт буде видалено."
   },
   "teams.admin_last_owner": "{person} — єдиний власник {orgs}: перш ніж видаляти акаунт, зробіть власником когось іншого.",
@@ -669,9 +672,11 @@
   "templates.clave_privada_51c4fa": "Закритий ключ",
   "templates.claves_de_acceso_de_aws_para_la_8fa404": "Ключі доступу AWS для CLI",
   "templates.client_id_app_id_account_id_32451f": "client id, app id, account id…",
+  "templates.client_id_app_id_tenant_id_5ab3b0": "client id, app id, tenant id…",
   "templates.codigo_2fa_totp_opcional_c21467": "Код 2FA (TOTP) (необов'язково)",
   "templates.codigos_de_recuperacion_pregunta_2bfb4d": "Коди відновлення, контрольні запитання…",
   "templates.como_se_envia_la_clave_92b57d": "Як надсилається ключ",
+  "templates.configuracion_no_secreta_bf2c21": "Конфігурація (не секрет)",
   "templates.contrasena_5a6d1c": "Пароль",
   "templates.cualquier_otro_dato_secreto_346338": "Будь-які інші секретні дані",
   "templates.db_ejemplo_com_ef9904": "db.example.com",
@@ -681,11 +686,14 @@
   "templates.https_api_ejemplo_com_394db1": "https://api.example.com",
   "templates.https_panel_ejemplo_com_ba88d4": "https://dashboard.example.com",
   "templates.id_asociado_opcional_537b83": "Пов'язаний ID (необов'язково)",
+  "templates.identificador_d05b0a": "Ідентифікатор",
+  "templates.ids_y_datos_publicos_client_id_t_e0839c": "Публічні ID і налаштування: client ID, tenant, ID облікового запису…",
   "templates.la_clave_que_da_la_web_al_activa_38af10": "Ключ, який сайт видає під час увімкнення двоетапної перевірки (під QR-кодом). SecretBroker показує вам 6-значний код; ШІ його не бачить.",
   "templates.la_ia_solo_podra_enviar_la_clave_d55a47": "ШІ зможе надсилати ключ лише на цей домен.",
   "templates.la_ia_solo_podra_usar_esta_crede_3899cf": "ШІ зможе використовувати цей запис лише з цим сайтом.",
   "templates.motor_ceaed7": "СКБД",
   "templates.no_anadirla_automaticamente_a70e1a": "Не додавати автоматично",
+  "templates.no_es_secreto_la_ia_lo_ve_y_los_392166": "Це не секрет: ШІ його бачить, а програми отримують його, не питаючи тебе.",
   "templates.notas_privadas_opcional_2621d7": "Особисті нотатки (необов'язково)",
   "templates.nube_aws_95df6b": "Хмара (AWS)",
   "templates.otpauth_totp_o_la_clave_en_base3_b0c780": "otpauth://totp/… або ключ у base32",
@@ -704,11 +712,13 @@
   "templates.si_la_clave_va_emparejada_con_un_5f3d0f": "Якщо ключ пов'язаний з ідентифікатором. Під час зміни ключа вас запитають, чи він змінився.",
   "templates.solo_para_ti_la_ia_no_las_ve_90d40d": "Лише для вас: ШІ їх не бачить.",
   "templates.tambien_se_usa_para_sudo_f450d6": "Також використовується для sudo.",
+  "templates.un_dato_de_configuracion_e7f7e9": "Параметр конфігурації",
   "templates.url_de_la_api_9c4317": "URL API",
   "templates.usuario_3f2ecd": "Ім'я користувача",
   "templates.usuario_o_e_mail_e4cfe2": "Ім'я користувача або e-mail",
   "templates.usuario_opcional_6b549e": "Ім'я користувача (необов'язково)",
   "templates.usuario_y_contrasena_de_una_web_17037d": "Ім'я користувача й пароль для сайту, панелі чи застосунку",
+  "templates.valor_opcional_0afb86": "Значення (необов'язково)",
   "templates.variable_de_entorno_opcional_03da6c": "Змінна середовища (необов'язково)",
   "templates.web_o_servicio_f398c8": "Сайт або сервіс",
   "totp.2fa_code_has_invalid_parameters": "Код 2FA має неприпустимі параметри",
@@ -736,6 +746,7 @@
   "update.this_version_has_no_signing": "Ця версія не має ключа підпису: вона не може оновлюватися сама",
   "update.too_many_redirects": "Забагато перенаправлень",
   "vault.backup_is_damaged": "Копію пошкоджено",
+  "vault.config_needs_identifier_or_value": "Для конфігурації потрібен ідентифікатор або значення.",
   "vault.couldn_use_this_pc_key": "Не вдалося використати ключ цього ПК. Розблокуйте майстер-паролем.",
   "vault.credential_with_identifier_already_exist": "Запис з ідентифікатором '{id}' уже існує",
   "vault.expiry_date_must_be_yyyy": "Дата закінчення має бути у форматі РРРР-ММ-ДД",

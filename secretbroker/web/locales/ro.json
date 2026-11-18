@@ -78,8 +78,8 @@
   "activity_detail.created": "creat",
   "activity_detail.credentials": {
     "=0": "goală",
-    "one": "1 credențială",
     "few": "{count} credențiale",
+    "one": "1 credențială",
     "other": "{count} de credențiale"
   },
   "activity_detail.from_collection": "Din {name}",
@@ -98,15 +98,15 @@
   "activity_filter.all": "Toate",
   "activity_filter.denied": "Refuzate",
   "ai.requests_count": {
-    "one": "{count} cerere",
     "few": "{count} cereri",
+    "one": "{count} cerere",
     "other": "{count} de cereri"
   },
   "ai_change.rotation_guide": "Ghid de rotație",
   "ai_change.sources": "surse: {sources}",
   "ai_change.steps": {
-    "one": "{count} pas",
     "few": "{count} pași",
+    "one": "{count} pas",
     "other": "{count} de pași"
   },
   "ai_change.test_request": "Cerere de test",
@@ -142,14 +142,14 @@
   "approval.allow_for_24_hours": "Permite 24 de ore",
   "approval.allow_for_8_hours": "Permite 8 ore",
   "approval.for_hours": {
-    "one": "timp de {count} oră",
     "few": "timp de {count} ore",
+    "one": "timp de {count} oră",
     "other": "timp de {count} de ore"
   },
   "approval.position": "{position} din {total}",
   "approval.times_today": {
-    "one": "{count} dată azi",
     "few": "de {count} ori azi",
+    "one": "{count} dată azi",
     "other": "de {count} de ori azi"
   },
   "approval.until_you_lock_vault": "până blochezi seiful",
@@ -218,6 +218,7 @@
   "change_line.new_programs": "Programe noi",
   "change_line.new_variables": "Variabile noi sau modificate",
   "change_line.new_websites": "Site-uri noi",
+  "change_line.secret_value_deleted": "valoarea secretă salvată se șterge",
   "change_master_password.change_master_password": "Pentru a schimba parola principală.",
   "change_master_password.change_master_password_2": "Schimbă parola principală",
   "change_master_password.choose_new_master_password": "Alege o parolă principală nouă",
@@ -314,8 +315,8 @@
   "common.create_collection": "Pentru a crea colecția.",
   "common.credentials": "Credențiale",
   "common.credentials_count": {
-    "one": "{count} credențială",
     "few": "{count} credențiale",
+    "one": "{count} credențială",
     "other": "{count} de credențiale"
   },
   "common.delete": "Șterge",
@@ -375,8 +376,8 @@
   "common.optional_suffix": " · opțional",
   "common.organization": "Organizație",
   "common.people_count": {
-    "one": "{count} persoană",
     "few": "{count} persoane",
+    "one": "{count} persoană",
     "other": "{count} de persoane"
   },
   "common.private_notes": "Note private",
@@ -476,6 +477,7 @@
   "describe_permissions.run_on_this_pc": "Rulează {value} pe acest PC",
   "destination_label.github": "GitHub {repo}{value} · {name}",
   "detail.ai_knows_as": "IA o cunoaște ca ",
+  "detail.config_not_secret": "Nu e secretă: IA vede aceste date, iar sb run le dă programelor fără să te întrebe. Nu se rotește și nu e considerată expusă.",
   "detail.copied_cleared_in": "Copiat · se șterge în {result} s",
   "detail.copy": "Pentru a copia „{label}” din {name}.",
   "detail.decide_in_team": "decide în Echipă",
@@ -496,21 +498,21 @@
   "direct_block.stop_proof": "Pentru a nu mai partaja cu {name}.",
   "direct_block.stop_sharing_with": "Nu mai partaja cu {name}",
   "direct_block.stop_text": {
-    "one": "{name} nu va mai primi credențiala pe care i-o partajezi. Pe acest PC rămâne a ta.",
     "few": "{name} nu va mai primi cele {count} credențiale pe care i le partajezi. Pe acest PC rămân ale tale.",
+    "one": "{name} nu va mai primi credențiala pe care i-o partajezi. Pe acest PC rămâne a ta.",
     "other": "{name} nu va mai primi cele {count} de credențiale pe care i le partajezi. Pe acest PC rămân ale tale."
   },
   "direct_block.stop_title": "Nu mai partajezi cu {name}?",
   "direct_block.stop_warning": {
-    "one": "A putut s-o vadă sau s-o copieze: îți vom aminti s-o schimbi.",
     "few": "A putut să le vadă sau să le copieze: îți vom aminti să le schimbi.",
+    "one": "A putut s-o vadă sau s-o copieze: îți vom aminti s-o schimbi.",
     "other": "A putut să le vadă sau să le copieze: îți vom aminti să le schimbi."
   },
   "direct_block.stopped": "Nu mai partajezi nimic cu {name}",
   "direct_block.their_permission": "{name}: {value}",
   "direct_share.already_sharing": {
-    "one": "Partajezi deja {count} credențială cu {name}. Permisiunea pe care o alegi se aplică la tot ce îi partajezi.",
     "few": "Partajezi deja {count} credențiale cu {name}. Permisiunea pe care o alegi se aplică la tot ce îi partajezi.",
+    "one": "Partajezi deja {count} credențială cu {name}. Permisiunea pe care o alegi se aplică la tot ce îi partajezi.",
     "other": "Partajezi deja {count} de credențiale cu {name}. Permisiunea pe care o alegi se aplică la tot ce îi partajezi."
   },
   "direct_share.compare_code": "Cere-i acelei persoane să-ți citească codul său de securitate (la telefon sau față în față) și compară-l cu acesta. Așa nimeni, nici măcar serverul, nu poate strecura o altă cheie.",
@@ -539,6 +541,7 @@
   "draw_team.sync_now": "Sincronizează acum",
   "draw_team.synced": "Sincronizat",
   "editor.aws_placeholder": "AWS personal",
+  "editor.config_placeholder": "Client ID-ul aplicației mele",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
   "editor.tags_placeholder": "magazin, producție",
   "empty_credentials.add_credential": "Adaugă o credențială",
@@ -554,8 +557,8 @@
   "env_import.config_written": "În folderul proiectului există acum un fișier .secretbroker cu numele credențialelor, fără valori. Poate merge în depozit.",
   "env_import.file_deleted": "{name} șters",
   "env_import.import_keys": {
-    "one": "Importă {count} cheie",
     "few": "Importă {count} chei",
+    "one": "Importă {count} cheie",
     "other": "Importă {count} de chei"
   },
   "env_import.keep_file": "Lasă-l așa",
@@ -566,8 +569,8 @@
   "env_import.remove_explained": "Scoate-le din fișier: celelalte variabile rămân, iar dacă nu mai rămâne niciuna, fișierul se șterge.",
   "env_import.remove_from_file": "Scoate din fișier",
   "env_import.skipped_existing": {
-    "one": "{count} era deja în seif.",
     "few": "{count} erau deja în seif.",
+    "one": "{count} era deja în seif.",
     "other": "{count} erau deja în seif."
   },
   "env_import.still_in_file": "{name} are încă aceste chei în clar.",
@@ -583,8 +586,8 @@
   "exposure.couldn_load_status": "Nu s-a putut încărca starea.",
   "exposure.ignored": "ignorată",
   "exposure.ignored_count": {
-    "one": "{count} ignorată",
     "few": "{count} ignorate",
+    "one": "{count} ignorată",
     "other": "{count} de ignorate"
   },
   "exposure.last_search_files": "Ultima căutare: {when} · {files} fișiere",
@@ -593,23 +596,23 @@
   "exposure.no_search_for_copies_yet": "Încă nicio căutare de copii",
   "exposure.paths_are_only_shown_after": "Căile se afișează doar după ce îți verifici identitatea. ",
   "exposure.places": {
-    "one": "{count} loc",
     "few": "{count} locuri",
+    "one": "{count} loc",
     "other": "{count} de locuri"
   },
   "exposure.removed_from_file": {
-    "one": "Eliminată din fișier ({count} dată)",
     "few": "Eliminată din fișier (de {count} ori)",
+    "one": "Eliminată din fișier ({count} dată)",
     "other": "Eliminată din fișier (de {count} de ori)"
   },
   "exposure.revealed_times": {
-    "one": "Afișată sau copiată {count} dată",
     "few": "Afișată sau copiată de {count} ori",
+    "one": "Afișată sau copiată {count} dată",
     "other": "Afișată sau copiată de {count} de ori"
   },
   "exposure.search_done_exposed": {
-    "one": "Căutare terminată: {count} credențială expusă",
     "few": "Căutare terminată: {count} credențiale expuse",
+    "one": "Căutare terminată: {count} credențială expusă",
     "other": "Căutare terminată: {count} de credențiale expuse"
   },
   "exposure.search_for_copies": "Caută copii",
@@ -689,73 +692,73 @@
   "generator_panel.very_weak": "Foarte slabă",
   "generator_panel.words": "Cuvinte",
   "health.count_expired": {
-    "one": "{count} expirată",
     "few": "{count} expirate",
+    "one": "{count} expirată",
     "other": "{count} de expirate"
   },
   "health.count_expiring": {
-    "one": "{count} expiră curând",
     "few": "{count} expiră curând",
+    "one": "{count} expiră curând",
     "other": "{count} expiră curând"
   },
   "health.count_exposed": {
-    "one": "{count} expusă",
     "few": "{count} expuse",
+    "one": "{count} expusă",
     "other": "{count} de expuse"
   },
   "health.count_half_rotated": {
-    "one": "{count} rotire neterminată",
     "few": "{count} rotiri neterminate",
+    "one": "{count} rotire neterminată",
     "other": "{count} de rotiri neterminate"
   },
   "health.count_old": {
-    "one": "{count} veche",
     "few": "{count} vechi",
+    "one": "{count} veche",
     "other": "{count} de vechi"
   },
   "health.count_old_alive": {
-    "one": "{count} cu cea veche încă activă",
     "few": "{count} cu cea veche încă activă",
+    "one": "{count} cu cea veche încă activă",
     "other": "{count} cu cea veche încă activă"
   },
   "health.count_pwned": {
-    "one": "{count} în scurgeri de date",
     "few": "{count} în scurgeri de date",
+    "one": "{count} în scurgeri de date",
     "other": "{count} în scurgeri de date"
   },
   "health.count_retired_pending": {
-    "one": "{count} cu cea veche încă de revocat",
     "few": "{count} cu cea veche încă de revocat",
+    "one": "{count} cu cea veche încă de revocat",
     "other": "{count} cu cea veche încă de revocat"
   },
   "health.count_reused": {
-    "one": "{count} refolosită",
     "few": "{count} refolosite",
+    "one": "{count} refolosită",
     "other": "{count} de refolosite"
   },
   "health.count_team_access": {
-    "one": "{count} cu acces al cuiva care a plecat",
     "few": "{count} cu acces al cuiva care a plecat",
+    "one": "{count} cu acces al cuiva care a plecat",
     "other": "{count} cu acces al cuiva care a plecat"
   },
   "health.count_unchecked": {
-    "one": "{count} netestată",
     "few": "{count} netestate",
+    "one": "{count} netestată",
     "other": "{count} de netestate"
   },
   "health.count_upload_failed": {
-    "one": "{count} neîncărcată",
     "few": "{count} neîncărcate",
+    "one": "{count} neîncărcată",
     "other": "{count} de neîncărcate"
   },
   "health.count_was_exposed": {
-    "one": "{count} a fost expusă",
     "few": "{count} au fost expuse",
+    "one": "{count} a fost expusă",
     "other": "{count} au fost expuse"
   },
   "health.count_weak": {
-    "one": "{count} slabă",
     "few": "{count} slabe",
+    "one": "{count} slabă",
     "other": "{count} de slabe"
   },
   "health.missing_both": "Mai e de făcut: {what}. „Verifică acum” le face pe amândouă.",
@@ -778,38 +781,38 @@
   "health_section.see_less": "Vezi mai puțin",
   "health_section.test_them_with_their_providers": "testează-le la furnizorii lor",
   "held.deleted": {
-    "one": "{count} credențială ștearsă de pe acest PC",
     "few": "{count} credențiale șterse de pe acest PC",
+    "one": "{count} credențială ștearsă de pe acest PC",
     "other": "{count} de credențiale șterse de pe acest PC"
   },
   "held.deleted_by": {
-    "one": "{who} a șters {count} credențială din „{collection_name}” deodată.",
     "few": "{who} a șters {count} credențiale din „{collection_name}” deodată.",
+    "one": "{who} a șters {count} credențială din „{collection_name}” deodată.",
     "other": "{who} a șters {count} de credențiale din „{collection_name}” deodată."
   },
   "held.kept": {
-    "one": "{count} credențială păstrată pe acest PC",
     "few": "{count} credențiale păstrate pe acest PC",
+    "one": "{count} credențială păstrată pe acest PC",
     "other": "{count} de credențiale păstrate pe acest PC"
   },
   "held.proof_delete": {
-    "one": "Pentru a șterge {count} credențială de pe acest PC.",
     "few": "Pentru a șterge {count} credențiale de pe acest PC.",
+    "one": "Pentru a șterge {count} credențială de pe acest PC.",
     "other": "Pentru a șterge {count} de credențiale de pe acest PC."
   },
   "held.proof_keep": {
-    "one": "Pentru a păstra {count} credențială.",
     "few": "Pentru a păstra {count} credențiale.",
+    "one": "Pentru a păstra {count} credențială.",
     "other": "Pentru a păstra {count} de credențiale."
   },
   "held.restored": {
-    "one": "{count} credențială restaurată pentru toată echipa",
     "few": "{count} credențiale restaurate pentru toată echipa",
+    "one": "{count} credențială restaurată pentru toată echipa",
     "other": "{count} de credențiale restaurate pentru toată echipa"
   },
   "held.waiting": {
-    "one": "{count} credențială așteaptă decizia ta",
     "few": "{count} credențiale așteaptă decizia ta",
+    "one": "{count} credențială așteaptă decizia ta",
     "other": "{count} de credențiale așteaptă decizia ta"
   },
   "held_deletions_card.collection_no_longer_appears_on": "Colecția „{collection_name}” nu mai apare pe server (ți s-a retras accesul, a fost ștearsă sau serverul are probleme).",
@@ -821,49 +824,49 @@
   "held_deletions_card.restoring_them_puts_them_back": "Dacă le restaurezi, revin pentru toată echipa.",
   "import.already_in": "Există deja",
   "import.count_conflict": {
-    "one": "{count} cu altă parolă",
     "few": "{count} cu altă parolă",
+    "one": "{count} cu altă parolă",
     "other": "{count} cu altă parolă"
   },
   "import.count_duplicate": {
-    "one": "{count} deja în seif",
     "few": "{count} deja în seif",
+    "one": "{count} deja în seif",
     "other": "{count} deja în seif"
   },
   "import.count_new": {
-    "one": "{count} nouă",
     "few": "{count} noi",
+    "one": "{count} nouă",
     "other": "{count} de noi"
   },
   "import.different_password": "Altă parolă",
   "import.imported": {
-    "one": "{count} credențială importată",
     "few": "{count} credențiale importate",
+    "one": "{count} credențială importată",
     "other": "{count} de credențiale importate"
   },
   "import.in_file": {
-    "one": "{count} credențială în fișier: ",
     "few": "{count} credențiale în fișier: ",
+    "one": "{count} credențială în fișier: ",
     "other": "{count} de credențiale în fișier: "
   },
   "import.skipped_summary": {
-    "one": "{count} nu va fi importată",
     "few": "{count} nu vor fi importate",
+    "one": "{count} nu va fi importată",
     "other": "{count} nu vor fi importate"
   },
   "import.stat_created": {
-    "one": "creată",
     "few": "create",
+    "one": "creată",
     "other": "create"
   },
   "import.stat_failed": {
-    "one": "eșuată",
     "few": "eșuate",
+    "one": "eșuată",
     "other": "eșuate"
   },
   "import.stat_skipped": {
-    "one": "omisă",
     "few": "omise",
+    "one": "omisă",
     "other": "omise"
   },
   "import_done.any_program_or_person_who": "Orice program sau persoană care îl citește le are. Șterge-l acum, împreună cu eventualele copii din Descărcări, din e-mail sau din cloud.",
@@ -948,8 +951,8 @@
   "key_source_picker.where_do_i_get_key": "De unde iau cheia?",
   "level.not_checked": "Neverificată",
   "list.selected": {
-    "one": "1 selectată",
     "few": "{count} selectate",
+    "one": "1 selectată",
     "other": "{count} de selectate"
   },
   "lock.couldn_open_with_windows_session": "Nu s-a putut deschide cu sesiunea Windows. Folosește parola.",
@@ -1006,28 +1009,28 @@
   "new_org_modal.new_organization": "Organizație nouă",
   "new_org_modal.organization_is_team_has_its": "O organizație e o echipă: are persoanele și colecțiile ei.",
   "offboarding.changed": {
-    "one": "{count} schimbată",
     "few": "{count} schimbate",
+    "one": "{count} schimbată",
     "other": "{count} de schimbate"
   },
   "offboarding.could_see": {
-    "one": "{person} putea vedea {count} credențială",
     "few": "{person} putea vedea {count} credențiale",
+    "one": "{person} putea vedea {count} credențială",
     "other": "{person} putea vedea {count} de credențiale"
   },
   "offboarding.done_of_total": {
-    "one": "{done} din {count} schimbate",
     "few": "{done} din {count} schimbate",
+    "one": "{done} din {count} schimbate",
     "other": "{done} din {count} schimbate"
   },
   "offboarding.gone_to_change": {
-    "one": "{person} a plecat: {count} credențială de schimbat",
     "few": "{person} a plecat: {count} credențiale de schimbat",
+    "one": "{person} a plecat: {count} credențială de schimbat",
     "other": "{person} a plecat: {count} de credențiale de schimbat"
   },
   "offboarding.unshared_to_change": {
-    "one": "{person} nu mai are acces: {count} credențială de schimbat",
     "few": "{person} nu mai are acces: {count} credențiale de schimbat",
+    "one": "{person} nu mai are acces: {count} credențială de schimbat",
     "other": "{person} nu mai are acces: {count} de credențiale de schimbat"
   },
   "offboarding_card.they_could_see_or_copy": "O putea vedea sau copia. Schimb-o; dacă nu o gestionezi tu, o schimbă cine o gestionează.",
@@ -1040,8 +1043,8 @@
   "open_export.export_vault": "Exportă seiful",
   "open_export.export_vault_2": "Pentru a exporta seiful.",
   "open_export.exported_to": {
-    "one": "{count} credențială exportată în {path}",
     "few": "{count} credențiale exportate în {path}",
+    "one": "{count} credențială exportată în {path}",
     "other": "{count} de credențiale exportate în {path}"
   },
   "open_export.file_password": "Parola fișierului",
@@ -1085,8 +1088,8 @@
   "palette.sage": "Salvie",
   "palette.terracotta": "Teracotă",
   "password.chars_left": {
-    "one": "Mai e nevoie de {count} caracter",
     "few": "Mai e nevoie de {count} caractere",
+    "one": "Mai e nevoie de {count} caracter",
     "other": "Mai e nevoie de {count} de caractere"
   },
   "pending_change_box.accept_new_description": "Acceptă descrierea nouă",
@@ -1170,48 +1173,48 @@
   "recovery_code.used": "Ai folosit codul tău de recuperare, așa că nu mai funcționează. Acesta este cel nou: păstrează-l la fel ca pe cel vechi.",
   "recovery_code.vault_note": "Îl poți păstra în seiful tău personal, dar nu te ajută dacă pierzi chiar seiful (acest PC și backupurile lui): păstrează-l și în altă parte.",
   "reminder.ask_manager_in_case": {
-    "one": "Roagă-l pe cel care o gestionează s-o schimbe, în caz că a văzut-o.",
     "few": "Roagă-l pe cel care o gestionează s-o schimbe, în caz că au văzut-o.",
+    "one": "Roagă-l pe cel care o gestionează s-o schimbe, în caz că a văzut-o.",
     "other": "Roagă-l pe cel care o gestionează s-o schimbe, în caz că au văzut-o."
   },
   "reminder.change_in_case": {
-    "one": "Schimb-o, în caz că a văzut-o.",
     "few": "Schimb-o, în caz că au văzut-o.",
+    "one": "Schimb-o, în caz că a văzut-o.",
     "other": "Schimb-o, în caz că au văzut-o."
   },
   "reminder.change_people_had_it": {
-    "one": "De schimbat: o avea {names}",
     "few": "De schimbat: o aveau {names}",
+    "one": "De schimbat: o avea {names}",
     "other": "De schimbat: o aveau {names}"
   },
   "reminder.change_people_left": {
-    "one": "De schimbat: {names} a plecat",
     "few": "De schimbat: {names} au plecat",
+    "one": "De schimbat: {names} a plecat",
     "other": "De schimbat: {names} au plecat"
   },
   "reminder.expired_ago": {
-    "one": "A expirat acum {count} zi. Creează o cheie nouă sau rotește-o.",
     "few": "A expirat acum {count} zile. Creează o cheie nouă sau rotește-o.",
+    "one": "A expirat acum {count} zi. Creează o cheie nouă sau rotește-o.",
     "other": "A expirat acum {count} de zile. Creează o cheie nouă sau rotește-o."
   },
   "reminder.expires_in": {
-    "one": "Expiră în {count} zi. Rotește-o înainte să nu mai funcționeze.",
     "few": "Expiră în {count} zile. Rotește-o înainte să nu mai funcționeze.",
+    "one": "Expiră în {count} zi. Rotește-o înainte să nu mai funcționeze.",
     "other": "Expiră în {count} de zile. Rotește-o înainte să nu mai funcționeze."
   },
   "reminder.key_age": {
-    "one": "Cheia are {count} zi. Merită s-o rotești din când în când.",
     "few": "Cheia are {count} zile. Merită s-o rotești din când în când.",
+    "one": "Cheia are {count} zi. Merită s-o rotești din când în când.",
     "other": "Cheia are {count} de zile. Merită s-o rotești din când în când."
   },
   "reminder.team_access_left": {
-    "one": "{names} avea acces la această credențială a echipei și nu mai face parte din echipă.",
     "few": "{names} aveau acces la această credențială a echipei și nu mai fac parte din echipă.",
+    "one": "{names} avea acces la această credențială a echipei și nu mai face parte din echipă.",
     "other": "{names} aveau acces la această credențială a echipei și nu mai fac parte din echipă."
   },
   "reminder.unshared_access": {
-    "one": "{names} avea acces la această credențială și nu-l mai are.",
     "few": "{names} aveau acces la această credențială și nu-l mai au.",
+    "one": "{names} avea acces la această credențială și nu-l mai are.",
     "other": "{names} aveau acces la această credențială și nu-l mai au."
   },
   "reminder_short.change_had_it": "De schimbat: o aveau {length}",
@@ -1362,22 +1365,22 @@
   "rotation.id_changed_app": "S-a schimbat: am creat o aplicație nouă.",
   "rotation.id_changed_client": "S-a schimbat: am creat un client nou.",
   "rotation.n_places": {
-    "one": "{count} loc",
     "few": "{count} locuri",
+    "one": "{count} loc",
     "other": "{count} de locuri"
   },
   "rotation.no_places_noted": "Niciun loc notat. Dacă o folosești în altă parte (un server, Vercel, altă aplicație…), schimb-o și acolo.",
   "rotation.no_places_noted_revoke": "Niciun loc notat. Dacă o folosești în altă parte (un server, Vercel, altă aplicație…), schimb-o și acolo înainte de a o revoca pe cea veche.",
   "rotation.old_key_exposed": {
-    "one": "Cheia veche era în clar în {count} loc. Imediat ce o revoci, copia aceea nu mai e un risc.",
     "few": "Cheia veche era în clar în {count} locuri. Imediat ce o revoci, copiile acelea nu mai sunt un risc.",
+    "one": "Cheia veche era în clar în {count} loc. Imediat ce o revoci, copia aceea nu mai e un risc.",
     "other": "Cheia veche era în clar în {count} de locuri. Imediat ce o revoci, copiile acelea nu mai sunt un risc."
   },
   "rotation.pending_kept_key": "Cheia nouă rămâne salvată aici ca în așteptare: când revii la „Rotește cu ajutor”, poți termina.",
   "rotation.pending_kept_password": "Parola nouă rămâne salvată aici ca în așteptare: când revii la „Rotește cu ajutor”, poți termina.",
   "rotation.places_missing": {
-    "one": "Mai rămâne {count}. {then}",
     "few": "Mai rămân {count}. {then}",
+    "one": "Mai rămâne {count}. {then}",
     "other": "Mai rămân {count}. {then}"
   },
   "rotation.proof_copy_key": "Pentru a copia cheia nouă pentru {name}.",
@@ -1431,8 +1434,8 @@
   "server_admin.backup_reason": "Pentru a face un backup al serverului.",
   "server_admin.backups": "Backupuri",
   "server_admin.backups_kept": {
-    "one": "{count} păstrat",
     "few": "{count} păstrate",
+    "one": "{count} păstrat",
     "other": "{count} păstrate"
   },
   "server_admin.being_replaced": "Acces pierdut: un cont nou așteaptă să-l înlocuiască",
@@ -1440,8 +1443,8 @@
   "server_admin.change_owner_text": "Alege pe cineva care e deja în organizație. Cine era deja proprietar rămâne; noul proprietar poate schimba asta în Persoane.",
   "server_admin.change_owner_title": "Proprietarul {org}",
   "server_admin.collections_count": {
-    "one": "{count} colecție",
     "few": "{count} colecții",
+    "one": "{count} colecție",
     "other": "{count} de colecții"
   },
   "server_admin.copy_code_only": "Copiază doar codul",
@@ -1572,8 +1575,8 @@
   "settings.app": "Aplicație",
   "settings.appearance": "Aspect",
   "settings.approved_now": {
-    "one": "O credențială aprobată chiar acum.",
     "few": "{count} credențiale aprobate chiar acum.",
+    "one": "O credențială aprobată chiar acum.",
     "other": "{count} de credențiale aprobate chiar acum."
   },
   "settings.ask_again_if_used_lot": "Întreabă din nou dacă e folosită mult",
@@ -1659,23 +1662,23 @@
   "setup.you_ll_only_type_master": "Vei scrie parola principală doar ca să restaurezi backupuri sau pe alt PC.",
   "setup.your_keys_used_without_being": "Cheile tale, folosite fără să fie văzute",
   "share.credentials_shared_in": {
-    "one": "{count} credențială partajată în {name}",
     "few": "{count} credențiale partajate în {name}",
+    "one": "{count} credențială partajată în {name}",
     "other": "{count} de credențiale partajate în {name}"
   },
   "share.not_shared": {
-    "one": "{count} nu a putut fi partajată: {error}",
     "few": "{count} nu au putut fi partajate: {error}",
+    "one": "{count} nu a putut fi partajată: {error}",
     "other": "{count} nu au putut fi partajate: {error}"
   },
   "share.shared_in": {
-    "one": "{count} partajată în {name}",
     "few": "{count} partajate în {name}",
+    "one": "{count} partajată în {name}",
     "other": "{count} de partajate în {name}"
   },
   "share.shared_with_count": {
-    "one": "{count} partajată cu {name}",
     "few": "{count} partajate cu {name}",
+    "one": "{count} partajată cu {name}",
     "other": "{count} de partajate cu {name}"
   },
   "share.shared_with_one": "Partajată cu {name}",
@@ -1699,8 +1702,8 @@
   "share_with_person.nothing_to_share": "Nu ai credențiale proprii de partajat.",
   "share_with_person.search": "Caută",
   "share_with_person.share_count": {
-    "one": "Partajează {count}",
     "few": "Partajează {count}",
+    "one": "Partajează {count}",
     "other": "Partajează {count}"
   },
   "shared_badge.shared": "Partajată · {value}",
@@ -1759,6 +1762,7 @@
   "show_form.change_type": "Schimbă tipul",
   "show_form.changed_while_you_were_editing": "S-a modificat în timp ce o editai",
   "show_form.changes_saved": "Modificări salvate",
+  "show_form.config_not_secret": "Nu e un secret: IA vede aceste date, iar sb run le dă fără să te întrebe. De aceea nu are permisiuni, rotație sau verificări.",
   "show_form.data_ai_can_insert_without": "Date pe care IA le poate insera fără să le vadă",
   "show_form.deploy_token": "Token de deploy",
   "show_form.discard_changes": "Renunți la modificări?",
@@ -1808,13 +1812,13 @@
   "sidebar.closes_with_windows": "Seiful se închide când blochezi Windows.",
   "sidebar.closes_with_windows_or_idle": "Seiful se închide când blochezi Windows sau după o perioadă de nefolosire și se redeschide singur.",
   "sidebar.drafts_waiting": {
-    "one": "O credențială pregătită de IA își așteaptă cheia.",
     "few": "{count} credențiale pregătite de IA își așteaptă cheile.",
+    "one": "O credențială pregătită de IA își așteaptă cheia.",
     "other": "{count} de credențiale pregătite de IA își așteaptă cheile."
   },
   "sidebar.to_review": {
-    "one": "De revizuit: {count}",
     "few": "De revizuit: {count}",
+    "one": "De revizuit: {count}",
     "other": "De revizuit: {count}"
   },
   "sort.need_attention": "Necesită atenție",
@@ -1827,8 +1831,8 @@
   "source.settings": "Setări",
   "source.terminal_history": "Istoricul terminalului",
   "status.used_in_places": {
-    "one": "Folosită în {count} loc",
     "few": "Folosită în {count} locuri",
+    "one": "Folosită în {count} loc",
     "other": "Folosită în {count} de locuri"
   },
   "status_strip.app_doesn_know_how_test": "Aplicația nu știe cum să testeze această cheie: spune-i ce cerere o testează",
@@ -1864,33 +1868,33 @@
   "sync_line.will_retry_by_itself": "Se va reîncerca singur.",
   "team.another_account": "alt cont",
   "team.changes_wait_rekey": {
-    "one": "{count} modificare așteaptă ca colecția ei să fie re-criptată.",
     "few": "{count} modificări așteaptă ca colecția lor să fie re-criptată.",
+    "one": "{count} modificare așteaptă ca colecția ei să fie re-criptată.",
     "other": "{count} de modificări așteaptă ca colecția lor să fie re-criptată."
   },
   "team.disconnect_removes": {
-    "one": "Credențiala echipei e eliminată de pe acest PC; rămâne pe server pentru toți ceilalți. Cele pe care le-ai partajat din seiful tău și modificările netrimise rămân personale.",
     "few": "Cele {count} credențiale ale echipei sunt eliminate de pe acest PC; rămân pe server pentru toți ceilalți. Cele pe care le-ai partajat din seiful tău și modificările netrimise rămân personale.",
+    "one": "Credențiala echipei e eliminată de pe acest PC; rămâne pe server pentru toți ceilalți. Cele pe care le-ai partajat din seiful tău și modificările netrimise rămân personale.",
     "other": "Cele {count} de credențiale ale echipei sunt eliminate de pe acest PC; rămân pe server pentru toți ceilalți. Cele pe care le-ai partajat din seiful tău și modificările netrimise rămân personale."
   },
   "team.people_to_verify": {
-    "one": "{count} persoană de verificat",
     "few": "{count} persoane de verificat",
+    "one": "{count} persoană de verificat",
     "other": "{count} de persoane de verificat"
   },
   "team.rekey_by_managers": {
-    "one": "Încă una e re-criptată de cine o gestionează.",
     "few": "Alte {count} sunt re-criptate de cei care le gestionează.",
+    "one": "Încă una e re-criptată de cine o gestionează.",
     "other": "Alte {count} sunt re-criptate de cei care le gestionează."
   },
   "team.rekey_next_sync": {
-    "one": "{count} colecție va fi re-criptată la următoarea sincronizare.",
     "few": "{count} colecții vor fi re-criptate la următoarea sincronizare.",
+    "one": "{count} colecție va fi re-criptată la următoarea sincronizare.",
     "other": "{count} de colecții vor fi re-criptate la următoarea sincronizare."
   },
   "team.rekey_on_reconnect": {
-    "one": "{count} colecție va fi re-criptată la reconectare.",
     "few": "{count} colecții vor fi re-criptate la reconectare.",
+    "one": "{count} colecție va fi re-criptată la reconectare.",
     "other": "{count} de colecții vor fi re-criptate la reconectare."
   },
   "team.this_pc": "acest PC: {device}",
@@ -2069,65 +2073,65 @@
   "time.date_at": "pe {date} la {time}",
   "time.day_time": "{day} {time}",
   "time.days_ago": {
-    "one": "acum {count} zi",
     "few": "acum {count} zile",
+    "one": "acum {count} zi",
     "other": "acum {count} de zile"
   },
   "time.every_hours": {
-    "one": "în fiecare oră",
     "few": "la fiecare {count} ore",
+    "one": "în fiecare oră",
     "other": "la fiecare {count} de ore"
   },
   "time.every_months": {
-    "one": "în fiecare lună",
     "few": "la fiecare {count} luni",
+    "one": "în fiecare lună",
     "other": "la fiecare {count} de luni"
   },
   "time.hours": {
-    "one": "{count} oră",
     "few": "{count} ore",
+    "one": "{count} oră",
     "other": "{count} de ore"
   },
   "time.hours_ago": "acum {count} h",
   "time.hours_label": "ore",
   "time.hours_short": "{count} h",
   "time.in_days": {
-    "one": "peste {count} zi",
     "few": "peste {count} zile",
+    "one": "peste {count} zi",
     "other": "peste {count} de zile"
   },
   "time.in_months": {
-    "one": "peste {count} lună",
     "few": "peste {count} luni",
+    "one": "peste {count} lună",
     "other": "peste {count} de luni"
   },
   "time.in_years": {
-    "one": "peste un an",
     "few": "peste {count} ani",
+    "one": "peste un an",
     "other": "peste {count} de ani"
   },
   "time.minutes": {
-    "one": "{count} minut",
     "few": "{count} minute",
+    "one": "{count} minut",
     "other": "{count} de minute"
   },
   "time.minutes_ago": "acum {count} min",
   "time.minutes_short": "{count} min",
   "time.months": {
-    "one": "{count} lună",
     "few": "{count} luni",
+    "one": "{count} lună",
     "other": "{count} de luni"
   },
   "time.months_ago": {
-    "one": "acum {count} lună",
     "few": "acum {count} luni",
+    "one": "acum {count} lună",
     "other": "acum {count} de luni"
   },
   "time.now": "chiar acum",
   "time.relative_day_at": "{day} la {time}",
   "time.years_ago": {
-    "one": "acum {count} an",
     "few": "acum {count} ani",
+    "one": "acum {count} an",
     "other": "acum {count} de ani"
   },
   "totp_prop.2fa_code_copied_valid_for": "Cod 2FA copiat · mai e valabil {remaining} s",
@@ -2173,8 +2177,8 @@
   "used_in_modal.where_is_used": "Unde e folosită {name}",
   "used_in_modal.where_used_hasn_been_noted": "Nu s-a notat unde e folosită.",
   "verify.shares_collections": {
-    "one": "Partajează o colecție cu tine: verifică-l ca s-o primești.",
     "few": "Partajează {count} colecții cu tine: verifică-l ca să le primești.",
+    "one": "Partajează o colecție cu tine: verifică-l ca s-o primești.",
     "other": "Partajează {count} de colecții cu tine: verifică-l ca să le primești."
   },
   "verify_email_card.e_mail_code": "Codul din e-mail",

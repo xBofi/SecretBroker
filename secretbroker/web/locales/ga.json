@@ -78,11 +78,11 @@
   "activity_detail.created": "cruthaithe",
   "activity_detail.credentials": {
     "=0": "folamh",
-    "one": "1 dintiúr",
-    "two": "{count} dhintiúr",
     "few": "{count} dhintiúr",
     "many": "{count} ndintiúr",
-    "other": "{count} dintiúr"
+    "one": "1 dintiúr",
+    "other": "{count} dintiúr",
+    "two": "{count} dhintiúr"
   },
   "activity_detail.from_collection": "Ó {name}",
   "activity_detail.idle_minutes": "gan úsáid le {minutes} nóim",
@@ -100,20 +100,20 @@
   "activity_filter.all": "Gach rud",
   "activity_filter.denied": "Diúltaithe",
   "ai.requests_count": {
-    "one": "{count} iarratas",
-    "two": "{count} iarratas",
     "few": "{count} iarratas",
     "many": "{count} n-iarratas",
-    "other": "{count} iarratas"
+    "one": "{count} iarratas",
+    "other": "{count} iarratas",
+    "two": "{count} iarratas"
   },
   "ai_change.rotation_guide": "Treoir uainíochta",
   "ai_change.sources": "foinsí: {sources}",
   "ai_change.steps": {
-    "one": "{count} chéim",
-    "two": "{count} chéim",
     "few": "{count} chéim",
     "many": "{count} gcéim",
-    "other": "{count} céim"
+    "one": "{count} chéim",
+    "other": "{count} céim",
+    "two": "{count} chéim"
   },
   "ai_change.test_request": "Iarratas tástála",
   "ai_client_list.not_installed": "Gan suiteáil: {names}.",
@@ -148,19 +148,19 @@
   "approval.allow_for_24_hours": "Ceadaigh ar feadh 24 uair an chloig",
   "approval.allow_for_8_hours": "Ceadaigh ar feadh 8 n-uaire an chloig",
   "approval.for_hours": {
-    "one": "ar feadh {count} uair an chloig",
-    "two": "ar feadh {count} uair an chloig",
     "few": "ar feadh {count} huaire an chloig",
     "many": "ar feadh {count} n-uaire an chloig",
-    "other": "ar feadh {count} uair an chloig"
+    "one": "ar feadh {count} uair an chloig",
+    "other": "ar feadh {count} uair an chloig",
+    "two": "ar feadh {count} uair an chloig"
   },
   "approval.position": "{position} as {total}",
   "approval.times_today": {
-    "one": "{count} uair inniu",
-    "two": "{count} uair inniu",
     "few": "{count} huaire inniu",
     "many": "{count} n-uaire inniu",
-    "other": "{count} uair inniu"
+    "one": "{count} uair inniu",
+    "other": "{count} uair inniu",
+    "two": "{count} uair inniu"
   },
   "approval.until_you_lock_vault": "go nglasálfaidh tú an taisceadán",
   "approval_banner.ai_requests": "{length} iarratas ón IS",
@@ -228,6 +228,7 @@
   "change_line.new_programs": "Ríomhchláir nua",
   "change_line.new_variables": "Athróga nua nó athraithe",
   "change_line.new_websites": "Láithreáin ghréasáin nua",
+  "change_line.secret_value_deleted": "scriostar an luach rúnda sábháilte",
   "change_master_password.change_master_password": "Chun an máistirphasfhocal a athrú.",
   "change_master_password.change_master_password_2": "Athraigh an máistirphasfhocal",
   "change_master_password.choose_new_master_password": "Roghnaigh máistirphasfhocal nua",
@@ -324,11 +325,11 @@
   "common.create_collection": "Chun an bailiúchán a chruthú.",
   "common.credentials": "Dintiúir",
   "common.credentials_count": {
-    "one": "{count} dintiúr",
-    "two": "{count} dhintiúr",
     "few": "{count} dhintiúr",
     "many": "{count} ndintiúr",
-    "other": "{count} dintiúr"
+    "one": "{count} dintiúr",
+    "other": "{count} dintiúr",
+    "two": "{count} dhintiúr"
   },
   "common.delete": "Scrios",
   "common.deleted": "Scriosta",
@@ -387,11 +388,11 @@
   "common.optional_suffix": " · roghnach",
   "common.organization": "Eagraíocht",
   "common.people_count": {
-    "one": "{count} duine",
-    "two": "{count} dhuine",
     "few": "{count} dhuine",
     "many": "{count} nduine",
-    "other": "{count} duine"
+    "one": "{count} duine",
+    "other": "{count} duine",
+    "two": "{count} dhuine"
   },
   "common.private_notes": "Nótaí príobháideacha",
   "common.provider_website": "suíomh gréasáin an tsoláthraí",
@@ -490,6 +491,7 @@
   "describe_permissions.run_on_this_pc": "Rith {value} ar an ríomhaire seo",
   "destination_label.github": "GitHub {repo}{value} · {name}",
   "detail.ai_knows_as": "Tugann an IS an t-ainm seo air ",
+  "detail.config_not_secret": "Ní rún í: feiceann an IS na sonraí seo agus tugann sb run do ríomhchláir iad gan cead a iarraidh ort. Ní athraítear í agus ní áirítear í mar nochta.",
   "detail.copied_cleared_in": "Cóipeáilte · glanfar é i gceann {result} s",
   "detail.copy": "Chun “{label}” de {name} a chóipeáil.",
   "detail.decide_in_team": "socraigh in Foireann",
@@ -510,28 +512,28 @@
   "direct_block.stop_proof": "Chun stop a chur le comhroinnt le {name}.",
   "direct_block.stop_sharing_with": "Stop ag comhroinnt le {name}",
   "direct_block.stop_text": {
-    "one": "Ní bhfaighidh {name} an dintiúr a chomhroinneann tú leo a thuilleadh. Fanann sé leatsa ar an ríomhaire seo.",
-    "two": "Ní bhfaighidh {name} na {count} dhintiúr a chomhroinneann tú leo a thuilleadh. Fanann siad leatsa ar an ríomhaire seo.",
     "few": "Ní bhfaighidh {name} na {count} dhintiúr a chomhroinneann tú leo a thuilleadh. Fanann siad leatsa ar an ríomhaire seo.",
     "many": "Ní bhfaighidh {name} na {count} ndintiúr a chomhroinneann tú leo a thuilleadh. Fanann siad leatsa ar an ríomhaire seo.",
-    "other": "Ní bhfaighidh {name} na {count} dintiúr a chomhroinneann tú leo a thuilleadh. Fanann siad leatsa ar an ríomhaire seo."
+    "one": "Ní bhfaighidh {name} an dintiúr a chomhroinneann tú leo a thuilleadh. Fanann sé leatsa ar an ríomhaire seo.",
+    "other": "Ní bhfaighidh {name} na {count} dintiúr a chomhroinneann tú leo a thuilleadh. Fanann siad leatsa ar an ríomhaire seo.",
+    "two": "Ní bhfaighidh {name} na {count} dhintiúr a chomhroinneann tú leo a thuilleadh. Fanann siad leatsa ar an ríomhaire seo."
   },
   "direct_block.stop_title": "Stop ag comhroinnt le {name}?",
   "direct_block.stop_warning": {
-    "one": "D'fhéadfaidís é a fheiceáil nó a chóipeáil: meabhróimid duit é a athrú.",
-    "two": "D'fhéadfaidís iad a fheiceáil nó a chóipeáil: meabhróimid duit iad a athrú.",
     "few": "D'fhéadfaidís iad a fheiceáil nó a chóipeáil: meabhróimid duit iad a athrú.",
     "many": "D'fhéadfaidís iad a fheiceáil nó a chóipeáil: meabhróimid duit iad a athrú.",
-    "other": "D'fhéadfaidís iad a fheiceáil nó a chóipeáil: meabhróimid duit iad a athrú."
+    "one": "D'fhéadfaidís é a fheiceáil nó a chóipeáil: meabhróimid duit é a athrú.",
+    "other": "D'fhéadfaidís iad a fheiceáil nó a chóipeáil: meabhróimid duit iad a athrú.",
+    "two": "D'fhéadfaidís iad a fheiceáil nó a chóipeáil: meabhróimid duit iad a athrú."
   },
   "direct_block.stopped": "Ní chomhroinneann tú aon rud le {name} a thuilleadh",
   "direct_block.their_permission": "{name}: {value}",
   "direct_share.already_sharing": {
-    "one": "Comhroinneann tú {count} dintiúr le {name} cheana. Baineann an cead a roghnaíonn tú le gach rud a chomhroinneann tú leo.",
-    "two": "Comhroinneann tú {count} dhintiúr le {name} cheana. Baineann an cead a roghnaíonn tú le gach rud a chomhroinneann tú leo.",
     "few": "Comhroinneann tú {count} dhintiúr le {name} cheana. Baineann an cead a roghnaíonn tú le gach rud a chomhroinneann tú leo.",
     "many": "Comhroinneann tú {count} ndintiúr le {name} cheana. Baineann an cead a roghnaíonn tú le gach rud a chomhroinneann tú leo.",
-    "other": "Comhroinneann tú {count} dintiúr le {name} cheana. Baineann an cead a roghnaíonn tú le gach rud a chomhroinneann tú leo."
+    "one": "Comhroinneann tú {count} dintiúr le {name} cheana. Baineann an cead a roghnaíonn tú le gach rud a chomhroinneann tú leo.",
+    "other": "Comhroinneann tú {count} dintiúr le {name} cheana. Baineann an cead a roghnaíonn tú le gach rud a chomhroinneann tú leo.",
+    "two": "Comhroinneann tú {count} dhintiúr le {name} cheana. Baineann an cead a roghnaíonn tú le gach rud a chomhroinneann tú leo."
   },
   "direct_share.compare_code": "Iarr orthu a gcód slándála a léamh amach duit (ar an bhfón nó duine le duine) agus cuir i gcomparáid leis an gceann seo é. Ar an mbealach sin ní féidir le duine ar bith, fiú an freastalaí, eochair eile a shleamhnú isteach.",
   "direct_share.go_to_people": "Téigh go Daoine",
@@ -559,6 +561,7 @@
   "draw_team.sync_now": "Sioncrónaigh anois",
   "draw_team.synced": "Sioncrónaithe",
   "editor.aws_placeholder": "AWS pearsanta",
+  "editor.config_placeholder": "Client ID m'aip",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
   "editor.tags_placeholder": "siopa, táirgeadh",
   "empty_credentials.add_credential": "Cuir dintiúr leis",
@@ -574,11 +577,11 @@
   "env_import.config_written": "Tá comhad .secretbroker anois i bhfillteán an tionscadail le hainmneacha na ndintiúr, gan luachanna. Is féidir é a chur sa stór.",
   "env_import.file_deleted": "Scriosadh {name}",
   "env_import.import_keys": {
-    "one": "Iompórtáil {count} eochair",
-    "two": "Iompórtáil {count} eochair",
     "few": "Iompórtáil {count} eochair",
     "many": "Iompórtáil {count} n-eochair",
-    "other": "Iompórtáil {count} eochair"
+    "one": "Iompórtáil {count} eochair",
+    "other": "Iompórtáil {count} eochair",
+    "two": "Iompórtáil {count} eochair"
   },
   "env_import.keep_file": "Fág mar atá",
   "env_import.keys_removed": "Baineadh na heochracha as {name}",
@@ -588,11 +591,11 @@
   "env_import.remove_explained": "Bain amach as an gcomhad iad: fanann na hathróga eile, agus mura bhfanann aon cheann, scriostar an comhad.",
   "env_import.remove_from_file": "Bain as an gcomhad",
   "env_import.skipped_existing": {
-    "one": "Bhí {count} sa taisceadán cheana.",
-    "two": "Bhí {count} sa taisceadán cheana.",
     "few": "Bhí {count} sa taisceadán cheana.",
     "many": "Bhí {count} sa taisceadán cheana.",
-    "other": "Bhí {count} sa taisceadán cheana."
+    "one": "Bhí {count} sa taisceadán cheana.",
+    "other": "Bhí {count} sa taisceadán cheana.",
+    "two": "Bhí {count} sa taisceadán cheana."
   },
   "env_import.still_in_file": "Tá na heochracha seo fós i ngnáth-théacs in {name}.",
   "env_import.tick_keys": "Cuir tic leis na heochracha le bogadh isteach sa taisceadán. Ní fheiceann tú ach na hainmneacha anseo: téann na luachanna díreach isteach sa taisceadán, criptithe.",
@@ -607,11 +610,11 @@
   "exposure.couldn_load_status": "Níorbh fhéidir an stádas a lódáil.",
   "exposure.ignored": "ar neamhaird",
   "exposure.ignored_count": {
-    "one": "{count} ar neamhaird",
-    "two": "{count} ar neamhaird",
     "few": "{count} ar neamhaird",
     "many": "{count} ar neamhaird",
-    "other": "{count} ar neamhaird"
+    "one": "{count} ar neamhaird",
+    "other": "{count} ar neamhaird",
+    "two": "{count} ar neamhaird"
   },
   "exposure.last_search_files": "An cuardach is déanaí: {when} · {files} comhad",
   "exposure.looks_for_your_keys_in": "Lorgaíonn sé d'eochracha i gcomhráite IS, i stair an teirminéil, i socruithe do ríomhchlár, in athróga timpeallachta, i do thionscadail agus ina stair git. Tarlaíonn sé uile ar an ríomhaire seo.",
@@ -619,32 +622,32 @@
   "exposure.no_search_for_copies_yet": "Níor cuardaíodh cóipeanna fós",
   "exposure.paths_are_only_shown_after": "Ní thaispeántar na conairí ach amháin tar éis do chéannacht a fhíorú. ",
   "exposure.places": {
-    "one": "{count} áit",
-    "two": "{count} áit",
     "few": "{count} háit",
     "many": "{count} n-áit",
-    "other": "{count} áit"
+    "one": "{count} áit",
+    "other": "{count} áit",
+    "two": "{count} áit"
   },
   "exposure.removed_from_file": {
-    "one": "Bainte den chomhad ({count} uair)",
-    "two": "Bainte den chomhad ({count} uair)",
     "few": "Bainte den chomhad ({count} huaire)",
     "many": "Bainte den chomhad ({count} n-uaire)",
-    "other": "Bainte den chomhad ({count} uair)"
+    "one": "Bainte den chomhad ({count} uair)",
+    "other": "Bainte den chomhad ({count} uair)",
+    "two": "Bainte den chomhad ({count} uair)"
   },
   "exposure.revealed_times": {
-    "one": "Taispeánta nó cóipeáilte {count} uair",
-    "two": "Taispeánta nó cóipeáilte {count} uair",
     "few": "Taispeánta nó cóipeáilte {count} huaire",
     "many": "Taispeánta nó cóipeáilte {count} n-uaire",
-    "other": "Taispeánta nó cóipeáilte {count} uair"
+    "one": "Taispeánta nó cóipeáilte {count} uair",
+    "other": "Taispeánta nó cóipeáilte {count} uair",
+    "two": "Taispeánta nó cóipeáilte {count} uair"
   },
   "exposure.search_done_exposed": {
-    "one": "Cuardach críochnaithe: {count} dintiúr nochta",
-    "two": "Cuardach críochnaithe: {count} dhintiúr nochta",
     "few": "Cuardach críochnaithe: {count} dhintiúr nochta",
     "many": "Cuardach críochnaithe: {count} ndintiúr nochta",
-    "other": "Cuardach críochnaithe: {count} dintiúr nochta"
+    "one": "Cuardach críochnaithe: {count} dintiúr nochta",
+    "other": "Cuardach críochnaithe: {count} dintiúr nochta",
+    "two": "Cuardach críochnaithe: {count} dhintiúr nochta"
   },
   "exposure.search_for_copies": "Cuardaigh cóipeanna",
   "exposure.searches_this_pc_for_copies": "Cuardaíonn sé an ríomhaire seo le haghaidh cóipeanna d'eochracha agus tástálann sé gach ceann lena soláthraí",
@@ -723,102 +726,102 @@
   "generator_panel.very_weak": "An-lag",
   "generator_panel.words": "Focail",
   "health.count_expired": {
-    "one": "{count} as feidhm",
-    "two": "{count} as feidhm",
     "few": "{count} as feidhm",
     "many": "{count} as feidhm",
-    "other": "{count} as feidhm"
+    "one": "{count} as feidhm",
+    "other": "{count} as feidhm",
+    "two": "{count} as feidhm"
   },
   "health.count_expiring": {
-    "one": "{count} ag dul as feidhm go luath",
-    "two": "{count} ag dul as feidhm go luath",
     "few": "{count} ag dul as feidhm go luath",
     "many": "{count} ag dul as feidhm go luath",
-    "other": "{count} ag dul as feidhm go luath"
+    "one": "{count} ag dul as feidhm go luath",
+    "other": "{count} ag dul as feidhm go luath",
+    "two": "{count} ag dul as feidhm go luath"
   },
   "health.count_exposed": {
-    "one": "{count} nochta",
-    "two": "{count} nochta",
     "few": "{count} nochta",
     "many": "{count} nochta",
-    "other": "{count} nochta"
+    "one": "{count} nochta",
+    "other": "{count} nochta",
+    "two": "{count} nochta"
   },
   "health.count_half_rotated": {
-    "one": "{count} rothlú leathdhéanta",
-    "two": "{count} rothlú leathdhéanta",
     "few": "{count} rothlú leathdhéanta",
     "many": "{count} rothlú leathdhéanta",
-    "other": "{count} rothlú leathdhéanta"
+    "one": "{count} rothlú leathdhéanta",
+    "other": "{count} rothlú leathdhéanta",
+    "two": "{count} rothlú leathdhéanta"
   },
   "health.count_old": {
-    "one": "{count} sean",
-    "two": "{count} sean",
     "few": "{count} sean",
     "many": "{count} sean",
-    "other": "{count} sean"
+    "one": "{count} sean",
+    "other": "{count} sean",
+    "two": "{count} sean"
   },
   "health.count_old_alive": {
-    "one": "{count} agus an seancheann beo fós",
-    "two": "{count} agus an seancheann beo fós",
     "few": "{count} agus an seancheann beo fós",
     "many": "{count} agus an seancheann beo fós",
-    "other": "{count} agus an seancheann beo fós"
+    "one": "{count} agus an seancheann beo fós",
+    "other": "{count} agus an seancheann beo fós",
+    "two": "{count} agus an seancheann beo fós"
   },
   "health.count_pwned": {
-    "one": "{count} i sceitheanna",
-    "two": "{count} i sceitheanna",
     "few": "{count} i sceitheanna",
     "many": "{count} i sceitheanna",
-    "other": "{count} i sceitheanna"
+    "one": "{count} i sceitheanna",
+    "other": "{count} i sceitheanna",
+    "two": "{count} i sceitheanna"
   },
   "health.count_retired_pending": {
-    "one": "{count} agus an seancheann le cealú fós",
-    "two": "{count} agus an seancheann le cealú fós",
     "few": "{count} agus an seancheann le cealú fós",
     "many": "{count} agus an seancheann le cealú fós",
-    "other": "{count} agus an seancheann le cealú fós"
+    "one": "{count} agus an seancheann le cealú fós",
+    "other": "{count} agus an seancheann le cealú fós",
+    "two": "{count} agus an seancheann le cealú fós"
   },
   "health.count_reused": {
-    "one": "{count} athúsáidte",
-    "two": "{count} athúsáidte",
     "few": "{count} athúsáidte",
     "many": "{count} athúsáidte",
-    "other": "{count} athúsáidte"
+    "one": "{count} athúsáidte",
+    "other": "{count} athúsáidte",
+    "two": "{count} athúsáidte"
   },
   "health.count_team_access": {
-    "one": "{count} le rochtain ag duine a d'imigh",
-    "two": "{count} le rochtain ag duine a d'imigh",
     "few": "{count} le rochtain ag duine a d'imigh",
     "many": "{count} le rochtain ag duine a d'imigh",
-    "other": "{count} le rochtain ag duine a d'imigh"
+    "one": "{count} le rochtain ag duine a d'imigh",
+    "other": "{count} le rochtain ag duine a d'imigh",
+    "two": "{count} le rochtain ag duine a d'imigh"
   },
   "health.count_unchecked": {
-    "one": "{count} gan tástáil",
-    "two": "{count} gan tástáil",
     "few": "{count} gan tástáil",
     "many": "{count} gan tástáil",
-    "other": "{count} gan tástáil"
+    "one": "{count} gan tástáil",
+    "other": "{count} gan tástáil",
+    "two": "{count} gan tástáil"
   },
   "health.count_upload_failed": {
-    "one": "{count} gan uaslódáil",
-    "two": "{count} gan uaslódáil",
     "few": "{count} gan uaslódáil",
     "many": "{count} gan uaslódáil",
-    "other": "{count} gan uaslódáil"
+    "one": "{count} gan uaslódáil",
+    "other": "{count} gan uaslódáil",
+    "two": "{count} gan uaslódáil"
   },
   "health.count_was_exposed": {
-    "one": "{count} a bhí nochta",
-    "two": "{count} a bhí nochta",
     "few": "{count} a bhí nochta",
     "many": "{count} a bhí nochta",
-    "other": "{count} a bhí nochta"
+    "one": "{count} a bhí nochta",
+    "other": "{count} a bhí nochta",
+    "two": "{count} a bhí nochta"
   },
   "health.count_weak": {
-    "one": "{count} lag",
-    "two": "{count} lag",
     "few": "{count} lag",
     "many": "{count} lag",
-    "other": "{count} lag"
+    "one": "{count} lag",
+    "other": "{count} lag",
+    "two": "{count} lag"
   },
   "health.missing_both": "Le déanamh fós: {what}. Déanann “Seiceáil anois” an dá rud.",
   "health.missing_one": "Le déanamh fós: {what}. Déanann “Seiceáil anois” é.",
@@ -840,53 +843,53 @@
   "health_section.see_less": "Féach níos lú",
   "health_section.test_them_with_their_providers": "tástáil iad lena soláthraithe",
   "held.deleted": {
-    "one": "{count} dintiúr scriosta ón ríomhaire seo",
-    "two": "{count} dhintiúr scriosta ón ríomhaire seo",
     "few": "{count} dhintiúr scriosta ón ríomhaire seo",
     "many": "{count} ndintiúr scriosta ón ríomhaire seo",
-    "other": "{count} dintiúr scriosta ón ríomhaire seo"
+    "one": "{count} dintiúr scriosta ón ríomhaire seo",
+    "other": "{count} dintiúr scriosta ón ríomhaire seo",
+    "two": "{count} dhintiúr scriosta ón ríomhaire seo"
   },
   "held.deleted_by": {
-    "one": "Scrios {who} {count} dintiúr as “{collection_name}” d'aon iarraidh.",
-    "two": "Scrios {who} {count} dhintiúr as “{collection_name}” d'aon iarraidh.",
     "few": "Scrios {who} {count} dhintiúr as “{collection_name}” d'aon iarraidh.",
     "many": "Scrios {who} {count} ndintiúr as “{collection_name}” d'aon iarraidh.",
-    "other": "Scrios {who} {count} dintiúr as “{collection_name}” d'aon iarraidh."
+    "one": "Scrios {who} {count} dintiúr as “{collection_name}” d'aon iarraidh.",
+    "other": "Scrios {who} {count} dintiúr as “{collection_name}” d'aon iarraidh.",
+    "two": "Scrios {who} {count} dhintiúr as “{collection_name}” d'aon iarraidh."
   },
   "held.kept": {
-    "one": "{count} dintiúr coinnithe ar an ríomhaire seo",
-    "two": "{count} dhintiúr coinnithe ar an ríomhaire seo",
     "few": "{count} dhintiúr coinnithe ar an ríomhaire seo",
     "many": "{count} ndintiúr coinnithe ar an ríomhaire seo",
-    "other": "{count} dintiúr coinnithe ar an ríomhaire seo"
+    "one": "{count} dintiúr coinnithe ar an ríomhaire seo",
+    "other": "{count} dintiúr coinnithe ar an ríomhaire seo",
+    "two": "{count} dhintiúr coinnithe ar an ríomhaire seo"
   },
   "held.proof_delete": {
-    "one": "Chun {count} dintiúr a scriosadh ón ríomhaire seo.",
-    "two": "Chun {count} dhintiúr a scriosadh ón ríomhaire seo.",
     "few": "Chun {count} dhintiúr a scriosadh ón ríomhaire seo.",
     "many": "Chun {count} ndintiúr a scriosadh ón ríomhaire seo.",
-    "other": "Chun {count} dintiúr a scriosadh ón ríomhaire seo."
+    "one": "Chun {count} dintiúr a scriosadh ón ríomhaire seo.",
+    "other": "Chun {count} dintiúr a scriosadh ón ríomhaire seo.",
+    "two": "Chun {count} dhintiúr a scriosadh ón ríomhaire seo."
   },
   "held.proof_keep": {
-    "one": "Chun {count} dintiúr a choinneáil.",
-    "two": "Chun {count} dhintiúr a choinneáil.",
     "few": "Chun {count} dhintiúr a choinneáil.",
     "many": "Chun {count} ndintiúr a choinneáil.",
-    "other": "Chun {count} dintiúr a choinneáil."
+    "one": "Chun {count} dintiúr a choinneáil.",
+    "other": "Chun {count} dintiúr a choinneáil.",
+    "two": "Chun {count} dhintiúr a choinneáil."
   },
   "held.restored": {
-    "one": "{count} dintiúr athchóirithe don fhoireann ar fad",
-    "two": "{count} dhintiúr athchóirithe don fhoireann ar fad",
     "few": "{count} dhintiúr athchóirithe don fhoireann ar fad",
     "many": "{count} ndintiúr athchóirithe don fhoireann ar fad",
-    "other": "{count} dintiúr athchóirithe don fhoireann ar fad"
+    "one": "{count} dintiúr athchóirithe don fhoireann ar fad",
+    "other": "{count} dintiúr athchóirithe don fhoireann ar fad",
+    "two": "{count} dhintiúr athchóirithe don fhoireann ar fad"
   },
   "held.waiting": {
-    "one": "Tá {count} dintiúr ag fanacht le do chinneadh",
-    "two": "Tá {count} dhintiúr ag fanacht le do chinneadh",
     "few": "Tá {count} dhintiúr ag fanacht le do chinneadh",
     "many": "Tá {count} ndintiúr ag fanacht le do chinneadh",
-    "other": "Tá {count} dintiúr ag fanacht le do chinneadh"
+    "one": "Tá {count} dintiúr ag fanacht le do chinneadh",
+    "other": "Tá {count} dintiúr ag fanacht le do chinneadh",
+    "two": "Tá {count} dhintiúr ag fanacht le do chinneadh"
   },
   "held_deletions_card.collection_no_longer_appears_on": "Níl an bailiúchán “{collection_name}” le feiceáil ar an bhfreastalaí a thuilleadh (baineadh do rochtain, scriosadh é, nó tá fadhb ag an bhfreastalaí).",
   "held_deletions_card.delete_them_here_too": "Scrios anseo freisin iad",
@@ -897,68 +900,68 @@
   "held_deletions_card.restoring_them_puts_them_back": "Má athchóiríonn tú iad, cuirtear ar ais iad don fhoireann ar fad.",
   "import.already_in": "Ann cheana",
   "import.count_conflict": {
-    "one": "{count} le pasfhocal difriúil",
-    "two": "{count} le pasfhocal difriúil",
     "few": "{count} le pasfhocal difriúil",
     "many": "{count} le pasfhocal difriúil",
-    "other": "{count} le pasfhocal difriúil"
+    "one": "{count} le pasfhocal difriúil",
+    "other": "{count} le pasfhocal difriúil",
+    "two": "{count} le pasfhocal difriúil"
   },
   "import.count_duplicate": {
-    "one": "{count} sa taisceadán cheana",
-    "two": "{count} sa taisceadán cheana",
     "few": "{count} sa taisceadán cheana",
     "many": "{count} sa taisceadán cheana",
-    "other": "{count} sa taisceadán cheana"
+    "one": "{count} sa taisceadán cheana",
+    "other": "{count} sa taisceadán cheana",
+    "two": "{count} sa taisceadán cheana"
   },
   "import.count_new": {
-    "one": "{count} nua",
-    "two": "{count} nua",
     "few": "{count} nua",
     "many": "{count} nua",
-    "other": "{count} nua"
+    "one": "{count} nua",
+    "other": "{count} nua",
+    "two": "{count} nua"
   },
   "import.different_password": "Pasfhocal difriúil",
   "import.imported": {
-    "one": "{count} dintiúr iompórtáilte",
-    "two": "{count} dhintiúr iompórtáilte",
     "few": "{count} dhintiúr iompórtáilte",
     "many": "{count} ndintiúr iompórtáilte",
-    "other": "{count} dintiúr iompórtáilte"
+    "one": "{count} dintiúr iompórtáilte",
+    "other": "{count} dintiúr iompórtáilte",
+    "two": "{count} dhintiúr iompórtáilte"
   },
   "import.in_file": {
-    "one": "{count} dintiúr sa chomhad: ",
-    "two": "{count} dhintiúr sa chomhad: ",
     "few": "{count} dhintiúr sa chomhad: ",
     "many": "{count} ndintiúr sa chomhad: ",
-    "other": "{count} dintiúr sa chomhad: "
+    "one": "{count} dintiúr sa chomhad: ",
+    "other": "{count} dintiúr sa chomhad: ",
+    "two": "{count} dhintiúr sa chomhad: "
   },
   "import.skipped_summary": {
-    "one": "Ní iompórtálfar {count}",
-    "two": "Ní iompórtálfar {count}",
     "few": "Ní iompórtálfar {count}",
     "many": "Ní iompórtálfar {count}",
-    "other": "Ní iompórtálfar {count}"
+    "one": "Ní iompórtálfar {count}",
+    "other": "Ní iompórtálfar {count}",
+    "two": "Ní iompórtálfar {count}"
   },
   "import.stat_created": {
-    "one": "cruthaithe",
-    "two": "cruthaithe",
     "few": "cruthaithe",
     "many": "cruthaithe",
-    "other": "cruthaithe"
+    "one": "cruthaithe",
+    "other": "cruthaithe",
+    "two": "cruthaithe"
   },
   "import.stat_failed": {
-    "one": "teipthe",
-    "two": "teipthe",
     "few": "teipthe",
     "many": "teipthe",
-    "other": "teipthe"
+    "one": "teipthe",
+    "other": "teipthe",
+    "two": "teipthe"
   },
   "import.stat_skipped": {
-    "one": "scipeáilte",
-    "two": "scipeáilte",
     "few": "scipeáilte",
     "many": "scipeáilte",
-    "other": "scipeáilte"
+    "one": "scipeáilte",
+    "other": "scipeáilte",
+    "two": "scipeáilte"
   },
   "import_done.any_program_or_person_who": "Tá siad ag aon ríomhchlár nó duine a léann é. Scrios anois é, chomh maith le haon chóipeanna in Íoslódálacha, i do ríomhphost nó sa scamall.",
   "import_done.delete_file": "Scrios an comhad",
@@ -1042,11 +1045,11 @@
   "key_source_picker.where_do_i_get_key": "Cá bhfaighidh mé an eochair?",
   "level.not_checked": "Gan seiceáil",
   "list.selected": {
-    "one": "1 roghnaithe",
-    "two": "{count} roghnaithe",
     "few": "{count} roghnaithe",
     "many": "{count} roghnaithe",
-    "other": "{count} roghnaithe"
+    "one": "1 roghnaithe",
+    "other": "{count} roghnaithe",
+    "two": "{count} roghnaithe"
   },
   "lock.couldn_open_with_windows_session": "Níorbh fhéidir é a oscailt le seisiún Windows. Úsáid an pasfhocal.",
   "lock.for_security_there_no_other": "Ar mhaithe le slándáil, níl aon bhealach eile lena dhíchriptiú.",
@@ -1102,39 +1105,39 @@
   "new_org_modal.new_organization": "Eagraíocht nua",
   "new_org_modal.organization_is_team_has_its": "Is foireann í eagraíocht: tá a daoine agus a bailiúcháin féin aici.",
   "offboarding.changed": {
-    "one": "{count} athraithe",
-    "two": "{count} athraithe",
     "few": "{count} athraithe",
     "many": "{count} athraithe",
-    "other": "{count} athraithe"
+    "one": "{count} athraithe",
+    "other": "{count} athraithe",
+    "two": "{count} athraithe"
   },
   "offboarding.could_see": {
-    "one": "D'fhéadfadh {person} {count} dintiúr a fheiceáil",
-    "two": "D'fhéadfadh {person} {count} dhintiúr a fheiceáil",
     "few": "D'fhéadfadh {person} {count} dhintiúr a fheiceáil",
     "many": "D'fhéadfadh {person} {count} ndintiúr a fheiceáil",
-    "other": "D'fhéadfadh {person} {count} dintiúr a fheiceáil"
+    "one": "D'fhéadfadh {person} {count} dintiúr a fheiceáil",
+    "other": "D'fhéadfadh {person} {count} dintiúr a fheiceáil",
+    "two": "D'fhéadfadh {person} {count} dhintiúr a fheiceáil"
   },
   "offboarding.done_of_total": {
-    "one": "{done} as {count} athraithe",
-    "two": "{done} as {count} athraithe",
     "few": "{done} as {count} athraithe",
     "many": "{done} as {count} athraithe",
-    "other": "{done} as {count} athraithe"
+    "one": "{done} as {count} athraithe",
+    "other": "{done} as {count} athraithe",
+    "two": "{done} as {count} athraithe"
   },
   "offboarding.gone_to_change": {
-    "one": "D'imigh {person}: {count} dintiúr le hathrú",
-    "two": "D'imigh {person}: {count} dhintiúr le hathrú",
     "few": "D'imigh {person}: {count} dhintiúr le hathrú",
     "many": "D'imigh {person}: {count} ndintiúr le hathrú",
-    "other": "D'imigh {person}: {count} dintiúr le hathrú"
+    "one": "D'imigh {person}: {count} dintiúr le hathrú",
+    "other": "D'imigh {person}: {count} dintiúr le hathrú",
+    "two": "D'imigh {person}: {count} dhintiúr le hathrú"
   },
   "offboarding.unshared_to_change": {
-    "one": "Níl rochtain ag {person} a thuilleadh: {count} dintiúr le hathrú",
-    "two": "Níl rochtain ag {person} a thuilleadh: {count} dhintiúr le hathrú",
     "few": "Níl rochtain ag {person} a thuilleadh: {count} dhintiúr le hathrú",
     "many": "Níl rochtain ag {person} a thuilleadh: {count} ndintiúr le hathrú",
-    "other": "Níl rochtain ag {person} a thuilleadh: {count} dintiúr le hathrú"
+    "one": "Níl rochtain ag {person} a thuilleadh: {count} dintiúr le hathrú",
+    "other": "Níl rochtain ag {person} a thuilleadh: {count} dintiúr le hathrú",
+    "two": "Níl rochtain ag {person} a thuilleadh: {count} dhintiúr le hathrú"
   },
   "offboarding_card.they_could_see_or_copy": "D'fhéadfaidís é a fheiceáil nó a chóipeáil. Athraigh é; mura tusa a bhainistíonn é, athraíonn an té a bhainistíonn é.",
   "offboarding_card.they_could_see_or_copy_2": "D'fhéadfaidís iad a fheiceáil nó a chóipeáil. Athraigh iad ceann ar cheann; athraíonn an té a bhainistíonn iad na cinn nach mbainistíonn tusa.",
@@ -1146,11 +1149,11 @@
   "open_export.export_vault": "Easpórtáil an taisceadán",
   "open_export.export_vault_2": "Chun an taisceadán a easpórtáil.",
   "open_export.exported_to": {
-    "one": "{count} dintiúr easpórtáilte go {path}",
-    "two": "{count} dhintiúr easpórtáilte go {path}",
     "few": "{count} dhintiúr easpórtáilte go {path}",
     "many": "{count} ndintiúr easpórtáilte go {path}",
-    "other": "{count} dintiúr easpórtáilte go {path}"
+    "one": "{count} dintiúr easpórtáilte go {path}",
+    "other": "{count} dintiúr easpórtáilte go {path}",
+    "two": "{count} dhintiúr easpórtáilte go {path}"
   },
   "open_export.file_password": "Pasfhocal an chomhaid",
   "open_export.file_password_needs_at_least": "Teastaíonn 12 charachtar ar a laghad ó phasfhocal an chomhaid.",
@@ -1193,11 +1196,11 @@
   "palette.sage": "Sáiste",
   "palette.terracotta": "Terracotta",
   "password.chars_left": {
-    "one": "{count} charachtar eile le dul",
-    "two": "{count} charachtar eile le dul",
     "few": "{count} charachtar eile le dul",
     "many": "{count} gcarachtar eile le dul",
-    "other": "{count} carachtar eile le dul"
+    "one": "{count} charachtar eile le dul",
+    "other": "{count} carachtar eile le dul",
+    "two": "{count} charachtar eile le dul"
   },
   "pending_change_box.accept_new_description": "Glac leis an gcur síos nua",
   "pending_change_box.accept_new_guide": "Glac leis an treoir nua",
@@ -1280,67 +1283,67 @@
   "recovery_code.used": "D'úsáid tú do chód athshlánaithe, mar sin ní oibríonn sé a thuilleadh. Seo an ceann nua: coinnigh é mar a choinnigh tú an seancheann.",
   "recovery_code.vault_note": "Is ceart go leor é a choinneáil i do thaisceadán pearsanta, ach ní chabhróidh sé más é an taisceadán féin a chailleann tú (an ríomhaire seo agus a chúltacaí): coinnigh áit éigin eile é freisin.",
   "reminder.ask_manager_in_case": {
-    "one": "Iarr ar an té a bhainistíonn é é a athrú ar eagla go bhfaca siad é.",
-    "two": "Iarr ar an té a bhainistíonn é é a athrú ar eagla go bhfaca siad é.",
     "few": "Iarr ar an té a bhainistíonn é é a athrú ar eagla go bhfaca siad é.",
     "many": "Iarr ar an té a bhainistíonn é é a athrú ar eagla go bhfaca siad é.",
-    "other": "Iarr ar an té a bhainistíonn é é a athrú ar eagla go bhfaca siad é."
+    "one": "Iarr ar an té a bhainistíonn é é a athrú ar eagla go bhfaca siad é.",
+    "other": "Iarr ar an té a bhainistíonn é é a athrú ar eagla go bhfaca siad é.",
+    "two": "Iarr ar an té a bhainistíonn é é a athrú ar eagla go bhfaca siad é."
   },
   "reminder.change_in_case": {
-    "one": "Athraigh é ar eagla go bhfaca siad é.",
-    "two": "Athraigh é ar eagla go bhfaca siad é.",
     "few": "Athraigh é ar eagla go bhfaca siad é.",
     "many": "Athraigh é ar eagla go bhfaca siad é.",
-    "other": "Athraigh é ar eagla go bhfaca siad é."
+    "one": "Athraigh é ar eagla go bhfaca siad é.",
+    "other": "Athraigh é ar eagla go bhfaca siad é.",
+    "two": "Athraigh é ar eagla go bhfaca siad é."
   },
   "reminder.change_people_had_it": {
-    "one": "Athraigh: bhí sé ag {names}",
-    "two": "Athraigh: bhí sé ag {names}",
     "few": "Athraigh: bhí sé ag {names}",
     "many": "Athraigh: bhí sé ag {names}",
-    "other": "Athraigh: bhí sé ag {names}"
+    "one": "Athraigh: bhí sé ag {names}",
+    "other": "Athraigh: bhí sé ag {names}",
+    "two": "Athraigh: bhí sé ag {names}"
   },
   "reminder.change_people_left": {
-    "one": "Athraigh: d'imigh {names}",
-    "two": "Athraigh: d'imigh {names}",
     "few": "Athraigh: d'imigh {names}",
     "many": "Athraigh: d'imigh {names}",
-    "other": "Athraigh: d'imigh {names}"
+    "one": "Athraigh: d'imigh {names}",
+    "other": "Athraigh: d'imigh {names}",
+    "two": "Athraigh: d'imigh {names}"
   },
   "reminder.expired_ago": {
-    "one": "Chuaigh sé as feidhm {count} lá ó shin. Cruthaigh eochair nua nó rothlaigh é.",
-    "two": "Chuaigh sé as feidhm {count} lá ó shin. Cruthaigh eochair nua nó rothlaigh é.",
     "few": "Chuaigh sé as feidhm {count} lá ó shin. Cruthaigh eochair nua nó rothlaigh é.",
     "many": "Chuaigh sé as feidhm {count} lá ó shin. Cruthaigh eochair nua nó rothlaigh é.",
-    "other": "Chuaigh sé as feidhm {count} lá ó shin. Cruthaigh eochair nua nó rothlaigh é."
+    "one": "Chuaigh sé as feidhm {count} lá ó shin. Cruthaigh eochair nua nó rothlaigh é.",
+    "other": "Chuaigh sé as feidhm {count} lá ó shin. Cruthaigh eochair nua nó rothlaigh é.",
+    "two": "Chuaigh sé as feidhm {count} lá ó shin. Cruthaigh eochair nua nó rothlaigh é."
   },
   "reminder.expires_in": {
-    "one": "Rachaidh sé as feidhm i gceann {count} lá. Rothlaigh é sula stopann sé ag obair.",
-    "two": "Rachaidh sé as feidhm i gceann {count} lá. Rothlaigh é sula stopann sé ag obair.",
     "few": "Rachaidh sé as feidhm i gceann {count} lá. Rothlaigh é sula stopann sé ag obair.",
     "many": "Rachaidh sé as feidhm i gceann {count} lá. Rothlaigh é sula stopann sé ag obair.",
-    "other": "Rachaidh sé as feidhm i gceann {count} lá. Rothlaigh é sula stopann sé ag obair."
+    "one": "Rachaidh sé as feidhm i gceann {count} lá. Rothlaigh é sula stopann sé ag obair.",
+    "other": "Rachaidh sé as feidhm i gceann {count} lá. Rothlaigh é sula stopann sé ag obair.",
+    "two": "Rachaidh sé as feidhm i gceann {count} lá. Rothlaigh é sula stopann sé ag obair."
   },
   "reminder.key_age": {
-    "one": "Tá an eochair {count} lá d'aois. Is fiú í a rothlú ó am go chéile.",
-    "two": "Tá an eochair {count} lá d'aois. Is fiú í a rothlú ó am go chéile.",
     "few": "Tá an eochair {count} lá d'aois. Is fiú í a rothlú ó am go chéile.",
     "many": "Tá an eochair {count} lá d'aois. Is fiú í a rothlú ó am go chéile.",
-    "other": "Tá an eochair {count} lá d'aois. Is fiú í a rothlú ó am go chéile."
+    "one": "Tá an eochair {count} lá d'aois. Is fiú í a rothlú ó am go chéile.",
+    "other": "Tá an eochair {count} lá d'aois. Is fiú í a rothlú ó am go chéile.",
+    "two": "Tá an eochair {count} lá d'aois. Is fiú í a rothlú ó am go chéile."
   },
   "reminder.team_access_left": {
-    "one": "Bhí rochtain ag {names} ar an dintiúr foirne seo agus níl siad ar an bhfoireann a thuilleadh.",
-    "two": "Bhí rochtain ag {names} ar an dintiúr foirne seo agus níl siad ar an bhfoireann a thuilleadh.",
     "few": "Bhí rochtain ag {names} ar an dintiúr foirne seo agus níl siad ar an bhfoireann a thuilleadh.",
     "many": "Bhí rochtain ag {names} ar an dintiúr foirne seo agus níl siad ar an bhfoireann a thuilleadh.",
-    "other": "Bhí rochtain ag {names} ar an dintiúr foirne seo agus níl siad ar an bhfoireann a thuilleadh."
+    "one": "Bhí rochtain ag {names} ar an dintiúr foirne seo agus níl siad ar an bhfoireann a thuilleadh.",
+    "other": "Bhí rochtain ag {names} ar an dintiúr foirne seo agus níl siad ar an bhfoireann a thuilleadh.",
+    "two": "Bhí rochtain ag {names} ar an dintiúr foirne seo agus níl siad ar an bhfoireann a thuilleadh."
   },
   "reminder.unshared_access": {
-    "one": "Bhí rochtain ag {names} ar an dintiúr seo agus níl a thuilleadh.",
-    "two": "Bhí rochtain ag {names} ar an dintiúr seo agus níl a thuilleadh.",
     "few": "Bhí rochtain ag {names} ar an dintiúr seo agus níl a thuilleadh.",
     "many": "Bhí rochtain ag {names} ar an dintiúr seo agus níl a thuilleadh.",
-    "other": "Bhí rochtain ag {names} ar an dintiúr seo agus níl a thuilleadh."
+    "one": "Bhí rochtain ag {names} ar an dintiúr seo agus níl a thuilleadh.",
+    "other": "Bhí rochtain ag {names} ar an dintiúr seo agus níl a thuilleadh.",
+    "two": "Bhí rochtain ag {names} ar an dintiúr seo agus níl a thuilleadh."
   },
   "reminder_short.change_had_it": "Athraigh: bhí sé ag {length} duine",
   "reminder_short.change_left": "Athraigh: d'imigh {length}",
@@ -1490,29 +1493,29 @@
   "rotation.id_changed_app": "D'athraigh sé: chruthaigh mé aip nua.",
   "rotation.id_changed_client": "D'athraigh sé: chruthaigh mé cliant nua.",
   "rotation.n_places": {
-    "one": "{count} áit",
-    "two": "{count} áit",
     "few": "{count} háit",
     "many": "{count} n-áit",
-    "other": "{count} áit"
+    "one": "{count} áit",
+    "other": "{count} áit",
+    "two": "{count} áit"
   },
   "rotation.no_places_noted": "Níl aon áit breactha síos. Má úsáideann tú é in áit éigin eile (freastalaí, Vercel, aip eile…), athraigh ansin freisin é.",
   "rotation.no_places_noted_revoke": "Níl aon áit breactha síos. Má úsáideann tú é in áit éigin eile (freastalaí, Vercel, aip eile…), athraigh ansin freisin é sula gcealaíonn tú an seancheann.",
   "rotation.old_key_exposed": {
-    "one": "Bhí an tseaneochair mar ghnáththéacs in {count} áit. A luaithe a chealaíonn tú í, ní baol an chóip sin a thuilleadh.",
-    "two": "Bhí an tseaneochair mar ghnáththéacs in {count} áit. A luaithe a chealaíonn tú í, ní baol na cóipeanna sin a thuilleadh.",
     "few": "Bhí an tseaneochair mar ghnáththéacs in {count} háit. A luaithe a chealaíonn tú í, ní baol na cóipeanna sin a thuilleadh.",
     "many": "Bhí an tseaneochair mar ghnáththéacs in {count} n-áit. A luaithe a chealaíonn tú í, ní baol na cóipeanna sin a thuilleadh.",
-    "other": "Bhí an tseaneochair mar ghnáththéacs in {count} áit. A luaithe a chealaíonn tú í, ní baol na cóipeanna sin a thuilleadh."
+    "one": "Bhí an tseaneochair mar ghnáththéacs in {count} áit. A luaithe a chealaíonn tú í, ní baol an chóip sin a thuilleadh.",
+    "other": "Bhí an tseaneochair mar ghnáththéacs in {count} áit. A luaithe a chealaíonn tú í, ní baol na cóipeanna sin a thuilleadh.",
+    "two": "Bhí an tseaneochair mar ghnáththéacs in {count} áit. A luaithe a chealaíonn tú í, ní baol na cóipeanna sin a thuilleadh."
   },
   "rotation.pending_kept_key": "Fanann an eochair nua sábháilte anseo mar rud ar feitheamh: nuair a fhillfidh tú ar “Rothlaigh le cabhair”, is féidir leat é a chríochnú.",
   "rotation.pending_kept_password": "Fanann an pasfhocal nua sábháilte anseo mar rud ar feitheamh: nuair a fhillfidh tú ar “Rothlaigh le cabhair”, is féidir leat é a chríochnú.",
   "rotation.places_missing": {
-    "one": "{count} fágtha. {then}",
-    "two": "{count} fágtha. {then}",
     "few": "{count} fágtha. {then}",
     "many": "{count} fágtha. {then}",
-    "other": "{count} fágtha. {then}"
+    "one": "{count} fágtha. {then}",
+    "other": "{count} fágtha. {then}",
+    "two": "{count} fágtha. {then}"
   },
   "rotation.proof_copy_key": "Chun eochair nua {name} a chóipeáil.",
   "rotation.proof_copy_password": "Chun pasfhocal nua {name} a chóipeáil.",
@@ -1565,22 +1568,22 @@
   "server_admin.backup_reason": "Chun cúltaca a dhéanamh den fhreastalaí.",
   "server_admin.backups": "Cúltacaí",
   "server_admin.backups_kept": {
-    "one": "{count} coinnithe",
-    "two": "{count} coinnithe",
     "few": "{count} coinnithe",
     "many": "{count} coinnithe",
-    "other": "{count} coinnithe"
+    "one": "{count} coinnithe",
+    "other": "{count} coinnithe",
+    "two": "{count} coinnithe"
   },
   "server_admin.being_replaced": "Rochtain caillte: tá cuntas nua ag fanacht le teacht ina áit",
   "server_admin.change_owner": "Athraigh an t-úinéir",
   "server_admin.change_owner_text": "Roghnaigh duine atá san eagraíocht cheana. Fanann na húinéirí reatha ina n-úinéirí; is féidir leis an úinéir nua é sin a athrú in Daoine.",
   "server_admin.change_owner_title": "Úinéir {org}",
   "server_admin.collections_count": {
-    "one": "{count} bhailiúchán",
-    "two": "{count} bhailiúchán",
     "few": "{count} bhailiúchán",
     "many": "{count} mbailiúchán",
-    "other": "{count} bailiúchán"
+    "one": "{count} bhailiúchán",
+    "other": "{count} bailiúchán",
+    "two": "{count} bhailiúchán"
   },
   "server_admin.copy_code_only": "Cóipeáil an cód amháin",
   "server_admin.database_size": "sonraí: {size}",
@@ -1710,11 +1713,11 @@
   "settings.app": "Aip",
   "settings.appearance": "Cuma",
   "settings.approved_now": {
-    "one": "Dintiúr amháin ceadaithe faoi láthair.",
-    "two": "{count} dhintiúr ceadaithe faoi láthair.",
     "few": "{count} dhintiúr ceadaithe faoi láthair.",
     "many": "{count} ndintiúr ceadaithe faoi láthair.",
-    "other": "{count} dintiúr ceadaithe faoi láthair."
+    "one": "Dintiúr amháin ceadaithe faoi láthair.",
+    "other": "{count} dintiúr ceadaithe faoi láthair.",
+    "two": "{count} dhintiúr ceadaithe faoi láthair."
   },
   "settings.ask_again_if_used_lot": "Fiafraigh arís má úsáidtear go mór é",
   "settings.automatic_lock": "Glasáil uathoibríoch",
@@ -1799,32 +1802,32 @@
   "setup.you_ll_only_type_master": "Ní chlóscríobhfaidh tú an máistirphasfhocal ach chun cúltacaí a athchóiriú nó ar ríomhaire eile.",
   "setup.your_keys_used_without_being": "D'eochracha, á n-úsáid gan iad a fheiceáil",
   "share.credentials_shared_in": {
-    "one": "{count} dintiúr comhroinnte in {name}",
-    "two": "{count} dhintiúr comhroinnte in {name}",
     "few": "{count} dhintiúr comhroinnte in {name}",
     "many": "{count} ndintiúr comhroinnte in {name}",
-    "other": "{count} dintiúr comhroinnte in {name}"
+    "one": "{count} dintiúr comhroinnte in {name}",
+    "other": "{count} dintiúr comhroinnte in {name}",
+    "two": "{count} dhintiúr comhroinnte in {name}"
   },
   "share.not_shared": {
-    "one": "Níorbh fhéidir {count} a chomhroinnt: {error}",
-    "two": "Níorbh fhéidir {count} a chomhroinnt: {error}",
     "few": "Níorbh fhéidir {count} a chomhroinnt: {error}",
     "many": "Níorbh fhéidir {count} a chomhroinnt: {error}",
-    "other": "Níorbh fhéidir {count} a chomhroinnt: {error}"
+    "one": "Níorbh fhéidir {count} a chomhroinnt: {error}",
+    "other": "Níorbh fhéidir {count} a chomhroinnt: {error}",
+    "two": "Níorbh fhéidir {count} a chomhroinnt: {error}"
   },
   "share.shared_in": {
-    "one": "{count} comhroinnte in {name}",
-    "two": "{count} comhroinnte in {name}",
     "few": "{count} comhroinnte in {name}",
     "many": "{count} comhroinnte in {name}",
-    "other": "{count} comhroinnte in {name}"
+    "one": "{count} comhroinnte in {name}",
+    "other": "{count} comhroinnte in {name}",
+    "two": "{count} comhroinnte in {name}"
   },
   "share.shared_with_count": {
-    "one": "{count} comhroinnte le {name}",
-    "two": "{count} comhroinnte le {name}",
     "few": "{count} comhroinnte le {name}",
     "many": "{count} comhroinnte le {name}",
-    "other": "{count} comhroinnte le {name}"
+    "one": "{count} comhroinnte le {name}",
+    "other": "{count} comhroinnte le {name}",
+    "two": "{count} comhroinnte le {name}"
   },
   "share.shared_with_one": "Comhroinnte le {name}",
   "share_entries.choose_collection": "Roghnaigh bailiúchán.",
@@ -1847,11 +1850,11 @@
   "share_with_person.nothing_to_share": "Níl aon dintiúir de do chuid féin agat le comhroinnt.",
   "share_with_person.search": "Cuardaigh",
   "share_with_person.share_count": {
-    "one": "Comhroinn {count}",
-    "two": "Comhroinn {count}",
     "few": "Comhroinn {count}",
     "many": "Comhroinn {count}",
-    "other": "Comhroinn {count}"
+    "one": "Comhroinn {count}",
+    "other": "Comhroinn {count}",
+    "two": "Comhroinn {count}"
   },
   "shared_badge.shared": "Comhroinnte · {value}",
   "shared_badge.shared_by": "Comhroinnte ag {name}",
@@ -1909,6 +1912,7 @@
   "show_form.change_type": "Athraigh an cineál",
   "show_form.changed_while_you_were_editing": "Athraíodh é fad a bhí tú á chur in eagar",
   "show_form.changes_saved": "Athruithe sábháilte",
+  "show_form.config_not_secret": "Ní rún é: feiceann an IS na sonraí seo agus tugann sb run iad gan cead a iarraidh ort. Sin an fáth nach bhfuil ceadanna, athrú ná seiceálacha aici.",
   "show_form.data_ai_can_insert_without": "Sonraí is féidir leis an IS a chur isteach gan iad a fheiceáil",
   "show_form.deploy_token": "Comhartha imlonnaithe",
   "show_form.discard_changes": "Cuir na hathruithe i leataobh?",
@@ -1958,18 +1962,18 @@
   "sidebar.closes_with_windows": "Dúntar an taisceadán nuair a ghlasálann tú Windows.",
   "sidebar.closes_with_windows_or_idle": "Dúntar an taisceadán nuair a ghlasálann tú Windows nó tar éis tamaill gan úsáid, agus osclaíonn sé arís leis féin.",
   "sidebar.drafts_waiting": {
-    "one": "Tá dintiúr amháin a d'ullmhaigh an IS ag fanacht lena eochair.",
-    "two": "Tá {count} dhintiúr a d'ullmhaigh an IS ag fanacht lena n-eochracha.",
     "few": "Tá {count} dhintiúr a d'ullmhaigh an IS ag fanacht lena n-eochracha.",
     "many": "Tá {count} ndintiúr a d'ullmhaigh an IS ag fanacht lena n-eochracha.",
-    "other": "Tá {count} dintiúr a d'ullmhaigh an IS ag fanacht lena n-eochracha."
+    "one": "Tá dintiúr amháin a d'ullmhaigh an IS ag fanacht lena eochair.",
+    "other": "Tá {count} dintiúr a d'ullmhaigh an IS ag fanacht lena n-eochracha.",
+    "two": "Tá {count} dhintiúr a d'ullmhaigh an IS ag fanacht lena n-eochracha."
   },
   "sidebar.to_review": {
-    "one": "Le hathbhreithniú: {count}",
-    "two": "Le hathbhreithniú: {count}",
     "few": "Le hathbhreithniú: {count}",
     "many": "Le hathbhreithniú: {count}",
-    "other": "Le hathbhreithniú: {count}"
+    "one": "Le hathbhreithniú: {count}",
+    "other": "Le hathbhreithniú: {count}",
+    "two": "Le hathbhreithniú: {count}"
   },
   "sort.need_attention": "Aird ag teastáil",
   "sort.recently_changed": "Athraithe le déanaí",
@@ -1981,11 +1985,11 @@
   "source.settings": "Socruithe",
   "source.terminal_history": "Stair an teirminéil",
   "status.used_in_places": {
-    "one": "Úsáidte in {count} áit",
-    "two": "Úsáidte in {count} áit",
     "few": "Úsáidte in {count} háit",
     "many": "Úsáidte in {count} n-áit",
-    "other": "Úsáidte in {count} áit"
+    "one": "Úsáidte in {count} áit",
+    "other": "Úsáidte in {count} áit",
+    "two": "Úsáidte in {count} áit"
   },
   "status_strip.app_doesn_know_how_test": "Níl a fhios ag an aip conas an eochair seo a thástáil: inis di cén t-iarratas a thástálann í",
   "status_strip.can_be_tested": "Ní féidir é a thástáil",
@@ -2020,46 +2024,46 @@
   "sync_line.will_retry_by_itself": "Déanfaidh sé iarracht arís leis féin.",
   "team.another_account": "cuntas eile",
   "team.changes_wait_rekey": {
-    "one": "Tá {count} athrú ag fanacht go n-athchriptheofar a bhailiúchán.",
-    "two": "Tá {count} athrú ag fanacht go n-athchriptheofar a mbailiúchán.",
     "few": "Tá {count} athrú ag fanacht go n-athchriptheofar a mbailiúchán.",
     "many": "Tá {count} n-athrú ag fanacht go n-athchriptheofar a mbailiúchán.",
-    "other": "Tá {count} athrú ag fanacht go n-athchriptheofar a mbailiúchán."
+    "one": "Tá {count} athrú ag fanacht go n-athchriptheofar a bhailiúchán.",
+    "other": "Tá {count} athrú ag fanacht go n-athchriptheofar a mbailiúchán.",
+    "two": "Tá {count} athrú ag fanacht go n-athchriptheofar a mbailiúchán."
   },
   "team.disconnect_removes": {
-    "one": "Baintear dintiúr na foirne den ríomhaire seo; fanann sé ar an bhfreastalaí do gach duine eile. Fanann na cinn a chomhroinn tú ó do thaisceadán agus athruithe nár seoladh mar dhintiúir phearsanta.",
-    "two": "Baintear an {count} dhintiúr foirne den ríomhaire seo; fanann siad ar an bhfreastalaí do gach duine eile. Fanann na cinn a chomhroinn tú ó do thaisceadán agus athruithe nár seoladh mar dhintiúir phearsanta.",
     "few": "Baintear an {count} dhintiúr foirne den ríomhaire seo; fanann siad ar an bhfreastalaí do gach duine eile. Fanann na cinn a chomhroinn tú ó do thaisceadán agus athruithe nár seoladh mar dhintiúir phearsanta.",
     "many": "Baintear an {count} ndintiúr foirne den ríomhaire seo; fanann siad ar an bhfreastalaí do gach duine eile. Fanann na cinn a chomhroinn tú ó do thaisceadán agus athruithe nár seoladh mar dhintiúir phearsanta.",
-    "other": "Baintear an {count} dintiúr foirne den ríomhaire seo; fanann siad ar an bhfreastalaí do gach duine eile. Fanann na cinn a chomhroinn tú ó do thaisceadán agus athruithe nár seoladh mar dhintiúir phearsanta."
+    "one": "Baintear dintiúr na foirne den ríomhaire seo; fanann sé ar an bhfreastalaí do gach duine eile. Fanann na cinn a chomhroinn tú ó do thaisceadán agus athruithe nár seoladh mar dhintiúir phearsanta.",
+    "other": "Baintear an {count} dintiúr foirne den ríomhaire seo; fanann siad ar an bhfreastalaí do gach duine eile. Fanann na cinn a chomhroinn tú ó do thaisceadán agus athruithe nár seoladh mar dhintiúir phearsanta.",
+    "two": "Baintear an {count} dhintiúr foirne den ríomhaire seo; fanann siad ar an bhfreastalaí do gach duine eile. Fanann na cinn a chomhroinn tú ó do thaisceadán agus athruithe nár seoladh mar dhintiúir phearsanta."
   },
   "team.people_to_verify": {
-    "one": "{count} duine le fíorú",
-    "two": "{count} dhuine le fíorú",
     "few": "{count} dhuine le fíorú",
     "many": "{count} nduine le fíorú",
-    "other": "{count} duine le fíorú"
+    "one": "{count} duine le fíorú",
+    "other": "{count} duine le fíorú",
+    "two": "{count} dhuine le fíorú"
   },
   "team.rekey_by_managers": {
-    "one": "Athchriptíonn an té a bhainistíonn é ceann eile.",
-    "two": "Athchriptíonn an té a bhainistíonn iad {count} cinn eile.",
     "few": "Athchriptíonn an té a bhainistíonn iad {count} cinn eile.",
     "many": "Athchriptíonn an té a bhainistíonn iad {count} gcinn eile.",
-    "other": "Athchriptíonn an té a bhainistíonn iad {count} cinn eile."
+    "one": "Athchriptíonn an té a bhainistíonn é ceann eile.",
+    "other": "Athchriptíonn an té a bhainistíonn iad {count} cinn eile.",
+    "two": "Athchriptíonn an té a bhainistíonn iad {count} cinn eile."
   },
   "team.rekey_next_sync": {
-    "one": "Athchriptheofar {count} bhailiúchán ag an gcéad sioncrónú eile.",
-    "two": "Athchriptheofar {count} bhailiúchán ag an gcéad sioncrónú eile.",
     "few": "Athchriptheofar {count} bhailiúchán ag an gcéad sioncrónú eile.",
     "many": "Athchriptheofar {count} mbailiúchán ag an gcéad sioncrónú eile.",
-    "other": "Athchriptheofar {count} bailiúchán ag an gcéad sioncrónú eile."
+    "one": "Athchriptheofar {count} bhailiúchán ag an gcéad sioncrónú eile.",
+    "other": "Athchriptheofar {count} bailiúchán ag an gcéad sioncrónú eile.",
+    "two": "Athchriptheofar {count} bhailiúchán ag an gcéad sioncrónú eile."
   },
   "team.rekey_on_reconnect": {
-    "one": "Athchriptheofar {count} bhailiúchán nuair a athcheanglaítear.",
-    "two": "Athchriptheofar {count} bhailiúchán nuair a athcheanglaítear.",
     "few": "Athchriptheofar {count} bhailiúchán nuair a athcheanglaítear.",
     "many": "Athchriptheofar {count} mbailiúchán nuair a athcheanglaítear.",
-    "other": "Athchriptheofar {count} bailiúchán nuair a athcheanglaítear."
+    "one": "Athchriptheofar {count} bhailiúchán nuair a athcheanglaítear.",
+    "other": "Athchriptheofar {count} bailiúchán nuair a athcheanglaítear.",
+    "two": "Athchriptheofar {count} bhailiúchán nuair a athcheanglaítear."
   },
   "team.this_pc": "an ríomhaire seo: {device}",
   "team_account_panel.disconnect_team_account": "Dícheangail cuntas na foirne?",
@@ -2237,88 +2241,88 @@
   "time.date_at": "ar {date} ag {time}",
   "time.day_time": "{day} {time}",
   "time.days_ago": {
-    "one": "{count} lá ó shin",
-    "two": "{count} lá ó shin",
     "few": "{count} lá ó shin",
     "many": "{count} lá ó shin",
-    "other": "{count} lá ó shin"
+    "one": "{count} lá ó shin",
+    "other": "{count} lá ó shin",
+    "two": "{count} lá ó shin"
   },
   "time.every_hours": {
-    "one": "gach uair an chloig",
-    "two": "gach {count} uair an chloig",
     "few": "gach {count} huaire an chloig",
     "many": "gach {count} n-uaire an chloig",
-    "other": "gach {count} uair an chloig"
+    "one": "gach uair an chloig",
+    "other": "gach {count} uair an chloig",
+    "two": "gach {count} uair an chloig"
   },
   "time.every_months": {
-    "one": "gach mí",
-    "two": "gach {count} mhí",
     "few": "gach {count} mhí",
     "many": "gach {count} mí",
-    "other": "gach {count} mí"
+    "one": "gach mí",
+    "other": "gach {count} mí",
+    "two": "gach {count} mhí"
   },
   "time.hours": {
-    "one": "{count} uair an chloig",
-    "two": "{count} uair an chloig",
     "few": "{count} huaire an chloig",
     "many": "{count} n-uaire an chloig",
-    "other": "{count} uair an chloig"
+    "one": "{count} uair an chloig",
+    "other": "{count} uair an chloig",
+    "two": "{count} uair an chloig"
   },
   "time.hours_ago": "{count} u ó shin",
   "time.hours_label": "uaireanta",
   "time.hours_short": "{count} u",
   "time.in_days": {
-    "one": "i gceann {count} lá",
-    "two": "i gceann {count} lá",
     "few": "i gceann {count} lá",
     "many": "i gceann {count} lá",
-    "other": "i gceann {count} lá"
+    "one": "i gceann {count} lá",
+    "other": "i gceann {count} lá",
+    "two": "i gceann {count} lá"
   },
   "time.in_months": {
-    "one": "i gceann {count} mhí",
-    "two": "i gceann {count} mhí",
     "few": "i gceann {count} mhí",
     "many": "i gceann {count} mí",
-    "other": "i gceann {count} mí"
+    "one": "i gceann {count} mhí",
+    "other": "i gceann {count} mí",
+    "two": "i gceann {count} mhí"
   },
   "time.in_years": {
-    "one": "i gceann bliana",
-    "two": "i gceann {count} bhliain",
     "few": "i gceann {count} bliana",
     "many": "i gceann {count} mbliana",
-    "other": "i gceann {count} bliain"
+    "one": "i gceann bliana",
+    "other": "i gceann {count} bliain",
+    "two": "i gceann {count} bhliain"
   },
   "time.minutes": {
-    "one": "{count} nóiméad",
-    "two": "{count} nóiméad",
     "few": "{count} nóiméad",
     "many": "{count} nóiméad",
-    "other": "{count} nóiméad"
+    "one": "{count} nóiméad",
+    "other": "{count} nóiméad",
+    "two": "{count} nóiméad"
   },
   "time.minutes_ago": "{count} nóim ó shin",
   "time.minutes_short": "{count} nóim",
   "time.months": {
-    "one": "{count} mhí",
-    "two": "{count} mhí",
     "few": "{count} mhí",
     "many": "{count} mí",
-    "other": "{count} mí"
+    "one": "{count} mhí",
+    "other": "{count} mí",
+    "two": "{count} mhí"
   },
   "time.months_ago": {
-    "one": "{count} mhí ó shin",
-    "two": "{count} mhí ó shin",
     "few": "{count} mhí ó shin",
     "many": "{count} mí ó shin",
-    "other": "{count} mí ó shin"
+    "one": "{count} mhí ó shin",
+    "other": "{count} mí ó shin",
+    "two": "{count} mhí ó shin"
   },
   "time.now": "díreach anois",
   "time.relative_day_at": "{day} ag {time}",
   "time.years_ago": {
-    "one": "{count} bhliain ó shin",
-    "two": "{count} bhliain ó shin",
     "few": "{count} bliana ó shin",
     "many": "{count} mbliana ó shin",
-    "other": "{count} bliain ó shin"
+    "one": "{count} bhliain ó shin",
+    "other": "{count} bliain ó shin",
+    "two": "{count} bhliain ó shin"
   },
   "totp_prop.2fa_code_copied_valid_for": "Cód 2FA cóipeáilte · bailí ar feadh {remaining} s eile",
   "totp_prop.copy_2fa_code": "Chun cód 2FA {name} a chóipeáil.",
@@ -2363,11 +2367,11 @@
   "used_in_modal.where_is_used": "Cá n-úsáidtear {name}",
   "used_in_modal.where_used_hasn_been_noted": "Níor breacadh síos cá n-úsáidtear é.",
   "verify.shares_collections": {
-    "one": "Comhroinneann siad bailiúchán leat: fíoraigh iad chun é a fháil.",
-    "two": "Comhroinneann siad {count} bhailiúchán leat: fíoraigh iad chun iad a fháil.",
     "few": "Comhroinneann siad {count} bhailiúchán leat: fíoraigh iad chun iad a fháil.",
     "many": "Comhroinneann siad {count} mbailiúchán leat: fíoraigh iad chun iad a fháil.",
-    "other": "Comhroinneann siad {count} bailiúchán leat: fíoraigh iad chun iad a fháil."
+    "one": "Comhroinneann siad bailiúchán leat: fíoraigh iad chun é a fháil.",
+    "other": "Comhroinneann siad {count} bailiúchán leat: fíoraigh iad chun iad a fháil.",
+    "two": "Comhroinneann siad {count} bhailiúchán leat: fíoraigh iad chun iad a fháil."
   },
   "verify_email_card.e_mail_code": "Cód ríomhphoist",
   "verify_email_card.invitations_only_reach_verified_addresse": ". Ní shroicheann cuirí ach seoltaí fíoraithe, mar sin ní féidir le haon duine do cheannsa a thógáil.",

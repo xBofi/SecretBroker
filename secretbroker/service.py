@@ -731,7 +731,12 @@ class Service:
                 if name in fields and fields[name] is None and old["fields"].get(name):
                     fields[name] = old["fields"][name]
         entry["fields"] = {k: v for k, v in fields.items() if v not in (None, "")}
-        if replaces and "rotation_guide" not in entry and old.get("rotation_guide"):
+        if templates.is_public(entry.get("template")):
+            # Configuration: no permissions to set (nothing secret to approve), nothing to rotate or test.
+            entry["policy"] = templates.default_policy(entry["template"], entry["fields"])
+            for key in ("rotate_every_days", "check_every_hours", "test_request", "rotation_guide", "draft"):
+                entry.pop(key, None)
+        elif replaces and "rotation_guide" not in entry and old.get("rotation_guide"):
             entry["rotation_guide"] = old["rotation_guide"]  # written by the AI; the editor doesn't show it
         if replaces and old.get("team_rotate"):
             entry["team_rotate"] = old["team_rotate"]  # who had it when it was shared: until its secret changes
@@ -1311,6 +1316,8 @@ class Service:
         timestamp = exposure.now_iso()
         items = []
         for entry in self.vault.entries():
+            if templates.is_public(entry["template"]):
+                continue  # configuration, not a secret: finding it in a file is not an exposure
             record = (data.get("entries") or {}).get(entry["id"])
             if record and record.get("fp") != exposure.secret_fingerprint(self.vault, entry):
                 record = None
@@ -1653,6 +1660,9 @@ class Service:
         if entry_id in {e["id"] for e in self.vault.entries()}:
             raise ServiceError(tr("service.credential_already_exists_use_update", entry_id=entry_id), "invalid")
         entry = self._ai_changes({"id": entry_id, "name": name, "template": template, "fields": {}}, params)
+        public = templates.is_public(template)
+        if public and not any(entry["fields"].get(n) for n in ("username", "value")):
+            raise ServiceError(tr("vault.config_needs_identifier_or_value"), "invalid")
         self._gate("create", entry, "draft", f"Preparar «{name}» ({templates.TEMPLATES[template]['label']})")
         placeholder_secrets = {n: "x" for n in templates.secret_field_names(template)}
         default = templates.default_policy(template, {**entry["fields"], **placeholder_secrets})
@@ -1663,10 +1673,14 @@ class Service:
         if "commands" in overrides:
             commands = policy.setdefault("commands", {"allowed": [], "env": {}})
             commands.update({k: v for k, v in overrides["commands"].items() if v or k not in commands})
-        policy["approval"] = "session"
-        entry.update(policy=policy, draft=True, description=entry.get("description", ""))
+        policy["approval"] = "never" if public else "session"
+        entry.update(policy=policy, draft=not public, description=entry.get("description", ""))
         self.vault.put(entry)
         self._audit(entry_id, "draft", "preparada por la IA", "ok")
+        if public:
+            return {"credential": agent_view(self.vault.get(entry_id)),
+                    **({} if entry.get("used_in") else {"used_in_question": USED_IN_QUESTION}),
+                    "next": "Lista para usar: no es secreta, así que sb run la da sin pedir aprobación."}
         return {"credential": agent_view(self.vault.get(entry_id)), **_paired_question(entry),
                 **({} if entry.get("used_in") else {"used_in_question": USED_IN_QUESTION}),
                 "next": "El usuario debe pegar la clave en la app SecretBroker; hasta entonces no se puede usar."}
@@ -1678,18 +1692,29 @@ class Service:
             entry = self.vault.get(params.get("secret_id"))
         except KeyError:
             raise ServiceError(tr("service.secret_doesn_exist", get=params.get('secret_id')), "not_found") from None
-        updated = self._ai_changes(entry, params)
+        target = params.get("template")
+        if target not in (None, "", entry["template"]):
+            if not templates.is_public(target):
+                raise ServiceError(tr("service.only_convert_to_config"), "invalid")
+            updated = self._ai_changes(_as_config(entry), {k: v for k, v in params.items() if k != "template"})
+            if not any(updated["fields"].get(n) for n in ("username", "value")):
+                raise ServiceError(tr("vault.config_needs_identifier_or_value"), "invalid")
+        else:
+            updated = self._ai_changes(entry, params)
         changes = _describe_changes(entry, updated)
         if changes:
             self._require_team_write(entry)
         if not changes:
             return {"credential": agent_view(entry), "changed": []}
-        risky = [line for key, line, _ in changes if key not in CONTEXT_KEYS]
+        converting = entry["template"] != updated["template"]
+        # Configuration has no secret to send anywhere: changing its data is like changing its notes.
+        risky = [] if templates.is_public(entry["template"]) else [line for key, line, _ in changes if key not in CONTEXT_KEYS]
         detail = "\n".join(line for _, line, _ in changes)
         capability = "create" if entry.get("draft") else "edit_config" if risky else "edit_notes"
         try:
             # What the AI writes on a team credential reaches every teammate's AI: the user always confirms it.
-            self._gate(capability, entry, "edit", detail, strict=bool(entry.get("shared")),
+            # Turning a credential into configuration drops its secret: always the user's call.
+            self._gate(capability, entry, "edit", detail, strict=bool(entry.get("shared")) or converting,
                        changes=[change for _, _, change in changes])
         except ServiceError as exc:
             self._audit(entry["id"], "edit", detail, "denied" if exc.code == "denied" else "error", str(exc))
@@ -1711,6 +1736,8 @@ class Service:
                 status = "missing"
             elif entry.get("draft"):
                 status = "draft"
+            elif templates.is_public(entry["template"]):
+                status = "ok" if _config_template(entry, item.get("field")) else "no_field"
             elif not env:
                 status = "no_env"
             elif item.get("name") and not item.get("field") and item["name"] not in env and "value" not in templates.placeholder_values(entry):
@@ -1798,6 +1825,9 @@ class Service:
     def op_ai_check(self, params):
         """Does the key still work? Plus what the AI may want to know before rotating it."""
         entry = self._get_secret(params.get("secret_id"))
+        if templates.is_public(entry["template"]):
+            return {"public": True, "message": "Es configuración, no un secreto: no se comprueba, no se rota y no "
+                    "cuenta como expuesta si aparece en un archivo.", "used_in": entry.get("used_in") or []}
         alive = exposure.check_alive(entry) or {"status": "unknown", "message": tr("service.this_type_credential_can_be")}
         alive = {**alive, "message": Redactor(entry)(str(alive.get("message") or ""))}
         self._audit(entry["id"], "check", alive.get("status", ""), "ok")
@@ -2412,6 +2442,11 @@ class Service:
         for secret_id, items in grouped.items():
             entry = self._get_secret(secret_id)
             mapping = (entry["policy"].get("commands") or {}).get("env") or {}
+            if not mapping and templates.is_public(entry["template"]):
+                # Configuration: any of its data, named by the variable; without a field, its value or else its ID.
+                mapping = {item["name"]: _config_template(entry, None) or "{{value}}" for item in items if item.get("name")}
+                if not mapping:
+                    raise ServiceError(tr("service.config_needs_variable_name", id=entry['id']), "invalid")
             if not mapping:
                 raise ServiceError(tr("service.has_no_environment_variables_in", id=entry['id']), "invalid")
             templates_by_name = {}
@@ -2426,8 +2461,10 @@ class Service:
         env, redact = {}, {}
         for entry, templates_by_name in entries:
             detail = f"{command}\n(en {cwd})\nVariables: {', '.join(templates_by_name)}"
+            public = templates.is_public(entry["template"])
             try:
-                if not self._gate("local_env", entry, "release_env", detail):
+                # Configuration is not secret: nothing to approve (it is still in the activity log).
+                if not public and not self._gate("local_env", entry, "release_env", detail):
                     self._authorize(entry, "release_env", detail)
                 values = {name: substitute(template, entry) for name, template in templates_by_name.items()}
             except (ServiceError, ActionError) as exc:
@@ -2436,7 +2473,7 @@ class Service:
                 raise
             self._audit(entry["id"], "release_env", detail, "ok")
             env.update(values)
-            released = list(values.values())
+            released = [] if public else list(values.values())  # an ID in the program's output is not a leak
             redact[entry["id"]] = released + [v for v in templates.secret_values(entry) if any(v in r for r in released)]
         return {"env": env, "redact": redact}
 
@@ -3069,6 +3106,28 @@ class Service:
 CHANGE_LABELS = {"name": "Nombre", "description": "Notas para la IA", "tags": "Etiquetas", "expires": "Caduca",
                  "rotate_every_days": "Rotar cada (días)", "rotation_guide": "Guía de rotación", "used_in": "Dónde se usa",
                  "check_every_hours": "Comprobar cada (horas)"}
+def _config_template(entry, field):
+    """What `sb run` gives from a configuration entry: the field asked for, or its value, or else its ID; None if empty."""
+    fields = entry["fields"]
+    name = field or ("value" if fields.get("value") else "username")
+    return "{{%s}}" % name if name in templates.PUBLIC_FIELDS and fields.get(name) else None
+
+
+def _as_config(entry):
+    """`entry` turned into configuration: its ID, address and notes stay; every secret is dropped (converting must
+    never show the AI what was hidden), and with it everything about rotating or testing it."""
+    entry = copy.deepcopy(entry)
+    secret_names = set(templates.secret_field_names(entry["template"]))
+    keep = [n for n in templates.PUBLIC_FIELDS if n not in secret_names] + ["notes"]
+    fields = {name: entry["fields"][name] for name in keep if entry["fields"].get(name)}
+    if not fields.get("url") and entry["fields"].get("base_url"):
+        fields["url"] = entry["fields"]["base_url"]
+    for key in ("draft", "rotate_every_days", "check_every_hours", "rotation_guide", "test_request"):
+        entry.pop(key, None)
+    entry.update(template="config", fields=fields, policy=templates.default_policy("config", fields))
+    return entry
+
+
 def _paired_question(entry):
     """For the AI: the id a secret goes with, or a question to settle it when nobody knows."""
     paired = rotation.paired_id(entry)
@@ -3126,9 +3185,16 @@ def _describe_changes(old, new):
                 value = f"{new[key]['method']} {new[key]['url']} → HTTP {new[key]['status']}"
             changes.append((key, f"{CHANGE_LABELS[key]}: «{value[:200]}»",
                             {"kind": "setting", "key": key, "value": _setting_value(key, new.get(key))}))
-    labels = {s["name"]: s["label"] for s in templates.field_specs(old["template"])}
+    if old["template"] != new["template"]:
+        names = {t: templates.TEMPLATES[t]["label"] for t in (old["template"], new["template"])}
+        dropped = any(old["fields"].get(name) for name in templates.key_field_names(old["template"]))
+        changes.append(("template", f"Tipo: {names[old['template']]} → {names[new['template']]}"
+                        + (" (se borra el valor secreto guardado)" if dropped else ""),
+                        {"kind": "template", "old": old["template"], "new": new["template"], "dropped": dropped}))
+    labels = {s["name"]: s["label"] for s in templates.field_specs(new["template"])}
+    hidden = set(templates.secret_field_names(old["template"])) | set(templates.secret_field_names(new["template"]))
     for name in sorted(set(old["fields"]) | set(new["fields"])):
-        if name in templates.SECRET_FIELDS or name in templates.secret_field_names(old["template"])                 or old["fields"].get(name) == new["fields"].get(name):
+        if name in hidden or old["fields"].get(name) == new["fields"].get(name):
             continue
         changes.append((name, f"{labels.get(name, name)}: {old['fields'].get(name) or '—'} → {new['fields'].get(name) or '—'}",
                         {"kind": "field", "field": name, "template": old["template"],
@@ -3158,6 +3224,9 @@ def change_line_text(change):
         return f"{label}: {change.get('old') or '—'} → {change.get('new') or '—'}"
     if kind in ("allowed_hosts", "programs", "env_vars"):
         return f"{tr('service.change_' + kind)}: {', '.join(change.get('values') or []) or '—'}"
+    if kind == "template":
+        label = (templates.TEMPLATES.get(change.get("new")) or {}).get("label", change.get("new"))
+        return f"{tr('service.change_template')}: {i18n.phrase('templates', label)}"
     key, value = change.get("key"), change.get("value")
     if value is None:
         text = "—"

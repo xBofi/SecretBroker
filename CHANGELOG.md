@@ -2,6 +2,14 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
+## Unreleased
+
+- **Configuration that is not secret.** A new kind of credential, «Configuración (no secreta)», keeps IDs and settings
+  a program needs but that aren't secrets (a public app's client ID, a tenant, an account ID). `.secretbroker` and
+  `sb run` give it like any other (`VAR = id:username`), without asking you; the AI sees its values; and it is never
+  reported as exposed, due for rotation or offered to be rotated. The AI can create one, or turn an existing credential
+  into one keeping its id (you confirm it, and the stored secret value is deleted, never shown).
+
 ## 0.18.3 (2026-11-13)
 
 - **The app's window always loads whole.** Its page asks for six files at once from a small local server that only

@@ -79,39 +79,39 @@
   "exposure.credential_doesn_say_how_put": "Poświadczenie nie określa, jak dodać klucz do żądania (Edytuj › sposób wysyłania klucza)",
   "exposure.list_and": "{names} i {last}",
   "exposure.places_ai": {
-    "one": "{count} rozmowie z AI",
     "few": "{count} rozmowach z AI",
     "many": "{count} rozmowach z AI",
+    "one": "{count} rozmowie z AI",
     "other": "{count} rozmowy z AI"
   },
   "exposure.places_config": {
-    "one": "{count} ustawieniu programu",
     "few": "{count} ustawieniach programów",
     "many": "{count} ustawieniach programów",
+    "one": "{count} ustawieniu programu",
     "other": "{count} ustawienia programów"
   },
   "exposure.places_env": {
-    "one": "{count} zmiennej środowiskowej",
     "few": "{count} zmiennych środowiskowych",
     "many": "{count} zmiennych środowiskowych",
+    "one": "{count} zmiennej środowiskowej",
     "other": "{count} zmiennej środowiskowej"
   },
   "exposure.places_git": {
-    "one": "{count} historii git",
     "few": "{count} historiach git",
     "many": "{count} historiach git",
+    "one": "{count} historii git",
     "other": "{count} historii git"
   },
   "exposure.places_history": {
-    "one": "{count} historii terminala",
     "few": "{count} historiach terminala",
     "many": "{count} historiach terminala",
+    "one": "{count} historii terminala",
     "other": "{count} historii terminala"
   },
   "exposure.places_project": {
-    "one": "{count} pliku projektu",
     "few": "{count} plikach projektów",
     "many": "{count} plikach projektów",
+    "one": "{count} pliku projektu",
     "other": "{count} pliku projektu"
   },
   "exposure.reason_ai_saw": "Widziała go AI: został wysłany do jej dostawcy.",
@@ -119,15 +119,15 @@
   "exposure.reason_invalid": "Nie działa: {message}.",
   "exposure.reason_present": "Jest jawnym tekstem w {places}.",
   "exposure.reason_pwned": {
-    "one": "To hasło pojawia się {times} raz w publicznych wyciekach.",
     "few": "To hasło pojawia się {times} razy w publicznych wyciekach.",
     "many": "To hasło pojawia się {times} razy w publicznych wyciekach.",
+    "one": "To hasło pojawia się {times} raz w publicznych wyciekach.",
     "other": "To hasło pojawia się {times} razy w publicznych wyciekach."
   },
   "exposure.reason_stale": {
-    "one": "Nie zmieniono go od {count} miesiąca.",
     "few": "Nie zmieniono go od {count} miesięcy.",
     "many": "Nie zmieniono go od {count} miesięcy.",
+    "one": "Nie zmieniono go od {count} miesiąca.",
     "other": "Nie zmieniono go od {count} miesiąca."
   },
   "exposure.reason_stopped": "Przestał działać: {message}. Jeśli go nie unieważniono, dostawca prawdopodobnie wykrył jego wyciek.",
@@ -140,15 +140,15 @@
   "exposure.unexpected_response_http": "Nieoczekiwana odpowiedź (HTTP {status_code}){_said}",
   "health.a_person": "Ktoś",
   "health.expired": {
-    "one": "Wygasło {count} dzień temu.",
     "few": "Wygasło {count} dni temu.",
     "many": "Wygasło {count} dni temu.",
+    "one": "Wygasło {count} dzień temu.",
     "other": "Wygasło {count} dnia temu."
   },
   "health.expiring": {
-    "one": "Wygasa za {count} dzień.",
     "few": "Wygasa za {count} dni.",
     "many": "Wygasa za {count} dni.",
+    "one": "Wygasa za {count} dzień.",
     "other": "Wygasa za {count} dnia."
   },
   "health.exposed": "Jest jawnym tekstem w pliku na tym komputerze.",
@@ -168,29 +168,29 @@
   "health.label_was_exposed": "Było ujawnione",
   "health.label_weak": "Słabe",
   "health.left_team_ask": {
-    "one": "Dostęp miała osoba {who}, która nie jest już w zespole: poproś zarządzającego, aby je zmienił.",
     "few": "Dostęp miały osoby {who}, które nie są już w zespole: poproś zarządzającego, aby je zmienił.",
     "many": "Dostęp miały osoby {who}, które nie są już w zespole: poproś zarządzającego, aby je zmienił.",
+    "one": "Dostęp miała osoba {who}, która nie jest już w zespole: poproś zarządzającego, aby je zmienił.",
     "other": "Dostęp miały osoby {who}, które nie są już w zespole: poproś zarządzającego, aby je zmienił."
   },
   "health.left_team_rotate": {
-    "one": "Dostęp miała osoba {who}, która nie jest już w zespole: zmień je na wypadek, gdyby je widziała.",
     "few": "Dostęp miały osoby {who}, które nie są już w zespole: zmień je na wypadek, gdyby je widziały.",
     "many": "Dostęp miały osoby {who}, które nie są już w zespole: zmień je na wypadek, gdyby je widziały.",
+    "one": "Dostęp miała osoba {who}, która nie jest już w zespole: zmień je na wypadek, gdyby je widziała.",
     "other": "Dostęp miały osoby {who}, które nie są już w zespole: zmień je na wypadek, gdyby je widziały."
   },
   "health.list_and": "{names} i {last}",
   "health.old": {
-    "one": "Klucz ma {count} dzień.",
     "few": "Klucz ma {count} dni.",
     "many": "Klucz ma {count} dni.",
+    "one": "Klucz ma {count} dzień.",
     "other": "Klucz ma {count} dnia."
   },
   "health.old_alive": "Wymieniono go, ale stary nadal działa: unieważnij go.",
   "health.pwned": {
-    "one": "Pojawia się {times} raz w publicznych wyciekach.",
     "few": "Pojawia się {times} razy w publicznych wyciekach.",
     "many": "Pojawia się {times} razy w publicznych wyciekach.",
+    "one": "Pojawia się {times} raz w publicznych wyciekach.",
     "other": "Pojawia się {times} razy w publicznych wyciekach."
   },
   "health.retired_pending": "Nowy klucz aktywny · stary trzeba jeszcze unieważnić u {provider}.",
@@ -201,16 +201,16 @@
   "health.thousands_separator": " ",
   "health.unchecked": "Jeszcze go nie przetestowano.",
   "health.unshared_rotate": {
-    "one": "Dostęp miała osoba {who}, która już go nie ma: zmień je na wypadek, gdyby je skopiowała.",
     "few": "Dostęp miały osoby {who}, które już go nie mają: zmień je na wypadek, gdyby je skopiowały.",
     "many": "Dostęp miały osoby {who}, które już go nie mają: zmień je na wypadek, gdyby je skopiowały.",
+    "one": "Dostęp miała osoba {who}, która już go nie ma: zmień je na wypadek, gdyby je skopiowała.",
     "other": "Dostęp miały osoby {who}, które już go nie mają: zmień je na wypadek, gdyby je skopiowały."
   },
   "health.upload_failed": "Nie udało się przesłać nowego do {place}: stary nadal tam jest.",
   "health.upload_failed_more": {
-    "one": "Nie udało się przesłać nowego do {place} ani {count} innego miejsca: stary nadal tam jest.",
     "few": "Nie udało się przesłać nowego do {place} ani {count} innych miejsc: stary nadal tam jest.",
     "many": "Nie udało się przesłać nowego do {place} ani {count} innych miejsc: stary nadal tam jest.",
+    "one": "Nie udało się przesłać nowego do {place} ani {count} innego miejsca: stary nadal tam jest.",
     "other": "Nie udało się przesłać nowego do {place} ani {count} innego miejsca: stary nadal tam jest."
   },
   "health.was_exposed": "Był jawnym tekstem w pliku. Warto go wymienić.",
@@ -313,9 +313,9 @@
   "resident.pause_ai": "Wstrzymaj AI",
   "resident.quit": "Zakończ",
   "resident.reminders_need_attention": {
-    "one": "Jedno poświadczenie wymaga uwagi",
     "few": "{count} poświadczenia wymagają uwagi",
     "many": "{count} poświadczeń wymaga uwagi",
+    "one": "Jedno poświadczenie wymaga uwagi",
     "other": "{count} poświadczenia wymaga uwagi"
   },
   "resident.resume_ai": "Wznów AI",
@@ -358,9 +358,9 @@
   "service.change_env_vars": "Zmienne środowiskowe",
   "service.change_every_days": "co {days} dni",
   "service.change_every_hours": {
-    "one": "co godzinę",
     "few": "co {count} godziny",
     "many": "co {count} godzin",
+    "one": "co godzinę",
     "other": "co {count} godziny"
   },
   "service.change_expires": "Wygasa",
@@ -373,15 +373,17 @@
   "service.change_rotate_every_days": "Przypominaj o wymianie",
   "service.change_rotation_guide": "Instrukcja rotacji",
   "service.change_steps": {
-    "one": "{count} krok",
     "few": "{count} kroki",
     "many": "{count} kroków",
+    "one": "{count} krok",
     "other": "{count} kroku"
   },
   "service.change_tags": "Tagi",
+  "service.change_template": "Typ danych logowania",
   "service.change_test_request": "Żądanie testowe",
   "service.change_used_in": "Gdzie jest używane",
   "service.collection_no_longer_appears_on": "Kolekcja nie jest już widoczna na serwerze. ",
+  "service.config_needs_variable_name": "„{id}” to konfiguracja: podaj nazwę zmiennej w .secretbroker (VARIABLE = {id}).",
   "service.confirm_it_you_once_windows": "Potwierdź raz swoją tożsamość (Windows Hello lub hasło), aby ",
   "service.connect_this_browser_secretbroker_from": "Połącz tę przeglądarkę z SecretBroker z poziomu rozszerzenia",
   "service.connection_request_has_expired_click": "Prośba o połączenie wygasła: ponownie kliknij „Połącz” w przeglądarce",
@@ -394,18 +396,18 @@
   "service.expected_response_must_be_code": "Oczekiwana odpowiedź musi być kodem od 200 do 399",
   "service.expected_response_must_be_http": "Oczekiwana odpowiedź musi być kodem HTTP, np. 200",
   "service.found_in_new_places": {
-    "one": "Znaleziono jawnym tekstem w {count} nowym miejscu",
     "few": "Znaleziono jawnym tekstem w {count} nowych miejscach",
     "many": "Znaleziono jawnym tekstem w {count} nowych miejscach",
+    "one": "Znaleziono jawnym tekstem w {count} nowym miejscu",
     "other": "Znaleziono jawnym tekstem w {count} nowego miejsca"
   },
   "service.generate_new_one": "wygeneruj nowe",
   "service.give_between_1_and_20": "Podaj od 1 do 20 poświadczeń w secret_ids",
   "service.has_no_environment_variables_in": "'{id}' nie ma w uprawnieniach zmiennych środowiskowych, więc nie można go przekazać programom lokalnym. Dodaj je w aplikacji SecretBroker.",
   "service.held_waiting": {
-    "one": "{count} poświadczenie z {collection} czeka na twoją decyzję",
     "few": "{count} poświadczenia z {collection} czekają na twoją decyzję",
     "many": "{count} poświadczeń z {collection} czeka na twoją decyzję",
+    "one": "{count} poświadczenie z {collection} czeka na twoją decyzję",
     "other": "{count} poświadczenia z {collection} czeka na twoją decyzję"
   },
   "service.import_has_expired_choose_file": "Import wygasł: wybierz plik ponownie",
@@ -439,6 +441,7 @@
   "service.only_api_keys_and_other": "Żądanie testowe mają tylko klucze API i inne sekrety",
   "service.only_api_keys_and_passwords": "W ten sposób wymienia się tylko klucze API i hasła",
   "service.only_api_keys_are_rotated": "wymieniane są tylko klucze API",
+  "service.only_convert_to_config": "Dane logowania można przekształcić tylko w konfigurację (template config).",
   "service.only_database_password_is_applied": "W ten sposób stosuje się tylko hasło do bazy danych",
   "service.only_user_can_write_value": "Tylko użytkownik może wpisać wartość „{name}”, w aplikacji",
   "service.open_secretbroker_team_and_sign": "Otwórz SecretBroker › Zespół i zaloguj się ponownie, aby dalej odbierać i wysyłać zmiany. Do tego czasu wszystko działa na tym, co już masz.",
@@ -474,9 +477,9 @@
   "service.purpose_totp_code": "zobaczyć kod 2FA",
   "service.request_is_no_longer_pending": "Żądanie już nie czeka na decyzję",
   "service.rotate_after_leave": {
-    "one": "Dostęp miała osoba {names}, która nie jest już w zespole. Zmień je na wypadek, gdyby je widziała.",
     "few": "Dostęp miały osoby {names}, które nie są już w zespole. Zmień je na wypadek, gdyby je widziały.",
     "many": "Dostęp miały osoby {names}, które nie są już w zespole. Zmień je na wypadek, gdyby je widziały.",
+    "one": "Dostęp miała osoba {names}, która nie jest już w zespole. Zmień je na wypadek, gdyby je widziała.",
     "other": "Dostęp miały osoby {names}, które nie są już w zespole. Zmień je na wypadek, gdyby je widziały."
   },
   "service.say_whether_is_still_same": "Określ, czy {label} jest nadal taki sam, czy się zmienił",
@@ -544,9 +547,9 @@
   "teams.admin_bad_signups": "Wybierz, czy rejestracja kont jest otwarta, tylko na zaproszenie czy zamknięta.",
   "teams.admin_last_admin": "To jedyne konto, które administruje serwerem: nie można go wyłączyć ani usunąć.",
   "teams.admin_last_manager": {
-    "one": "{person} to jedyna osoba, która zarządza kolekcją: ktoś z organizacji musi otrzymać w niej uprawnienie „Menedżer” (albo ją usunąć), zanim konto zostanie usunięte.",
     "few": "{person} to jedyna osoba, która zarządza {count} kolekcjami: ktoś z organizacji musi otrzymać w nich uprawnienie „Menedżer” (albo je usunąć), zanim konto zostanie usunięte.",
     "many": "{person} to jedyna osoba, która zarządza {count} kolekcjami: ktoś z organizacji musi otrzymać w nich uprawnienie „Menedżer” (albo je usunąć), zanim konto zostanie usunięte.",
+    "one": "{person} to jedyna osoba, która zarządza kolekcją: ktoś z organizacji musi otrzymać w niej uprawnienie „Menedżer” (albo ją usunąć), zanim konto zostanie usunięte.",
     "other": "{person} to jedyna osoba, która zarządza {count} kolekcji: ktoś z organizacji musi otrzymać w nich uprawnienie „Menedżer” (albo je usunąć), zanim konto zostanie usunięte."
   },
   "teams.admin_last_owner": "{person} to jedyny właściciel {orgs}: ustaw kogoś innego jako właściciela, zanim usuniesz konto.",
@@ -668,9 +671,11 @@
   "templates.clave_privada_51c4fa": "Klucz prywatny",
   "templates.claves_de_acceso_de_aws_para_la_8fa404": "Klucze dostępu AWS dla CLI",
   "templates.client_id_app_id_account_id_32451f": "client id, app id, account id…",
+  "templates.client_id_app_id_tenant_id_5ab3b0": "client id, app id, tenant id…",
   "templates.codigo_2fa_totp_opcional_c21467": "Kod 2FA (TOTP) (opcjonalnie)",
   "templates.codigos_de_recuperacion_pregunta_2bfb4d": "Kody odzyskiwania, pytania bezpieczeństwa…",
   "templates.como_se_envia_la_clave_92b57d": "Sposób wysyłania klucza",
+  "templates.configuracion_no_secreta_bf2c21": "Konfiguracja (nie jest tajna)",
   "templates.contrasena_5a6d1c": "Hasło",
   "templates.cualquier_otro_dato_secreto_346338": "Dowolne inne tajne dane",
   "templates.db_ejemplo_com_ef9904": "db.example.com",
@@ -680,11 +685,14 @@
   "templates.https_api_ejemplo_com_394db1": "https://api.example.com",
   "templates.https_panel_ejemplo_com_ba88d4": "https://dashboard.example.com",
   "templates.id_asociado_opcional_537b83": "Powiązany identyfikator (opcjonalnie)",
+  "templates.identificador_d05b0a": "Identyfikator",
+  "templates.ids_y_datos_publicos_client_id_t_e0839c": "Publiczne identyfikatory i ustawienia: client ID, tenant, ID konta…",
   "templates.la_clave_que_da_la_web_al_activa_38af10": "Klucz, który strona podaje przy włączaniu weryfikacji dwuetapowej (pod kodem QR). SecretBroker pokazuje ci 6-cyfrowy kod; AI go nie widzi.",
   "templates.la_ia_solo_podra_enviar_la_clave_d55a47": "AI będzie mogła wysyłać klucz tylko do tej domeny.",
   "templates.la_ia_solo_podra_usar_esta_crede_3899cf": "AI będzie mogła używać tego poświadczenia tylko z tą stroną.",
   "templates.motor_ceaed7": "Silnik",
   "templates.no_anadirla_automaticamente_a70e1a": "Nie dodawaj automatycznie",
+  "templates.no_es_secreto_la_ia_lo_ve_y_los_392166": "To nie sekret: AI go widzi, a programy dostają go bez pytania cię o zgodę.",
   "templates.notas_privadas_opcional_2621d7": "Notatki prywatne (opcjonalnie)",
   "templates.nube_aws_95df6b": "Chmura (AWS)",
   "templates.otpauth_totp_o_la_clave_en_base3_b0c780": "otpauth://totp/… lub klucz base32",
@@ -703,11 +711,13 @@
   "templates.si_la_clave_va_emparejada_con_un_5f3d0f": "Jeśli klucz jest powiązany z identyfikatorem. Przy wymianie pojawi się pytanie, czy się zmienił.",
   "templates.solo_para_ti_la_ia_no_las_ve_90d40d": "Tylko dla ciebie: AI ich nie widzi.",
   "templates.tambien_se_usa_para_sudo_f450d6": "Używane też do sudo.",
+  "templates.un_dato_de_configuracion_e7f7e9": "Dane konfiguracyjne",
   "templates.url_de_la_api_9c4317": "Adres URL API",
   "templates.usuario_3f2ecd": "Nazwa użytkownika",
   "templates.usuario_o_e_mail_e4cfe2": "Nazwa użytkownika lub e-mail",
   "templates.usuario_opcional_6b549e": "Nazwa użytkownika (opcjonalnie)",
   "templates.usuario_y_contrasena_de_una_web_17037d": "Nazwa użytkownika i hasło do strony, panelu lub aplikacji",
+  "templates.valor_opcional_0afb86": "Wartość (opcjonalnie)",
   "templates.variable_de_entorno_opcional_03da6c": "Zmienna środowiskowa (opcjonalnie)",
   "templates.web_o_servicio_f398c8": "Strona lub usługa",
   "totp.2fa_code_has_invalid_parameters": "Kod 2FA ma nieprawidłowe parametry",
@@ -735,6 +745,7 @@
   "update.this_version_has_no_signing": "Ta wersja nie ma klucza podpisującego: nie może się sama zaktualizować",
   "update.too_many_redirects": "Za dużo przekierowań",
   "vault.backup_is_damaged": "Kopia zapasowa jest uszkodzona",
+  "vault.config_needs_identifier_or_value": "Konfiguracja wymaga identyfikatora lub wartości.",
   "vault.couldn_use_this_pc_key": "Nie udało się użyć klucza tego komputera. Odblokuj hasłem głównym.",
   "vault.credential_with_identifier_already_exist": "Poświadczenie o identyfikatorze '{id}' już istnieje",
   "vault.expiry_date_must_be_yyyy": "Data wygaśnięcia musi mieć format RRRR-MM-DD",

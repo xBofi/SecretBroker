@@ -79,64 +79,64 @@
   "exposure.credential_doesn_say_how_put": "Il-kredenzjali ma tgħidx kif titpoġġa ċ-ċavetta f'talba (Editja › kif tintbagħat iċ-ċavetta)",
   "exposure.list_and": "{names} u {last}",
   "exposure.places_ai": {
-    "one": "{count} konversazzjoni mal-IA",
-    "two": "{count} konversazzjonijiet mal-IA",
     "few": "{count} konversazzjonijiet mal-IA",
     "many": "{count} konversazzjoni mal-IA",
-    "other": "{count} konversazzjoni mal-IA"
+    "one": "{count} konversazzjoni mal-IA",
+    "other": "{count} konversazzjoni mal-IA",
+    "two": "{count} konversazzjonijiet mal-IA"
   },
   "exposure.places_config": {
-    "one": "{count} konfigurazzjoni ta' programm",
-    "two": "{count} konfigurazzjonijiet ta' programmi",
     "few": "{count} konfigurazzjonijiet ta' programmi",
     "many": "{count} konfigurazzjoni ta' programmi",
-    "other": "{count} konfigurazzjoni ta' programmi"
+    "one": "{count} konfigurazzjoni ta' programm",
+    "other": "{count} konfigurazzjoni ta' programmi",
+    "two": "{count} konfigurazzjonijiet ta' programmi"
   },
   "exposure.places_env": {
-    "one": "{count} varjabbli tal-ambjent",
-    "two": "{count} varjabbli tal-ambjent",
     "few": "{count} varjabbli tal-ambjent",
     "many": "{count} varjabbli tal-ambjent",
-    "other": "{count} varjabbli tal-ambjent"
+    "one": "{count} varjabbli tal-ambjent",
+    "other": "{count} varjabbli tal-ambjent",
+    "two": "{count} varjabbli tal-ambjent"
   },
   "exposure.places_git": {
-    "one": "{count} storja git",
-    "two": "{count} storji git",
     "few": "{count} storji git",
     "many": "{count} storja git",
-    "other": "{count} storja git"
+    "one": "{count} storja git",
+    "other": "{count} storja git",
+    "two": "{count} storji git"
   },
   "exposure.places_history": {
-    "one": "{count} storja tat-terminal",
-    "two": "{count} storji tat-terminal",
     "few": "{count} storji tat-terminal",
     "many": "{count} storja tat-terminal",
-    "other": "{count} storja tat-terminal"
+    "one": "{count} storja tat-terminal",
+    "other": "{count} storja tat-terminal",
+    "two": "{count} storji tat-terminal"
   },
   "exposure.places_project": {
-    "one": "{count} fajl tal-proġett",
-    "two": "{count} fajls tal-proġetti",
     "few": "{count} fajls tal-proġetti",
     "many": "{count} fajl tal-proġetti",
-    "other": "{count} fajl tal-proġetti"
+    "one": "{count} fajl tal-proġett",
+    "other": "{count} fajl tal-proġetti",
+    "two": "{count} fajls tal-proġetti"
   },
   "exposure.reason_ai_saw": "IA ratha: intbagħtet lill-fornitur tagħha.",
   "exposure.reason_gone": "Kienet bħala test ċar f'{places}. Anke jekk issa m'għadhiex hemm, ta' min iddawwarha.",
   "exposure.reason_invalid": "Ma taħdimx: {message}.",
   "exposure.reason_present": "Hija bħala test ċar f'{places}.",
   "exposure.reason_pwned": {
-    "one": "Din il-password tidher {times} darba f'tnixxijiet pubbliċi.",
-    "two": "Din il-password tidher {times} darbiet f'tnixxijiet pubbliċi.",
     "few": "Din il-password tidher {times} darbiet f'tnixxijiet pubbliċi.",
     "many": "Din il-password tidher {times} darba f'tnixxijiet pubbliċi.",
-    "other": "Din il-password tidher {times} darba f'tnixxijiet pubbliċi."
+    "one": "Din il-password tidher {times} darba f'tnixxijiet pubbliċi.",
+    "other": "Din il-password tidher {times} darba f'tnixxijiet pubbliċi.",
+    "two": "Din il-password tidher {times} darbiet f'tnixxijiet pubbliċi."
   },
   "exposure.reason_stale": {
-    "one": "Ma nbidlitx għal {count} xahar.",
-    "two": "Ma nbidlitx għal {count} xhur.",
     "few": "Ma nbidlitx għal {count} xhur.",
     "many": "Ma nbidlitx għal {count} xahar.",
-    "other": "Ma nbidlitx għal {count} xahar."
+    "one": "Ma nbidlitx għal {count} xahar.",
+    "other": "Ma nbidlitx għal {count} xahar.",
+    "two": "Ma nbidlitx għal {count} xhur."
   },
   "exposure.reason_stopped": "Waqfet taħdem: {message}. Jekk ma rrevokajthiex int, probabbilment il-fornitur skopra li nxterdet.",
   "exposure.reason_unknown": "Il-fajls tiegħek għadhom ma ġewx imfittxija.",
@@ -148,18 +148,18 @@
   "exposure.unexpected_response_http": "Tweġiba mhux mistennija (HTTP {status_code}){_said}",
   "health.a_person": "Xi ħadd",
   "health.expired": {
-    "one": "Skadiet {count} jum ilu.",
-    "two": "Skadiet {count} jiem ilu.",
     "few": "Skadiet {count} jiem ilu.",
     "many": "Skadiet {count} jum ilu.",
-    "other": "Skadiet {count} jum ilu."
+    "one": "Skadiet {count} jum ilu.",
+    "other": "Skadiet {count} jum ilu.",
+    "two": "Skadiet {count} jiem ilu."
   },
   "health.expiring": {
-    "one": "Tiskadi fi {count} jum.",
-    "two": "Tiskadi fi {count} jiem.",
     "few": "Tiskadi fi {count} jiem.",
     "many": "Tiskadi fi {count} jum.",
-    "other": "Tiskadi fi {count} jum."
+    "one": "Tiskadi fi {count} jum.",
+    "other": "Tiskadi fi {count} jum.",
+    "two": "Tiskadi fi {count} jiem."
   },
   "health.exposed": "Hija bħala test ċar f'xi fajl fuq dan il-PC.",
   "health.half_rotated": "Hemm password ġdida lesta iżda għadha ma ġietx issejvjata bħala l-attwali: lesti r-rotazzjoni jew warrabha.",
@@ -178,34 +178,34 @@
   "health.label_was_exposed": "Kienet esposta",
   "health.label_weak": "Dgħajfa",
   "health.left_team_ask": {
-    "one": "{who} kellu aċċess u m'għadux fit-tim: itlob lil min jimmaniġġjaha biex jibdilha.",
-    "two": "{who} kellhom aċċess u m'għadhomx fit-tim: itlob lil min jimmaniġġjaha biex jibdilha.",
     "few": "{who} kellhom aċċess u m'għadhomx fit-tim: itlob lil min jimmaniġġjaha biex jibdilha.",
     "many": "{who} kellhom aċċess u m'għadhomx fit-tim: itlob lil min jimmaniġġjaha biex jibdilha.",
-    "other": "{who} kellhom aċċess u m'għadhomx fit-tim: itlob lil min jimmaniġġjaha biex jibdilha."
+    "one": "{who} kellu aċċess u m'għadux fit-tim: itlob lil min jimmaniġġjaha biex jibdilha.",
+    "other": "{who} kellhom aċċess u m'għadhomx fit-tim: itlob lil min jimmaniġġjaha biex jibdilha.",
+    "two": "{who} kellhom aċċess u m'għadhomx fit-tim: itlob lil min jimmaniġġjaha biex jibdilha."
   },
   "health.left_team_rotate": {
-    "one": "{who} kellu aċċess u m'għadux fit-tim: ibdilha f'każ li rawha.",
-    "two": "{who} kellhom aċċess u m'għadhomx fit-tim: ibdilha f'każ li rawha.",
     "few": "{who} kellhom aċċess u m'għadhomx fit-tim: ibdilha f'każ li rawha.",
     "many": "{who} kellhom aċċess u m'għadhomx fit-tim: ibdilha f'każ li rawha.",
-    "other": "{who} kellhom aċċess u m'għadhomx fit-tim: ibdilha f'każ li rawha."
+    "one": "{who} kellu aċċess u m'għadux fit-tim: ibdilha f'każ li rawha.",
+    "other": "{who} kellhom aċċess u m'għadhomx fit-tim: ibdilha f'każ li rawha.",
+    "two": "{who} kellhom aċċess u m'għadhomx fit-tim: ibdilha f'każ li rawha."
   },
   "health.list_and": "{names} u {last}",
   "health.old": {
-    "one": "Iċ-ċavetta għandha {count} jum.",
-    "two": "Iċ-ċavetta għandha {count} jiem.",
     "few": "Iċ-ċavetta għandha {count} jiem.",
     "many": "Iċ-ċavetta għandha {count} jum.",
-    "other": "Iċ-ċavetta għandha {count} jum."
+    "one": "Iċ-ċavetta għandha {count} jum.",
+    "other": "Iċ-ċavetta għandha {count} jum.",
+    "two": "Iċ-ċavetta għandha {count} jiem."
   },
   "health.old_alive": "Dawwartha, iżda l-qadima għadha taħdem: irrevokaha.",
   "health.pwned": {
-    "one": "Tidher {times} darba f'tnixxijiet pubbliċi.",
-    "two": "Tidher {times} darbiet f'tnixxijiet pubbliċi.",
     "few": "Tidher {times} darbiet f'tnixxijiet pubbliċi.",
     "many": "Tidher {times} darba f'tnixxijiet pubbliċi.",
-    "other": "Tidher {times} darba f'tnixxijiet pubbliċi."
+    "one": "Tidher {times} darba f'tnixxijiet pubbliċi.",
+    "other": "Tidher {times} darba f'tnixxijiet pubbliċi.",
+    "two": "Tidher {times} darbiet f'tnixxijiet pubbliċi."
   },
   "health.retired_pending": "Ċavetta ġdida attiva · il-qadima għadha trid tiġi rrevokata f'{provider}.",
   "health.reused": "L-istess password jew ċavetta tinsab f'{names}.",
@@ -215,19 +215,19 @@
   "health.thousands_separator": ",",
   "health.unchecked": "Għadha ma ġietx ittestjata.",
   "health.unshared_rotate": {
-    "one": "{who} kellu aċċess u m'għadx għandu: ibdilha f'każ li kkopjaha.",
-    "two": "{who} kellhom aċċess u m'għadx għandhom: ibdilha f'każ li kkopjawha.",
     "few": "{who} kellhom aċċess u m'għadx għandhom: ibdilha f'każ li kkopjawha.",
     "many": "{who} kellhom aċċess u m'għadx għandhom: ibdilha f'każ li kkopjawha.",
-    "other": "{who} kellhom aċċess u m'għadx għandhom: ibdilha f'każ li kkopjawha."
+    "one": "{who} kellu aċċess u m'għadx għandu: ibdilha f'każ li kkopjaha.",
+    "other": "{who} kellhom aċċess u m'għadx għandhom: ibdilha f'każ li kkopjawha.",
+    "two": "{who} kellhom aċċess u m'għadx għandhom: ibdilha f'każ li kkopjawha."
   },
   "health.upload_failed": "Il-ġdida ma setgħetx tittella' fuq {place}: il-qadima għadha hemm.",
   "health.upload_failed_more": {
-    "one": "Il-ġdida ma setgħetx tittella' fuq {place} jew {count} post ieħor: il-qadima għadha hemm.",
-    "two": "Il-ġdida ma setgħetx tittella' fuq {place} jew {count} postijiet oħra: il-qadima għadha hemm.",
     "few": "Il-ġdida ma setgħetx tittella' fuq {place} jew {count} postijiet oħra: il-qadima għadha hemm.",
     "many": "Il-ġdida ma setgħetx tittella' fuq {place} jew {count} post ieħor: il-qadima għadha hemm.",
-    "other": "Il-ġdida ma setgħetx tittella' fuq {place} jew {count} post ieħor: il-qadima għadha hemm."
+    "one": "Il-ġdida ma setgħetx tittella' fuq {place} jew {count} post ieħor: il-qadima għadha hemm.",
+    "other": "Il-ġdida ma setgħetx tittella' fuq {place} jew {count} post ieħor: il-qadima għadha hemm.",
+    "two": "Il-ġdida ma setgħetx tittella' fuq {place} jew {count} postijiet oħra: il-qadima għadha hemm."
   },
   "health.was_exposed": "Kienet bħala test ċar f'xi fajl. Ta' min iddawwarha.",
   "health.weak_0": "Password dgħajfa ħafna: tinqata' malajr.",
@@ -329,11 +329,11 @@
   "resident.pause_ai": "Ippawża l-IA",
   "resident.quit": "Oħroġ",
   "resident.reminders_need_attention": {
-    "one": "Kredenzjali waħda teħtieġ attenzjoni",
-    "two": "{count} kredenzjali jeħtieġu attenzjoni",
     "few": "{count} kredenzjali jeħtieġu attenzjoni",
     "many": "{count} kredenzjali jeħtieġu attenzjoni",
-    "other": "{count} kredenzjali jeħtieġu attenzjoni"
+    "one": "Kredenzjali waħda teħtieġ attenzjoni",
+    "other": "{count} kredenzjali jeħtieġu attenzjoni",
+    "two": "{count} kredenzjali jeħtieġu attenzjoni"
   },
   "resident.resume_ai": "Kompli l-IA",
   "rotation.answered_http": "{provider} wieġeb HTTP {status_code}",
@@ -375,11 +375,11 @@
   "service.change_env_vars": "Varjabbli tal-ambjent",
   "service.change_every_days": "kull {days} jum",
   "service.change_every_hours": {
-    "one": "kull siegħa",
-    "two": "kull {count} sigħat",
     "few": "kull {count} sigħat",
     "many": "kull {count} siegħa",
-    "other": "kull {count} siegħa"
+    "one": "kull siegħa",
+    "other": "kull {count} siegħa",
+    "two": "kull {count} sigħat"
   },
   "service.change_expires": "Tiskadi",
   "service.change_keys": "Ibdel iċ-ċwievet ta' {collection}",
@@ -391,16 +391,18 @@
   "service.change_rotate_every_days": "Fakkarni nddawwarha",
   "service.change_rotation_guide": "Gwida tar-rotazzjoni",
   "service.change_steps": {
-    "one": "{count} pass",
-    "two": "{count} passi",
     "few": "{count} passi",
     "many": "{count} pass",
-    "other": "{count} pass"
+    "one": "{count} pass",
+    "other": "{count} pass",
+    "two": "{count} passi"
   },
   "service.change_tags": "Tikketti",
+  "service.change_template": "Tip ta' kredenzjali",
   "service.change_test_request": "Talba ta’ prova",
   "service.change_used_in": "Fejn tintuża",
   "service.collection_no_longer_appears_on": "Il-kollezzjoni ma tidhirx aktar fuq is-server. ",
+  "service.config_needs_variable_name": "“{id}” hija konfigurazzjoni: agħti l-isem tal-varjabbli f'.secretbroker (VARIABLE = {id}).",
   "service.confirm_it_you_once_windows": "Ikkonferma darba li int (Windows Hello jew password) biex ",
   "service.connect_this_browser_secretbroker_from": "Qabbad dan il-browser ma' SecretBroker mill-estensjoni",
   "service.connection_request_has_expired_click": "It-talba tal-konnessjoni skadiet: erġa' kklikkja “Qabbad” fil-browser",
@@ -413,21 +415,21 @@
   "service.expected_response_must_be_code": "It-tweġiba mistennija trid tkun kodiċi bejn 200 u 399",
   "service.expected_response_must_be_http": "It-tweġiba mistennija trid tkun kodiċi HTTP, eż. 200",
   "service.found_in_new_places": {
-    "one": "Misjuba bħala test ċar f'{count} post ġdid",
-    "two": "Misjuba bħala test ċar f'{count} postijiet ġodda",
     "few": "Misjuba bħala test ċar f'{count} postijiet ġodda",
     "many": "Misjuba bħala test ċar f'{count} post ġdid",
-    "other": "Misjuba bħala test ċar f'{count} post ġdid"
+    "one": "Misjuba bħala test ċar f'{count} post ġdid",
+    "other": "Misjuba bħala test ċar f'{count} post ġdid",
+    "two": "Misjuba bħala test ċar f'{count} postijiet ġodda"
   },
   "service.generate_new_one": "iġġenera waħda ġdida",
   "service.give_between_1_and_20": "Agħti bejn 1 u 20 kredenzjali f'secret_ids",
   "service.has_no_environment_variables_in": "'{id}' m'għandha l-ebda varjabbli tal-ambjent fil-permessi tagħha, għalhekk ma tistax tingħata lil programmi lokali. Żidhom fl-app SecretBroker.",
   "service.held_waiting": {
-    "one": "{count} kredenzjali minn {collection} qed tistenna d-deċiżjoni tiegħek",
-    "two": "{count} kredenzjali minn {collection} qed jistennew id-deċiżjoni tiegħek",
     "few": "{count} kredenzjali minn {collection} qed jistennew id-deċiżjoni tiegħek",
     "many": "{count} kredenzjali minn {collection} qed jistennew id-deċiżjoni tiegħek",
-    "other": "{count} kredenzjali minn {collection} qed jistennew id-deċiżjoni tiegħek"
+    "one": "{count} kredenzjali minn {collection} qed tistenna d-deċiżjoni tiegħek",
+    "other": "{count} kredenzjali minn {collection} qed jistennew id-deċiżjoni tiegħek",
+    "two": "{count} kredenzjali minn {collection} qed jistennew id-deċiżjoni tiegħek"
   },
   "service.import_has_expired_choose_file": "L-importazzjoni skadiet: erġa' agħżel il-fajl",
   "service.invalid_approval_duration": "Tul tal-approvazzjoni mhux validu",
@@ -460,6 +462,7 @@
   "service.only_api_keys_and_other": "L-API keys u sigrieti oħra biss għandhom talba tat-test",
   "service.only_api_keys_and_passwords": "L-API keys u l-passwords biss jiddawru b'dan il-mod",
   "service.only_api_keys_are_rotated": "l-API keys biss jiddawru",
+  "service.only_convert_to_config": "Kredenzjali tista' tinbidel biss f'konfigurazzjoni (template config).",
   "service.only_database_password_is_applied": "Il-password ta' database biss tiġi applikata b'dan il-mod",
   "service.only_user_can_write_value": "L-utent biss jista' jikteb il-valur ta' “{name}”, fl-app",
   "service.open_secretbroker_team_and_sign": "Iftaħ SecretBroker › Tim u erġa' idħol biex tkompli tirċievi u tibgħat bidliet. Sadanittant, kollox jaħdem b'dak li diġà għandek.",
@@ -495,11 +498,11 @@
   "service.purpose_totp_code": "tara l-kodiċi 2FA",
   "service.request_is_no_longer_pending": "It-talba m'għadhiex pendenti",
   "service.rotate_after_leave": {
-    "one": "{names} kellu aċċess u m'għadux fit-tim. Ibdilhom f'każ li rahom.",
-    "two": "{names} kellhom aċċess u m'għadhomx fit-tim. Ibdilhom f'każ li rawhom.",
     "few": "{names} kellhom aċċess u m'għadhomx fit-tim. Ibdilhom f'każ li rawhom.",
     "many": "{names} kellhom aċċess u m'għadhomx fit-tim. Ibdilhom f'każ li rawhom.",
-    "other": "{names} kellhom aċċess u m'għadhomx fit-tim. Ibdilhom f'każ li rawhom."
+    "one": "{names} kellu aċċess u m'għadux fit-tim. Ibdilhom f'każ li rahom.",
+    "other": "{names} kellhom aċċess u m'għadhomx fit-tim. Ibdilhom f'każ li rawhom.",
+    "two": "{names} kellhom aċċess u m'għadhomx fit-tim. Ibdilhom f'każ li rawhom."
   },
   "service.say_whether_is_still_same": "Għid jekk il-{label} għadux l-istess jew inbidel",
   "service.scan_session_has_expired": "Is-sessjoni tal-iskennjar skadiet",
@@ -566,11 +569,11 @@
   "teams.admin_bad_signups": "Agħżel jekk ir-reġistrazzjonijiet humiex miftuħa, bl-istedina biss jew magħluqa.",
   "teams.admin_last_admin": "Huwa l-uniku kont li jmexxi s-server: ma jistax jiġi diżattivat jew imħassar.",
   "teams.admin_last_manager": {
-    "one": "{person} huwa l-uniku wieħed li jimmaniġġja kollezzjoni: xi ħadd mill-organizzazzjoni jrid jieħu “Maniġer” fiha (jew iħassarha) qabel ma jitħassar il-kont.",
-    "two": "{person} huwa l-uniku wieħed li jimmaniġġja {count} kollezzjonijiet: xi ħadd mill-organizzazzjoni jrid jieħu “Maniġer” fihom (jew iħassarhom) qabel ma jitħassar il-kont.",
     "few": "{person} huwa l-uniku wieħed li jimmaniġġja {count} kollezzjonijiet: xi ħadd mill-organizzazzjoni jrid jieħu “Maniġer” fihom (jew iħassarhom) qabel ma jitħassar il-kont.",
     "many": "{person} huwa l-uniku wieħed li jimmaniġġja {count} kollezzjoni: xi ħadd mill-organizzazzjoni jrid jieħu “Maniġer” fihom (jew iħassarhom) qabel ma jitħassar il-kont.",
-    "other": "{person} huwa l-uniku wieħed li jimmaniġġja {count} kollezzjoni: xi ħadd mill-organizzazzjoni jrid jieħu “Maniġer” fihom (jew iħassarhom) qabel ma jitħassar il-kont."
+    "one": "{person} huwa l-uniku wieħed li jimmaniġġja kollezzjoni: xi ħadd mill-organizzazzjoni jrid jieħu “Maniġer” fiha (jew iħassarha) qabel ma jitħassar il-kont.",
+    "other": "{person} huwa l-uniku wieħed li jimmaniġġja {count} kollezzjoni: xi ħadd mill-organizzazzjoni jrid jieħu “Maniġer” fihom (jew iħassarhom) qabel ma jitħassar il-kont.",
+    "two": "{person} huwa l-uniku wieħed li jimmaniġġja {count} kollezzjonijiet: xi ħadd mill-organizzazzjoni jrid jieħu “Maniġer” fihom (jew iħassarhom) qabel ma jitħassar il-kont."
   },
   "teams.admin_last_owner": "{person} huwa l-uniku sid ta' {orgs}: agħmel lil xi ħadd ieħor sid qabel tħassar il-kont.",
   "teams.admin_last_owner_some": "{person} huwa l-uniku sid ta' organizzazzjoni: agħmel lil xi ħadd ieħor sid qabel tħassar il-kont.",
@@ -691,9 +694,11 @@
   "templates.clave_privada_51c4fa": "Ċavetta privata",
   "templates.claves_de_acceso_de_aws_para_la_8fa404": "Ċwievet tal-aċċess AWS għas-CLI",
   "templates.client_id_app_id_account_id_32451f": "client id, app id, account id…",
+  "templates.client_id_app_id_tenant_id_5ab3b0": "client id, app id, tenant id…",
   "templates.codigo_2fa_totp_opcional_c21467": "Kodiċi 2FA (TOTP) (mhux obbligatorju)",
   "templates.codigos_de_recuperacion_pregunta_2bfb4d": "Kodiċijiet ta' rkupru, mistoqsijiet tas-sigurtà…",
   "templates.como_se_envia_la_clave_92b57d": "Kif tintbagħat iċ-ċavetta",
+  "templates.configuracion_no_secreta_bf2c21": "Konfigurazzjoni (mhux sigrieta)",
   "templates.contrasena_5a6d1c": "Password",
   "templates.cualquier_otro_dato_secreto_346338": "Kwalunkwe data sigrieta oħra",
   "templates.db_ejemplo_com_ef9904": "db.example.com",
@@ -703,11 +708,14 @@
   "templates.https_api_ejemplo_com_394db1": "https://api.example.com",
   "templates.https_panel_ejemplo_com_ba88d4": "https://dashboard.example.com",
   "templates.id_asociado_opcional_537b83": "ID assoċjat (mhux obbligatorju)",
+  "templates.identificador_d05b0a": "Identifikatur",
+  "templates.ids_y_datos_publicos_client_id_t_e0839c": "IDs u data pubbliċi: client ID, tenant, ID tal-kont…",
   "templates.la_clave_que_da_la_web_al_activa_38af10": "Iċ-ċavetta li jagħtik is-sit meta tixgħel il-verifika f'żewġ passi (taħt il-kodiċi QR). SecretBroker jurik il-kodiċi ta' 6 ċifri; l-IA ma tarahx.",
   "templates.la_ia_solo_podra_enviar_la_clave_d55a47": "L-IA tkun tista' tibgħat iċ-ċavetta biss lil dan id-dominju.",
   "templates.la_ia_solo_podra_usar_esta_crede_3899cf": "L-IA tkun tista' tuża din il-kredenzjali biss ma' dan is-sit.",
   "templates.motor_ceaed7": "Magna",
   "templates.no_anadirla_automaticamente_a70e1a": "Iżżidhiex awtomatikament",
+  "templates.no_es_secreto_la_ia_lo_ve_y_los_392166": "Mhuwiex sigriet: l-IA tarah u l-programmi jirċevuh mingħajr ma jistaqsuk.",
   "templates.notas_privadas_opcional_2621d7": "Noti privati (mhux obbligatorji)",
   "templates.nube_aws_95df6b": "Cloud (AWS)",
   "templates.otpauth_totp_o_la_clave_en_base3_b0c780": "otpauth://totp/… jew iċ-ċavetta base32",
@@ -726,11 +734,13 @@
   "templates.si_la_clave_va_emparejada_con_un_5f3d0f": "Jekk iċ-ċavetta hija marbuta ma' identifikatur. Meta tdawwarha, tiġi mistoqsi jekk inbidilx.",
   "templates.solo_para_ti_la_ia_no_las_ve_90d40d": "Għalik biss: l-IA ma tarahomx.",
   "templates.tambien_se_usa_para_sudo_f450d6": "Jintuża wkoll għal sudo.",
+  "templates.un_dato_de_configuracion_e7f7e9": "Data ta' konfigurazzjoni",
   "templates.url_de_la_api_9c4317": "URL tal-API",
   "templates.usuario_3f2ecd": "Isem tal-utent",
   "templates.usuario_o_e_mail_e4cfe2": "Isem tal-utent jew email",
   "templates.usuario_opcional_6b549e": "Isem tal-utent (mhux obbligatorju)",
   "templates.usuario_y_contrasena_de_una_web_17037d": "Isem tal-utent u password għal sit, dashboard jew app",
+  "templates.valor_opcional_0afb86": "Valur (mhux obbligatorju)",
   "templates.variable_de_entorno_opcional_03da6c": "Varjabbli tal-ambjent (mhux obbligatorja)",
   "templates.web_o_servicio_f398c8": "Sit jew servizz",
   "totp.2fa_code_has_invalid_parameters": "Il-kodiċi 2FA għandu parametri mhux validi",
@@ -758,6 +768,7 @@
   "update.this_version_has_no_signing": "Din il-verżjoni m'għandhiex ċavetta tal-iffirmar: ma tistax taġġorna lilha nfisha",
   "update.too_many_redirects": "Wisq ridirezzjonijiet",
   "vault.backup_is_damaged": "Il-backup huwa bil-ħsara",
+  "vault.config_needs_identifier_or_value": "Konfigurazzjoni teħtieġ identifikatur jew valur.",
   "vault.couldn_use_this_pc_key": "Iċ-ċavetta ta' dan il-PC ma setgħetx tintuża. Iżblokka bil-password ewlenija.",
   "vault.credential_with_identifier_already_exist": "Diġà teżisti kredenzjali bl-identifikatur '{id}'",
   "vault.expiry_date_must_be_yyyy": "Id-data ta' skadenza trid tkun SSSS-XX-JJ",

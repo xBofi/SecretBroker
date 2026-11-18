@@ -78,9 +78,9 @@
   "activity_detail.created": "utworzono",
   "activity_detail.credentials": {
     "=0": "pusty",
-    "one": "1 poświadczenie",
     "few": "{count} poświadczenia",
     "many": "{count} poświadczeń",
+    "one": "1 poświadczenie",
     "other": "{count} poświadczenia"
   },
   "activity_detail.from_collection": "Z {name}",
@@ -99,17 +99,17 @@
   "activity_filter.all": "Wszystko",
   "activity_filter.denied": "Odmówiono",
   "ai.requests_count": {
-    "one": "{count} żądanie",
     "few": "{count} żądania",
     "many": "{count} żądań",
+    "one": "{count} żądanie",
     "other": "{count} żądania"
   },
   "ai_change.rotation_guide": "Instrukcja rotacji",
   "ai_change.sources": "źródła: {sources}",
   "ai_change.steps": {
-    "one": "{count} krok",
     "few": "{count} kroki",
     "many": "{count} kroków",
+    "one": "{count} krok",
     "other": "{count} kroku"
   },
   "ai_change.test_request": "Żądanie testowe",
@@ -145,16 +145,16 @@
   "approval.allow_for_24_hours": "Zezwól na 24 godziny",
   "approval.allow_for_8_hours": "Zezwól na 8 godzin",
   "approval.for_hours": {
-    "one": "przez {count} godzinę",
     "few": "przez {count} godziny",
     "many": "przez {count} godzin",
+    "one": "przez {count} godzinę",
     "other": "przez {count} godziny"
   },
   "approval.position": "{position} z {total}",
   "approval.times_today": {
-    "one": "{count} raz dzisiaj",
     "few": "{count} razy dzisiaj",
     "many": "{count} razy dzisiaj",
+    "one": "{count} raz dzisiaj",
     "other": "{count} razy dzisiaj"
   },
   "approval.until_you_lock_vault": "do zablokowania sejfu",
@@ -223,6 +223,7 @@
   "change_line.new_programs": "Nowe programy",
   "change_line.new_variables": "Nowe lub zmienione zmienne",
   "change_line.new_websites": "Nowe witryny",
+  "change_line.secret_value_deleted": "zapisana tajna wartość zostanie usunięta",
   "change_master_password.change_master_password": "Aby zmienić hasło główne.",
   "change_master_password.change_master_password_2": "Zmień hasło główne",
   "change_master_password.choose_new_master_password": "Wybierz nowe hasło główne",
@@ -319,9 +320,9 @@
   "common.create_collection": "Aby utworzyć kolekcję.",
   "common.credentials": "Poświadczenia",
   "common.credentials_count": {
-    "one": "{count} poświadczenie",
     "few": "{count} poświadczenia",
     "many": "{count} poświadczeń",
+    "one": "{count} poświadczenie",
     "other": "{count} poświadczenia"
   },
   "common.delete": "Usuń",
@@ -381,9 +382,9 @@
   "common.optional_suffix": " · opcjonalnie",
   "common.organization": "Organizacja",
   "common.people_count": {
-    "one": "{count} osoba",
     "few": "{count} osoby",
     "many": "{count} osób",
+    "one": "{count} osoba",
     "other": "{count} osoby"
   },
   "common.private_notes": "Notatki prywatne",
@@ -483,6 +484,7 @@
   "describe_permissions.run_on_this_pc": "Uruchamianie {value} na tym komputerze",
   "destination_label.github": "GitHub {repo}{value} · {name}",
   "detail.ai_knows_as": "AI zna je jako ",
+  "detail.config_not_secret": "Nie jest tajna: AI widzi te dane, a sb run przekazuje je programom bez pytania cię o zgodę. Nie jest rotowana ani liczona jako ujawniona.",
   "detail.copied_cleared_in": "Skopiowano · zniknie za {result} s",
   "detail.copy": "Aby skopiować „{label}” z {name}.",
   "detail.decide_in_team": "zdecyduj w sekcji Zespół",
@@ -503,24 +505,24 @@
   "direct_block.stop_proof": "Aby przestać udostępniać osobie {name}.",
   "direct_block.stop_sharing_with": "Przestań udostępniać osobie {name}",
   "direct_block.stop_text": {
-    "one": "Osoba {name} przestanie otrzymywać poświadczenie, które jej udostępniasz. Na tym komputerze nadal jest twoje.",
     "few": "Osoba {name} przestanie otrzymywać {count} poświadczenia, które jej udostępniasz. Na tym komputerze nadal są twoje.",
     "many": "Osoba {name} przestanie otrzymywać {count} poświadczeń, które jej udostępniasz. Na tym komputerze nadal są twoje.",
+    "one": "Osoba {name} przestanie otrzymywać poświadczenie, które jej udostępniasz. Na tym komputerze nadal jest twoje.",
     "other": "Osoba {name} przestanie otrzymywać {count} poświadczenia, które jej udostępniasz. Na tym komputerze nadal są twoje."
   },
   "direct_block.stop_title": "Przestać udostępniać osobie {name}?",
   "direct_block.stop_warning": {
-    "one": "Ta osoba mogła je zobaczyć lub skopiować: przypomnimy ci, by je zmienić.",
     "few": "Ta osoba mogła je zobaczyć lub skopiować: przypomnimy ci, by je zmienić.",
     "many": "Ta osoba mogła je zobaczyć lub skopiować: przypomnimy ci, by je zmienić.",
+    "one": "Ta osoba mogła je zobaczyć lub skopiować: przypomnimy ci, by je zmienić.",
     "other": "Ta osoba mogła je zobaczyć lub skopiować: przypomnimy ci, by je zmienić."
   },
   "direct_block.stopped": "Nie udostępniasz już niczego osobie {name}",
   "direct_block.their_permission": "{name}: {value}",
   "direct_share.already_sharing": {
-    "one": "Udostępniasz już {count} poświadczenie osobie {name}. Wybrane uprawnienie dotyczy wszystkiego, co jej udostępniasz.",
     "few": "Udostępniasz już {count} poświadczenia osobie {name}. Wybrane uprawnienie dotyczy wszystkiego, co jej udostępniasz.",
     "many": "Udostępniasz już {count} poświadczeń osobie {name}. Wybrane uprawnienie dotyczy wszystkiego, co jej udostępniasz.",
+    "one": "Udostępniasz już {count} poświadczenie osobie {name}. Wybrane uprawnienie dotyczy wszystkiego, co jej udostępniasz.",
     "other": "Udostępniasz już {count} poświadczenia osobie {name}. Wybrane uprawnienie dotyczy wszystkiego, co jej udostępniasz."
   },
   "direct_share.compare_code": "Poproś, by ta osoba przeczytała ci swój kod bezpieczeństwa (przez telefon lub osobiście), i porównaj go z tym. Dzięki temu nikt, nawet serwer, nie podsunie innego klucza.",
@@ -549,6 +551,7 @@
   "draw_team.sync_now": "Synchronizuj teraz",
   "draw_team.synced": "Zsynchronizowano",
   "editor.aws_placeholder": "Osobiste AWS",
+  "editor.config_placeholder": "Client ID mojej aplikacji",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
   "editor.tags_placeholder": "sklep, produkcja",
   "empty_credentials.add_credential": "Dodaj poświadczenie",
@@ -564,9 +567,9 @@
   "env_import.config_written": "W folderze projektu jest teraz plik .secretbroker z nazwami poświadczeń, bez wartości. Można go dodać do repozytorium.",
   "env_import.file_deleted": "Usunięto {name}",
   "env_import.import_keys": {
-    "one": "Importuj {count} klucz",
     "few": "Importuj {count} klucze",
     "many": "Importuj {count} kluczy",
+    "one": "Importuj {count} klucz",
     "other": "Importuj {count} klucza"
   },
   "env_import.keep_file": "Zostaw tak",
@@ -577,9 +580,9 @@
   "env_import.remove_explained": "Usuń je z pliku: pozostałe zmienne zostaną, a jeśli nie zostanie żadna, plik zostanie usunięty.",
   "env_import.remove_from_file": "Usuń z pliku",
   "env_import.skipped_existing": {
-    "one": "{count} już był w sejfie.",
     "few": "{count} już były w sejfie.",
     "many": "{count} już było w sejfie.",
+    "one": "{count} już był w sejfie.",
     "other": "{count} już było w sejfie."
   },
   "env_import.still_in_file": "{name} wciąż zawiera te klucze jawnym tekstem.",
@@ -595,9 +598,9 @@
   "exposure.couldn_load_status": "Nie udało się wczytać stanu.",
   "exposure.ignored": "zignorowane",
   "exposure.ignored_count": {
-    "one": "{count} zignorowane",
     "few": "{count} zignorowane",
     "many": "{count} zignorowanych",
+    "one": "{count} zignorowane",
     "other": "{count} zignorowanego"
   },
   "exposure.last_search_files": "Ostatnie wyszukiwanie: {when} · pliki: {files}",
@@ -606,27 +609,27 @@
   "exposure.no_search_for_copies_yet": "Jeszcze nie szukano kopii",
   "exposure.paths_are_only_shown_after": "Ścieżki są widoczne dopiero po potwierdzeniu tożsamości. ",
   "exposure.places": {
-    "one": "{count} miejsce",
     "few": "{count} miejsca",
     "many": "{count} miejsc",
+    "one": "{count} miejsce",
     "other": "{count} miejsca"
   },
   "exposure.removed_from_file": {
-    "one": "Usunięto z pliku ({count} raz)",
     "few": "Usunięto z pliku ({count} razy)",
     "many": "Usunięto z pliku ({count} razy)",
+    "one": "Usunięto z pliku ({count} raz)",
     "other": "Usunięto z pliku ({count} razy)"
   },
   "exposure.revealed_times": {
-    "one": "Pokazano lub skopiowano {count} raz",
     "few": "Pokazano lub skopiowano {count} razy",
     "many": "Pokazano lub skopiowano {count} razy",
+    "one": "Pokazano lub skopiowano {count} raz",
     "other": "Pokazano lub skopiowano {count} razy"
   },
   "exposure.search_done_exposed": {
-    "one": "Wyszukiwanie zakończone: {count} ujawnione poświadczenie",
     "few": "Wyszukiwanie zakończone: {count} ujawnione poświadczenia",
     "many": "Wyszukiwanie zakończone: {count} ujawnionych poświadczeń",
+    "one": "Wyszukiwanie zakończone: {count} ujawnione poświadczenie",
     "other": "Wyszukiwanie zakończone: {count} ujawnionego poświadczenia"
   },
   "exposure.search_for_copies": "Szukaj kopii",
@@ -706,87 +709,87 @@
   "generator_panel.very_weak": "Bardzo słabe",
   "generator_panel.words": "Słowa",
   "health.count_expired": {
-    "one": "{count} wygasłe",
     "few": "{count} wygasłe",
     "many": "{count} wygasłych",
+    "one": "{count} wygasłe",
     "other": "{count} wygasłego"
   },
   "health.count_expiring": {
-    "one": "{count} wkrótce wygasa",
     "few": "{count} wkrótce wygasają",
     "many": "{count} wkrótce wygasa",
+    "one": "{count} wkrótce wygasa",
     "other": "{count} wkrótce wygasa"
   },
   "health.count_exposed": {
-    "one": "{count} ujawnione",
     "few": "{count} ujawnione",
     "many": "{count} ujawnionych",
+    "one": "{count} ujawnione",
     "other": "{count} ujawnionego"
   },
   "health.count_half_rotated": {
-    "one": "{count} niedokończona wymiana",
     "few": "{count} niedokończone wymiany",
     "many": "{count} niedokończonych wymian",
+    "one": "{count} niedokończona wymiana",
     "other": "{count} niedokończonej wymiany"
   },
   "health.count_old": {
-    "one": "{count} stare",
     "few": "{count} stare",
     "many": "{count} starych",
+    "one": "{count} stare",
     "other": "{count} starego"
   },
   "health.count_old_alive": {
-    "one": "{count} ze starym nadal działającym",
     "few": "{count} ze starym nadal działającym",
     "many": "{count} ze starym nadal działającym",
+    "one": "{count} ze starym nadal działającym",
     "other": "{count} ze starym nadal działającym"
   },
   "health.count_pwned": {
-    "one": "{count} w wyciekach",
     "few": "{count} w wyciekach",
     "many": "{count} w wyciekach",
+    "one": "{count} w wyciekach",
     "other": "{count} w wyciekach"
   },
   "health.count_retired_pending": {
-    "one": "{count} ze starym do unieważnienia",
     "few": "{count} ze starym do unieważnienia",
     "many": "{count} ze starym do unieważnienia",
+    "one": "{count} ze starym do unieważnienia",
     "other": "{count} ze starym do unieważnienia"
   },
   "health.count_reused": {
-    "one": "{count} powtórzone",
     "few": "{count} powtórzone",
     "many": "{count} powtórzonych",
+    "one": "{count} powtórzone",
     "other": "{count} powtórzonego"
   },
   "health.count_team_access": {
-    "one": "{count} z dostępem osoby, która odeszła",
     "few": "{count} z dostępem osoby, która odeszła",
     "many": "{count} z dostępem osoby, która odeszła",
+    "one": "{count} z dostępem osoby, która odeszła",
     "other": "{count} z dostępem osoby, która odeszła"
   },
   "health.count_unchecked": {
-    "one": "{count} nieprzetestowane",
     "few": "{count} nieprzetestowane",
     "many": "{count} nieprzetestowanych",
+    "one": "{count} nieprzetestowane",
     "other": "{count} nieprzetestowanego"
   },
   "health.count_upload_failed": {
-    "one": "{count} nieprzesłane",
     "few": "{count} nieprzesłane",
     "many": "{count} nieprzesłanych",
+    "one": "{count} nieprzesłane",
     "other": "{count} nieprzesłanego"
   },
   "health.count_was_exposed": {
-    "one": "{count} było ujawnione",
     "few": "{count} były ujawnione",
     "many": "{count} było ujawnionych",
+    "one": "{count} było ujawnione",
     "other": "{count} było ujawnionego"
   },
   "health.count_weak": {
-    "one": "{count} słabe",
     "few": "{count} słabe",
     "many": "{count} słabych",
+    "one": "{count} słabe",
     "other": "{count} słabego"
   },
   "health.missing_both": "Do zrobienia: {what}. „Sprawdź teraz” zrobi jedno i drugie.",
@@ -809,45 +812,45 @@
   "health_section.see_less": "Pokaż mniej",
   "health_section.test_them_with_their_providers": "przetestować je u ich dostawców",
   "held.deleted": {
-    "one": "Usunięto z tego komputera {count} poświadczenie",
     "few": "Usunięto z tego komputera {count} poświadczenia",
     "many": "Usunięto z tego komputera {count} poświadczeń",
+    "one": "Usunięto z tego komputera {count} poświadczenie",
     "other": "Usunięto z tego komputera {count} poświadczenia"
   },
   "held.deleted_by": {
-    "one": "{who}: naraz usunięto {count} poświadczenie z „{collection_name}”.",
     "few": "{who}: naraz usunięto {count} poświadczenia z „{collection_name}”.",
     "many": "{who}: naraz usunięto {count} poświadczeń z „{collection_name}”.",
+    "one": "{who}: naraz usunięto {count} poświadczenie z „{collection_name}”.",
     "other": "{who}: naraz usunięto {count} poświadczenia z „{collection_name}”."
   },
   "held.kept": {
-    "one": "Zachowano na tym komputerze {count} poświadczenie",
     "few": "Zachowano na tym komputerze {count} poświadczenia",
     "many": "Zachowano na tym komputerze {count} poświadczeń",
+    "one": "Zachowano na tym komputerze {count} poświadczenie",
     "other": "Zachowano na tym komputerze {count} poświadczenia"
   },
   "held.proof_delete": {
-    "one": "Aby usunąć z tego komputera {count} poświadczenie.",
     "few": "Aby usunąć z tego komputera {count} poświadczenia.",
     "many": "Aby usunąć z tego komputera {count} poświadczeń.",
+    "one": "Aby usunąć z tego komputera {count} poświadczenie.",
     "other": "Aby usunąć z tego komputera {count} poświadczenia."
   },
   "held.proof_keep": {
-    "one": "Aby zachować {count} poświadczenie.",
     "few": "Aby zachować {count} poświadczenia.",
     "many": "Aby zachować {count} poświadczeń.",
+    "one": "Aby zachować {count} poświadczenie.",
     "other": "Aby zachować {count} poświadczenia."
   },
   "held.restored": {
-    "one": "Przywrócono {count} poświadczenie dla całego zespołu",
     "few": "Przywrócono {count} poświadczenia dla całego zespołu",
     "many": "Przywrócono {count} poświadczeń dla całego zespołu",
+    "one": "Przywrócono {count} poświadczenie dla całego zespołu",
     "other": "Przywrócono {count} poświadczenia dla całego zespołu"
   },
   "held.waiting": {
-    "one": "{count} poświadczenie czeka na twoją decyzję",
     "few": "{count} poświadczenia czekają na twoją decyzję",
     "many": "{count} poświadczeń czeka na twoją decyzję",
+    "one": "{count} poświadczenie czeka na twoją decyzję",
     "other": "{count} poświadczenia czeka na twoją decyzję"
   },
   "held_deletions_card.collection_no_longer_appears_on": "Kolekcja „{collection_name}” nie jest już widoczna na serwerze (odebrano ci dostęp, została usunięta albo serwer ma problem).",
@@ -859,58 +862,58 @@
   "held_deletions_card.restoring_them_puts_them_back": "Przywrócenie przywraca je dla całego zespołu.",
   "import.already_in": "Już jest",
   "import.count_conflict": {
-    "one": "{count} z innym hasłem",
     "few": "{count} z innym hasłem",
     "many": "{count} z innym hasłem",
+    "one": "{count} z innym hasłem",
     "other": "{count} z innym hasłem"
   },
   "import.count_duplicate": {
-    "one": "{count} już w sejfie",
     "few": "{count} już w sejfie",
     "many": "{count} już w sejfie",
+    "one": "{count} już w sejfie",
     "other": "{count} już w sejfie"
   },
   "import.count_new": {
-    "one": "{count} nowe",
     "few": "{count} nowe",
     "many": "{count} nowych",
+    "one": "{count} nowe",
     "other": "{count} nowego"
   },
   "import.different_password": "Inne hasło",
   "import.imported": {
-    "one": "Zaimportowano {count} poświadczenie",
     "few": "Zaimportowano {count} poświadczenia",
     "many": "Zaimportowano {count} poświadczeń",
+    "one": "Zaimportowano {count} poświadczenie",
     "other": "Zaimportowano {count} poświadczenia"
   },
   "import.in_file": {
-    "one": "{count} poświadczenie w pliku: ",
     "few": "{count} poświadczenia w pliku: ",
     "many": "{count} poświadczeń w pliku: ",
+    "one": "{count} poświadczenie w pliku: ",
     "other": "{count} poświadczenia w pliku: "
   },
   "import.skipped_summary": {
-    "one": "{count} nie zostanie zaimportowane",
     "few": "{count} nie zostaną zaimportowane",
     "many": "{count} nie zostanie zaimportowanych",
+    "one": "{count} nie zostanie zaimportowane",
     "other": "{count} nie zostanie zaimportowanego"
   },
   "import.stat_created": {
-    "one": "utworzone",
     "few": "utworzone",
     "many": "utworzonych",
+    "one": "utworzone",
     "other": "utworzonego"
   },
   "import.stat_failed": {
-    "one": "nieudane",
     "few": "nieudane",
     "many": "nieudanych",
+    "one": "nieudane",
     "other": "nieudanego"
   },
   "import.stat_skipped": {
-    "one": "pominięte",
     "few": "pominięte",
     "many": "pominiętych",
+    "one": "pominięte",
     "other": "pominiętego"
   },
   "import_done.any_program_or_person_who": "Ma je każdy program lub osoba, która go odczyta. Usuń go teraz razem z kopiami w Pobranych, w poczcie e-mail lub w chmurze.",
@@ -995,9 +998,9 @@
   "key_source_picker.where_do_i_get_key": "Skąd wziąć klucz?",
   "level.not_checked": "Niesprawdzone",
   "list.selected": {
-    "one": "Zaznaczono 1",
     "few": "Zaznaczono {count}",
     "many": "Zaznaczono {count}",
+    "one": "Zaznaczono 1",
     "other": "Zaznaczono {count}"
   },
   "lock.couldn_open_with_windows_session": "Nie udało się otworzyć sesją Windows. Użyj hasła.",
@@ -1054,33 +1057,33 @@
   "new_org_modal.new_organization": "Nowa organizacja",
   "new_org_modal.organization_is_team_has_its": "Organizacja to zespół: ma swoje osoby i swoje kolekcje.",
   "offboarding.changed": {
-    "one": "Zmieniono: {count}",
     "few": "Zmieniono: {count}",
     "many": "Zmieniono: {count}",
+    "one": "Zmieniono: {count}",
     "other": "Zmieniono: {count}"
   },
   "offboarding.could_see": {
-    "one": "{count} poświadczenie było widoczne dla: {person}",
     "few": "{count} poświadczenia były widoczne dla: {person}",
     "many": "{count} poświadczeń było widocznych dla: {person}",
+    "one": "{count} poświadczenie było widoczne dla: {person}",
     "other": "{count} poświadczenia było widocznego dla: {person}"
   },
   "offboarding.done_of_total": {
-    "one": "Zmieniono {done} z {count}",
     "few": "Zmieniono {done} z {count}",
     "many": "Zmieniono {done} z {count}",
+    "one": "Zmieniono {done} z {count}",
     "other": "Zmieniono {done} z {count}"
   },
   "offboarding.gone_to_change": {
-    "one": "{person} · poza zespołem: {count} poświadczenie do zmiany",
     "few": "{person} · poza zespołem: {count} poświadczenia do zmiany",
     "many": "{person} · poza zespołem: {count} poświadczeń do zmiany",
+    "one": "{person} · poza zespołem: {count} poświadczenie do zmiany",
     "other": "{person} · poza zespołem: {count} poświadczenia do zmiany"
   },
   "offboarding.unshared_to_change": {
-    "one": "{person} · bez dostępu: {count} poświadczenie do zmiany",
     "few": "{person} · bez dostępu: {count} poświadczenia do zmiany",
     "many": "{person} · bez dostępu: {count} poświadczeń do zmiany",
+    "one": "{person} · bez dostępu: {count} poświadczenie do zmiany",
     "other": "{person} · bez dostępu: {count} poświadczenia do zmiany"
   },
   "offboarding_card.they_could_see_or_copy": "Ta osoba mogła je widzieć lub skopiować. Zmień je; jeśli nim nie zarządzasz, zmieni je zarządzający.",
@@ -1093,9 +1096,9 @@
   "open_export.export_vault": "Eksportuj sejf",
   "open_export.export_vault_2": "Aby wyeksportować sejf.",
   "open_export.exported_to": {
-    "one": "Wyeksportowano {count} poświadczenie do {path}",
     "few": "Wyeksportowano {count} poświadczenia do {path}",
     "many": "Wyeksportowano {count} poświadczeń do {path}",
+    "one": "Wyeksportowano {count} poświadczenie do {path}",
     "other": "Wyeksportowano {count} poświadczenia do {path}"
   },
   "open_export.file_password": "Hasło pliku",
@@ -1139,9 +1142,9 @@
   "palette.sage": "Szałwia",
   "palette.terracotta": "Terakota",
   "password.chars_left": {
-    "one": "Jeszcze {count} znak",
     "few": "Jeszcze {count} znaki",
     "many": "Jeszcze {count} znaków",
+    "one": "Jeszcze {count} znak",
     "other": "Jeszcze {count} znaku"
   },
   "pending_change_box.accept_new_description": "Zaakceptuj nowy opis",
@@ -1225,57 +1228,57 @@
   "recovery_code.used": "Użyto twojego kodu odzyskiwania, więc już nie działa. Oto nowy: przechowuj go tak jak poprzedni.",
   "recovery_code.vault_note": "Możesz go trzymać w osobistym sejfie, ale to nie pomoże, jeśli stracisz właśnie sejf (ten komputer i jego kopie): przechowuj go też w innym miejscu.",
   "reminder.ask_manager_in_case": {
-    "one": "Poproś zarządzającego, aby je zmienił, na wypadek gdyby ta osoba je widziała.",
     "few": "Poproś zarządzającego, aby je zmienił, na wypadek gdyby te osoby je widziały.",
     "many": "Poproś zarządzającego, aby je zmienił, na wypadek gdyby te osoby je widziały.",
+    "one": "Poproś zarządzającego, aby je zmienił, na wypadek gdyby ta osoba je widziała.",
     "other": "Poproś zarządzającego, aby je zmienił, na wypadek gdyby te osoby je widziały."
   },
   "reminder.change_in_case": {
-    "one": "Zmień je na wypadek, gdyby ta osoba je widziała.",
     "few": "Zmień je na wypadek, gdyby te osoby je widziały.",
     "many": "Zmień je na wypadek, gdyby te osoby je widziały.",
+    "one": "Zmień je na wypadek, gdyby ta osoba je widziała.",
     "other": "Zmień je na wypadek, gdyby te osoby je widziały."
   },
   "reminder.change_people_had_it": {
-    "one": "Do zmiany: miała je osoba {names}",
     "few": "Do zmiany: miały je osoby {names}",
     "many": "Do zmiany: miały je osoby {names}",
+    "one": "Do zmiany: miała je osoba {names}",
     "other": "Do zmiany: miały je osoby {names}"
   },
   "reminder.change_people_left": {
-    "one": "Do zmiany: {names} poza zespołem",
     "few": "Do zmiany: {names} poza zespołem",
     "many": "Do zmiany: {names} poza zespołem",
+    "one": "Do zmiany: {names} poza zespołem",
     "other": "Do zmiany: {names} poza zespołem"
   },
   "reminder.expired_ago": {
-    "one": "Wygasło {count} dzień temu. Utwórz nowy klucz lub go wymień.",
     "few": "Wygasło {count} dni temu. Utwórz nowy klucz lub go wymień.",
     "many": "Wygasło {count} dni temu. Utwórz nowy klucz lub go wymień.",
+    "one": "Wygasło {count} dzień temu. Utwórz nowy klucz lub go wymień.",
     "other": "Wygasło {count} dnia temu. Utwórz nowy klucz lub go wymień."
   },
   "reminder.expires_in": {
-    "one": "Wygasa za {count} dzień. Wymień go, zanim przestanie działać.",
     "few": "Wygasa za {count} dni. Wymień go, zanim przestanie działać.",
     "many": "Wygasa za {count} dni. Wymień go, zanim przestanie działać.",
+    "one": "Wygasa za {count} dzień. Wymień go, zanim przestanie działać.",
     "other": "Wygasa za {count} dnia. Wymień go, zanim przestanie działać."
   },
   "reminder.key_age": {
-    "one": "Klucz ma {count} dzień. Warto go co jakiś czas wymieniać.",
     "few": "Klucz ma {count} dni. Warto go co jakiś czas wymieniać.",
     "many": "Klucz ma {count} dni. Warto go co jakiś czas wymieniać.",
+    "one": "Klucz ma {count} dzień. Warto go co jakiś czas wymieniać.",
     "other": "Klucz ma {count} dnia. Warto go co jakiś czas wymieniać."
   },
   "reminder.team_access_left": {
-    "one": "Dostęp do tego poświadczenia zespołu miała osoba {names}, która nie jest już w zespole.",
     "few": "Dostęp do tego poświadczenia zespołu miały osoby {names}, które nie są już w zespole.",
     "many": "Dostęp do tego poświadczenia zespołu miały osoby {names}, które nie są już w zespole.",
+    "one": "Dostęp do tego poświadczenia zespołu miała osoba {names}, która nie jest już w zespole.",
     "other": "Dostęp do tego poświadczenia zespołu miały osoby {names}, które nie są już w zespole."
   },
   "reminder.unshared_access": {
-    "one": "Dostęp do tego poświadczenia miała osoba {names}, która już go nie ma.",
     "few": "Dostęp do tego poświadczenia miały osoby {names}, które już go nie mają.",
     "many": "Dostęp do tego poświadczenia miały osoby {names}, które już go nie mają.",
+    "one": "Dostęp do tego poświadczenia miała osoba {names}, która już go nie ma.",
     "other": "Dostęp do tego poświadczenia miały osoby {names}, które już go nie mają."
   },
   "reminder_short.change_had_it": "Do zmiany: {length} z dostępem",
@@ -1426,25 +1429,25 @@
   "rotation.id_changed_app": "Zmienił się: utworzono nową aplikację.",
   "rotation.id_changed_client": "Zmienił się: utworzono nowego klienta.",
   "rotation.n_places": {
-    "one": "{count} miejsce",
     "few": "{count} miejsca",
     "many": "{count} miejsc",
+    "one": "{count} miejsce",
     "other": "{count} miejsca"
   },
   "rotation.no_places_noted": "Nie zanotowano miejsc. Jeśli używasz go gdzie indziej (serwer, Vercel, inna aplikacja…), zmień go także tam.",
   "rotation.no_places_noted_revoke": "Nie zanotowano miejsc. Jeśli używasz go gdzie indziej (serwer, Vercel, inna aplikacja…), zmień go także tam, zanim unieważnisz stary.",
   "rotation.old_key_exposed": {
-    "one": "Stary klucz był jawnym tekstem w {count} miejscu. Gdy tylko go unieważnisz, ta kopia przestanie być zagrożeniem.",
     "few": "Stary klucz był jawnym tekstem w {count} miejscach. Gdy tylko go unieważnisz, te kopie przestaną być zagrożeniem.",
     "many": "Stary klucz był jawnym tekstem w {count} miejscach. Gdy tylko go unieważnisz, te kopie przestaną być zagrożeniem.",
+    "one": "Stary klucz był jawnym tekstem w {count} miejscu. Gdy tylko go unieważnisz, ta kopia przestanie być zagrożeniem.",
     "other": "Stary klucz był jawnym tekstem w {count} miejsca. Gdy tylko go unieważnisz, te kopie przestaną być zagrożeniem."
   },
   "rotation.pending_kept_key": "Nowy klucz zostaje tu zapisany jako oczekujący: gdy wrócisz do „Wymień z pomocą”, możesz dokończyć.",
   "rotation.pending_kept_password": "Nowe hasło zostaje tu zapisane jako oczekujące: gdy wrócisz do „Wymień z pomocą”, możesz dokończyć.",
   "rotation.places_missing": {
-    "one": "Zostało: {count}. {then}",
     "few": "Zostały: {count}. {then}",
     "many": "Zostało: {count}. {then}",
+    "one": "Zostało: {count}. {then}",
     "other": "Zostało: {count}. {then}"
   },
   "rotation.proof_copy_key": "Aby skopiować nowy klucz: {name}.",
@@ -1498,9 +1501,9 @@
   "server_admin.backup_reason": "Aby zrobić kopię zapasową serwera.",
   "server_admin.backups": "Kopie zapasowe",
   "server_admin.backups_kept": {
-    "one": "{count} zachowana",
     "few": "{count} zachowane",
     "many": "{count} zachowanych",
+    "one": "{count} zachowana",
     "other": "{count} zachowanej"
   },
   "server_admin.being_replaced": "Utracony dostęp: nowe konto czeka, by je zastąpić",
@@ -1508,9 +1511,9 @@
   "server_admin.change_owner_text": "Wybierz kogoś, kto już jest w organizacji. Dotychczasowy właściciel nim pozostaje; nowy właściciel może to zmienić w sekcji Osoby.",
   "server_admin.change_owner_title": "Właściciel {org}",
   "server_admin.collections_count": {
-    "one": "{count} kolekcja",
     "few": "{count} kolekcje",
     "many": "{count} kolekcji",
+    "one": "{count} kolekcja",
     "other": "{count} kolekcji"
   },
   "server_admin.copy_code_only": "Kopiuj tylko kod",
@@ -1641,9 +1644,9 @@
   "settings.app": "Aplikacja",
   "settings.appearance": "Wygląd",
   "settings.approved_now": {
-    "one": "Jedno poświadczenie zatwierdzone w tej chwili.",
     "few": "{count} poświadczenia zatwierdzone w tej chwili.",
     "many": "{count} poświadczeń zatwierdzonych w tej chwili.",
+    "one": "Jedno poświadczenie zatwierdzone w tej chwili.",
     "other": "{count} poświadczenia zatwierdzonego w tej chwili."
   },
   "settings.ask_again_if_used_lot": "Pytaj ponownie przy częstym użyciu",
@@ -1729,27 +1732,27 @@
   "setup.you_ll_only_type_master": "Hasło główne wpiszesz tylko przy przywracaniu kopii zapasowych lub na innym komputerze.",
   "setup.your_keys_used_without_being": "Twoje klucze, używane bez pokazywania",
   "share.credentials_shared_in": {
-    "one": "Udostępniono {count} poświadczenie w {name}",
     "few": "Udostępniono {count} poświadczenia w {name}",
     "many": "Udostępniono {count} poświadczeń w {name}",
+    "one": "Udostępniono {count} poświadczenie w {name}",
     "other": "Udostępniono {count} poświadczenia w {name}"
   },
   "share.not_shared": {
-    "one": "Nie udało się udostępnić {count}: {error}",
     "few": "Nie udało się udostępnić {count}: {error}",
     "many": "Nie udało się udostępnić {count}: {error}",
+    "one": "Nie udało się udostępnić {count}: {error}",
     "other": "Nie udało się udostępnić {count}: {error}"
   },
   "share.shared_in": {
-    "one": "Udostępniono {count} w {name}",
     "few": "Udostępniono {count} w {name}",
     "many": "Udostępniono {count} w {name}",
+    "one": "Udostępniono {count} w {name}",
     "other": "Udostępniono {count} w {name}"
   },
   "share.shared_with_count": {
-    "one": "Udostępniono {count} osobie {name}",
     "few": "Udostępniono {count} osobie {name}",
     "many": "Udostępniono {count} osobie {name}",
+    "one": "Udostępniono {count} osobie {name}",
     "other": "Udostępniono {count} osobie {name}"
   },
   "share.shared_with_one": "Udostępniono osobie {name}",
@@ -1773,9 +1776,9 @@
   "share_with_person.nothing_to_share": "Nie masz własnych poświadczeń do udostępnienia.",
   "share_with_person.search": "Szukaj",
   "share_with_person.share_count": {
-    "one": "Udostępnij {count}",
     "few": "Udostępnij {count}",
     "many": "Udostępnij {count}",
+    "one": "Udostępnij {count}",
     "other": "Udostępnij {count}"
   },
   "shared_badge.shared": "Udostępnione · {value}",
@@ -1834,6 +1837,7 @@
   "show_form.change_type": "Zmień typ",
   "show_form.changed_while_you_were_editing": "Zmieniło się podczas edycji",
   "show_form.changes_saved": "Zapisano zmiany",
+  "show_form.config_not_secret": "To nie sekret: AI widzi te dane, a sb run przekazuje je bez pytania cię o zgodę. Dlatego nie ma uprawnień, rotacji ani sprawdzania.",
   "show_form.data_ai_can_insert_without": "Dane, które AI może wstawić, nie widząc ich",
   "show_form.deploy_token": "Token wdrożenia",
   "show_form.discard_changes": "Odrzucić zmiany?",
@@ -1883,15 +1887,15 @@
   "sidebar.closes_with_windows": "Sejf zamyka się, gdy blokujesz Windows.",
   "sidebar.closes_with_windows_or_idle": "Sejf zamyka się, gdy blokujesz Windows lub po okresie bezczynności, i otwiera się sam ponownie.",
   "sidebar.drafts_waiting": {
-    "one": "Jedno poświadczenie przygotowane przez AI czeka na klucz.",
     "few": "{count} poświadczenia przygotowane przez AI czekają na klucze.",
     "many": "{count} poświadczeń przygotowanych przez AI czeka na klucze.",
+    "one": "Jedno poświadczenie przygotowane przez AI czeka na klucz.",
     "other": "{count} poświadczenia przygotowanego przez AI czeka na klucze."
   },
   "sidebar.to_review": {
-    "one": "Do przejrzenia: {count}",
     "few": "Do przejrzenia: {count}",
     "many": "Do przejrzenia: {count}",
+    "one": "Do przejrzenia: {count}",
     "other": "Do przejrzenia: {count}"
   },
   "sort.need_attention": "Wymagające uwagi",
@@ -1904,9 +1908,9 @@
   "source.settings": "Ustawienia",
   "source.terminal_history": "Historia terminala",
   "status.used_in_places": {
-    "one": "Używane w {count} miejscu",
     "few": "Używane w {count} miejscach",
     "many": "Używane w {count} miejscach",
+    "one": "Używane w {count} miejscu",
     "other": "Używane w {count} miejsca"
   },
   "status_strip.app_doesn_know_how_test": "Aplikacja nie wie, jak przetestować ten klucz: wskaż żądanie, które go testuje",
@@ -1942,39 +1946,39 @@
   "sync_line.will_retry_by_itself": "Ponowi próbę samodzielnie.",
   "team.another_account": "inne konto",
   "team.changes_wait_rekey": {
-    "one": "{count} zmiana czeka, aż jej kolekcja zostanie ponownie zaszyfrowana.",
     "few": "{count} zmiany czekają, aż ich kolekcja zostanie ponownie zaszyfrowana.",
     "many": "{count} zmian czeka, aż ich kolekcja zostanie ponownie zaszyfrowana.",
+    "one": "{count} zmiana czeka, aż jej kolekcja zostanie ponownie zaszyfrowana.",
     "other": "{count} zmiany czeka, aż jej kolekcja zostanie ponownie zaszyfrowana."
   },
   "team.disconnect_removes": {
-    "one": "Poświadczenie zespołu zostanie usunięte z tego komputera; na serwerze zostaje dla pozostałych. Poświadczenia udostępnione z twojego sejfu i niewysłane zmiany zostają jako osobiste.",
     "few": "{count} poświadczenia zespołu zostaną usunięte z tego komputera; na serwerze zostają dla pozostałych. Poświadczenia udostępnione z twojego sejfu i niewysłane zmiany zostają jako osobiste.",
     "many": "{count} poświadczeń zespołu zostanie usuniętych z tego komputera; na serwerze zostają dla pozostałych. Poświadczenia udostępnione z twojego sejfu i niewysłane zmiany zostają jako osobiste.",
+    "one": "Poświadczenie zespołu zostanie usunięte z tego komputera; na serwerze zostaje dla pozostałych. Poświadczenia udostępnione z twojego sejfu i niewysłane zmiany zostają jako osobiste.",
     "other": "{count} poświadczenia zespołu zostanie usuniętego z tego komputera; na serwerze zostają dla pozostałych. Poświadczenia udostępnione z twojego sejfu i niewysłane zmiany zostają jako osobiste."
   },
   "team.people_to_verify": {
-    "one": "{count} osoba do weryfikacji",
     "few": "{count} osoby do weryfikacji",
     "many": "{count} osób do weryfikacji",
+    "one": "{count} osoba do weryfikacji",
     "other": "{count} osoby do weryfikacji"
   },
   "team.rekey_by_managers": {
-    "one": "Jeszcze jedną zaszyfruje ponownie jej zarządzający.",
     "few": "Pozostałe ({count}) zaszyfrują ponownie ich zarządzający.",
     "many": "Pozostałe ({count}) zaszyfrują ponownie ich zarządzający.",
+    "one": "Jeszcze jedną zaszyfruje ponownie jej zarządzający.",
     "other": "Pozostałe ({count}) zaszyfrują ponownie ich zarządzający."
   },
   "team.rekey_next_sync": {
-    "one": "{count} kolekcja zostanie ponownie zaszyfrowana przy następnej synchronizacji.",
     "few": "{count} kolekcje zostaną ponownie zaszyfrowane przy następnej synchronizacji.",
     "many": "{count} kolekcji zostanie ponownie zaszyfrowanych przy następnej synchronizacji.",
+    "one": "{count} kolekcja zostanie ponownie zaszyfrowana przy następnej synchronizacji.",
     "other": "{count} kolekcji zostanie ponownie zaszyfrowanej przy następnej synchronizacji."
   },
   "team.rekey_on_reconnect": {
-    "one": "{count} kolekcja zostanie ponownie zaszyfrowana po ponownym połączeniu.",
     "few": "{count} kolekcje zostaną ponownie zaszyfrowane po ponownym połączeniu.",
     "many": "{count} kolekcji zostanie ponownie zaszyfrowanych po ponownym połączeniu.",
+    "one": "{count} kolekcja zostanie ponownie zaszyfrowana po ponownym połączeniu.",
     "other": "{count} kolekcji zostanie ponownie zaszyfrowanej po ponownym połączeniu."
   },
   "team.this_pc": "ten komputer: {device}",
@@ -2153,76 +2157,76 @@
   "time.date_at": "{date} o {time}",
   "time.day_time": "{day} {time}",
   "time.days_ago": {
-    "one": "{count} dzień temu",
     "few": "{count} dni temu",
     "many": "{count} dni temu",
+    "one": "{count} dzień temu",
     "other": "{count} dnia temu"
   },
   "time.every_hours": {
-    "one": "co godzinę",
     "few": "co {count} godziny",
     "many": "co {count} godzin",
+    "one": "co godzinę",
     "other": "co {count} godziny"
   },
   "time.every_months": {
-    "one": "co miesiąc",
     "few": "co {count} miesiące",
     "many": "co {count} miesięcy",
+    "one": "co miesiąc",
     "other": "co {count} miesiąca"
   },
   "time.hours": {
-    "one": "{count} godzina",
     "few": "{count} godziny",
     "many": "{count} godzin",
+    "one": "{count} godzina",
     "other": "{count} godziny"
   },
   "time.hours_ago": "{count} godz. temu",
   "time.hours_label": "godziny",
   "time.hours_short": "{count} godz.",
   "time.in_days": {
-    "one": "za {count} dzień",
     "few": "za {count} dni",
     "many": "za {count} dni",
+    "one": "za {count} dzień",
     "other": "za {count} dnia"
   },
   "time.in_months": {
-    "one": "za {count} miesiąc",
     "few": "za {count} miesiące",
     "many": "za {count} miesięcy",
+    "one": "za {count} miesiąc",
     "other": "za {count} miesiąca"
   },
   "time.in_years": {
-    "one": "za rok",
     "few": "za {count} lata",
     "many": "za {count} lat",
+    "one": "za rok",
     "other": "za {count} roku"
   },
   "time.minutes": {
-    "one": "{count} minuta",
     "few": "{count} minuty",
     "many": "{count} minut",
+    "one": "{count} minuta",
     "other": "{count} minuty"
   },
   "time.minutes_ago": "{count} min temu",
   "time.minutes_short": "{count} min",
   "time.months": {
-    "one": "{count} miesiąc",
     "few": "{count} miesiące",
     "many": "{count} miesięcy",
+    "one": "{count} miesiąc",
     "other": "{count} miesiąca"
   },
   "time.months_ago": {
-    "one": "{count} miesiąc temu",
     "few": "{count} miesiące temu",
     "many": "{count} miesięcy temu",
+    "one": "{count} miesiąc temu",
     "other": "{count} miesiąca temu"
   },
   "time.now": "przed chwilą",
   "time.relative_day_at": "{day} o {time}",
   "time.years_ago": {
-    "one": "{count} rok temu",
     "few": "{count} lata temu",
     "many": "{count} lat temu",
+    "one": "{count} rok temu",
     "other": "{count} roku temu"
   },
   "totp_prop.2fa_code_copied_valid_for": "Skopiowano kod 2FA · ważny jeszcze {remaining} s",
@@ -2268,9 +2272,9 @@
   "used_in_modal.where_is_used": "Gdzie jest używane: {name}",
   "used_in_modal.where_used_hasn_been_noted": "Nie zanotowano, gdzie jest używane.",
   "verify.shares_collections": {
-    "one": "Udostępnia ci kolekcję: zweryfikuj tę osobę, aby ją otrzymać.",
     "few": "Udostępnia ci {count} kolekcje: zweryfikuj tę osobę, aby je otrzymać.",
     "many": "Udostępnia ci {count} kolekcji: zweryfikuj tę osobę, aby je otrzymać.",
+    "one": "Udostępnia ci kolekcję: zweryfikuj tę osobę, aby ją otrzymać.",
     "other": "Udostępnia ci {count} kolekcji: zweryfikuj tę osobę, aby je otrzymać."
   },
   "verify_email_card.e_mail_code": "Kod z e-maila",

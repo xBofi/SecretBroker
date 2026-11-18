@@ -143,6 +143,21 @@ TEMPLATES = {
             _field("url", "Dirección web (opcional)", hint="https://…"),
         ],
     },
+    # Not a secret: IDs and settings a program needs (a public app's client ID, a tenant, an account id). Kept here so
+    # `.secretbroker` and `sb run` give it like the rest, but it has no key: nothing to find in files, rotate or redact,
+    # the AI sees its values, and `sb run` gives them without asking.
+    "config": {
+        "label": "Configuración (no secreta)",
+        "icon": "settings",
+        "summary": "IDs y datos públicos: client ID, tenant, ID de cuenta…",
+        "public": True,
+        "fields": [
+            _field("username", "Identificador", hint="client id, app id, tenant id…",
+                   help="No es secreto: la IA lo ve y los programas lo reciben sin pedirte permiso."),
+            _field("value", "Valor (opcional)", hint="Un dato de configuración"),
+            _field("url", "Dirección web (opcional)", hint="https://…"),
+        ],
+    },
 }
 
 for _template in TEMPLATES.values():
@@ -162,6 +177,14 @@ def active_specs(template_id, fields):
     defaults = {s["name"]: s["default"] for s in specs}
     resolved = {**defaults, **{k: v for k, v in fields.items() if v not in (None, "")}}
     return [s for s in specs if not s["show_if"] or all(resolved.get(k) == v for k, v in s["show_if"].items())]
+
+
+def is_public(template_id):
+    """A template for data that is not secret (configuration): no key to protect, find, rotate or redact."""
+    return bool((TEMPLATES.get(template_id) or {}).get("public"))
+
+
+PUBLIC_FIELDS = ("username", "value", "url")  # what a configuration entry may hold besides its notes
 
 
 def secret_field_names(template_id):
@@ -215,7 +238,8 @@ def placeholder_values(entry):
 
 def secret_values(entry):
     fields = entry["fields"]
-    values = [str(fields[name]) for name in SECRET_FIELDS if fields.get(name)]
+    # The entry's own keys: «value» is a key in an API key but plain data in a configuration entry.
+    values = [str(fields[name]) for name in key_field_names(entry["template"]) if fields.get(name)]
     values += [v for k, v in computed_values(entry).items() if k in COMPUTED_SECRETS]
     if fields.get("username") and fields.get("password"):
         values.append(f"{fields['username']}:{fields['password']}")
@@ -237,6 +261,8 @@ def default_policy(template_id, fields):
     """Sensible AI permissions derived from the template fields. The user can override them."""
     http = {"allowed_hosts": [], "auth": {"kind": "none"}}
     commands = {"allowed": [], "env": {}}
+    if is_public(template_id):
+        return {"approval": "never"}  # nothing to approve: `sb run` and the AI get its data freely
     if template_id in ("web_login", "generic"):
         host = _host_of(fields.get("url"))
         http["allowed_hosts"] = [host] if host else []

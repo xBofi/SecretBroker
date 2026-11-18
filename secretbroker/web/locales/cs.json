@@ -78,9 +78,9 @@
   "activity_detail.created": "vytvořeno",
   "activity_detail.credentials": {
     "=0": "prázdná",
-    "one": "1 pověření",
     "few": "{count} pověření",
     "many": "{count} pověření",
+    "one": "1 pověření",
     "other": "{count} pověření"
   },
   "activity_detail.from_collection": "Z kolekce {name}",
@@ -99,17 +99,17 @@
   "activity_filter.all": "Vše",
   "activity_filter.denied": "Zamítnuto",
   "ai.requests_count": {
-    "one": "{count} požadavek",
     "few": "{count} požadavky",
     "many": "{count} požadavku",
+    "one": "{count} požadavek",
     "other": "{count} požadavků"
   },
   "ai_change.rotation_guide": "Návod k rotaci",
   "ai_change.sources": "zdroje: {sources}",
   "ai_change.steps": {
-    "one": "{count} krok",
     "few": "{count} kroky",
     "many": "{count} kroku",
+    "one": "{count} krok",
     "other": "{count} kroků"
   },
   "ai_change.test_request": "Testovací požadavek",
@@ -145,16 +145,16 @@
   "approval.allow_for_24_hours": "Povolit na 24 hodin",
   "approval.allow_for_8_hours": "Povolit na 8 hodin",
   "approval.for_hours": {
-    "one": "na {count} hodinu",
     "few": "na {count} hodiny",
     "many": "na {count} hodiny",
+    "one": "na {count} hodinu",
     "other": "na {count} hodin"
   },
   "approval.position": "{position} z {total}",
   "approval.times_today": {
-    "one": "dnes {count}krát",
     "few": "dnes {count}krát",
     "many": "dnes {count}krát",
+    "one": "dnes {count}krát",
     "other": "dnes {count}krát"
   },
   "approval.until_you_lock_vault": "do zamknutí trezoru",
@@ -223,6 +223,7 @@
   "change_line.new_programs": "Nové programy",
   "change_line.new_variables": "Nové nebo změněné proměnné",
   "change_line.new_websites": "Nové weby",
+  "change_line.secret_value_deleted": "uložená tajná hodnota se smaže",
   "change_master_password.change_master_password": "Pro změnu hlavního hesla.",
   "change_master_password.change_master_password_2": "Změnit hlavní heslo",
   "change_master_password.choose_new_master_password": "Zvolte nové hlavní heslo",
@@ -319,9 +320,9 @@
   "common.create_collection": "Pro vytvoření kolekce.",
   "common.credentials": "Pověření",
   "common.credentials_count": {
-    "one": "{count} pověření",
     "few": "{count} pověření",
     "many": "{count} pověření",
+    "one": "{count} pověření",
     "other": "{count} pověření"
   },
   "common.delete": "Odstranit",
@@ -381,9 +382,9 @@
   "common.optional_suffix": " · volitelné",
   "common.organization": "Organizace",
   "common.people_count": {
-    "one": "{count} osoba",
     "few": "{count} osoby",
     "many": "{count} osoby",
+    "one": "{count} osoba",
     "other": "{count} osob"
   },
   "common.private_notes": "Soukromé poznámky",
@@ -483,6 +484,7 @@
   "describe_permissions.run_on_this_pc": "Spouštět {value} na tomto počítači",
   "destination_label.github": "GitHub {repo}{value} · {name}",
   "detail.ai_knows_as": "AI ho zná jako ",
+  "detail.config_not_secret": "Není tajná: AI tyto údaje vidí a sb run je předá programům, aniž by se tě ptal. Nerotuje se a nepočítá se jako vyzrazená.",
   "detail.copied_cleared_in": "Zkopírováno · zmizí za {result} s",
   "detail.copy": "Pro zkopírování „{label}“ z {name}.",
   "detail.decide_in_team": "rozhodněte v části Tým",
@@ -503,24 +505,24 @@
   "direct_block.stop_proof": "Pro ukončení sdílení s osobou {name}.",
   "direct_block.stop_sharing_with": "Přestat sdílet s osobou {name}",
   "direct_block.stop_text": {
-    "one": "{name} přestane dostávat pověření, které s ní sdílíte. Na tomto počítači zůstane vaše.",
     "few": "{name} přestane dostávat {count} pověření, která s ní sdílíte. Na tomto počítači zůstanou vaše.",
     "many": "{name} přestane dostávat {count} pověření, která s ní sdílíte. Na tomto počítači zůstanou vaše.",
+    "one": "{name} přestane dostávat pověření, které s ní sdílíte. Na tomto počítači zůstane vaše.",
     "other": "{name} přestane dostávat {count} pověření, která s ní sdílíte. Na tomto počítači zůstanou vaše."
   },
   "direct_block.stop_title": "Přestat sdílet s osobou {name}?",
   "direct_block.stop_warning": {
-    "one": "Tato osoba ho mohla vidět nebo zkopírovat: připomeneme vám, abyste ho změnili.",
     "few": "Tato osoba je mohla vidět nebo zkopírovat: připomeneme vám, abyste je změnili.",
     "many": "Tato osoba je mohla vidět nebo zkopírovat: připomeneme vám, abyste je změnili.",
+    "one": "Tato osoba ho mohla vidět nebo zkopírovat: připomeneme vám, abyste ho změnili.",
     "other": "Tato osoba je mohla vidět nebo zkopírovat: připomeneme vám, abyste je změnili."
   },
   "direct_block.stopped": "S osobou {name} už nic nesdílíte",
   "direct_block.their_permission": "{name}: {value}",
   "direct_share.already_sharing": {
-    "one": "S osobou {name} už sdílíte {count} pověření. Zvolené oprávnění platí pro vše, co s ní sdílíte.",
     "few": "S osobou {name} už sdílíte {count} pověření. Zvolené oprávnění platí pro vše, co s ní sdílíte.",
     "many": "S osobou {name} už sdílíte {count} pověření. Zvolené oprávnění platí pro vše, co s ní sdílíte.",
+    "one": "S osobou {name} už sdílíte {count} pověření. Zvolené oprávnění platí pro vše, co s ní sdílíte.",
     "other": "S osobou {name} už sdílíte {count} pověření. Zvolené oprávnění platí pro vše, co s ní sdílíte."
   },
   "direct_share.compare_code": "Požádejte tuto osobu, ať vám přečte svůj bezpečnostní kód (po telefonu nebo osobně), a porovnejte ho s tímto. Tak nikdo, ani server, nemůže podstrčit jiný klíč.",
@@ -549,6 +551,7 @@
   "draw_team.sync_now": "Synchronizovat",
   "draw_team.synced": "Synchronizováno",
   "editor.aws_placeholder": "Osobní AWS",
+  "editor.config_placeholder": "Client ID mé aplikace",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
   "editor.tags_placeholder": "obchod, produkce",
   "empty_credentials.add_credential": "Přidat pověření",
@@ -564,9 +567,9 @@
   "env_import.config_written": "Ve složce projektu je teď soubor .secretbroker s názvy pověření, bez hodnot. Může jít do repozitáře.",
   "env_import.file_deleted": "{name} smazán",
   "env_import.import_keys": {
-    "one": "Importovat {count} klíč",
     "few": "Importovat {count} klíče",
     "many": "Importovat {count} klíče",
+    "one": "Importovat {count} klíč",
     "other": "Importovat {count} klíčů"
   },
   "env_import.keep_file": "Nechat tak",
@@ -577,9 +580,9 @@
   "env_import.remove_explained": "Odeberte je ze souboru: ostatní proměnné zůstanou, a pokud žádná nezbude, soubor se smaže.",
   "env_import.remove_from_file": "Odebrat ze souboru",
   "env_import.skipped_existing": {
-    "one": "{count} už byl v trezoru.",
     "few": "{count} už byly v trezoru.",
     "many": "{count} už bylo v trezoru.",
+    "one": "{count} už byl v trezoru.",
     "other": "{count} už bylo v trezoru."
   },
   "env_import.still_in_file": "{name} pořád obsahuje tyto klíče v otevřeném textu.",
@@ -595,9 +598,9 @@
   "exposure.couldn_load_status": "Stav se nepodařilo načíst.",
   "exposure.ignored": "ignorováno",
   "exposure.ignored_count": {
-    "one": "{count} ignorováno",
     "few": "{count} ignorována",
     "many": "{count} ignorováno",
+    "one": "{count} ignorováno",
     "other": "{count} ignorováno"
   },
   "exposure.last_search_files": "Poslední hledání: {when} · souborů: {files}",
@@ -606,27 +609,27 @@
   "exposure.no_search_for_copies_yet": "Kopie se zatím nehledaly",
   "exposure.paths_are_only_shown_after": "Cesty se zobrazí až po ověření vaší totožnosti. ",
   "exposure.places": {
-    "one": "{count} místo",
     "few": "{count} místa",
     "many": "{count} místa",
+    "one": "{count} místo",
     "other": "{count} míst"
   },
   "exposure.removed_from_file": {
-    "one": "Odstraněno ze souboru ({count}krát)",
     "few": "Odstraněno ze souboru ({count}krát)",
     "many": "Odstraněno ze souboru ({count}krát)",
+    "one": "Odstraněno ze souboru ({count}krát)",
     "other": "Odstraněno ze souboru ({count}krát)"
   },
   "exposure.revealed_times": {
-    "one": "Zobrazeno nebo zkopírováno {count}krát",
     "few": "Zobrazeno nebo zkopírováno {count}krát",
     "many": "Zobrazeno nebo zkopírováno {count}krát",
+    "one": "Zobrazeno nebo zkopírováno {count}krát",
     "other": "Zobrazeno nebo zkopírováno {count}krát"
   },
   "exposure.search_done_exposed": {
-    "one": "Hledání dokončeno: {count} odhalené pověření",
     "few": "Hledání dokončeno: {count} odhalená pověření",
     "many": "Hledání dokončeno: {count} odhaleného pověření",
+    "one": "Hledání dokončeno: {count} odhalené pověření",
     "other": "Hledání dokončeno: {count} odhalených pověření"
   },
   "exposure.search_for_copies": "Hledat kopie",
@@ -706,87 +709,87 @@
   "generator_panel.very_weak": "Velmi slabé",
   "generator_panel.words": "Slova",
   "health.count_expired": {
-    "one": "{count} vypršelé",
     "few": "{count} vypršelá",
     "many": "{count} vypršelého",
+    "one": "{count} vypršelé",
     "other": "{count} vypršelých"
   },
   "health.count_expiring": {
-    "one": "{count} brzy vyprší",
     "few": "{count} brzy vyprší",
     "many": "{count} brzy vyprší",
+    "one": "{count} brzy vyprší",
     "other": "{count} brzy vyprší"
   },
   "health.count_exposed": {
-    "one": "{count} odhalené",
     "few": "{count} odhalená",
     "many": "{count} odhaleného",
+    "one": "{count} odhalené",
     "other": "{count} odhalených"
   },
   "health.count_half_rotated": {
-    "one": "{count} nedokončená obměna",
     "few": "{count} nedokončené obměny",
     "many": "{count} nedokončené obměny",
+    "one": "{count} nedokončená obměna",
     "other": "{count} nedokončených obměn"
   },
   "health.count_old": {
-    "one": "{count} staré",
     "few": "{count} stará",
     "many": "{count} starého",
+    "one": "{count} staré",
     "other": "{count} starých"
   },
   "health.count_old_alive": {
-    "one": "{count} se stále funkčním starým",
     "few": "{count} se stále funkčním starým",
     "many": "{count} se stále funkčním starým",
+    "one": "{count} se stále funkčním starým",
     "other": "{count} se stále funkčním starým"
   },
   "health.count_pwned": {
-    "one": "{count} v únicích",
     "few": "{count} v únicích",
     "many": "{count} v únicích",
+    "one": "{count} v únicích",
     "other": "{count} v únicích"
   },
   "health.count_retired_pending": {
-    "one": "{count} se starým ke zneplatnění",
     "few": "{count} se starým ke zneplatnění",
     "many": "{count} se starým ke zneplatnění",
+    "one": "{count} se starým ke zneplatnění",
     "other": "{count} se starým ke zneplatnění"
   },
   "health.count_reused": {
-    "one": "{count} opakované",
     "few": "{count} opakovaná",
     "many": "{count} opakovaného",
+    "one": "{count} opakované",
     "other": "{count} opakovaných"
   },
   "health.count_team_access": {
-    "one": "{count} s přístupem někoho, kdo odešel",
     "few": "{count} s přístupem někoho, kdo odešel",
     "many": "{count} s přístupem někoho, kdo odešel",
+    "one": "{count} s přístupem někoho, kdo odešel",
     "other": "{count} s přístupem někoho, kdo odešel"
   },
   "health.count_unchecked": {
-    "one": "{count} netestované",
     "few": "{count} netestovaná",
     "many": "{count} netestovaného",
+    "one": "{count} netestované",
     "other": "{count} netestovaných"
   },
   "health.count_upload_failed": {
-    "one": "{count} nenahrané",
     "few": "{count} nenahraná",
     "many": "{count} nenahraného",
+    "one": "{count} nenahrané",
     "other": "{count} nenahraných"
   },
   "health.count_was_exposed": {
-    "one": "{count} bylo odhaleno",
     "few": "{count} byla odhalena",
     "many": "{count} bylo odhaleno",
+    "one": "{count} bylo odhaleno",
     "other": "{count} bylo odhaleno"
   },
   "health.count_weak": {
-    "one": "{count} slabé",
     "few": "{count} slabá",
     "many": "{count} slabého",
+    "one": "{count} slabé",
     "other": "{count} slabých"
   },
   "health.missing_both": "Zbývá: {what}. „Zkontrolovat“ udělá obojí.",
@@ -809,45 +812,45 @@
   "health_section.see_less": "Zobrazit méně",
   "health_section.test_them_with_their_providers": "otestovat je u jejich poskytovatelů",
   "held.deleted": {
-    "one": "Z tohoto počítače odstraněno {count} pověření",
     "few": "Z tohoto počítače odstraněna {count} pověření",
     "many": "Z tohoto počítače odstraněno {count} pověření",
+    "one": "Z tohoto počítače odstraněno {count} pověření",
     "other": "Z tohoto počítače odstraněno {count} pověření"
   },
   "held.deleted_by": {
-    "one": "{who}: z „{collection_name}“ najednou odstraněno {count} pověření.",
     "few": "{who}: z „{collection_name}“ najednou odstraněna {count} pověření.",
     "many": "{who}: z „{collection_name}“ najednou odstraněno {count} pověření.",
+    "one": "{who}: z „{collection_name}“ najednou odstraněno {count} pověření.",
     "other": "{who}: z „{collection_name}“ najednou odstraněno {count} pověření."
   },
   "held.kept": {
-    "one": "Na tomto počítači ponecháno {count} pověření",
     "few": "Na tomto počítači ponechána {count} pověření",
     "many": "Na tomto počítači ponecháno {count} pověření",
+    "one": "Na tomto počítači ponecháno {count} pověření",
     "other": "Na tomto počítači ponecháno {count} pověření"
   },
   "held.proof_delete": {
-    "one": "Pro odstranění {count} pověření z tohoto počítače.",
     "few": "Pro odstranění {count} pověření z tohoto počítače.",
     "many": "Pro odstranění {count} pověření z tohoto počítače.",
+    "one": "Pro odstranění {count} pověření z tohoto počítače.",
     "other": "Pro odstranění {count} pověření z tohoto počítače."
   },
   "held.proof_keep": {
-    "one": "Pro ponechání {count} pověření.",
     "few": "Pro ponechání {count} pověření.",
     "many": "Pro ponechání {count} pověření.",
+    "one": "Pro ponechání {count} pověření.",
     "other": "Pro ponechání {count} pověření."
   },
   "held.restored": {
-    "one": "Pro celý tým obnoveno {count} pověření",
     "few": "Pro celý tým obnovena {count} pověření",
     "many": "Pro celý tým obnoveno {count} pověření",
+    "one": "Pro celý tým obnoveno {count} pověření",
     "other": "Pro celý tým obnoveno {count} pověření"
   },
   "held.waiting": {
-    "one": "{count} pověření čeká na vaše rozhodnutí",
     "few": "{count} pověření čekají na vaše rozhodnutí",
     "many": "{count} pověření čeká na vaše rozhodnutí",
+    "one": "{count} pověření čeká na vaše rozhodnutí",
     "other": "{count} pověření čeká na vaše rozhodnutí"
   },
   "held_deletions_card.collection_no_longer_appears_on": "Kolekce „{collection_name}“ se už na serveru nezobrazuje (byl vám odebrán přístup, byla odstraněna nebo server selhává).",
@@ -859,58 +862,58 @@
   "held_deletions_card.restoring_them_puts_them_back": "Obnovením se vrátí celému týmu.",
   "import.already_in": "Už je",
   "import.count_conflict": {
-    "one": "{count} s jiným heslem",
     "few": "{count} s jiným heslem",
     "many": "{count} s jiným heslem",
+    "one": "{count} s jiným heslem",
     "other": "{count} s jiným heslem"
   },
   "import.count_duplicate": {
-    "one": "{count} už v trezoru",
     "few": "{count} už v trezoru",
     "many": "{count} už v trezoru",
+    "one": "{count} už v trezoru",
     "other": "{count} už v trezoru"
   },
   "import.count_new": {
-    "one": "{count} nové",
     "few": "{count} nová",
     "many": "{count} nového",
+    "one": "{count} nové",
     "other": "{count} nových"
   },
   "import.different_password": "Jiné heslo",
   "import.imported": {
-    "one": "Importováno {count} pověření",
     "few": "Importována {count} pověření",
     "many": "Importováno {count} pověření",
+    "one": "Importováno {count} pověření",
     "other": "Importováno {count} pověření"
   },
   "import.in_file": {
-    "one": "{count} pověření v souboru: ",
     "few": "{count} pověření v souboru: ",
     "many": "{count} pověření v souboru: ",
+    "one": "{count} pověření v souboru: ",
     "other": "{count} pověření v souboru: "
   },
   "import.skipped_summary": {
-    "one": "{count} se neimportuje",
     "few": "{count} se neimportují",
     "many": "{count} se neimportuje",
+    "one": "{count} se neimportuje",
     "other": "{count} se neimportuje"
   },
   "import.stat_created": {
-    "one": "vytvořeno",
     "few": "vytvořena",
     "many": "vytvořeno",
+    "one": "vytvořeno",
     "other": "vytvořeno"
   },
   "import.stat_failed": {
-    "one": "selhalo",
     "few": "selhala",
     "many": "selhalo",
+    "one": "selhalo",
     "other": "selhalo"
   },
   "import.stat_skipped": {
-    "one": "přeskočeno",
     "few": "přeskočena",
     "many": "přeskočeno",
+    "one": "přeskočeno",
     "other": "přeskočeno"
   },
   "import_done.any_program_or_person_who": "Má je každý program nebo člověk, který ho přečte. Odstraňte ho hned, spolu se všemi kopiemi ve Stažených souborech, v e-mailu nebo v cloudu.",
@@ -995,9 +998,9 @@
   "key_source_picker.where_do_i_get_key": "Kde získám klíč?",
   "level.not_checked": "Nezkontrolováno",
   "list.selected": {
-    "one": "Vybráno: 1",
     "few": "Vybráno: {count}",
     "many": "Vybráno: {count}",
+    "one": "Vybráno: 1",
     "other": "Vybráno: {count}"
   },
   "lock.couldn_open_with_windows_session": "Relací Windows se nepodařilo otevřít. Použijte heslo.",
@@ -1054,33 +1057,33 @@
   "new_org_modal.new_organization": "Nová organizace",
   "new_org_modal.organization_is_team_has_its": "Organizace je tým: má své lidi a své kolekce.",
   "offboarding.changed": {
-    "one": "Změněno: {count}",
     "few": "Změněno: {count}",
     "many": "Změněno: {count}",
+    "one": "Změněno: {count}",
     "other": "Změněno: {count}"
   },
   "offboarding.could_see": {
-    "one": "Pověření, která mohla vidět osoba {person}: {count}",
     "few": "Pověření, která mohla vidět osoba {person}: {count}",
     "many": "Pověření, která mohla vidět osoba {person}: {count}",
+    "one": "Pověření, která mohla vidět osoba {person}: {count}",
     "other": "Pověření, která mohla vidět osoba {person}: {count}"
   },
   "offboarding.done_of_total": {
-    "one": "Změněno {done} z {count}",
     "few": "Změněno {done} z {count}",
     "many": "Změněno {done} z {count}",
+    "one": "Změněno {done} z {count}",
     "other": "Změněno {done} z {count}"
   },
   "offboarding.gone_to_change": {
-    "one": "{person} · mimo tým: {count} pověření ke změně",
     "few": "{person} · mimo tým: {count} pověření ke změně",
     "many": "{person} · mimo tým: {count} pověření ke změně",
+    "one": "{person} · mimo tým: {count} pověření ke změně",
     "other": "{person} · mimo tým: {count} pověření ke změně"
   },
   "offboarding.unshared_to_change": {
-    "one": "{person} už nemá přístup: {count} pověření ke změně",
     "few": "{person} už nemá přístup: {count} pověření ke změně",
     "many": "{person} už nemá přístup: {count} pověření ke změně",
+    "one": "{person} už nemá přístup: {count} pověření ke změně",
     "other": "{person} už nemá přístup: {count} pověření ke změně"
   },
   "offboarding_card.they_could_see_or_copy": "Tato osoba ho mohla vidět nebo zkopírovat. Změňte ho; pokud ho nespravujete, změní ho jeho správce.",
@@ -1093,9 +1096,9 @@
   "open_export.export_vault": "Exportovat trezor",
   "open_export.export_vault_2": "Pro export trezoru.",
   "open_export.exported_to": {
-    "one": "{count} pověření exportováno do {path}",
     "few": "{count} pověření exportována do {path}",
     "many": "{count} pověření exportováno do {path}",
+    "one": "{count} pověření exportováno do {path}",
     "other": "{count} pověření exportováno do {path}"
   },
   "open_export.file_password": "Heslo souboru",
@@ -1139,9 +1142,9 @@
   "palette.sage": "Šalvěj",
   "palette.terracotta": "Terakota",
   "password.chars_left": {
-    "one": "Ještě {count} znak",
     "few": "Ještě {count} znaky",
     "many": "Ještě {count} znaku",
+    "one": "Ještě {count} znak",
     "other": "Ještě {count} znaků"
   },
   "pending_change_box.accept_new_description": "Přijmout nový popis",
@@ -1225,57 +1228,57 @@
   "recovery_code.used": "Kód pro obnovení byl použit, takže už neplatí. Tady je nový: uschovejte ho stejně jako ten předchozí.",
   "recovery_code.vault_note": "Uložit ho do osobního trezoru je v pořádku, ale nepomůže to, pokud přijdete právě o trezor (tento počítač a jeho zálohy): uložte ho i jinam.",
   "reminder.ask_manager_in_case": {
-    "one": "Požádejte správce, aby ho pro jistotu změnil.",
     "few": "Požádejte správce, aby ho pro jistotu změnil.",
     "many": "Požádejte správce, aby ho pro jistotu změnil.",
+    "one": "Požádejte správce, aby ho pro jistotu změnil.",
     "other": "Požádejte správce, aby ho pro jistotu změnil."
   },
   "reminder.change_in_case": {
-    "one": "Pro jistotu ho změňte.",
     "few": "Pro jistotu ho změňte.",
     "many": "Pro jistotu ho změňte.",
+    "one": "Pro jistotu ho změňte.",
     "other": "Pro jistotu ho změňte."
   },
   "reminder.change_people_had_it": {
-    "one": "Ke změně: měla ho osoba {names}",
     "few": "Ke změně: měly ho osoby {names}",
     "many": "Ke změně: měly ho osoby {names}",
+    "one": "Ke změně: měla ho osoba {names}",
     "other": "Ke změně: měly ho osoby {names}"
   },
   "reminder.change_people_left": {
-    "one": "Ke změně: {names} mimo tým",
     "few": "Ke změně: {names} mimo tým",
     "many": "Ke změně: {names} mimo tým",
+    "one": "Ke změně: {names} mimo tým",
     "other": "Ke změně: {names} mimo tým"
   },
   "reminder.expired_ago": {
-    "one": "Platnost vypršela před {count} dnem. Vytvořte nový klíč nebo ho obměňte.",
     "few": "Platnost vypršela před {count} dny. Vytvořte nový klíč nebo ho obměňte.",
     "many": "Platnost vypršela před {count} dne. Vytvořte nový klíč nebo ho obměňte.",
+    "one": "Platnost vypršela před {count} dnem. Vytvořte nový klíč nebo ho obměňte.",
     "other": "Platnost vypršela před {count} dny. Vytvořte nový klíč nebo ho obměňte."
   },
   "reminder.expires_in": {
-    "one": "Platnost vyprší za {count} den. Obměňte ho, než přestane fungovat.",
     "few": "Platnost vyprší za {count} dny. Obměňte ho, než přestane fungovat.",
     "many": "Platnost vyprší za {count} dne. Obměňte ho, než přestane fungovat.",
+    "one": "Platnost vyprší za {count} den. Obměňte ho, než přestane fungovat.",
     "other": "Platnost vyprší za {count} dní. Obměňte ho, než přestane fungovat."
   },
   "reminder.key_age": {
-    "one": "Klíč je starý {count} den. Vyplatí se ho čas od času obměnit.",
     "few": "Klíč je starý {count} dny. Vyplatí se ho čas od času obměnit.",
     "many": "Klíč je starý {count} dne. Vyplatí se ho čas od času obměnit.",
+    "one": "Klíč je starý {count} den. Vyplatí se ho čas od času obměnit.",
     "other": "Klíč je starý {count} dní. Vyplatí se ho čas od času obměnit."
   },
   "reminder.team_access_left": {
-    "one": "K tomuto týmovému pověření měla přístup osoba {names}, která už není v týmu.",
     "few": "K tomuto týmovému pověření měly přístup osoby {names}, které už nejsou v týmu.",
     "many": "K tomuto týmovému pověření měly přístup osoby {names}, které už nejsou v týmu.",
+    "one": "K tomuto týmovému pověření měla přístup osoba {names}, která už není v týmu.",
     "other": "K tomuto týmovému pověření měly přístup osoby {names}, které už nejsou v týmu."
   },
   "reminder.unshared_access": {
-    "one": "K tomuto pověření měla přístup osoba {names}, která ho už nemá.",
     "few": "K tomuto pověření měly přístup osoby {names}, které ho už nemají.",
     "many": "K tomuto pověření měly přístup osoby {names}, které ho už nemají.",
+    "one": "K tomuto pověření měla přístup osoba {names}, která ho už nemá.",
     "other": "K tomuto pověření měly přístup osoby {names}, které ho už nemají."
   },
   "reminder_short.change_had_it": "Ke změně: přístup měli {length}",
@@ -1426,25 +1429,25 @@
   "rotation.id_changed_app": "Změnilo se: je to nová aplikace.",
   "rotation.id_changed_client": "Změnilo se: je to nový klient.",
   "rotation.n_places": {
-    "one": "{count} místo",
     "few": "{count} místa",
     "many": "{count} místa",
+    "one": "{count} místo",
     "other": "{count} míst"
   },
   "rotation.no_places_noted": "Nejsou poznamenána žádná místa. Pokud ho používáte jinde (server, Vercel, jiná aplikace…), změňte ho i tam.",
   "rotation.no_places_noted_revoke": "Nejsou poznamenána žádná místa. Pokud ho používáte jinde (server, Vercel, jiná aplikace…), změňte ho i tam, než zneplatníte starý.",
   "rotation.old_key_exposed": {
-    "one": "Starý klíč byl jako prostý text na {count} místě. Jakmile ho zneplatníte, tato kopie přestane být rizikem.",
     "few": "Starý klíč byl jako prostý text na {count} místech. Jakmile ho zneplatníte, tyto kopie přestanou být rizikem.",
     "many": "Starý klíč byl jako prostý text na {count} místa. Jakmile ho zneplatníte, tyto kopie přestanou být rizikem.",
+    "one": "Starý klíč byl jako prostý text na {count} místě. Jakmile ho zneplatníte, tato kopie přestane být rizikem.",
     "other": "Starý klíč byl jako prostý text na {count} místech. Jakmile ho zneplatníte, tyto kopie přestanou být rizikem."
   },
   "rotation.pending_kept_key": "Nový klíč zůstane uložený zde jako čekající: až se vrátíte k „Obměnit s pomocí“, můžete dokončit.",
   "rotation.pending_kept_password": "Nové heslo zůstane uložené zde jako čekající: až se vrátíte k „Obměnit s pomocí“, můžete dokončit.",
   "rotation.places_missing": {
-    "one": "Zbývá {count}. {then}",
     "few": "Zbývají {count}. {then}",
     "many": "Zbývá {count}. {then}",
+    "one": "Zbývá {count}. {then}",
     "other": "Zbývá {count}. {then}"
   },
   "rotation.proof_copy_key": "Pro zkopírování nového klíče: {name}.",
@@ -1498,9 +1501,9 @@
   "server_admin.backup_reason": "Pro zálohování serveru.",
   "server_admin.backups": "Zálohy",
   "server_admin.backups_kept": {
-    "one": "{count} uchovaná",
     "few": "{count} uchované",
     "many": "{count} uchované",
+    "one": "{count} uchovaná",
     "other": "{count} uchovaných"
   },
   "server_admin.being_replaced": "Ztracený přístup: nový účet čeká, aby ho nahradil",
@@ -1508,9 +1511,9 @@
   "server_admin.change_owner_text": "Vyberte někoho, kdo už v organizaci je. Kdo už byl vlastníkem, zůstává jím; nový vlastník to může změnit v části Lidé.",
   "server_admin.change_owner_title": "Vlastník {org}",
   "server_admin.collections_count": {
-    "one": "{count} kolekce",
     "few": "{count} kolekce",
     "many": "{count} kolekce",
+    "one": "{count} kolekce",
     "other": "{count} kolekcí"
   },
   "server_admin.copy_code_only": "Kopírovat jen kód",
@@ -1641,9 +1644,9 @@
   "settings.app": "Aplikace",
   "settings.appearance": "Vzhled",
   "settings.approved_now": {
-    "one": "Právě je schválené jedno pověření.",
     "few": "Právě jsou schválená {count} pověření.",
     "many": "Právě je schváleno {count} pověření.",
+    "one": "Právě je schválené jedno pověření.",
     "other": "Právě je schváleno {count} pověření."
   },
   "settings.ask_again_if_used_lot": "Znovu se zeptat při častém použití",
@@ -1729,27 +1732,27 @@
   "setup.you_ll_only_type_master": "Hlavní heslo zadáte jen při obnově záloh nebo na jiném počítači.",
   "setup.your_keys_used_without_being": "Vaše klíče, používané, aniž by byly vidět",
   "share.credentials_shared_in": {
-    "one": "{count} pověření sdíleno v {name}",
     "few": "{count} pověření sdílena v {name}",
     "many": "{count} pověření sdíleno v {name}",
+    "one": "{count} pověření sdíleno v {name}",
     "other": "{count} pověření sdíleno v {name}"
   },
   "share.not_shared": {
-    "one": "Nepodařilo se sdílet {count}: {error}",
     "few": "Nepodařilo se sdílet {count}: {error}",
     "many": "Nepodařilo se sdílet {count}: {error}",
+    "one": "Nepodařilo se sdílet {count}: {error}",
     "other": "Nepodařilo se sdílet {count}: {error}"
   },
   "share.shared_in": {
-    "one": "Sdíleno {count} v {name}",
     "few": "Sdílena {count} v {name}",
     "many": "Sdíleno {count} v {name}",
+    "one": "Sdíleno {count} v {name}",
     "other": "Sdíleno {count} v {name}"
   },
   "share.shared_with_count": {
-    "one": "Sdíleno s osobou {name}: {count}",
     "few": "Sdíleno s osobou {name}: {count}",
     "many": "Sdíleno s osobou {name}: {count}",
+    "one": "Sdíleno s osobou {name}: {count}",
     "other": "Sdíleno s osobou {name}: {count}"
   },
   "share.shared_with_one": "Sdíleno s osobou {name}",
@@ -1773,9 +1776,9 @@
   "share_with_person.nothing_to_share": "Nemáte žádná vlastní pověření ke sdílení.",
   "share_with_person.search": "Hledat",
   "share_with_person.share_count": {
-    "one": "Sdílet {count}",
     "few": "Sdílet {count}",
     "many": "Sdílet {count}",
+    "one": "Sdílet {count}",
     "other": "Sdílet {count}"
   },
   "shared_badge.shared": "Sdíleno · {value}",
@@ -1834,6 +1837,7 @@
   "show_form.change_type": "Změnit typ",
   "show_form.changed_while_you_were_editing": "Během úprav se to změnilo",
   "show_form.changes_saved": "Změny uloženy",
+  "show_form.config_not_secret": "Není to tajemství: AI tyto údaje vidí a sb run je předá, aniž by se tě ptal. Proto nemá oprávnění, rotaci ani kontroly.",
   "show_form.data_ai_can_insert_without": "Údaje, které může AI vložit, aniž by je viděla",
   "show_form.deploy_token": "Token pro nasazení",
   "show_form.discard_changes": "Zahodit změny?",
@@ -1883,15 +1887,15 @@
   "sidebar.closes_with_windows": "Trezor se zavře, když zamknete Windows.",
   "sidebar.closes_with_windows_or_idle": "Trezor se zavře, když zamknete Windows nebo po chvíli nečinnosti, a sám se znovu otevře.",
   "sidebar.drafts_waiting": {
-    "one": "Jedno pověření připravené AI čeká na svůj klíč.",
     "few": "{count} pověření připravená AI čekají na své klíče.",
     "many": "{count} pověření připraveného AI čeká na své klíče.",
+    "one": "Jedno pověření připravené AI čeká na svůj klíč.",
     "other": "{count} pověření připravených AI čeká na své klíče."
   },
   "sidebar.to_review": {
-    "one": "1 věc ke kontrole",
     "few": "{count} věci ke kontrole",
     "many": "{count} věci ke kontrole",
+    "one": "1 věc ke kontrole",
     "other": "{count} věcí ke kontrole"
   },
   "sort.need_attention": "Vyžadují pozornost",
@@ -1904,9 +1908,9 @@
   "source.settings": "Nastavení",
   "source.terminal_history": "Historie terminálu",
   "status.used_in_places": {
-    "one": "Používá se na {count} místě",
     "few": "Používá se na {count} místech",
     "many": "Používá se na {count} místa",
+    "one": "Používá se na {count} místě",
     "other": "Používá se na {count} místech"
   },
   "status_strip.app_doesn_know_how_test": "Aplikace neví, jak tento klíč otestovat: řekněte jí, který požadavek ho testuje",
@@ -1942,39 +1946,39 @@
   "sync_line.will_retry_by_itself": "Zkusí to znovu samo.",
   "team.another_account": "jiný účet",
   "team.changes_wait_rekey": {
-    "one": "{count} změna čeká, až bude její kolekce znovu zašifrována.",
     "few": "{count} změny čekají, až bude jejich kolekce znovu zašifrována.",
     "many": "{count} změny čeká, až bude jejich kolekce znovu zašifrována.",
+    "one": "{count} změna čeká, až bude její kolekce znovu zašifrována.",
     "other": "{count} změn čeká, až bude jejich kolekce znovu zašifrována."
   },
   "team.disconnect_removes": {
-    "one": "Týmové pověření se z tohoto počítače odstraní; na serveru zůstane pro ostatní. Pověření sdílená z vašeho trezoru a neodeslané změny zůstanou jako osobní.",
     "few": "{count} týmová pověření se z tohoto počítače odstraní; na serveru zůstanou pro ostatní. Pověření sdílená z vašeho trezoru a neodeslané změny zůstanou jako osobní.",
     "many": "{count} týmového pověření se z tohoto počítače odstraní; na serveru zůstanou pro ostatní. Pověření sdílená z vašeho trezoru a neodeslané změny zůstanou jako osobní.",
+    "one": "Týmové pověření se z tohoto počítače odstraní; na serveru zůstane pro ostatní. Pověření sdílená z vašeho trezoru a neodeslané změny zůstanou jako osobní.",
     "other": "{count} týmových pověření se z tohoto počítače odstraní; na serveru zůstanou pro ostatní. Pověření sdílená z vašeho trezoru a neodeslané změny zůstanou jako osobní."
   },
   "team.people_to_verify": {
-    "one": "{count} osoba k ověření",
     "few": "{count} osoby k ověření",
     "many": "{count} osoby k ověření",
+    "one": "{count} osoba k ověření",
     "other": "{count} osob k ověření"
   },
   "team.rekey_by_managers": {
-    "one": "Další jednu znovu zašifruje její správce.",
     "few": "Další ({count}) znovu zašifrují jejich správci.",
     "many": "Další ({count}) znovu zašifrují jejich správci.",
+    "one": "Další jednu znovu zašifruje její správce.",
     "other": "Další ({count}) znovu zašifrují jejich správci."
   },
   "team.rekey_next_sync": {
-    "one": "{count} kolekce bude znovu zašifrována při příští synchronizaci.",
     "few": "{count} kolekce budou znovu zašifrovány při příští synchronizaci.",
     "many": "{count} kolekce bude znovu zašifrováno při příští synchronizaci.",
+    "one": "{count} kolekce bude znovu zašifrována při příští synchronizaci.",
     "other": "{count} kolekcí bude znovu zašifrováno při příští synchronizaci."
   },
   "team.rekey_on_reconnect": {
-    "one": "{count} kolekce bude znovu zašifrována po opětovném připojení.",
     "few": "{count} kolekce budou znovu zašifrovány po opětovném připojení.",
     "many": "{count} kolekce bude znovu zašifrováno po opětovném připojení.",
+    "one": "{count} kolekce bude znovu zašifrována po opětovném připojení.",
     "other": "{count} kolekcí bude znovu zašifrováno po opětovném připojení."
   },
   "team.this_pc": "tento počítač: {device}",
@@ -2153,76 +2157,76 @@
   "time.date_at": "{date} v {time}",
   "time.day_time": "{day} {time}",
   "time.days_ago": {
-    "one": "před {count} dnem",
     "few": "před {count} dny",
     "many": "před {count} dne",
+    "one": "před {count} dnem",
     "other": "před {count} dny"
   },
   "time.every_hours": {
-    "one": "každou hodinu",
     "few": "každé {count} hodiny",
     "many": "každých {count} hodiny",
+    "one": "každou hodinu",
     "other": "každých {count} hodin"
   },
   "time.every_months": {
-    "one": "každý měsíc",
     "few": "každé {count} měsíce",
     "many": "každých {count} měsíce",
+    "one": "každý měsíc",
     "other": "každých {count} měsíců"
   },
   "time.hours": {
-    "one": "{count} hodina",
     "few": "{count} hodiny",
     "many": "{count} hodiny",
+    "one": "{count} hodina",
     "other": "{count} hodin"
   },
   "time.hours_ago": "před {count} h",
   "time.hours_label": "hodin",
   "time.hours_short": "{count} h",
   "time.in_days": {
-    "one": "za {count} den",
     "few": "za {count} dny",
     "many": "za {count} dne",
+    "one": "za {count} den",
     "other": "za {count} dní"
   },
   "time.in_months": {
-    "one": "za {count} měsíc",
     "few": "za {count} měsíce",
     "many": "za {count} měsíce",
+    "one": "za {count} měsíc",
     "other": "za {count} měsíců"
   },
   "time.in_years": {
-    "one": "za rok",
     "few": "za {count} roky",
     "many": "za {count} roku",
+    "one": "za rok",
     "other": "za {count} let"
   },
   "time.minutes": {
-    "one": "{count} minuta",
     "few": "{count} minuty",
     "many": "{count} minuty",
+    "one": "{count} minuta",
     "other": "{count} minut"
   },
   "time.minutes_ago": "před {count} min",
   "time.minutes_short": "{count} min",
   "time.months": {
-    "one": "{count} měsíc",
     "few": "{count} měsíce",
     "many": "{count} měsíce",
+    "one": "{count} měsíc",
     "other": "{count} měsíců"
   },
   "time.months_ago": {
-    "one": "před {count} měsícem",
     "few": "před {count} měsíci",
     "many": "před {count} měsíce",
+    "one": "před {count} měsícem",
     "other": "před {count} měsíci"
   },
   "time.now": "právě teď",
   "time.relative_day_at": "{day} v {time}",
   "time.years_ago": {
-    "one": "před {count} rokem",
     "few": "před {count} lety",
     "many": "před {count} roku",
+    "one": "před {count} rokem",
     "other": "před {count} lety"
   },
   "totp_prop.2fa_code_copied_valid_for": "Kód 2FA zkopírován · platí ještě {remaining} s",
@@ -2268,9 +2272,9 @@
   "used_in_modal.where_is_used": "Kde se používá: {name}",
   "used_in_modal.where_used_hasn_been_noted": "Není poznamenáno, kde se používá.",
   "verify.shares_collections": {
-    "one": "Sdílí s vámi kolekci: ověřte tuto osobu, abyste ji dostali.",
     "few": "Sdílí s vámi {count} kolekce: ověřte tuto osobu, abyste je dostali.",
     "many": "Sdílí s vámi {count} kolekce: ověřte tuto osobu, abyste je dostali.",
+    "one": "Sdílí s vámi kolekci: ověřte tuto osobu, abyste ji dostali.",
     "other": "Sdílí s vámi {count} kolekcí: ověřte tuto osobu, abyste je dostali."
   },
   "verify_email_card.e_mail_code": "Kód z e-mailu",

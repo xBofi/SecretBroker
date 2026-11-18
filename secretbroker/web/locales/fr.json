@@ -213,6 +213,7 @@
   "change_line.new_programs": "Nouveaux programmes",
   "change_line.new_variables": "Variables nouvelles ou modifiées",
   "change_line.new_websites": "Nouveaux sites",
+  "change_line.secret_value_deleted": "la valeur secrète enregistrée est supprimée",
   "change_master_password.change_master_password": "Pour changer le mot de passe principal.",
   "change_master_password.change_master_password_2": "Changer le mot de passe principal",
   "change_master_password.choose_new_master_password": "Choisis un nouveau mot de passe principal",
@@ -469,6 +470,7 @@
   "describe_permissions.run_on_this_pc": "Exécuter {value} sur ce PC",
   "destination_label.github": "GitHub {repo}{value} · {name}",
   "detail.ai_knows_as": "L’IA le connaît sous le nom ",
+  "detail.config_not_secret": "Non secrète : l'IA voit ces données et sb run les donne aux programmes sans vous demander. Elle n'est ni renouvelée ni comptée comme exposée.",
   "detail.copied_cleared_in": "Copié · effacé dans {result} s",
   "detail.copy": "Pour copier « {label} » de {name}.",
   "detail.decide_in_team": "décide dans Équipe",
@@ -529,6 +531,7 @@
   "draw_team.sync_now": "Synchroniser",
   "draw_team.synced": "Synchronisé",
   "editor.aws_placeholder": "AWS personnel",
+  "editor.config_placeholder": "Client ID de mon app",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
   "editor.tags_placeholder": "boutique, production",
   "empty_credentials.add_credential": "Ajouter un identifiant",
@@ -1364,8 +1367,8 @@
   "server_admin.backup_reason": "Pour sauvegarder le serveur.",
   "server_admin.backups": "Sauvegardes",
   "server_admin.backups_kept": {
-    "one": "{count} conservée",
     "many": "{count} conservées",
+    "one": "{count} conservée",
     "other": "{count} conservées"
   },
   "server_admin.being_replaced": "Accès perdu : un nouveau compte attend de le remplacer",
@@ -1373,8 +1376,8 @@
   "server_admin.change_owner_text": "Choisis quelqu’un qui est déjà dans l’organisation. Les propriétaires actuels le restent ; le nouveau peut changer cela dans Personnes.",
   "server_admin.change_owner_title": "Propriétaire de {org}",
   "server_admin.collections_count": {
-    "one": "{count} collection",
     "many": "{count} collections",
+    "one": "{count} collection",
     "other": "{count} collections"
   },
   "server_admin.copy_code_only": "Copier seulement le code",
@@ -1686,6 +1689,7 @@
   "show_form.change_type": "Changer de type",
   "show_form.changed_while_you_were_editing": "Il a changé pendant que tu le modifiais",
   "show_form.changes_saved": "Modifications enregistrées",
+  "show_form.config_not_secret": "Ce n'est pas un secret : l'IA voit ces données et sb run les donne sans vous demander. C'est pourquoi il n'y a ni permissions, ni renouvellement, ni vérifications.",
   "show_form.data_ai_can_insert_without": "Données que l’IA peut insérer sans les voir",
   "show_form.deploy_token": "Jeton de déploiement",
   "show_form.discard_changes": "Abandonner les modifications ?",

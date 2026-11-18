@@ -78,11 +78,11 @@
   "activity_detail.created": "maħluqa",
   "activity_detail.credentials": {
     "=0": "vojta",
-    "one": "1 kredenzjali",
-    "two": "{count} kredenzjali",
     "few": "{count} kredenzjali",
     "many": "{count} kredenzjali",
-    "other": "{count} kredenzjali"
+    "one": "1 kredenzjali",
+    "other": "{count} kredenzjali",
+    "two": "{count} kredenzjali"
   },
   "activity_detail.from_collection": "Minn {name}",
   "activity_detail.idle_minutes": "mhux użata għal {minutes} min",
@@ -100,20 +100,20 @@
   "activity_filter.all": "Kollox",
   "activity_filter.denied": "Miċħuda",
   "ai.requests_count": {
-    "one": "{count} talba",
-    "two": "{count} talbiet",
     "few": "{count} talbiet",
     "many": "{count} talba",
-    "other": "{count} talba"
+    "one": "{count} talba",
+    "other": "{count} talba",
+    "two": "{count} talbiet"
   },
   "ai_change.rotation_guide": "Gwida tar-rotazzjoni",
   "ai_change.sources": "sorsi: {sources}",
   "ai_change.steps": {
-    "one": "{count} pass",
-    "two": "{count} passi",
     "few": "{count} passi",
     "many": "{count} pass",
-    "other": "{count} pass"
+    "one": "{count} pass",
+    "other": "{count} pass",
+    "two": "{count} passi"
   },
   "ai_change.test_request": "Talba ta’ prova",
   "ai_client_list.not_installed": "Mhux installati: {names}.",
@@ -148,19 +148,19 @@
   "approval.allow_for_24_hours": "Ippermetti għal 24 siegħa",
   "approval.allow_for_8_hours": "Ippermetti għal 8 sigħat",
   "approval.for_hours": {
-    "one": "għal {count} siegħa",
-    "two": "għal {count} sigħat",
     "few": "għal {count} sigħat",
     "many": "għal {count} siegħa",
-    "other": "għal {count} siegħa"
+    "one": "għal {count} siegħa",
+    "other": "għal {count} siegħa",
+    "two": "għal {count} sigħat"
   },
   "approval.position": "{position} minn {total}",
   "approval.times_today": {
-    "one": "{count} darba llum",
-    "two": "{count} darbiet illum",
     "few": "{count} darbiet illum",
     "many": "{count} darba llum",
-    "other": "{count} darba llum"
+    "one": "{count} darba llum",
+    "other": "{count} darba llum",
+    "two": "{count} darbiet illum"
   },
   "approval.until_you_lock_vault": "sakemm tibblokka l-kaxxa-forti",
   "approval_banner.ai_requests": "{length} talba tal-IA",
@@ -228,6 +228,7 @@
   "change_line.new_programs": "Programmi ġodda",
   "change_line.new_variables": "Varjabbli ġodda jew mibdula",
   "change_line.new_websites": "Siti ġodda",
+  "change_line.secret_value_deleted": "il-valur sigriet issejvjat jitħassar",
   "change_master_password.change_master_password": "Biex tibdel il-password ewlenija.",
   "change_master_password.change_master_password_2": "Ibdel il-password ewlenija",
   "change_master_password.choose_new_master_password": "Agħżel password ewlenija ġdida",
@@ -324,11 +325,11 @@
   "common.create_collection": "Biex toħloq il-kollezzjoni.",
   "common.credentials": "Kredenzjali",
   "common.credentials_count": {
-    "one": "{count} kredenzjali",
-    "two": "{count} kredenzjali",
     "few": "{count} kredenzjali",
     "many": "{count} kredenzjali",
-    "other": "{count} kredenzjali"
+    "one": "{count} kredenzjali",
+    "other": "{count} kredenzjali",
+    "two": "{count} kredenzjali"
   },
   "common.delete": "Ħassar",
   "common.deleted": "Imħassra",
@@ -387,11 +388,11 @@
   "common.optional_suffix": " · mhux obbligatorju",
   "common.organization": "Organizzazzjoni",
   "common.people_count": {
-    "one": "{count} persuna",
-    "two": "{count} persuni",
     "few": "{count} persuni",
     "many": "{count} persuna",
-    "other": "{count} persuna"
+    "one": "{count} persuna",
+    "other": "{count} persuna",
+    "two": "{count} persuni"
   },
   "common.private_notes": "Noti privati",
   "common.provider_website": "is-sit tal-fornitur",
@@ -490,6 +491,7 @@
   "describe_permissions.run_on_this_pc": "Ħaddem {value} fuq dan il-PC",
   "destination_label.github": "GitHub {repo}{value} · {name}",
   "detail.ai_knows_as": "L-IA tafha bħala ",
+  "detail.config_not_secret": "Mhix sigrieta: l-IA tara din id-data u sb run jagħtiha lill-programmi mingħajr ma jistaqsik. Ma tinbidilx u ma titqiesx esposta.",
   "detail.copied_cleared_in": "Ikkupjat · jitħassar fi {result} s",
   "detail.copy": "Biex tikkopja “{label}” ta' {name}.",
   "detail.decide_in_team": "iddeċiedi f'Tim",
@@ -510,28 +512,28 @@
   "direct_block.stop_proof": "Biex tieqaf taqsam ma' {name}.",
   "direct_block.stop_sharing_with": "Ieqaf aqsam ma' {name}",
   "direct_block.stop_text": {
-    "one": "{name} mhux se jibqa' jirċievi l-kredenzjali li taqsam miegħu. Fuq dan il-PC tibqa' tiegħek.",
-    "two": "{name} mhux se jibqa' jirċievi l-{count} kredenzjali li taqsam miegħu. Fuq dan il-PC jibqgħu tiegħek.",
     "few": "{name} mhux se jibqa' jirċievi l-{count} kredenzjali li taqsam miegħu. Fuq dan il-PC jibqgħu tiegħek.",
     "many": "{name} mhux se jibqa' jirċievi l-{count} kredenzjali li taqsam miegħu. Fuq dan il-PC jibqgħu tiegħek.",
-    "other": "{name} mhux se jibqa' jirċievi l-{count} kredenzjali li taqsam miegħu. Fuq dan il-PC jibqgħu tiegħek."
+    "one": "{name} mhux se jibqa' jirċievi l-kredenzjali li taqsam miegħu. Fuq dan il-PC tibqa' tiegħek.",
+    "other": "{name} mhux se jibqa' jirċievi l-{count} kredenzjali li taqsam miegħu. Fuq dan il-PC jibqgħu tiegħek.",
+    "two": "{name} mhux se jibqa' jirċievi l-{count} kredenzjali li taqsam miegħu. Fuq dan il-PC jibqgħu tiegħek."
   },
   "direct_block.stop_title": "Tieqaf taqsam ma' {name}?",
   "direct_block.stop_warning": {
-    "one": "Seta' jaraha jew jikkopjaha: infakkruk biex tibdilha.",
-    "two": "Seta' jarahom jew jikkopjahom: infakkruk biex tibdilhom.",
     "few": "Seta' jarahom jew jikkopjahom: infakkruk biex tibdilhom.",
     "many": "Seta' jarahom jew jikkopjahom: infakkruk biex tibdilhom.",
-    "other": "Seta' jarahom jew jikkopjahom: infakkruk biex tibdilhom."
+    "one": "Seta' jaraha jew jikkopjaha: infakkruk biex tibdilha.",
+    "other": "Seta' jarahom jew jikkopjahom: infakkruk biex tibdilhom.",
+    "two": "Seta' jarahom jew jikkopjahom: infakkruk biex tibdilhom."
   },
   "direct_block.stopped": "M'għadek taqsam xejn ma' {name}",
   "direct_block.their_permission": "{name}: {value}",
   "direct_share.already_sharing": {
-    "one": "Diġà taqsam {count} kredenzjali ma' {name}. Il-permess li tagħżel japplika għal kull ma taqsam ma' dik il-persuna.",
-    "two": "Diġà taqsam {count} kredenzjali ma' {name}. Il-permess li tagħżel japplika għal kull ma taqsam ma' dik il-persuna.",
     "few": "Diġà taqsam {count} kredenzjali ma' {name}. Il-permess li tagħżel japplika għal kull ma taqsam ma' dik il-persuna.",
     "many": "Diġà taqsam {count} kredenzjali ma' {name}. Il-permess li tagħżel japplika għal kull ma taqsam ma' dik il-persuna.",
-    "other": "Diġà taqsam {count} kredenzjali ma' {name}. Il-permess li tagħżel japplika għal kull ma taqsam ma' dik il-persuna."
+    "one": "Diġà taqsam {count} kredenzjali ma' {name}. Il-permess li tagħżel japplika għal kull ma taqsam ma' dik il-persuna.",
+    "other": "Diġà taqsam {count} kredenzjali ma' {name}. Il-permess li tagħżel japplika għal kull ma taqsam ma' dik il-persuna.",
+    "two": "Diġà taqsam {count} kredenzjali ma' {name}. Il-permess li tagħżel japplika għal kull ma taqsam ma' dik il-persuna."
   },
   "direct_share.compare_code": "Itlob lil dik il-persuna taqralek il-kodiċi tas-sigurtà tagħha (bit-telefon jew personalment) u qabblu ma' dan. B'hekk ħadd, lanqas is-server, ma jista' jdaħħal ċavetta oħra.",
   "direct_share.go_to_people": "Mur f'Persuni",
@@ -559,6 +561,7 @@
   "draw_team.sync_now": "Issinkronizza issa",
   "draw_team.synced": "Sinkronizzat",
   "editor.aws_placeholder": "AWS personali",
+  "editor.config_placeholder": "Il-client ID tal-app tiegħi",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
   "editor.tags_placeholder": "ħanut, produzzjoni",
   "empty_credentials.add_credential": "Żid kredenzjali",
@@ -574,11 +577,11 @@
   "env_import.config_written": "Fil-folder tal-proġett issa hemm fajl .secretbroker bl-ismijiet tal-kredenzjali, mingħajr valuri. Jista' jmur fir-repożitorju.",
   "env_import.file_deleted": "{name} tħassar",
   "env_import.import_keys": {
-    "one": "Importa {count} ċavetta",
-    "two": "Importa {count} ċwievet",
     "few": "Importa {count} ċwievet",
     "many": "Importa {count} ċavetta",
-    "other": "Importa {count} ċavetta"
+    "one": "Importa {count} ċavetta",
+    "other": "Importa {count} ċavetta",
+    "two": "Importa {count} ċwievet"
   },
   "env_import.keep_file": "Ħallih hekk",
   "env_import.keys_removed": "Iċ-ċwievet tneħħew minn {name}",
@@ -588,11 +591,11 @@
   "env_import.remove_explained": "Neħħihom mill-fajl: il-varjabbli l-oħra jibqgħu, u jekk ma jibqa' ebda wieħed, il-fajl jitħassar.",
   "env_import.remove_from_file": "Neħħi mill-fajl",
   "env_import.skipped_existing": {
-    "one": "{count} kienet diġà fil-kaxxa-forti.",
-    "two": "{count} kienu diġà fil-kaxxa-forti.",
     "few": "{count} kienu diġà fil-kaxxa-forti.",
     "many": "{count} kienu diġà fil-kaxxa-forti.",
-    "other": "{count} kienu diġà fil-kaxxa-forti."
+    "one": "{count} kienet diġà fil-kaxxa-forti.",
+    "other": "{count} kienu diġà fil-kaxxa-forti.",
+    "two": "{count} kienu diġà fil-kaxxa-forti."
   },
   "env_import.still_in_file": "{name} għad fih dawn iċ-ċwievet f'test ċar.",
   "env_import.tick_keys": "Immarka ċ-ċwievet li trid tressaq fil-kaxxa-forti. Hawn tara l-ismijiet biss: il-valuri jmorru dritt fil-kaxxa-forti, kriptati.",
@@ -607,11 +610,11 @@
   "exposure.couldn_load_status": "L-istatus ma setax jittella'.",
   "exposure.ignored": "injorat",
   "exposure.ignored_count": {
-    "one": "{count} injorata",
-    "two": "{count} injorati",
     "few": "{count} injorati",
     "many": "{count} injorati",
-    "other": "{count} injorati"
+    "one": "{count} injorata",
+    "other": "{count} injorati",
+    "two": "{count} injorati"
   },
   "exposure.last_search_files": "L-aħħar tfittxija: {when} · {files} fajl",
   "exposure.looks_for_your_keys_in": "Tfittex iċ-ċwievet tiegħek f'konversazzjonijiet mal-IA, fl-istorja tat-terminal, fis-settings tal-programmi tiegħek, fil-varjabbli tal-ambjent, fil-proġetti tiegħek u fl-istorja git tagħhom. Kollox isir fuq dan il-PC.",
@@ -619,32 +622,32 @@
   "exposure.no_search_for_copies_yet": "Għadu ma ġewx imfittxija kopji",
   "exposure.paths_are_only_shown_after": "Il-mogħdijiet jintwerew biss wara li tivverifika l-identità tiegħek. ",
   "exposure.places": {
-    "one": "{count} post",
-    "two": "{count} postijiet",
     "few": "{count} postijiet",
     "many": "{count} post",
-    "other": "{count} post"
+    "one": "{count} post",
+    "other": "{count} post",
+    "two": "{count} postijiet"
   },
   "exposure.removed_from_file": {
-    "one": "Imneħħija mill-fajl ({count} darba)",
-    "two": "Imneħħija mill-fajl ({count} darbiet)",
     "few": "Imneħħija mill-fajl ({count} darbiet)",
     "many": "Imneħħija mill-fajl ({count} darba)",
-    "other": "Imneħħija mill-fajl ({count} darba)"
+    "one": "Imneħħija mill-fajl ({count} darba)",
+    "other": "Imneħħija mill-fajl ({count} darba)",
+    "two": "Imneħħija mill-fajl ({count} darbiet)"
   },
   "exposure.revealed_times": {
-    "one": "Murija jew ikkupjata {count} darba",
-    "two": "Murija jew ikkupjata {count} darbiet",
     "few": "Murija jew ikkupjata {count} darbiet",
     "many": "Murija jew ikkupjata {count} darba",
-    "other": "Murija jew ikkupjata {count} darba"
+    "one": "Murija jew ikkupjata {count} darba",
+    "other": "Murija jew ikkupjata {count} darba",
+    "two": "Murija jew ikkupjata {count} darbiet"
   },
   "exposure.search_done_exposed": {
-    "one": "Tfittxija lesta: {count} kredenzjali esposta",
-    "two": "Tfittxija lesta: {count} kredenzjali esposti",
     "few": "Tfittxija lesta: {count} kredenzjali esposti",
     "many": "Tfittxija lesta: {count} kredenzjali esposti",
-    "other": "Tfittxija lesta: {count} kredenzjali esposti"
+    "one": "Tfittxija lesta: {count} kredenzjali esposta",
+    "other": "Tfittxija lesta: {count} kredenzjali esposti",
+    "two": "Tfittxija lesta: {count} kredenzjali esposti"
   },
   "exposure.search_for_copies": "Fittex kopji",
   "exposure.searches_this_pc_for_copies": "Tfittex kopji taċ-ċwievet tiegħek fuq dan il-PC u tittestja kull waħda mal-fornitur tagħha",
@@ -723,102 +726,102 @@
   "generator_panel.very_weak": "Dgħajfa ħafna",
   "generator_panel.words": "Kliem",
   "health.count_expired": {
-    "one": "{count} skaduta",
-    "two": "{count} skaduti",
     "few": "{count} skaduti",
     "many": "{count} skaduta",
-    "other": "{count} skaduta"
+    "one": "{count} skaduta",
+    "other": "{count} skaduta",
+    "two": "{count} skaduti"
   },
   "health.count_expiring": {
-    "one": "{count} tiskadi dalwaqt",
-    "two": "{count} jiskadu dalwaqt",
     "few": "{count} jiskadu dalwaqt",
     "many": "{count} jiskadu dalwaqt",
-    "other": "{count} jiskadu dalwaqt"
+    "one": "{count} tiskadi dalwaqt",
+    "other": "{count} jiskadu dalwaqt",
+    "two": "{count} jiskadu dalwaqt"
   },
   "health.count_exposed": {
-    "one": "{count} esposta",
-    "two": "{count} esposti",
     "few": "{count} esposti",
     "many": "{count} esposta",
-    "other": "{count} esposta"
+    "one": "{count} esposta",
+    "other": "{count} esposta",
+    "two": "{count} esposti"
   },
   "health.count_half_rotated": {
-    "one": "{count} rotazzjoni nofsha",
-    "two": "{count} rotazzjonijiet nofshom",
     "few": "{count} rotazzjonijiet nofshom",
     "many": "{count} rotazzjoni nofsha",
-    "other": "{count} rotazzjoni nofsha"
+    "one": "{count} rotazzjoni nofsha",
+    "other": "{count} rotazzjoni nofsha",
+    "two": "{count} rotazzjonijiet nofshom"
   },
   "health.count_old": {
-    "one": "{count} qadima",
-    "two": "{count} qodma",
     "few": "{count} qodma",
     "many": "{count} qadima",
-    "other": "{count} qadima"
+    "one": "{count} qadima",
+    "other": "{count} qadima",
+    "two": "{count} qodma"
   },
   "health.count_old_alive": {
-    "one": "{count} bil-qadima għadha ħajja",
-    "two": "{count} bil-qadima għadha ħajja",
     "few": "{count} bil-qadima għadha ħajja",
     "many": "{count} bil-qadima għadha ħajja",
-    "other": "{count} bil-qadima għadha ħajja"
+    "one": "{count} bil-qadima għadha ħajja",
+    "other": "{count} bil-qadima għadha ħajja",
+    "two": "{count} bil-qadima għadha ħajja"
   },
   "health.count_pwned": {
-    "one": "{count} f'tnixxijiet",
-    "two": "{count} f'tnixxijiet",
     "few": "{count} f'tnixxijiet",
     "many": "{count} f'tnixxijiet",
-    "other": "{count} f'tnixxijiet"
+    "one": "{count} f'tnixxijiet",
+    "other": "{count} f'tnixxijiet",
+    "two": "{count} f'tnixxijiet"
   },
   "health.count_retired_pending": {
-    "one": "{count} bil-qadima għadha trid tiġi rrevokata",
-    "two": "{count} bil-qadima għadha trid tiġi rrevokata",
     "few": "{count} bil-qadima għadha trid tiġi rrevokata",
     "many": "{count} bil-qadima għadha trid tiġi rrevokata",
-    "other": "{count} bil-qadima għadha trid tiġi rrevokata"
+    "one": "{count} bil-qadima għadha trid tiġi rrevokata",
+    "other": "{count} bil-qadima għadha trid tiġi rrevokata",
+    "two": "{count} bil-qadima għadha trid tiġi rrevokata"
   },
   "health.count_reused": {
-    "one": "{count} użata aktar minn darba",
-    "two": "{count} użati aktar minn darba",
     "few": "{count} użati aktar minn darba",
     "many": "{count} użata aktar minn darba",
-    "other": "{count} użata aktar minn darba"
+    "one": "{count} użata aktar minn darba",
+    "other": "{count} użata aktar minn darba",
+    "two": "{count} użati aktar minn darba"
   },
   "health.count_team_access": {
-    "one": "{count} b'aċċess ta' xi ħadd li telaq",
-    "two": "{count} b'aċċess ta' xi ħadd li telaq",
     "few": "{count} b'aċċess ta' xi ħadd li telaq",
     "many": "{count} b'aċċess ta' xi ħadd li telaq",
-    "other": "{count} b'aċċess ta' xi ħadd li telaq"
+    "one": "{count} b'aċċess ta' xi ħadd li telaq",
+    "other": "{count} b'aċċess ta' xi ħadd li telaq",
+    "two": "{count} b'aċċess ta' xi ħadd li telaq"
   },
   "health.count_unchecked": {
-    "one": "{count} mhux ittestjata",
-    "two": "{count} mhux ittestjati",
     "few": "{count} mhux ittestjati",
     "many": "{count} mhux ittestjata",
-    "other": "{count} mhux ittestjata"
+    "one": "{count} mhux ittestjata",
+    "other": "{count} mhux ittestjata",
+    "two": "{count} mhux ittestjati"
   },
   "health.count_upload_failed": {
-    "one": "{count} mhux imtella'",
-    "two": "{count} mhux imtellgħin",
     "few": "{count} mhux imtellgħin",
     "many": "{count} mhux imtella'",
-    "other": "{count} mhux imtella'"
+    "one": "{count} mhux imtella'",
+    "other": "{count} mhux imtella'",
+    "two": "{count} mhux imtellgħin"
   },
   "health.count_was_exposed": {
-    "one": "{count} kienet esposta",
-    "two": "{count} kienu esposti",
     "few": "{count} kienu esposti",
     "many": "{count} kienu esposti",
-    "other": "{count} kienu esposti"
+    "one": "{count} kienet esposta",
+    "other": "{count} kienu esposti",
+    "two": "{count} kienu esposti"
   },
   "health.count_weak": {
-    "one": "{count} dgħajfa",
-    "two": "{count} dgħajfin",
     "few": "{count} dgħajfin",
     "many": "{count} dgħajfa",
-    "other": "{count} dgħajfa"
+    "one": "{count} dgħajfa",
+    "other": "{count} dgħajfa",
+    "two": "{count} dgħajfin"
   },
   "health.missing_both": "Għad irid isir: {what}. “Iċċekkja issa” jagħmel it-tnejn.",
   "health.missing_one": "Għad irid isir: {what}. “Iċċekkja issa” jagħmlu.",
@@ -840,53 +843,53 @@
   "health_section.see_less": "Ara inqas",
   "health_section.test_them_with_their_providers": "ittestjahom mal-fornituri tagħhom",
   "held.deleted": {
-    "one": "{count} kredenzjali mħassra minn dan il-PC",
-    "two": "{count} kredenzjali mħassrin minn dan il-PC",
     "few": "{count} kredenzjali mħassrin minn dan il-PC",
     "many": "{count} kredenzjali mħassra minn dan il-PC",
-    "other": "{count} kredenzjali mħassra minn dan il-PC"
+    "one": "{count} kredenzjali mħassra minn dan il-PC",
+    "other": "{count} kredenzjali mħassra minn dan il-PC",
+    "two": "{count} kredenzjali mħassrin minn dan il-PC"
   },
   "held.deleted_by": {
-    "one": "{who} ħassar {count} kredenzjali minn “{collection_name}” f'daqqa.",
-    "two": "{who} ħassar {count} kredenzjali minn “{collection_name}” f'daqqa.",
     "few": "{who} ħassar {count} kredenzjali minn “{collection_name}” f'daqqa.",
     "many": "{who} ħassar {count} kredenzjali minn “{collection_name}” f'daqqa.",
-    "other": "{who} ħassar {count} kredenzjali minn “{collection_name}” f'daqqa."
+    "one": "{who} ħassar {count} kredenzjali minn “{collection_name}” f'daqqa.",
+    "other": "{who} ħassar {count} kredenzjali minn “{collection_name}” f'daqqa.",
+    "two": "{who} ħassar {count} kredenzjali minn “{collection_name}” f'daqqa."
   },
   "held.kept": {
-    "one": "{count} kredenzjali miżmuma fuq dan il-PC",
-    "two": "{count} kredenzjali miżmumin fuq dan il-PC",
     "few": "{count} kredenzjali miżmumin fuq dan il-PC",
     "many": "{count} kredenzjali miżmuma fuq dan il-PC",
-    "other": "{count} kredenzjali miżmuma fuq dan il-PC"
+    "one": "{count} kredenzjali miżmuma fuq dan il-PC",
+    "other": "{count} kredenzjali miżmuma fuq dan il-PC",
+    "two": "{count} kredenzjali miżmumin fuq dan il-PC"
   },
   "held.proof_delete": {
-    "one": "Biex tħassar {count} kredenzjali minn dan il-PC.",
-    "two": "Biex tħassar {count} kredenzjali minn dan il-PC.",
     "few": "Biex tħassar {count} kredenzjali minn dan il-PC.",
     "many": "Biex tħassar {count} kredenzjali minn dan il-PC.",
-    "other": "Biex tħassar {count} kredenzjali minn dan il-PC."
+    "one": "Biex tħassar {count} kredenzjali minn dan il-PC.",
+    "other": "Biex tħassar {count} kredenzjali minn dan il-PC.",
+    "two": "Biex tħassar {count} kredenzjali minn dan il-PC."
   },
   "held.proof_keep": {
-    "one": "Biex iżżomm {count} kredenzjali.",
-    "two": "Biex iżżomm {count} kredenzjali.",
     "few": "Biex iżżomm {count} kredenzjali.",
     "many": "Biex iżżomm {count} kredenzjali.",
-    "other": "Biex iżżomm {count} kredenzjali."
+    "one": "Biex iżżomm {count} kredenzjali.",
+    "other": "Biex iżżomm {count} kredenzjali.",
+    "two": "Biex iżżomm {count} kredenzjali."
   },
   "held.restored": {
-    "one": "{count} kredenzjali rkuprata għat-tim kollu",
-    "two": "{count} kredenzjali rkuprati għat-tim kollu",
     "few": "{count} kredenzjali rkuprati għat-tim kollu",
     "many": "{count} kredenzjali rkuprata għat-tim kollu",
-    "other": "{count} kredenzjali rkuprata għat-tim kollu"
+    "one": "{count} kredenzjali rkuprata għat-tim kollu",
+    "other": "{count} kredenzjali rkuprata għat-tim kollu",
+    "two": "{count} kredenzjali rkuprati għat-tim kollu"
   },
   "held.waiting": {
-    "one": "{count} kredenzjali qed tistenna d-deċiżjoni tiegħek",
-    "two": "{count} kredenzjali qed jistennew id-deċiżjoni tiegħek",
     "few": "{count} kredenzjali qed jistennew id-deċiżjoni tiegħek",
     "many": "{count} kredenzjali qed jistennew id-deċiżjoni tiegħek",
-    "other": "{count} kredenzjali qed jistennew id-deċiżjoni tiegħek"
+    "one": "{count} kredenzjali qed tistenna d-deċiżjoni tiegħek",
+    "other": "{count} kredenzjali qed jistennew id-deċiżjoni tiegħek",
+    "two": "{count} kredenzjali qed jistennew id-deċiżjoni tiegħek"
   },
   "held_deletions_card.collection_no_longer_appears_on": "Il-kollezzjoni “{collection_name}” ma tidhirx aktar fuq is-server (l-aċċess tiegħek tneħħa, tħassret, jew is-server qed ifalli).",
   "held_deletions_card.delete_them_here_too": "Ħassarhom hawn ukoll",
@@ -897,68 +900,68 @@
   "held_deletions_card.restoring_them_puts_them_back": "Jekk tirkuprahom, jerġgħu jitpoġġew għat-tim kollu.",
   "import.already_in": "Diġà hemm",
   "import.count_conflict": {
-    "one": "{count} b'password differenti",
-    "two": "{count} b'password differenti",
     "few": "{count} b'password differenti",
     "many": "{count} b'password differenti",
-    "other": "{count} b'password differenti"
+    "one": "{count} b'password differenti",
+    "other": "{count} b'password differenti",
+    "two": "{count} b'password differenti"
   },
   "import.count_duplicate": {
-    "one": "{count} diġà fil-kaxxa-forti",
-    "two": "{count} diġà fil-kaxxa-forti",
     "few": "{count} diġà fil-kaxxa-forti",
     "many": "{count} diġà fil-kaxxa-forti",
-    "other": "{count} diġà fil-kaxxa-forti"
+    "one": "{count} diġà fil-kaxxa-forti",
+    "other": "{count} diġà fil-kaxxa-forti",
+    "two": "{count} diġà fil-kaxxa-forti"
   },
   "import.count_new": {
-    "one": "{count} ġdida",
-    "two": "{count} ġodda",
     "few": "{count} ġodda",
     "many": "{count} ġdida",
-    "other": "{count} ġdida"
+    "one": "{count} ġdida",
+    "other": "{count} ġdida",
+    "two": "{count} ġodda"
   },
   "import.different_password": "Password differenti",
   "import.imported": {
-    "one": "{count} kredenzjali importata",
-    "two": "{count} kredenzjali importati",
     "few": "{count} kredenzjali importati",
     "many": "{count} kredenzjali importata",
-    "other": "{count} kredenzjali importata"
+    "one": "{count} kredenzjali importata",
+    "other": "{count} kredenzjali importata",
+    "two": "{count} kredenzjali importati"
   },
   "import.in_file": {
-    "one": "{count} kredenzjali fil-fajl: ",
-    "two": "{count} kredenzjali fil-fajl: ",
     "few": "{count} kredenzjali fil-fajl: ",
     "many": "{count} kredenzjali fil-fajl: ",
-    "other": "{count} kredenzjali fil-fajl: "
+    "one": "{count} kredenzjali fil-fajl: ",
+    "other": "{count} kredenzjali fil-fajl: ",
+    "two": "{count} kredenzjali fil-fajl: "
   },
   "import.skipped_summary": {
-    "one": "{count} mhix se tiġi importata",
-    "two": "{count} mhumiex se jiġu importati",
     "few": "{count} mhumiex se jiġu importati",
     "many": "{count} mhumiex se jiġu importati",
-    "other": "{count} mhumiex se jiġu importati"
+    "one": "{count} mhix se tiġi importata",
+    "other": "{count} mhumiex se jiġu importati",
+    "two": "{count} mhumiex se jiġu importati"
   },
   "import.stat_created": {
-    "one": "maħluqa",
-    "two": "maħluqin",
     "few": "maħluqin",
     "many": "maħluqa",
-    "other": "maħluqa"
+    "one": "maħluqa",
+    "other": "maħluqa",
+    "two": "maħluqin"
   },
   "import.stat_failed": {
-    "one": "falliet",
-    "two": "fallew",
     "few": "fallew",
     "many": "fallew",
-    "other": "fallew"
+    "one": "falliet",
+    "other": "fallew",
+    "two": "fallew"
   },
   "import.stat_skipped": {
-    "one": "maqbuża",
-    "two": "maqbużin",
     "few": "maqbużin",
     "many": "maqbuża",
-    "other": "maqbuża"
+    "one": "maqbuża",
+    "other": "maqbuża",
+    "two": "maqbużin"
   },
   "import_done.any_program_or_person_who": "Kull programm jew persuna li jaqrah għandu aċċess għalihom. Ħassru issa, flimkien ma' kull kopja f'Downloads, fl-email tiegħek jew fil-cloud.",
   "import_done.delete_file": "Ħassar il-fajl",
@@ -1042,11 +1045,11 @@
   "key_source_picker.where_do_i_get_key": "Minn fejn inġib iċ-ċavetta?",
   "level.not_checked": "Mhux iċċekkjata",
   "list.selected": {
-    "one": "1 magħżula",
-    "two": "{count} magħżulin",
     "few": "{count} magħżulin",
     "many": "{count} magħżula",
-    "other": "{count} magħżula"
+    "one": "1 magħżula",
+    "other": "{count} magħżula",
+    "two": "{count} magħżulin"
   },
   "lock.couldn_open_with_windows_session": "Ma setgħetx tinfetaħ bis-sessjoni tal-Windows. Uża l-password.",
   "lock.for_security_there_no_other": "Għal raġunijiet ta' sigurtà, m'hemmx mod ieħor biex tiġi deċifrata.",
@@ -1102,39 +1105,39 @@
   "new_org_modal.new_organization": "Organizzazzjoni ġdida",
   "new_org_modal.organization_is_team_has_its": "Organizzazzjoni hija tim: għandha n-nies u l-kollezzjonijiet tagħha.",
   "offboarding.changed": {
-    "one": "{count} mibdula",
-    "two": "{count} mibdulin",
     "few": "{count} mibdulin",
     "many": "{count} mibdula",
-    "other": "{count} mibdula"
+    "one": "{count} mibdula",
+    "other": "{count} mibdula",
+    "two": "{count} mibdulin"
   },
   "offboarding.could_see": {
-    "one": "{person} seta' jara {count} kredenzjali",
-    "two": "{person} seta' jara {count} kredenzjali",
     "few": "{person} seta' jara {count} kredenzjali",
     "many": "{person} seta' jara {count} kredenzjali",
-    "other": "{person} seta' jara {count} kredenzjali"
+    "one": "{person} seta' jara {count} kredenzjali",
+    "other": "{person} seta' jara {count} kredenzjali",
+    "two": "{person} seta' jara {count} kredenzjali"
   },
   "offboarding.done_of_total": {
-    "one": "{done} minn {count} mibdula",
-    "two": "{done} minn {count} mibdula",
     "few": "{done} minn {count} mibdula",
     "many": "{done} minn {count} mibdula",
-    "other": "{done} minn {count} mibdula"
+    "one": "{done} minn {count} mibdula",
+    "other": "{done} minn {count} mibdula",
+    "two": "{done} minn {count} mibdula"
   },
   "offboarding.gone_to_change": {
-    "one": "{person} telaq: {count} kredenzjali biex tinbidel",
-    "two": "{person} telaq: {count} kredenzjali biex jinbidlu",
     "few": "{person} telaq: {count} kredenzjali biex jinbidlu",
     "many": "{person} telaq: {count} kredenzjali biex jinbidlu",
-    "other": "{person} telaq: {count} kredenzjali biex jinbidlu"
+    "one": "{person} telaq: {count} kredenzjali biex tinbidel",
+    "other": "{person} telaq: {count} kredenzjali biex jinbidlu",
+    "two": "{person} telaq: {count} kredenzjali biex jinbidlu"
   },
   "offboarding.unshared_to_change": {
-    "one": "{person} m'għadx għandu aċċess: {count} kredenzjali biex tinbidel",
-    "two": "{person} m'għadx għandu aċċess: {count} kredenzjali biex jinbidlu",
     "few": "{person} m'għadx għandu aċċess: {count} kredenzjali biex jinbidlu",
     "many": "{person} m'għadx għandu aċċess: {count} kredenzjali biex jinbidlu",
-    "other": "{person} m'għadx għandu aċċess: {count} kredenzjali biex jinbidlu"
+    "one": "{person} m'għadx għandu aċċess: {count} kredenzjali biex tinbidel",
+    "other": "{person} m'għadx għandu aċċess: {count} kredenzjali biex jinbidlu",
+    "two": "{person} m'għadx għandu aċċess: {count} kredenzjali biex jinbidlu"
   },
   "offboarding_card.they_could_see_or_copy": "Seta' jaraha jew jikkopjaha. Ibdilha; jekk mhux int timmaniġġjaha, jibdilha min jimmaniġġjaha.",
   "offboarding_card.they_could_see_or_copy_2": "Seta' jarahom jew jikkopjahom. Ibdilhom waħda waħda; dawk li ma timmaniġġjax int jibdilhom min jimmaniġġjahom.",
@@ -1146,11 +1149,11 @@
   "open_export.export_vault": "Esporta l-kaxxa-forti",
   "open_export.export_vault_2": "Biex tesporta l-kaxxa-forti.",
   "open_export.exported_to": {
-    "one": "{count} kredenzjali esportata lejn {path}",
-    "two": "{count} kredenzjali esportati lejn {path}",
     "few": "{count} kredenzjali esportati lejn {path}",
     "many": "{count} kredenzjali esportata lejn {path}",
-    "other": "{count} kredenzjali esportata lejn {path}"
+    "one": "{count} kredenzjali esportata lejn {path}",
+    "other": "{count} kredenzjali esportata lejn {path}",
+    "two": "{count} kredenzjali esportati lejn {path}"
   },
   "open_export.file_password": "Password tal-fajl",
   "open_export.file_password_needs_at_least": "Il-password tal-fajl trid ikollha mill-inqas 12-il karattru.",
@@ -1193,11 +1196,11 @@
   "palette.sage": "Salvja",
   "palette.terracotta": "Terrakotta",
   "password.chars_left": {
-    "one": "Għad fadal {count} karattru",
-    "two": "Għad fadal {count} karattri",
     "few": "Għad fadal {count} karattri",
     "many": "Għad fadal {count} karattru",
-    "other": "Għad fadal {count} karattru"
+    "one": "Għad fadal {count} karattru",
+    "other": "Għad fadal {count} karattru",
+    "two": "Għad fadal {count} karattri"
   },
   "pending_change_box.accept_new_description": "Aċċetta d-deskrizzjoni l-ġdida",
   "pending_change_box.accept_new_guide": "Aċċetta l-gwida l-ġdida",
@@ -1280,67 +1283,67 @@
   "recovery_code.used": "Użajt il-kodiċi ta' rkupru tiegħek, għalhekk ma jibqax jaħdem. Dan hu l-ġdid: żommu bħall-qadim.",
   "recovery_code.vault_note": "Li żżommu fil-kaxxa-forti personali tiegħek huwa tajjeb, imma ma jgħinekx jekk dak li titlef hija l-kaxxa-forti nfisha (dan il-PC u l-backups tiegħu): żommu x'imkien ieħor ukoll.",
   "reminder.ask_manager_in_case": {
-    "one": "Itlob lil min jimmaniġġjaha biex jibdilha f'każ li rawha.",
-    "two": "Itlob lil min jimmaniġġjaha biex jibdilha f'każ li rawha.",
     "few": "Itlob lil min jimmaniġġjaha biex jibdilha f'każ li rawha.",
     "many": "Itlob lil min jimmaniġġjaha biex jibdilha f'każ li rawha.",
-    "other": "Itlob lil min jimmaniġġjaha biex jibdilha f'każ li rawha."
+    "one": "Itlob lil min jimmaniġġjaha biex jibdilha f'każ li rawha.",
+    "other": "Itlob lil min jimmaniġġjaha biex jibdilha f'każ li rawha.",
+    "two": "Itlob lil min jimmaniġġjaha biex jibdilha f'każ li rawha."
   },
   "reminder.change_in_case": {
-    "one": "Ibdilha f'każ li rawha.",
-    "two": "Ibdilha f'każ li rawha.",
     "few": "Ibdilha f'każ li rawha.",
     "many": "Ibdilha f'każ li rawha.",
-    "other": "Ibdilha f'każ li rawha."
+    "one": "Ibdilha f'każ li rawha.",
+    "other": "Ibdilha f'każ li rawha.",
+    "two": "Ibdilha f'każ li rawha."
   },
   "reminder.change_people_had_it": {
-    "one": "Ibdel: {names} kellu aċċess",
-    "two": "Ibdel: {names} kellhom aċċess",
     "few": "Ibdel: {names} kellhom aċċess",
     "many": "Ibdel: {names} kellhom aċċess",
-    "other": "Ibdel: {names} kellhom aċċess"
+    "one": "Ibdel: {names} kellu aċċess",
+    "other": "Ibdel: {names} kellhom aċċess",
+    "two": "Ibdel: {names} kellhom aċċess"
   },
   "reminder.change_people_left": {
-    "one": "Ibdel: {names} telaq",
-    "two": "Ibdel: {names} telqu",
     "few": "Ibdel: {names} telqu",
     "many": "Ibdel: {names} telqu",
-    "other": "Ibdel: {names} telqu"
+    "one": "Ibdel: {names} telaq",
+    "other": "Ibdel: {names} telqu",
+    "two": "Ibdel: {names} telqu"
   },
   "reminder.expired_ago": {
-    "one": "Skadiet {count} jum ilu. Oħloq ċavetta ġdida jew dawwarha.",
-    "two": "Skadiet {count} jiem ilu. Oħloq ċavetta ġdida jew dawwarha.",
     "few": "Skadiet {count} jiem ilu. Oħloq ċavetta ġdida jew dawwarha.",
     "many": "Skadiet {count} jum ilu. Oħloq ċavetta ġdida jew dawwarha.",
-    "other": "Skadiet {count} jum ilu. Oħloq ċavetta ġdida jew dawwarha."
+    "one": "Skadiet {count} jum ilu. Oħloq ċavetta ġdida jew dawwarha.",
+    "other": "Skadiet {count} jum ilu. Oħloq ċavetta ġdida jew dawwarha.",
+    "two": "Skadiet {count} jiem ilu. Oħloq ċavetta ġdida jew dawwarha."
   },
   "reminder.expires_in": {
-    "one": "Tiskadi fi {count} jum. Dawwarha qabel ma tieqaf taħdem.",
-    "two": "Tiskadi fi {count} jiem. Dawwarha qabel ma tieqaf taħdem.",
     "few": "Tiskadi fi {count} jiem. Dawwarha qabel ma tieqaf taħdem.",
     "many": "Tiskadi fi {count} jum. Dawwarha qabel ma tieqaf taħdem.",
-    "other": "Tiskadi fi {count} jum. Dawwarha qabel ma tieqaf taħdem."
+    "one": "Tiskadi fi {count} jum. Dawwarha qabel ma tieqaf taħdem.",
+    "other": "Tiskadi fi {count} jum. Dawwarha qabel ma tieqaf taħdem.",
+    "two": "Tiskadi fi {count} jiem. Dawwarha qabel ma tieqaf taħdem."
   },
   "reminder.key_age": {
-    "one": "Iċ-ċavetta għandha {count} jum. Ta' min iddawwarha minn żmien għal żmien.",
-    "two": "Iċ-ċavetta għandha {count} jiem. Ta' min iddawwarha minn żmien għal żmien.",
     "few": "Iċ-ċavetta għandha {count} jiem. Ta' min iddawwarha minn żmien għal żmien.",
     "many": "Iċ-ċavetta għandha {count} jum. Ta' min iddawwarha minn żmien għal żmien.",
-    "other": "Iċ-ċavetta għandha {count} jum. Ta' min iddawwarha minn żmien għal żmien."
+    "one": "Iċ-ċavetta għandha {count} jum. Ta' min iddawwarha minn żmien għal żmien.",
+    "other": "Iċ-ċavetta għandha {count} jum. Ta' min iddawwarha minn żmien għal żmien.",
+    "two": "Iċ-ċavetta għandha {count} jiem. Ta' min iddawwarha minn żmien għal żmien."
   },
   "reminder.team_access_left": {
-    "one": "{names} kellu aċċess għal din il-kredenzjali tat-tim u m'għadux fit-tim.",
-    "two": "{names} kellhom aċċess għal din il-kredenzjali tat-tim u m'għadhomx fit-tim.",
     "few": "{names} kellhom aċċess għal din il-kredenzjali tat-tim u m'għadhomx fit-tim.",
     "many": "{names} kellhom aċċess għal din il-kredenzjali tat-tim u m'għadhomx fit-tim.",
-    "other": "{names} kellhom aċċess għal din il-kredenzjali tat-tim u m'għadhomx fit-tim."
+    "one": "{names} kellu aċċess għal din il-kredenzjali tat-tim u m'għadux fit-tim.",
+    "other": "{names} kellhom aċċess għal din il-kredenzjali tat-tim u m'għadhomx fit-tim.",
+    "two": "{names} kellhom aċċess għal din il-kredenzjali tat-tim u m'għadhomx fit-tim."
   },
   "reminder.unshared_access": {
-    "one": "{names} kellu aċċess għal din il-kredenzjali u m'għadx għandu.",
-    "two": "{names} kellhom aċċess għal din il-kredenzjali u m'għadx għandhom.",
     "few": "{names} kellhom aċċess għal din il-kredenzjali u m'għadx għandhom.",
     "many": "{names} kellhom aċċess għal din il-kredenzjali u m'għadx għandhom.",
-    "other": "{names} kellhom aċċess għal din il-kredenzjali u m'għadx għandhom."
+    "one": "{names} kellu aċċess għal din il-kredenzjali u m'għadx għandu.",
+    "other": "{names} kellhom aċċess għal din il-kredenzjali u m'għadx għandhom.",
+    "two": "{names} kellhom aċċess għal din il-kredenzjali u m'għadx għandhom."
   },
   "reminder_short.change_had_it": "Ibdel: {length} persuni kellhom aċċess",
   "reminder_short.change_left": "Ibdel: telqu {length}",
@@ -1490,29 +1493,29 @@
   "rotation.id_changed_app": "Inbidel: ħloqt app ġdida.",
   "rotation.id_changed_client": "Inbidel: ħloqt klijent ġdid.",
   "rotation.n_places": {
-    "one": "{count} post",
-    "two": "{count} postijiet",
     "few": "{count} postijiet",
     "many": "{count} post",
-    "other": "{count} post"
+    "one": "{count} post",
+    "other": "{count} post",
+    "two": "{count} postijiet"
   },
   "rotation.no_places_noted": "L-ebda post imniżżel. Jekk tużaha x'imkien ieħor (server, Vercel, app oħra…), ibdilha hemm ukoll.",
   "rotation.no_places_noted_revoke": "L-ebda post imniżżel. Jekk tużaha x'imkien ieħor (server, Vercel, app oħra…), ibdilha hemm ukoll qabel tirrevoka l-qadima.",
   "rotation.old_key_exposed": {
-    "one": "Iċ-ċavetta l-qadima kienet bħala test ċar f'{count} post. Hekk kif tirrevokaha, dik il-kopja ma tibqax riskju.",
-    "two": "Iċ-ċavetta l-qadima kienet bħala test ċar f'{count} postijiet. Hekk kif tirrevokaha, dawk il-kopji ma jibqgħux riskju.",
     "few": "Iċ-ċavetta l-qadima kienet bħala test ċar f'{count} postijiet. Hekk kif tirrevokaha, dawk il-kopji ma jibqgħux riskju.",
     "many": "Iċ-ċavetta l-qadima kienet bħala test ċar f'{count} post. Hekk kif tirrevokaha, dawk il-kopji ma jibqgħux riskju.",
-    "other": "Iċ-ċavetta l-qadima kienet bħala test ċar f'{count} post. Hekk kif tirrevokaha, dawk il-kopji ma jibqgħux riskju."
+    "one": "Iċ-ċavetta l-qadima kienet bħala test ċar f'{count} post. Hekk kif tirrevokaha, dik il-kopja ma tibqax riskju.",
+    "other": "Iċ-ċavetta l-qadima kienet bħala test ċar f'{count} post. Hekk kif tirrevokaha, dawk il-kopji ma jibqgħux riskju.",
+    "two": "Iċ-ċavetta l-qadima kienet bħala test ċar f'{count} postijiet. Hekk kif tirrevokaha, dawk il-kopji ma jibqgħux riskju."
   },
   "rotation.pending_kept_key": "Iċ-ċavetta l-ġdida tibqa' ssejvjata hawn bħala pendenti: meta terġa' lura għal “Dawwar bl-għajnuna”, tista' tlesti.",
   "rotation.pending_kept_password": "Il-password il-ġdida tibqa' ssejvjata hawn bħala pendenti: meta terġa' lura għal “Dawwar bl-għajnuna”, tista' tlesti.",
   "rotation.places_missing": {
-    "one": "Fadal {count}. {then}",
-    "two": "Fadal {count}. {then}",
     "few": "Fadal {count}. {then}",
     "many": "Fadal {count}. {then}",
-    "other": "Fadal {count}. {then}"
+    "one": "Fadal {count}. {then}",
+    "other": "Fadal {count}. {then}",
+    "two": "Fadal {count}. {then}"
   },
   "rotation.proof_copy_key": "Biex tikkopja ċ-ċavetta l-ġdida ta' {name}.",
   "rotation.proof_copy_password": "Biex tikkopja l-password il-ġdida ta' {name}.",
@@ -1565,22 +1568,22 @@
   "server_admin.backup_reason": "Biex tagħmel backup tas-server.",
   "server_admin.backups": "Backups",
   "server_admin.backups_kept": {
-    "one": "{count} miżmum",
-    "two": "{count} miżmumin",
     "few": "{count} miżmumin",
     "many": "{count} miżmumin",
-    "other": "{count} miżmumin"
+    "one": "{count} miżmum",
+    "other": "{count} miżmumin",
+    "two": "{count} miżmumin"
   },
   "server_admin.being_replaced": "Tilef l-aċċess: kont ġdid qed jistenna biex jieħu postu",
   "server_admin.change_owner": "Ibdel is-sid",
   "server_admin.change_owner_text": "Agħżel lil xi ħadd li diġà jinsab fl-organizzazzjoni. Min kien diġà sid jibqa' sid; is-sid il-ġdid jista' jibdel dan f'Persuni.",
   "server_admin.change_owner_title": "Sid ta' {org}",
   "server_admin.collections_count": {
-    "one": "{count} kollezzjoni",
-    "two": "{count} kollezzjonijiet",
     "few": "{count} kollezzjonijiet",
     "many": "{count} kollezzjoni",
-    "other": "{count} kollezzjoni"
+    "one": "{count} kollezzjoni",
+    "other": "{count} kollezzjoni",
+    "two": "{count} kollezzjonijiet"
   },
   "server_admin.copy_code_only": "Ikkopja l-kodiċi biss",
   "server_admin.database_size": "data: {size}",
@@ -1710,11 +1713,11 @@
   "settings.app": "App",
   "settings.appearance": "Dehra",
   "settings.approved_now": {
-    "one": "Kredenzjali waħda approvata bħalissa.",
-    "two": "{count} kredenzjali approvati bħalissa.",
     "few": "{count} kredenzjali approvati bħalissa.",
     "many": "{count} kredenzjali approvata bħalissa.",
-    "other": "{count} kredenzjali approvata bħalissa."
+    "one": "Kredenzjali waħda approvata bħalissa.",
+    "other": "{count} kredenzjali approvata bħalissa.",
+    "two": "{count} kredenzjali approvati bħalissa."
   },
   "settings.ask_again_if_used_lot": "Erġa' staqsi jekk tintuża ħafna",
   "settings.automatic_lock": "Ibblokkar awtomatiku",
@@ -1799,32 +1802,32 @@
   "setup.you_ll_only_type_master": "Tikteb il-password ewlenija biss biex tirkupra backups jew fuq PC ieħor.",
   "setup.your_keys_used_without_being": "Iċ-ċwievet tiegħek, użati mingħajr ma jidhru",
   "share.credentials_shared_in": {
-    "one": "{count} kredenzjali maqsuma f'{name}",
-    "two": "{count} kredenzjali maqsumin f'{name}",
     "few": "{count} kredenzjali maqsumin f'{name}",
     "many": "{count} kredenzjali maqsuma f'{name}",
-    "other": "{count} kredenzjali maqsuma f'{name}"
+    "one": "{count} kredenzjali maqsuma f'{name}",
+    "other": "{count} kredenzjali maqsuma f'{name}",
+    "two": "{count} kredenzjali maqsumin f'{name}"
   },
   "share.not_shared": {
-    "one": "{count} ma setgħetx tinqasam: {error}",
-    "two": "{count} ma setgħux jinqasmu: {error}",
     "few": "{count} ma setgħux jinqasmu: {error}",
     "many": "{count} ma setgħux jinqasmu: {error}",
-    "other": "{count} ma setgħux jinqasmu: {error}"
+    "one": "{count} ma setgħetx tinqasam: {error}",
+    "other": "{count} ma setgħux jinqasmu: {error}",
+    "two": "{count} ma setgħux jinqasmu: {error}"
   },
   "share.shared_in": {
-    "one": "{count} maqsuma f'{name}",
-    "two": "{count} maqsumin f'{name}",
     "few": "{count} maqsumin f'{name}",
     "many": "{count} maqsuma f'{name}",
-    "other": "{count} maqsuma f'{name}"
+    "one": "{count} maqsuma f'{name}",
+    "other": "{count} maqsuma f'{name}",
+    "two": "{count} maqsumin f'{name}"
   },
   "share.shared_with_count": {
-    "one": "{count} maqsuma ma' {name}",
-    "two": "{count} maqsuma ma' {name}",
     "few": "{count} maqsuma ma' {name}",
     "many": "{count} maqsuma ma' {name}",
-    "other": "{count} maqsuma ma' {name}"
+    "one": "{count} maqsuma ma' {name}",
+    "other": "{count} maqsuma ma' {name}",
+    "two": "{count} maqsuma ma' {name}"
   },
   "share.shared_with_one": "Maqsuma ma' {name}",
   "share_entries.choose_collection": "Agħżel kollezzjoni.",
@@ -1847,11 +1850,11 @@
   "share_with_person.nothing_to_share": "M'għandekx kredenzjali tiegħek x'taqsam.",
   "share_with_person.search": "Fittex",
   "share_with_person.share_count": {
-    "one": "Aqsam {count}",
-    "two": "Aqsam {count}",
     "few": "Aqsam {count}",
     "many": "Aqsam {count}",
-    "other": "Aqsam {count}"
+    "one": "Aqsam {count}",
+    "other": "Aqsam {count}",
+    "two": "Aqsam {count}"
   },
   "shared_badge.shared": "Maqsuma · {value}",
   "shared_badge.shared_by": "Maqsuma minn {name}",
@@ -1909,6 +1912,7 @@
   "show_form.change_type": "Ibdel it-tip",
   "show_form.changed_while_you_were_editing": "Inbidlet waqt li kont qed teditja",
   "show_form.changes_saved": "Bidliet issejvjati",
+  "show_form.config_not_secret": "Mhuwiex sigriet: l-IA tara din id-data u sb run jagħtiha mingħajr ma jistaqsik. Għalhekk m'għandhiex permessi, bdil jew kontrolli.",
   "show_form.data_ai_can_insert_without": "Data li l-IA tista' ddaħħal mingħajr ma tarah",
   "show_form.deploy_token": "Token tad-deployment",
   "show_form.discard_changes": "Twarrab il-bidliet?",
@@ -1958,18 +1962,18 @@
   "sidebar.closes_with_windows": "Il-kaxxa-forti tingħalaq meta tibblokka l-Windows.",
   "sidebar.closes_with_windows_or_idle": "Il-kaxxa-forti tingħalaq meta tibblokka l-Windows jew wara ftit żmien mingħajr użu, u terġa' tinfetaħ waħedha.",
   "sidebar.drafts_waiting": {
-    "one": "Kredenzjali waħda ppreparata mill-IA qed tistenna ċ-ċavetta tagħha.",
-    "two": "{count} kredenzjali ppreparati mill-IA qed jistennew iċ-ċwievet tagħhom.",
     "few": "{count} kredenzjali ppreparati mill-IA qed jistennew iċ-ċwievet tagħhom.",
     "many": "{count} kredenzjali ppreparati mill-IA qed jistennew iċ-ċwievet tagħhom.",
-    "other": "{count} kredenzjali ppreparati mill-IA qed jistennew iċ-ċwievet tagħhom."
+    "one": "Kredenzjali waħda ppreparata mill-IA qed tistenna ċ-ċavetta tagħha.",
+    "other": "{count} kredenzjali ppreparati mill-IA qed jistennew iċ-ċwievet tagħhom.",
+    "two": "{count} kredenzjali ppreparati mill-IA qed jistennew iċ-ċwievet tagħhom."
   },
   "sidebar.to_review": {
-    "one": "Għar-reviżjoni: {count}",
-    "two": "Għar-reviżjoni: {count}",
     "few": "Għar-reviżjoni: {count}",
     "many": "Għar-reviżjoni: {count}",
-    "other": "Għar-reviżjoni: {count}"
+    "one": "Għar-reviżjoni: {count}",
+    "other": "Għar-reviżjoni: {count}",
+    "two": "Għar-reviżjoni: {count}"
   },
   "sort.need_attention": "Jeħtieġu attenzjoni",
   "sort.recently_changed": "Mibdula reċentement",
@@ -1981,11 +1985,11 @@
   "source.settings": "Settings",
   "source.terminal_history": "Storja tat-terminal",
   "status.used_in_places": {
-    "one": "Użata f'{count} post",
-    "two": "Użata f'{count} postijiet",
     "few": "Użata f'{count} postijiet",
     "many": "Użata f'{count} post",
-    "other": "Użata f'{count} post"
+    "one": "Użata f'{count} post",
+    "other": "Użata f'{count} post",
+    "two": "Użata f'{count} postijiet"
   },
   "status_strip.app_doesn_know_how_test": "L-app ma tafx kif tittestja din iċ-ċavetta: għidilha liema talba tittestjaha",
   "status_strip.can_be_tested": "Ma tistax tiġi ttestjata",
@@ -2020,46 +2024,46 @@
   "sync_line.will_retry_by_itself": "Jerġa' jipprova waħdu.",
   "team.another_account": "kont ieħor",
   "team.changes_wait_rekey": {
-    "one": "{count} bidla qed tistenna li l-kollezzjoni tagħha terġa' tiġi kriptata.",
-    "two": "{count} bidliet qed jistennew li l-kollezzjoni tagħhom terġa' tiġi kriptata.",
     "few": "{count} bidliet qed jistennew li l-kollezzjoni tagħhom terġa' tiġi kriptata.",
     "many": "{count} bidla qed jistennew li l-kollezzjoni tagħhom terġa' tiġi kriptata.",
-    "other": "{count} bidla qed jistennew li l-kollezzjoni tagħhom terġa' tiġi kriptata."
+    "one": "{count} bidla qed tistenna li l-kollezzjoni tagħha terġa' tiġi kriptata.",
+    "other": "{count} bidla qed jistennew li l-kollezzjoni tagħhom terġa' tiġi kriptata.",
+    "two": "{count} bidliet qed jistennew li l-kollezzjoni tagħhom terġa' tiġi kriptata."
   },
   "team.disconnect_removes": {
-    "one": "Il-kredenzjali tat-tim titneħħa minn dan il-PC; tibqa' fuq is-server għal kulħadd. Dawk li qsamt mill-kaxxa-forti tiegħek u l-bidliet mhux mibgħuta jibqgħu personali.",
-    "two": "Il-{count} kredenzjali tat-tim jitneħħew minn dan il-PC; jibqgħu fuq is-server għal kulħadd. Dawk li qsamt mill-kaxxa-forti tiegħek u l-bidliet mhux mibgħuta jibqgħu personali.",
     "few": "Il-{count} kredenzjali tat-tim jitneħħew minn dan il-PC; jibqgħu fuq is-server għal kulħadd. Dawk li qsamt mill-kaxxa-forti tiegħek u l-bidliet mhux mibgħuta jibqgħu personali.",
     "many": "Il-{count} kredenzjali tat-tim jitneħħew minn dan il-PC; jibqgħu fuq is-server għal kulħadd. Dawk li qsamt mill-kaxxa-forti tiegħek u l-bidliet mhux mibgħuta jibqgħu personali.",
-    "other": "Il-{count} kredenzjali tat-tim jitneħħew minn dan il-PC; jibqgħu fuq is-server għal kulħadd. Dawk li qsamt mill-kaxxa-forti tiegħek u l-bidliet mhux mibgħuta jibqgħu personali."
+    "one": "Il-kredenzjali tat-tim titneħħa minn dan il-PC; tibqa' fuq is-server għal kulħadd. Dawk li qsamt mill-kaxxa-forti tiegħek u l-bidliet mhux mibgħuta jibqgħu personali.",
+    "other": "Il-{count} kredenzjali tat-tim jitneħħew minn dan il-PC; jibqgħu fuq is-server għal kulħadd. Dawk li qsamt mill-kaxxa-forti tiegħek u l-bidliet mhux mibgħuta jibqgħu personali.",
+    "two": "Il-{count} kredenzjali tat-tim jitneħħew minn dan il-PC; jibqgħu fuq is-server għal kulħadd. Dawk li qsamt mill-kaxxa-forti tiegħek u l-bidliet mhux mibgħuta jibqgħu personali."
   },
   "team.people_to_verify": {
-    "one": "{count} persuna biex tiġi vverifikata",
-    "two": "{count} persuni biex jiġu vverifikati",
     "few": "{count} persuni biex jiġu vverifikati",
     "many": "{count} persuna biex jiġu vverifikati",
-    "other": "{count} persuna biex jiġu vverifikati"
+    "one": "{count} persuna biex tiġi vverifikata",
+    "other": "{count} persuna biex jiġu vverifikati",
+    "two": "{count} persuni biex jiġu vverifikati"
   },
   "team.rekey_by_managers": {
-    "one": "Oħra terġa' tikkriptaha min jimmaniġġjaha.",
-    "two": "{count} oħrajn jerġa' jikkriptahom min jimmaniġġjahom.",
     "few": "{count} oħrajn jerġa' jikkriptahom min jimmaniġġjahom.",
     "many": "{count} oħrajn jerġa' jikkriptahom min jimmaniġġjahom.",
-    "other": "{count} oħrajn jerġa' jikkriptahom min jimmaniġġjahom."
+    "one": "Oħra terġa' tikkriptaha min jimmaniġġjaha.",
+    "other": "{count} oħrajn jerġa' jikkriptahom min jimmaniġġjahom.",
+    "two": "{count} oħrajn jerġa' jikkriptahom min jimmaniġġjahom."
   },
   "team.rekey_next_sync": {
-    "one": "{count} kollezzjoni terġa' tiġi kriptata fis-sinkronizzazzjoni li jmiss.",
-    "two": "{count} kollezzjonijiet jerġgħu jiġu kriptati fis-sinkronizzazzjoni li jmiss.",
     "few": "{count} kollezzjonijiet jerġgħu jiġu kriptati fis-sinkronizzazzjoni li jmiss.",
     "many": "{count} kollezzjoni jerġgħu jiġu kriptati fis-sinkronizzazzjoni li jmiss.",
-    "other": "{count} kollezzjoni jerġgħu jiġu kriptati fis-sinkronizzazzjoni li jmiss."
+    "one": "{count} kollezzjoni terġa' tiġi kriptata fis-sinkronizzazzjoni li jmiss.",
+    "other": "{count} kollezzjoni jerġgħu jiġu kriptati fis-sinkronizzazzjoni li jmiss.",
+    "two": "{count} kollezzjonijiet jerġgħu jiġu kriptati fis-sinkronizzazzjoni li jmiss."
   },
   "team.rekey_on_reconnect": {
-    "one": "{count} kollezzjoni terġa' tiġi kriptata meta terġa' tikkonnettja.",
-    "two": "{count} kollezzjonijiet jerġgħu jiġu kriptati meta terġa' tikkonnettja.",
     "few": "{count} kollezzjonijiet jerġgħu jiġu kriptati meta terġa' tikkonnettja.",
     "many": "{count} kollezzjoni jerġgħu jiġu kriptati meta terġa' tikkonnettja.",
-    "other": "{count} kollezzjoni jerġgħu jiġu kriptati meta terġa' tikkonnettja."
+    "one": "{count} kollezzjoni terġa' tiġi kriptata meta terġa' tikkonnettja.",
+    "other": "{count} kollezzjoni jerġgħu jiġu kriptati meta terġa' tikkonnettja.",
+    "two": "{count} kollezzjonijiet jerġgħu jiġu kriptati meta terġa' tikkonnettja."
   },
   "team.this_pc": "dan il-PC: {device}",
   "team_account_panel.disconnect_team_account": "Tiskonnettja l-kont tat-tim?",
@@ -2237,88 +2241,88 @@
   "time.date_at": "fi {date} fil-{time}",
   "time.day_time": "{day} {time}",
   "time.days_ago": {
-    "one": "{count} jum ilu",
-    "two": "{count} jiem ilu",
     "few": "{count} jiem ilu",
     "many": "{count} jum ilu",
-    "other": "{count} jum ilu"
+    "one": "{count} jum ilu",
+    "other": "{count} jum ilu",
+    "two": "{count} jiem ilu"
   },
   "time.every_hours": {
-    "one": "kull siegħa",
-    "two": "kull {count} sigħat",
     "few": "kull {count} sigħat",
     "many": "kull {count} siegħa",
-    "other": "kull {count} siegħa"
+    "one": "kull siegħa",
+    "other": "kull {count} siegħa",
+    "two": "kull {count} sigħat"
   },
   "time.every_months": {
-    "one": "kull xahar",
-    "two": "kull {count} xhur",
     "few": "kull {count} xhur",
     "many": "kull {count} xahar",
-    "other": "kull {count} xahar"
+    "one": "kull xahar",
+    "other": "kull {count} xahar",
+    "two": "kull {count} xhur"
   },
   "time.hours": {
-    "one": "{count} siegħa",
-    "two": "{count} sigħat",
     "few": "{count} sigħat",
     "many": "{count} siegħa",
-    "other": "{count} siegħa"
+    "one": "{count} siegħa",
+    "other": "{count} siegħa",
+    "two": "{count} sigħat"
   },
   "time.hours_ago": "{count} siegħa ilu",
   "time.hours_label": "sigħat",
   "time.hours_short": "{count} h",
   "time.in_days": {
-    "one": "fi {count} jum",
-    "two": "fi {count} jiem",
     "few": "fi {count} jiem",
     "many": "fi {count} jum",
-    "other": "fi {count} jum"
+    "one": "fi {count} jum",
+    "other": "fi {count} jum",
+    "two": "fi {count} jiem"
   },
   "time.in_months": {
-    "one": "fi {count} xahar",
-    "two": "fi {count} xhur",
     "few": "fi {count} xhur",
     "many": "fi {count} xahar",
-    "other": "fi {count} xahar"
+    "one": "fi {count} xahar",
+    "other": "fi {count} xahar",
+    "two": "fi {count} xhur"
   },
   "time.in_years": {
-    "one": "fi sena",
-    "two": "fi {count} snin",
     "few": "fi {count} snin",
     "many": "fi {count} sena",
-    "other": "fi {count} sena"
+    "one": "fi sena",
+    "other": "fi {count} sena",
+    "two": "fi {count} snin"
   },
   "time.minutes": {
-    "one": "{count} minuta",
-    "two": "{count} minuti",
     "few": "{count} minuti",
     "many": "{count} minuta",
-    "other": "{count} minuta"
+    "one": "{count} minuta",
+    "other": "{count} minuta",
+    "two": "{count} minuti"
   },
   "time.minutes_ago": "{count} min ilu",
   "time.minutes_short": "{count} min",
   "time.months": {
-    "one": "{count} xahar",
-    "two": "{count} xhur",
     "few": "{count} xhur",
     "many": "{count} xahar",
-    "other": "{count} xahar"
+    "one": "{count} xahar",
+    "other": "{count} xahar",
+    "two": "{count} xhur"
   },
   "time.months_ago": {
-    "one": "{count} xahar ilu",
-    "two": "{count} xhur ilu",
     "few": "{count} xhur ilu",
     "many": "{count} xahar ilu",
-    "other": "{count} xahar ilu"
+    "one": "{count} xahar ilu",
+    "other": "{count} xahar ilu",
+    "two": "{count} xhur ilu"
   },
   "time.now": "issa stess",
   "time.relative_day_at": "{day} fil-{time}",
   "time.years_ago": {
-    "one": "{count} sena ilu",
-    "two": "{count} snin ilu",
     "few": "{count} snin ilu",
     "many": "{count} sena ilu",
-    "other": "{count} sena ilu"
+    "one": "{count} sena ilu",
+    "other": "{count} sena ilu",
+    "two": "{count} snin ilu"
   },
   "totp_prop.2fa_code_copied_valid_for": "Kodiċi 2FA kkupjat · validu għal {remaining} s oħra",
   "totp_prop.copy_2fa_code": "Biex tikkopja l-kodiċi 2FA ta' {name}.",
@@ -2363,11 +2367,11 @@
   "used_in_modal.where_is_used": "Fejn tintuża {name}",
   "used_in_modal.where_used_hasn_been_noted": "Ma ġiex imniżżel fejn tintuża.",
   "verify.shares_collections": {
-    "one": "Jaqsam kollezzjoni miegħek: ivverifikah biex tirċeviha.",
-    "two": "Jaqsam {count} kollezzjonijiet miegħek: ivverifikah biex tirċevihom.",
     "few": "Jaqsam {count} kollezzjonijiet miegħek: ivverifikah biex tirċevihom.",
     "many": "Jaqsam {count} kollezzjoni miegħek: ivverifikah biex tirċevihom.",
-    "other": "Jaqsam {count} kollezzjoni miegħek: ivverifikah biex tirċevihom."
+    "one": "Jaqsam kollezzjoni miegħek: ivverifikah biex tirċeviha.",
+    "other": "Jaqsam {count} kollezzjoni miegħek: ivverifikah biex tirċevihom.",
+    "two": "Jaqsam {count} kollezzjonijiet miegħek: ivverifikah biex tirċevihom."
   },
   "verify_email_card.e_mail_code": "Kodiċi tal-email",
   "verify_email_card.invitations_only_reach_verified_addresse": ". L-istediniet jaslu biss għal indirizzi vverifikati, għalhekk ħadd ma jista' jieħu tiegħek.",

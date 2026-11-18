@@ -110,6 +110,8 @@ def validate_entry(entry):
             if not value.isdigit() or not 0 < int(value) < 65536:
                 raise ValidationError(tr("vault.must_be_valid_port_number", label=spec['label']))
 
+    if templates.is_public(template_id) and not any(str(fields.get(n) or "").strip() for n in ("username", "value")):
+        raise ValidationError(tr("vault.config_needs_identifier_or_value"))
     if fields.get("totp"):
         try:
             totp.validate(fields["totp"])
@@ -565,7 +567,9 @@ class Vault:
             entry = copy.deepcopy(entry)
             entry["updated"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
             entry.pop("secret_since", None)
-            if old is None or secret_fields(old) != secret_fields(entry):
+            if templates.is_public(entry["template"]):
+                pass  # no key: nothing ages, nothing to rotate
+            elif old is None or secret_fields(old) != secret_fields(entry):
                 entry["secret_since"] = entry["updated"]
             elif old.get("secret_since"):
                 entry["secret_since"] = old["secret_since"]  # unknown for entries saved before 0.5
@@ -589,7 +593,9 @@ class Vault:
                     results.append((entry.get("id"), str(exc)))
                     continue
                 entry = copy.deepcopy(entry)
-                entry["updated"] = entry["secret_since"] = now
+                entry["updated"] = now
+                if not templates.is_public(entry["template"]):
+                    entry["secret_since"] = now
                 added[entry["id"]] = entry
                 results.append((entry["id"], None))
             if added:

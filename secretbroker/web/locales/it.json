@@ -213,6 +213,7 @@
   "change_line.new_programs": "Nuovi programmi",
   "change_line.new_variables": "Variabili nuove o modificate",
   "change_line.new_websites": "Nuovi siti",
+  "change_line.secret_value_deleted": "il valore segreto salvato viene eliminato",
   "change_master_password.change_master_password": "Per cambiare la password principale.",
   "change_master_password.change_master_password_2": "Cambia password principale",
   "change_master_password.choose_new_master_password": "Scegli una nuova password principale",
@@ -469,6 +470,7 @@
   "describe_permissions.run_on_this_pc": "Eseguire {value} su questo PC",
   "destination_label.github": "GitHub {repo}{value} · {name}",
   "detail.ai_knows_as": "L’IA la conosce come ",
+  "detail.config_not_secret": "Non è segreta: l'IA vede questi dati e sb run li passa ai programmi senza chiederti il permesso. Non viene ruotata né conta come esposta.",
   "detail.copied_cleared_in": "Copiato · cancellato tra {result} s",
   "detail.copy": "Per copiare «{label}» di {name}.",
   "detail.decide_in_team": "decidi in Team",
@@ -529,6 +531,7 @@
   "draw_team.sync_now": "Sincronizza ora",
   "draw_team.synced": "Sincronizzato",
   "editor.aws_placeholder": "AWS personale",
+  "editor.config_placeholder": "Client ID della mia app",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
   "editor.tags_placeholder": "negozio, produzione",
   "empty_credentials.add_credential": "Aggiungi una credenziale",
@@ -1364,8 +1367,8 @@
   "server_admin.backup_reason": "Per fare un backup del server.",
   "server_admin.backups": "Backup",
   "server_admin.backups_kept": {
-    "one": "{count} conservato",
     "many": "{count} conservati",
+    "one": "{count} conservato",
     "other": "{count} conservati"
   },
   "server_admin.being_replaced": "Accesso perso: un nuovo account attende di sostituirlo",
@@ -1373,8 +1376,8 @@
   "server_admin.change_owner_text": "Scegli qualcuno che sia già nell’organizzazione. Chi era già proprietario lo resta; il nuovo può cambiarlo in Persone.",
   "server_admin.change_owner_title": "Proprietario di {org}",
   "server_admin.collections_count": {
-    "one": "{count} raccolta",
     "many": "{count} raccolte",
+    "one": "{count} raccolta",
     "other": "{count} raccolte"
   },
   "server_admin.copy_code_only": "Copia solo il codice",
@@ -1686,6 +1689,7 @@
   "show_form.change_type": "Cambia tipo",
   "show_form.changed_while_you_were_editing": "È cambiata mentre la modificavi",
   "show_form.changes_saved": "Modifiche salvate",
+  "show_form.config_not_secret": "Non è un segreto: l'IA vede questi dati e sb run li passa senza chiederti il permesso. Per questo non ha permessi, rotazione né controlli.",
   "show_form.data_ai_can_insert_without": "Dati che l’IA può inserire senza vederli",
   "show_form.deploy_token": "Token di deploy",
   "show_form.discard_changes": "Scartare le modifiche?",

@@ -558,6 +558,72 @@ def main():
     check(any(e["action"] == "release_env" and "python -c" in e["detail"] for e in client.request("audit", {"limit": 20})),
           "releases are audited with the command")
 
+    print("Configuration: data that is not secret")
+    client_id = "0f8e7d6c-1234-4abc-9def-00112233aabb"
+    # As people stored it before there was a type for it: a public app's client id pasted as the secret too.
+    call("save_entry", {"entry": {"id": "entra-app", "name": "Entra app", "template": "generic", "description": "App pública",
+                                  "fields": {"value": client_id, "username": client_id, "notes": "tenant común"},
+                                  "policy": {"approval": "session", "commands": {"allowed": [], "env": {"MC_ID": "{{username}}"}}}}},
+         "hello")
+    check(any(i["id"] == "entra-app" for i in client.request("exposure_report")["entries"]), "a secret is looked for in files")
+    expect_error(lambda: client.request("update_credential", {"secret_id": "entra-app", "template": "api_key"}), "invalid",
+                 "a credential can only be turned into configuration")
+    decisions.clear()
+    gui = threading.Thread(target=fake_gui, args=("deny",))
+    gui.start()
+    expect_error(lambda: client.request("update_credential", {"secret_id": "entra-app", "template": "config"}), "denied",
+                 "turning a credential into configuration is the user's call")
+    gui.join()
+    check(decisions and "se borra el valor secreto guardado" in decisions[-1][1]
+          and any(c.get("kind") == "template" and c.get("new") == "config" and c.get("dropped")
+                  for c in decisions[-1][2].get("changes") or []),
+          f"the approval says the stored secret is deleted: {decisions[-1][1] if decisions else None!r}")
+    gui = threading.Thread(target=fake_gui, args=("once",))
+    gui.start()
+    view = client.request("update_credential", {"secret_id": "entra-app", "template": "config"})["credential"]
+    gui.join()
+    check(view["id"] == "entra-app" and view["kind"] == "Configuración (no secreta)" and view["username"] == client_id
+          and "value" not in view and "{{username}}" in view["placeholders"], f"converted in place, keeping its id: {view}")
+    stored = next(e for e in client.request("entries") if e["id"] == "entra-app")
+    check(stored["template"] == "config" and stored["secrets_set"] == ["notes"] and "value" not in stored["fields"]
+          and stored["policy"] == {"approval": "never"} and not stored["secret_since"],
+          "the secret copy is gone, the notes stay, and nothing ages")
+    listed = next(e for e in client.request("list_secrets") if e["id"] == "entra-app")
+    check(listed["username"] == client_id, "list_secrets shows its data")
+    check(all(i["id"] != "entra-app" for i in client.request("exposure_report")["entries"]),
+          "configuration is never reported as exposed")
+    check(all(r["id"] != "entra-app" for r in client.request("reminders")), "nor due for rotation")
+    checked = client.request("ai_check", {"secret_id": "entra-app"})
+    check(checked.get("public") and "rotation" not in checked, "check_credential doesn't offer to rotate it")
+    service._grants.pop("entra-app", None)
+    released = client.request("release_env", {"vars": [{"secret_id": "entra-app", "name": "MC_MS_CLIENT_ID", "field": "username"}],
+                                              "command": "x", "cwd": "."})
+    check(released["env"] == {"MC_MS_CLIENT_ID": client_id} and released["redact"] == {"entra-app": []},
+          "sb run gives it without asking and doesn't redact it")
+    released = client.request("release_env", {"vars": [{"secret_id": "entra-app", "name": "ANY_NAME"}], "command": "x", "cwd": "."})
+    check(released["env"] == {"ANY_NAME": client_id}, "a bare reference gives its value, or else its ID")
+    (HOME / "project" / ".secretbroker").write_text("MC_MS_CLIENT_ID = entra-app:username\n")
+    completed = subprocess.run([sys.executable, "-m", "secretbroker.cli", "run", "--", "python", "-c",
+                                "import os;print(os.environ['MC_MS_CLIENT_ID'])"], cwd=project, capture_output=True, text=True)
+    check(completed.returncode == 0 and completed.stdout.strip() == client_id, f"sb run injects it: {completed.stdout.strip()!r} {completed.stderr.strip()!r}")
+    completed = subprocess.run([sys.executable, "-m", "secretbroker.cli", "check"], cwd=project, capture_output=True, text=True)
+    check(completed.returncode == 0, f"sb check is happy with it: {completed.stdout.strip()!r}")
+    result = client.request("update_credential", {"secret_id": "entra-app", "fields": {"value": "common"}})
+    check(result["changed"], "the AI changes its data without asking: there is no secret to send anywhere")
+    view = client.request("create_draft", {"template": "config", "name": "Tenant", "description": "Tenant de Entra",
+                                           "fields": {"username": "contoso.onmicrosoft.com"}})
+    check(not view["credential"].get("draft") and view["credential"]["username"] == "contoso.onmicrosoft.com",
+          "configuration prepared by the AI is ready at once")
+    expect_error(lambda: client.request("create_draft", {"template": "config", "name": "Empty"}), "invalid",
+                 "configuration needs an identifier or a value")
+    summary = call("save_entry", {"entry": {"id": "tenant", "name": "Tenant", "template": "config", "fields": {"username": "contoso"},
+                                            "rotate_every_days": 30, "policy": {"approval": "always", "http": {"allowed_hosts": ["x.test"]}}},
+                                  "replaces": "tenant"}, "hello")
+    check(summary["policy"] == {"approval": "never"} and summary["rotate_every_days"] is None,
+          "the app can't give configuration permissions or rotation")
+    for entry_id in ("tenant", "entra-app"):
+        call("delete_entry", {"id": entry_id}, "hello")
+
     print("Projects: sb check and sb import")
     (HOME / "project" / ".secretbroker").write_text("DATABASE_URL = shop-db\nX = nothing-here\nY = old-ssh\n")
     completed = subprocess.run([sys.executable, "-m", "secretbroker.cli", "check"], cwd=project, capture_output=True, text=True)

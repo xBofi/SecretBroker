@@ -79,39 +79,39 @@
   "exposure.credential_doesn_say_how_put": "Kredenciale nenurodyta, kaip įdėti raktą į užklausą (Redaguoti › kaip siunčiamas raktas)",
   "exposure.list_and": "{names} ir {last}",
   "exposure.places_ai": {
-    "one": "{count} DI pokalbis",
     "few": "{count} DI pokalbiai",
     "many": "{count} DI pokalbio",
+    "one": "{count} DI pokalbis",
     "other": "{count} DI pokalbių"
   },
   "exposure.places_config": {
-    "one": "{count} programos nustatymas",
     "few": "{count} programų nustatymai",
     "many": "{count} programų nustatymo",
+    "one": "{count} programos nustatymas",
     "other": "{count} programų nustatymų"
   },
   "exposure.places_env": {
-    "one": "{count} aplinkos kintamasis",
     "few": "{count} aplinkos kintamieji",
     "many": "{count} aplinkos kintamojo",
+    "one": "{count} aplinkos kintamasis",
     "other": "{count} aplinkos kintamųjų"
   },
   "exposure.places_git": {
-    "one": "{count} git istorija",
     "few": "{count} git istorijos",
     "many": "{count} git istorijos",
+    "one": "{count} git istorija",
     "other": "{count} git istorijų"
   },
   "exposure.places_history": {
-    "one": "{count} terminalo istorija",
     "few": "{count} terminalo istorijos",
     "many": "{count} terminalo istorijos",
+    "one": "{count} terminalo istorija",
     "other": "{count} terminalo istorijų"
   },
   "exposure.places_project": {
-    "one": "{count} projekto failas",
     "few": "{count} projektų failai",
     "many": "{count} projektų failo",
+    "one": "{count} projekto failas",
     "other": "{count} projektų failų"
   },
   "exposure.reason_ai_saw": "DI jį matė: jis buvo išsiųstas jo tiekėjui.",
@@ -119,15 +119,15 @@
   "exposure.reason_invalid": "Jis neveikia: {message}.",
   "exposure.reason_present": "Jis yra atviru tekstu: {places}.",
   "exposure.reason_pwned": {
-    "one": "Šis slaptažodis viešuose nutekėjimuose aptinkamas {times} kartą.",
     "few": "Šis slaptažodis viešuose nutekėjimuose aptinkamas {times} kartus.",
     "many": "Šis slaptažodis viešuose nutekėjimuose aptinkamas {times} karto.",
+    "one": "Šis slaptažodis viešuose nutekėjimuose aptinkamas {times} kartą.",
     "other": "Šis slaptažodis viešuose nutekėjimuose aptinkamas {times} kartų."
   },
   "exposure.reason_stale": {
-    "one": "Jis nekeistas {count} mėnesį.",
     "few": "Jis nekeistas {count} mėnesius.",
     "many": "Jis nekeistas {count} mėnesio.",
+    "one": "Jis nekeistas {count} mėnesį.",
     "other": "Jis nekeistas {count} mėnesių."
   },
   "exposure.reason_stopped": "Jis nustojo veikti: {message}. Jei jo neatšaukėte, tiekėjas greičiausiai aptiko jį kaip nutekėjusį.",
@@ -140,15 +140,15 @@
   "exposure.unexpected_response_http": "Netikėtas atsakymas (HTTP {status_code}){_said}",
   "health.a_person": "Kažkas",
   "health.expired": {
-    "one": "Nebegalioja prieš {count} dieną.",
     "few": "Nebegalioja prieš {count} dienas.",
     "many": "Nebegalioja prieš {count} dienos.",
+    "one": "Nebegalioja prieš {count} dieną.",
     "other": "Nebegalioja prieš {count} dienų."
   },
   "health.expiring": {
-    "one": "Nebegalios po {count} dienos.",
     "few": "Nebegalios po {count} dienų.",
     "many": "Nebegalios po {count} dienos.",
+    "one": "Nebegalios po {count} dienos.",
     "other": "Nebegalios po {count} dienų."
   },
   "health.exposed": "Jis yra atviru tekstu faile šiame kompiuteryje.",
@@ -168,29 +168,29 @@
   "health.label_was_exposed": "Buvo atskleistas",
   "health.label_weak": "Silpnas",
   "health.left_team_ask": {
-    "one": "{who} turėjo prieigą ir nebėra komandoje: paprašykite valdytojo jį pakeisti.",
     "few": "{who} turėjo prieigą ir nebėra komandoje: paprašykite valdytojo jį pakeisti.",
     "many": "{who} turėjo prieigą ir nebėra komandoje: paprašykite valdytojo jį pakeisti.",
+    "one": "{who} turėjo prieigą ir nebėra komandoje: paprašykite valdytojo jį pakeisti.",
     "other": "{who} turėjo prieigą ir nebėra komandoje: paprašykite valdytojo jį pakeisti."
   },
   "health.left_team_rotate": {
-    "one": "{who} turėjo prieigą ir nebėra komandoje: pakeiskite jį, jei tas asmuo jį matė.",
     "few": "{who} turėjo prieigą ir nebėra komandoje: pakeiskite jį, jei jie jį matė.",
     "many": "{who} turėjo prieigą ir nebėra komandoje: pakeiskite jį, jei jie jį matė.",
+    "one": "{who} turėjo prieigą ir nebėra komandoje: pakeiskite jį, jei tas asmuo jį matė.",
     "other": "{who} turėjo prieigą ir nebėra komandoje: pakeiskite jį, jei jie jį matė."
   },
   "health.list_and": "{names} ir {last}",
   "health.old": {
-    "one": "Raktui {count} diena.",
     "few": "Raktui {count} dienos.",
     "many": "Raktui {count} dienos.",
+    "one": "Raktui {count} diena.",
     "other": "Raktui {count} dienų."
   },
   "health.old_alive": "Jį pakeitėte, bet senasis vis dar veikia: atšaukite jį.",
   "health.pwned": {
-    "one": "Viešuose nutekėjimuose aptinkamas {times} kartą.",
     "few": "Viešuose nutekėjimuose aptinkamas {times} kartus.",
     "many": "Viešuose nutekėjimuose aptinkamas {times} karto.",
+    "one": "Viešuose nutekėjimuose aptinkamas {times} kartą.",
     "other": "Viešuose nutekėjimuose aptinkamas {times} kartų."
   },
   "health.retired_pending": "Naujas raktas aktyvus · senąjį dar reikia atšaukti: {provider}.",
@@ -201,16 +201,16 @@
   "health.thousands_separator": " ",
   "health.unchecked": "Jis dar nepatikrintas.",
   "health.unshared_rotate": {
-    "one": "{who} turėjo prieigą, bet nebeturi: pakeiskite jį, jei jis buvo nukopijuotas.",
     "few": "{who} turėjo prieigą, bet nebeturi: pakeiskite jį, jei jis buvo nukopijuotas.",
     "many": "{who} turėjo prieigą, bet nebeturi: pakeiskite jį, jei jis buvo nukopijuotas.",
+    "one": "{who} turėjo prieigą, bet nebeturi: pakeiskite jį, jei jis buvo nukopijuotas.",
     "other": "{who} turėjo prieigą, bet nebeturi: pakeiskite jį, jei jis buvo nukopijuotas."
   },
   "health.upload_failed": "Nepavyko įkelti naujojo į {place}: senasis vis dar ten.",
   "health.upload_failed_more": {
-    "one": "Nepavyko įkelti naujojo į {place} ir dar {count} vietą: senasis vis dar ten.",
     "few": "Nepavyko įkelti naujojo į {place} ir dar {count} vietas: senasis vis dar ten.",
     "many": "Nepavyko įkelti naujojo į {place} ir dar {count} vietos: senasis vis dar ten.",
+    "one": "Nepavyko įkelti naujojo į {place} ir dar {count} vietą: senasis vis dar ten.",
     "other": "Nepavyko įkelti naujojo į {place} ir dar {count} vietų: senasis vis dar ten."
   },
   "health.was_exposed": "Jis buvo faile atviru tekstu. Verta jį pakeisti.",
@@ -313,9 +313,9 @@
   "resident.pause_ai": "Pristabdyti DI",
   "resident.quit": "Išeiti",
   "resident.reminders_need_attention": {
-    "one": "{count} kredencialui reikia dėmesio",
     "few": "{count} kredencialams reikia dėmesio",
     "many": "{count} kredencialo reikia dėmesio",
+    "one": "{count} kredencialui reikia dėmesio",
     "other": "{count} kredencialų reikia dėmesio"
   },
   "resident.resume_ai": "Atnaujinti DI darbą",
@@ -359,9 +359,9 @@
   "service.change_every_days": "kas {days} d.",
   "service.change_every_hours": {
     "=1": "kas valandą",
-    "one": "kas {count} valandą",
     "few": "kas {count} valandas",
     "many": "kas {count} valandos",
+    "one": "kas {count} valandą",
     "other": "kas {count} valandų"
   },
   "service.change_expires": "Galioja iki",
@@ -374,15 +374,17 @@
   "service.change_rotate_every_days": "Priminti pakeisti",
   "service.change_rotation_guide": "Rotacijos vadovas",
   "service.change_steps": {
-    "one": "{count} žingsnis",
     "few": "{count} žingsniai",
     "many": "{count} žingsnio",
+    "one": "{count} žingsnis",
     "other": "{count} žingsnių"
   },
   "service.change_tags": "Žymos",
+  "service.change_template": "Prisijungimo duomenų tipas",
   "service.change_test_request": "Bandomoji užklausa",
   "service.change_used_in": "Kur naudojama",
   "service.collection_no_longer_appears_on": "Rinkinio serveryje nebėra. ",
+  "service.config_needs_variable_name": "„{id}“ yra konfigūracija: nurodykite kintamojo pavadinimą faile .secretbroker (VARIABLE = {id}).",
   "service.confirm_it_you_once_windows": "Vieną kartą patvirtinkite, kad tai jūs (Windows Hello arba slaptažodis), kad ",
   "service.connect_this_browser_secretbroker_from": "Prijunkite šią naršyklę prie SecretBroker iš plėtinio",
   "service.connection_request_has_expired_click": "Prisijungimo užklausos laikas baigėsi: naršyklėje vėl spustelėkite „Prijungti“",
@@ -395,18 +397,18 @@
   "service.expected_response_must_be_code": "Laukiamas atsakymas turi būti kodas nuo 200 iki 399",
   "service.expected_response_must_be_http": "Laukiamas atsakymas turi būti HTTP kodas, pvz., 200",
   "service.found_in_new_places": {
-    "one": "Rasta atviru tekstu {count} naujoje vietoje",
     "few": "Rasta atviru tekstu {count} naujose vietose",
     "many": "Rasta atviru tekstu {count} naujos vietos",
+    "one": "Rasta atviru tekstu {count} naujoje vietoje",
     "other": "Rasta atviru tekstu {count} naujų vietų"
   },
   "service.generate_new_one": "sugeneruokite naują",
   "service.give_between_1_and_20": "Nurodykite secret_ids nuo 1 iki 20 kredencialų",
   "service.has_no_environment_variables_in": "„{id}“ leidimuose nėra aplinkos kintamųjų, todėl jo negalima perduoti vietinėms programoms. Pridėkite juos SecretBroker programoje.",
   "service.held_waiting": {
-    "one": "{count} kredencialas iš {collection} laukia jūsų sprendimo",
     "few": "{count} kredencialai iš {collection} laukia jūsų sprendimo",
     "many": "{count} kredencialo iš {collection} laukia jūsų sprendimo",
+    "one": "{count} kredencialas iš {collection} laukia jūsų sprendimo",
     "other": "{count} kredencialų iš {collection} laukia jūsų sprendimo"
   },
   "service.import_has_expired_choose_file": "Importavimo laikas baigėsi: pasirinkite failą dar kartą",
@@ -440,6 +442,7 @@
   "service.only_api_keys_and_other": "Patikrinimo užklausą turi tik API raktai ir kitos paslaptys",
   "service.only_api_keys_and_passwords": "Šiuo būdu keičiami tik API raktai ir slaptažodžiai",
   "service.only_api_keys_are_rotated": "keičiami tik API raktai",
+  "service.only_convert_to_config": "Prisijungimo duomenis galima paversti tik konfigūracija (template config).",
   "service.only_database_password_is_applied": "Šiuo būdu pritaikomas tik duomenų bazės slaptažodis",
   "service.only_user_can_write_value": "Tik naudotojas gali įrašyti „{name}“ reikšmę programoje",
   "service.open_secretbroker_team_and_sign": "Atidarykite SecretBroker › Komanda ir prisijunkite iš naujo, kad toliau gautumėte ir siųstumėte pakeitimus. Kol kas viskas veikia su tuo, ką jau turite.",
@@ -475,9 +478,9 @@
   "service.purpose_totp_code": "pamatytumėte 2FA kodą",
   "service.request_is_no_longer_pending": "Užklausa nebelaukia",
   "service.rotate_after_leave": {
-    "one": "{names} turėjo prieigą ir nebėra komandoje. Pakeiskite juos, jei tas asmuo juos matė.",
     "few": "{names} turėjo prieigą ir nebėra komandoje. Pakeiskite juos, jei jie juos matė.",
     "many": "{names} turėjo prieigą ir nebėra komandoje. Pakeiskite juos, jei jie juos matė.",
+    "one": "{names} turėjo prieigą ir nebėra komandoje. Pakeiskite juos, jei tas asmuo juos matė.",
     "other": "{names} turėjo prieigą ir nebėra komandoje. Pakeiskite juos, jei jie juos matė."
   },
   "service.say_whether_is_still_same": "Nurodykite, ar {label} vis dar tas pats, ar pasikeitė",
@@ -545,9 +548,9 @@
   "teams.admin_bad_signups": "Pasirinkite, ar registracija atvira, tik su kvietimu ar uždaryta.",
   "teams.admin_last_admin": "Tai vienintelė paskyra, kuri administruoja serverį: jos negalima išjungti ar ištrinti.",
   "teams.admin_last_manager": {
-    "one": "{person} vienintelis valdo {count} rinkinį: prieš ištrinant paskyrą kas nors iš organizacijos turi jame gauti teisę „Valdytojas“ (arba jį ištrinti).",
     "few": "{person} vienintelis valdo {count} rinkinius: prieš ištrinant paskyrą kas nors iš organizacijos turi juose gauti teisę „Valdytojas“ (arba juos ištrinti).",
     "many": "{person} vienintelis valdo {count} rinkinio: prieš ištrinant paskyrą kas nors iš organizacijos turi juose gauti teisę „Valdytojas“ (arba juos ištrinti).",
+    "one": "{person} vienintelis valdo {count} rinkinį: prieš ištrinant paskyrą kas nors iš organizacijos turi jame gauti teisę „Valdytojas“ (arba jį ištrinti).",
     "other": "{person} vienintelis valdo {count} rinkinių: prieš ištrinant paskyrą kas nors iš organizacijos turi juose gauti teisę „Valdytojas“ (arba juos ištrinti)."
   },
   "teams.admin_last_owner": "{person} yra vienintelis savininkas: {orgs}. Prieš ištrindami paskyrą, padarykite savininku kitą asmenį.",
@@ -669,9 +672,11 @@
   "templates.clave_privada_51c4fa": "Privatusis raktas",
   "templates.claves_de_acceso_de_aws_para_la_8fa404": "AWS prieigos raktai CLI",
   "templates.client_id_app_id_account_id_32451f": "client id, app id, account id…",
+  "templates.client_id_app_id_tenant_id_5ab3b0": "client id, app id, tenant id…",
   "templates.codigo_2fa_totp_opcional_c21467": "2FA kodas (TOTP) (neprivaloma)",
   "templates.codigos_de_recuperacion_pregunta_2bfb4d": "Atkūrimo kodai, saugos klausimai…",
   "templates.como_se_envia_la_clave_92b57d": "Kaip siunčiamas raktas",
+  "templates.configuracion_no_secreta_bf2c21": "Konfigūracija (ne slapta)",
   "templates.contrasena_5a6d1c": "Slaptažodis",
   "templates.cualquier_otro_dato_secreto_346338": "Bet kokie kiti slapti duomenys",
   "templates.db_ejemplo_com_ef9904": "db.example.com",
@@ -681,11 +686,14 @@
   "templates.https_api_ejemplo_com_394db1": "https://api.example.com",
   "templates.https_panel_ejemplo_com_ba88d4": "https://dashboard.example.com",
   "templates.id_asociado_opcional_537b83": "Susietas ID (neprivaloma)",
+  "templates.identificador_d05b0a": "Identifikatorius",
+  "templates.ids_y_datos_publicos_client_id_t_e0839c": "Vieši ID ir nustatymai: kliento ID, tenant, paskyros ID…",
   "templates.la_clave_que_da_la_web_al_activa_38af10": "Raktas, kurį svetainė pateikia įjungus dviejų veiksmų patvirtinimą (po QR kodu). SecretBroker rodo jums 6 skaitmenų kodą; DI jo nemato.",
   "templates.la_ia_solo_podra_enviar_la_clave_d55a47": "DI galės siųsti raktą tik į šį domeną.",
   "templates.la_ia_solo_podra_usar_esta_crede_3899cf": "DI galės naudoti šį kredencialą tik su šia svetaine.",
   "templates.motor_ceaed7": "Variklis",
   "templates.no_anadirla_automaticamente_a70e1a": "Nepridėti automatiškai",
+  "templates.no_es_secreto_la_ia_lo_ve_y_los_392166": "Tai ne paslaptis: DI jį mato, o programos jį gauna jūsų neklausdamos.",
   "templates.notas_privadas_opcional_2621d7": "Privačios pastabos (neprivaloma)",
   "templates.nube_aws_95df6b": "Debesis (AWS)",
   "templates.otpauth_totp_o_la_clave_en_base3_b0c780": "otpauth://totp/… arba base32 raktas",
@@ -704,11 +712,13 @@
   "templates.si_la_clave_va_emparejada_con_un_5f3d0f": "Jei raktas susietas su identifikatoriumi. Keičiant klausiama, ar jis pasikeitė.",
   "templates.solo_para_ti_la_ia_no_las_ve_90d40d": "Tik jums: DI jų nemato.",
   "templates.tambien_se_usa_para_sudo_f450d6": "Naudojamas ir sudo.",
+  "templates.un_dato_de_configuracion_e7f7e9": "Konfigūracijos duomuo",
   "templates.url_de_la_api_9c4317": "API URL",
   "templates.usuario_3f2ecd": "Naudotojo vardas",
   "templates.usuario_o_e_mail_e4cfe2": "Naudotojo vardas arba el. paštas",
   "templates.usuario_opcional_6b549e": "Naudotojo vardas (neprivaloma)",
   "templates.usuario_y_contrasena_de_una_web_17037d": "Svetainės, valdymo skydelio ar programos naudotojo vardas ir slaptažodis",
+  "templates.valor_opcional_0afb86": "Reikšmė (neprivaloma)",
   "templates.variable_de_entorno_opcional_03da6c": "Aplinkos kintamasis (neprivaloma)",
   "templates.web_o_servicio_f398c8": "Svetainė arba paslauga",
   "totp.2fa_code_has_invalid_parameters": "2FA kodas turi netinkamų parametrų",
@@ -736,6 +746,7 @@
   "update.this_version_has_no_signing": "Ši versija neturi pasirašymo rakto: ji negali savęs atnaujinti",
   "update.too_many_redirects": "Per daug peradresavimų",
   "vault.backup_is_damaged": "Atsarginė kopija sugadinta",
+  "vault.config_needs_identifier_or_value": "Konfigūracijai reikia identifikatoriaus arba reikšmės.",
   "vault.couldn_use_this_pc_key": "Nepavyko panaudoti šio kompiuterio rakto. Atrakinkite pagrindiniu slaptažodžiu.",
   "vault.credential_with_identifier_already_exist": "Kredencialas su identifikatoriumi „{id}“ jau egzistuoja",
   "vault.expiry_date_must_be_yyyy": "Galiojimo data turi būti formatu MMMM-MM-DD",

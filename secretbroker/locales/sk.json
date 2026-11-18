@@ -79,39 +79,39 @@
   "exposure.credential_doesn_say_how_put": "Poverenie neurčuje, ako vložiť kľúč do požiadavky (Upraviť › spôsob odosielania kľúča)",
   "exposure.list_and": "{names} a {last}",
   "exposure.places_ai": {
-    "one": "{count} konverzácii s AI",
     "few": "{count} konverzáciách s AI",
     "many": "{count} konverzácie s AI",
+    "one": "{count} konverzácii s AI",
     "other": "{count} konverzáciách s AI"
   },
   "exposure.places_config": {
-    "one": "{count} nastavení programu",
     "few": "{count} nastaveniach programov",
     "many": "{count} nastavenia programu",
+    "one": "{count} nastavení programu",
     "other": "{count} nastaveniach programov"
   },
   "exposure.places_env": {
-    "one": "{count} premennej prostredia",
     "few": "{count} premenných prostredia",
     "many": "{count} premennej prostredia",
+    "one": "{count} premennej prostredia",
     "other": "{count} premenných prostredia"
   },
   "exposure.places_git": {
-    "one": "{count} histórii git",
     "few": "{count} históriách git",
     "many": "{count} histórie git",
+    "one": "{count} histórii git",
     "other": "{count} históriách git"
   },
   "exposure.places_history": {
-    "one": "{count} histórii terminálu",
     "few": "{count} históriách terminálu",
     "many": "{count} histórie terminálu",
+    "one": "{count} histórii terminálu",
     "other": "{count} históriách terminálu"
   },
   "exposure.places_project": {
-    "one": "{count} súbore projektu",
     "few": "{count} súboroch projektov",
     "many": "{count} súboru projektu",
+    "one": "{count} súbore projektu",
     "other": "{count} súboroch projektov"
   },
   "exposure.reason_ai_saw": "Videla ho AI: bol odoslaný jej poskytovateľovi.",
@@ -119,15 +119,15 @@
   "exposure.reason_invalid": "Nefunguje: {message}.",
   "exposure.reason_present": "Je ako obyčajný text v {places}.",
   "exposure.reason_pwned": {
-    "one": "Toto heslo sa vo verejných únikoch objavuje {times}-krát.",
     "few": "Toto heslo sa vo verejných únikoch objavuje {times}-krát.",
     "many": "Toto heslo sa vo verejných únikoch objavuje {times}-krát.",
+    "one": "Toto heslo sa vo verejných únikoch objavuje {times}-krát.",
     "other": "Toto heslo sa vo verejných únikoch objavuje {times}-krát."
   },
   "exposure.reason_stale": {
-    "one": "Nebol zmenený {count} mesiac.",
     "few": "Nebol zmenený {count} mesiace.",
     "many": "Nebol zmenený {count} mesiaca.",
+    "one": "Nebol zmenený {count} mesiac.",
     "other": "Nebol zmenený {count} mesiacov."
   },
   "exposure.reason_stopped": "Prestal fungovať: {message}. Ak ste ho nezneplatnili, poskytovateľ ho pravdepodobne odhalil ako uniknutý.",
@@ -140,15 +140,15 @@
   "exposure.unexpected_response_http": "Neočakávaná odpoveď (HTTP {status_code}){_said}",
   "health.a_person": "Niekto",
   "health.expired": {
-    "one": "Platnosť vypršala pred {count} dňom.",
     "few": "Platnosť vypršala pred {count} dňami.",
     "many": "Platnosť vypršala pred {count} dňa.",
+    "one": "Platnosť vypršala pred {count} dňom.",
     "other": "Platnosť vypršala pred {count} dňami."
   },
   "health.expiring": {
-    "one": "Platnosť vyprší o {count} deň.",
     "few": "Platnosť vyprší o {count} dni.",
     "many": "Platnosť vyprší o {count} dňa.",
+    "one": "Platnosť vyprší o {count} deň.",
     "other": "Platnosť vyprší o {count} dní."
   },
   "health.exposed": "Je ako obyčajný text v súbore na tomto počítači.",
@@ -168,29 +168,29 @@
   "health.label_was_exposed": "Bolo odhalené",
   "health.label_weak": "Slabé",
   "health.left_team_ask": {
-    "one": "Prístup mala osoba {who}, ktorá už nie je v tíme: požiadajte správcu, aby ho zmenil.",
     "few": "Prístup mali osoby {who}, ktoré už nie sú v tíme: požiadajte správcu, aby ho zmenil.",
     "many": "Prístup mali osoby {who}, ktoré už nie sú v tíme: požiadajte správcu, aby ho zmenil.",
+    "one": "Prístup mala osoba {who}, ktorá už nie je v tíme: požiadajte správcu, aby ho zmenil.",
     "other": "Prístup mali osoby {who}, ktoré už nie sú v tíme: požiadajte správcu, aby ho zmenil."
   },
   "health.left_team_rotate": {
-    "one": "Prístup mala osoba {who}, ktorá už nie je v tíme: pre istotu ho zmeňte.",
     "few": "Prístup mali osoby {who}, ktoré už nie sú v tíme: pre istotu ho zmeňte.",
     "many": "Prístup mali osoby {who}, ktoré už nie sú v tíme: pre istotu ho zmeňte.",
+    "one": "Prístup mala osoba {who}, ktorá už nie je v tíme: pre istotu ho zmeňte.",
     "other": "Prístup mali osoby {who}, ktoré už nie sú v tíme: pre istotu ho zmeňte."
   },
   "health.list_and": "{names} a {last}",
   "health.old": {
-    "one": "Kľúč je starý {count} deň.",
     "few": "Kľúč je starý {count} dni.",
     "many": "Kľúč je starý {count} dňa.",
+    "one": "Kľúč je starý {count} deň.",
     "other": "Kľúč je starý {count} dní."
   },
   "health.old_alive": "Vymenili ste ho, ale starý stále funguje: zneplatnite ho.",
   "health.pwned": {
-    "one": "Vo verejných únikoch sa objavuje {times}-krát.",
     "few": "Vo verejných únikoch sa objavuje {times}-krát.",
     "many": "Vo verejných únikoch sa objavuje {times}-krát.",
+    "one": "Vo verejných únikoch sa objavuje {times}-krát.",
     "other": "Vo verejných únikoch sa objavuje {times}-krát."
   },
   "health.retired_pending": "Nový kľúč je aktívny · starý ešte treba zneplatniť u {provider}.",
@@ -201,16 +201,16 @@
   "health.thousands_separator": " ",
   "health.unchecked": "Ešte nebol otestovaný.",
   "health.unshared_rotate": {
-    "one": "Osoba {who} mala prístup a už ho nemá: zmeňte ho pre prípad, že si ho skopírovala.",
     "few": "Osoby {who} mali prístup a už ho nemajú: zmeňte ho pre prípad, že si ho skopírovali.",
     "many": "Osoby {who} mali prístup a už ho nemajú: zmeňte ho pre prípad, že si ho skopírovali.",
+    "one": "Osoba {who} mala prístup a už ho nemá: zmeňte ho pre prípad, že si ho skopírovala.",
     "other": "Osoby {who} mali prístup a už ho nemajú: zmeňte ho pre prípad, že si ho skopírovali."
   },
   "health.upload_failed": "Nový sa nepodarilo nahrať do {place}: starý tam stále je.",
   "health.upload_failed_more": {
-    "one": "Nový sa nepodarilo nahrať do {place} ani na {count} ďalšie miesto: starý tam stále je.",
     "few": "Nový sa nepodarilo nahrať do {place} ani na {count} ďalšie miesta: starý tam stále je.",
     "many": "Nový sa nepodarilo nahrať do {place} ani na {count} ďalšieho miesta: starý tam stále je.",
+    "one": "Nový sa nepodarilo nahrať do {place} ani na {count} ďalšie miesto: starý tam stále je.",
     "other": "Nový sa nepodarilo nahrať do {place} ani na {count} ďalších miest: starý tam stále je."
   },
   "health.was_exposed": "Bol ako obyčajný text v súbore. Oplatí sa ho vymeniť.",
@@ -313,9 +313,9 @@
   "resident.pause_ai": "Pozastaviť AI",
   "resident.quit": "Ukončiť",
   "resident.reminders_need_attention": {
-    "one": "Jedno poverenie si vyžaduje pozornosť",
     "few": "{count} poverenia si vyžadujú pozornosť",
     "many": "{count} poverenia si vyžaduje pozornosť",
+    "one": "Jedno poverenie si vyžaduje pozornosť",
     "other": "{count} poverení si vyžaduje pozornosť"
   },
   "resident.resume_ai": "Obnoviť AI",
@@ -358,9 +358,9 @@
   "service.change_env_vars": "Premenné prostredia",
   "service.change_every_days": "každý {days}. deň",
   "service.change_every_hours": {
-    "one": "každú hodinu",
     "few": "každé {count} hodiny",
     "many": "každých {count} hodiny",
+    "one": "každú hodinu",
     "other": "každých {count} hodín"
   },
   "service.change_expires": "Vyprší",
@@ -373,15 +373,17 @@
   "service.change_rotate_every_days": "Pripomenúť výmenu",
   "service.change_rotation_guide": "Návod na rotáciu",
   "service.change_steps": {
-    "one": "{count} krok",
     "few": "{count} kroky",
     "many": "{count} kroku",
+    "one": "{count} krok",
     "other": "{count} krokov"
   },
   "service.change_tags": "Štítky",
+  "service.change_template": "Typ prihlasovacieho údaja",
   "service.change_test_request": "Testovacia požiadavka",
   "service.change_used_in": "Kde sa používa",
   "service.collection_no_longer_appears_on": "Kolekcia sa už na serveri nezobrazuje. ",
+  "service.config_needs_variable_name": "„{id}“ je konfigurácia: uveď názov premennej v .secretbroker (VARIABLE = {id}).",
   "service.confirm_it_you_once_windows": "Raz potvrďte svoju totožnosť (Windows Hello alebo heslo), aby ste mohli ",
   "service.connect_this_browser_secretbroker_from": "Prepojte tento prehliadač so SecretBroker z rozšírenia",
   "service.connection_request_has_expired_click": "Žiadosť o prepojenie vypršala: v prehliadači znova kliknite na „Pripojiť“",
@@ -394,18 +396,18 @@
   "service.expected_response_must_be_code": "Očakávaná odpoveď musí byť kód od 200 do 399",
   "service.expected_response_must_be_http": "Očakávaná odpoveď musí byť kód HTTP, napr. 200",
   "service.found_in_new_places": {
-    "one": "Nájdené ako obyčajný text na {count} novom mieste",
     "few": "Nájdené ako obyčajný text na {count} nových miestach",
     "many": "Nájdené ako obyčajný text na {count} nového miesta",
+    "one": "Nájdené ako obyčajný text na {count} novom mieste",
     "other": "Nájdené ako obyčajný text na {count} nových miestach"
   },
   "service.generate_new_one": "vygenerujte nové",
   "service.give_between_1_and_20": "V secret_ids uveďte 1 až 20 poverení",
   "service.has_no_environment_variables_in": "'{id}' nemá v oprávneniach žiadne premenné prostredia, takže sa nedá odovzdať lokálnym programom. Pridajte ich v aplikácii SecretBroker.",
   "service.held_waiting": {
-    "one": "{count} poverenie z {collection} čaká na vaše rozhodnutie",
     "few": "{count} poverenia z {collection} čakajú na vaše rozhodnutie",
     "many": "{count} poverenia z {collection} čaká na vaše rozhodnutie",
+    "one": "{count} poverenie z {collection} čaká na vaše rozhodnutie",
     "other": "{count} poverení z {collection} čaká na vaše rozhodnutie"
   },
   "service.import_has_expired_choose_file": "Import vypršal: vyberte súbor znova",
@@ -439,6 +441,7 @@
   "service.only_api_keys_and_other": "Testovaciu požiadavku majú len kľúče API a iné tajné údaje",
   "service.only_api_keys_and_passwords": "Takto sa vymieňajú len kľúče API a heslá",
   "service.only_api_keys_are_rotated": "vymieňajú sa len kľúče API",
+  "service.only_convert_to_config": "Prihlasovací údaj sa dá previesť len na konfiguráciu (template config).",
   "service.only_database_password_is_applied": "Takto sa použije len heslo databázy",
   "service.only_user_can_write_value": "Hodnotu „{name}“ môže zadať len používateľ, v aplikácii",
   "service.open_secretbroker_team_and_sign": "Otvorte SecretBroker › Tím a znova sa prihláste, aby ste ďalej prijímali a odosielali zmeny. Dovtedy všetko funguje s tým, čo už máte.",
@@ -474,9 +477,9 @@
   "service.purpose_totp_code": "zobraziť kód 2FA",
   "service.request_is_no_longer_pending": "Požiadavka už nečaká na vybavenie",
   "service.rotate_after_leave": {
-    "one": "Prístup mala osoba {names}, ktorá už nie je v tíme. Pre istotu ich zmeňte.",
     "few": "Prístup mali osoby {names}, ktoré už nie sú v tíme. Pre istotu ich zmeňte.",
     "many": "Prístup mali osoby {names}, ktoré už nie sú v tíme. Pre istotu ich zmeňte.",
+    "one": "Prístup mala osoba {names}, ktorá už nie je v tíme. Pre istotu ich zmeňte.",
     "other": "Prístup mali osoby {names}, ktoré už nie sú v tíme. Pre istotu ich zmeňte."
   },
   "service.say_whether_is_still_same": "Uveďte, či je {label} stále rovnaké, alebo sa zmenilo",
@@ -544,9 +547,9 @@
   "teams.admin_bad_signups": "Vyberte, či je registrácia otvorená, len na pozvánku alebo zatvorená.",
   "teams.admin_last_admin": "Je to jediný účet, ktorý spravuje server: nedá sa deaktivovať ani odstrániť.",
   "teams.admin_last_manager": {
-    "one": "{person} je jediná osoba, ktorá spravuje kolekciu: niekto z organizácie v nej musí dostať „Správca“ (alebo ju odstrániť), než sa účet odstráni.",
     "few": "{person} je jediná osoba, ktorá spravuje {count} kolekcie: niekto z organizácie v nich musí dostať „Správca“ (alebo ich odstrániť), než sa účet odstráni.",
     "many": "{person} je jediná osoba, ktorá spravuje {count} kolekcie: niekto z organizácie v nich musí dostať „Správca“ (alebo ich odstrániť), než sa účet odstráni.",
+    "one": "{person} je jediná osoba, ktorá spravuje kolekciu: niekto z organizácie v nej musí dostať „Správca“ (alebo ju odstrániť), než sa účet odstráni.",
     "other": "{person} je jediná osoba, ktorá spravuje {count} kolekcií: niekto z organizácie v nich musí dostať „Správca“ (alebo ich odstrániť), než sa účet odstráni."
   },
   "teams.admin_last_owner": "{person} je jediná osoba, ktorá vlastní {orgs}: pred odstránením účtu urobte vlastníkom niekoho iného.",
@@ -668,9 +671,11 @@
   "templates.clave_privada_51c4fa": "Súkromný kľúč",
   "templates.claves_de_acceso_de_aws_para_la_8fa404": "Prístupové kľúče AWS pre CLI",
   "templates.client_id_app_id_account_id_32451f": "client id, app id, account id…",
+  "templates.client_id_app_id_tenant_id_5ab3b0": "client id, app id, tenant id…",
   "templates.codigo_2fa_totp_opcional_c21467": "Kód 2FA (TOTP) (voliteľné)",
   "templates.codigos_de_recuperacion_pregunta_2bfb4d": "Kódy na obnovenie, bezpečnostné otázky…",
   "templates.como_se_envia_la_clave_92b57d": "Spôsob odosielania kľúča",
+  "templates.configuracion_no_secreta_bf2c21": "Konfigurácia (nie je tajná)",
   "templates.contrasena_5a6d1c": "Heslo",
   "templates.cualquier_otro_dato_secreto_346338": "Akýkoľvek iný tajný údaj",
   "templates.db_ejemplo_com_ef9904": "db.example.com",
@@ -680,11 +685,14 @@
   "templates.https_api_ejemplo_com_394db1": "https://api.example.com",
   "templates.https_panel_ejemplo_com_ba88d4": "https://dashboard.example.com",
   "templates.id_asociado_opcional_537b83": "Priradené ID (voliteľné)",
+  "templates.identificador_d05b0a": "Identifikátor",
+  "templates.ids_y_datos_publicos_client_id_t_e0839c": "Verejné ID a nastavenia: client ID, tenant, ID účtu…",
   "templates.la_clave_que_da_la_web_al_activa_38af10": "Kľúč, ktorý stránka zobrazí pri zapnutí dvojstupňového overenia (pod QR kódom). SecretBroker vám ukáže šesťmiestny kód; AI ho nevidí.",
   "templates.la_ia_solo_podra_enviar_la_clave_d55a47": "AI bude môcť posielať kľúč len na túto doménu.",
   "templates.la_ia_solo_podra_usar_esta_crede_3899cf": "AI bude môcť toto poverenie používať len s touto stránkou.",
   "templates.motor_ceaed7": "Engine",
   "templates.no_anadirla_automaticamente_a70e1a": "Nepridávať automaticky",
+  "templates.no_es_secreto_la_ia_lo_ve_y_los_392166": "Nie je to tajomstvo: AI ho vidí a programy ho dostanú bez toho, aby sa ťa pýtali.",
   "templates.notas_privadas_opcional_2621d7": "Súkromné poznámky (voliteľné)",
   "templates.nube_aws_95df6b": "Cloud (AWS)",
   "templates.otpauth_totp_o_la_clave_en_base3_b0c780": "otpauth://totp/… alebo kľúč base32",
@@ -703,11 +711,13 @@
   "templates.si_la_clave_va_emparejada_con_un_5f3d0f": "Ak je kľúč spárovaný s identifikátorom. Pri výmene sa zobrazí otázka, či sa zmenil.",
   "templates.solo_para_ti_la_ia_no_las_ve_90d40d": "Len pre vás: AI ich nevidí.",
   "templates.tambien_se_usa_para_sudo_f450d6": "Používa sa aj pre sudo.",
+  "templates.un_dato_de_configuracion_e7f7e9": "Konfiguračný údaj",
   "templates.url_de_la_api_9c4317": "Adresa URL API",
   "templates.usuario_3f2ecd": "Používateľské meno",
   "templates.usuario_o_e_mail_e4cfe2": "Používateľské meno alebo e-mail",
   "templates.usuario_opcional_6b549e": "Používateľské meno (voliteľné)",
   "templates.usuario_y_contrasena_de_una_web_17037d": "Používateľské meno a heslo k stránke, ovládaciemu panelu alebo aplikácii",
+  "templates.valor_opcional_0afb86": "Hodnota (voliteľná)",
   "templates.variable_de_entorno_opcional_03da6c": "Premenná prostredia (voliteľné)",
   "templates.web_o_servicio_f398c8": "Stránka alebo služba",
   "totp.2fa_code_has_invalid_parameters": "Kód 2FA má neplatné parametre",
@@ -735,6 +745,7 @@
   "update.this_version_has_no_signing": "Táto verzia nemá podpisový kľúč: nemôže sa sama aktualizovať",
   "update.too_many_redirects": "Príliš veľa presmerovaní",
   "vault.backup_is_damaged": "Záloha je poškodená",
+  "vault.config_needs_identifier_or_value": "Konfigurácia potrebuje identifikátor alebo hodnotu.",
   "vault.couldn_use_this_pc_key": "Kľúč tohto počítača sa nepodarilo použiť. Odomknite hlavným heslom.",
   "vault.credential_with_identifier_already_exist": "Poverenie s identifikátorom '{id}' už existuje",
   "vault.expiry_date_must_be_yyyy": "Dátum vypršania musí byť vo formáte RRRR-MM-DD",

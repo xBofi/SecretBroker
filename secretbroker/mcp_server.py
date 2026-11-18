@@ -33,7 +33,9 @@ mcp = MCPServer(
         "fields.username; when create_credential or check_credential returns a question about it and you "
         "don't know the answer, ask the user. Whenever you put a credential somewhere (an environment such "
         "as develop, pre or pro, a server's .env, Vercel, a CI, another project), add that place to its "
-        "used_in, so nothing is forgotten when it is rotated."
+        "used_in, so nothing is forgotten when it is rotated. Data that is not secret (a public app's client id, a "
+        "tenant id, an account id) goes in a credential of template config: no secret, its values are shown by "
+        "list_secrets, `sb run` gives them without asking, and it is never reported as exposed or due for rotation."
     ),
 )
 
@@ -210,6 +212,9 @@ def create_credential(
       database  engine (postgresql | mysql | sqlserver | mongodb | redis | other), host, port, database, username
       aws       access_key_id, region
       generic   username, url
+      config    username (the ID), value, url: data that is NOT secret (a public client id, a tenant id, an account
+                id). It is ready at once, the AI sees its values, `sb run` gives them without asking and it is never
+                checked for exposure or rotation. `.secretbroker` names a field with VAR = id:username.
     api_key and generic: if the secret goes with an identifier (an OAuth client id, app id, account id,
     key id), put it in username, so rotating it asks whether that id changed too.
     description: what it is, which project uses it and how to use it (you'll read it later).
@@ -252,6 +257,7 @@ def update_credential(
     check_every_hours: int | None = None,
     used_in: list[str] | None = None,
     test_request: dict[str, Any] | None = None,
+    template: str | None = None,
     ctx: Context | None = None,
 ) -> dict:
     """Change a credential's name, notes, tags, expiry date (YYYY-MM-DD), non-secret fields or permissions (only what you pass;
@@ -274,12 +280,16 @@ def update_credential(
     it is rotated): {"method": "GET" or "HEAD", "url": "/v1/me" (a path of its API address, or a full
     https URL on one of its allowed hosts), "status": 200 (what a working key gets)}. Pick a read-only
     endpoint from the provider's documentation that needs the key; the key goes as the credential's
-    auth says. An empty test_request ({}) removes it."""
+    auth says. An empty test_request ({}) removes it.
+    template="config" turns a credential that holds no real secret (e.g. a public app's client id stored as a
+    secret) into configuration, keeping its id, so its .secretbroker keeps working. Its secret value is deleted, not
+    shown: keep the data in fields.username or fields.value (pass them in the same call if needed). The user always
+    confirms it in the app."""
     return _call("update_credential", _drop_none(
         secret_id=secret_id, name=name, description=description, fields=fields,
         allowed_hosts=allowed_hosts, env_vars=env_vars, commands=commands, tags=tags, expires=expires,
         rotate_every_days=rotate_every_days, rotation_guide=rotation_guide, check_every_hours=check_every_hours,
-        used_in=used_in, test_request=test_request,
+        used_in=used_in, test_request=test_request, template=template,
     ), ctx)
 
 

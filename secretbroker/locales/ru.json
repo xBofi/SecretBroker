@@ -79,39 +79,39 @@
   "exposure.credential_doesn_say_how_put": "В записи не указано, как добавлять ключ в запрос (Изменить › как отправляется ключ)",
   "exposure.list_and": "{names} и {last}",
   "exposure.places_ai": {
-    "one": "{count} переписка с ИИ",
     "few": "{count} переписки с ИИ",
     "many": "{count} переписок с ИИ",
+    "one": "{count} переписка с ИИ",
     "other": "{count} переписки с ИИ"
   },
   "exposure.places_config": {
-    "one": "{count} настройка программы",
     "few": "{count} настройки программ",
     "many": "{count} настроек программ",
+    "one": "{count} настройка программы",
     "other": "{count} настройки программ"
   },
   "exposure.places_env": {
-    "one": "{count} переменная окружения",
     "few": "{count} переменные окружения",
     "many": "{count} переменных окружения",
+    "one": "{count} переменная окружения",
     "other": "{count} переменной окружения"
   },
   "exposure.places_git": {
-    "one": "{count} история git",
     "few": "{count} истории git",
     "many": "{count} историй git",
+    "one": "{count} история git",
     "other": "{count} истории git"
   },
   "exposure.places_history": {
-    "one": "{count} история терминала",
     "few": "{count} истории терминала",
     "many": "{count} историй терминала",
+    "one": "{count} история терминала",
     "other": "{count} истории терминала"
   },
   "exposure.places_project": {
-    "one": "{count} файл проекта",
     "few": "{count} файла проектов",
     "many": "{count} файлов проектов",
+    "one": "{count} файл проекта",
     "other": "{count} файла проектов"
   },
   "exposure.reason_ai_saw": "Его видел ИИ: ключ был отправлен его провайдеру.",
@@ -119,15 +119,15 @@
   "exposure.reason_invalid": "Не работает: {message}.",
   "exposure.reason_present": "Он в открытом виде здесь: {places}.",
   "exposure.reason_pwned": {
-    "one": "Этот пароль встречается в публичных утечках {times} раз.",
     "few": "Этот пароль встречается в публичных утечках {times} раза.",
     "many": "Этот пароль встречается в публичных утечках {times} раз.",
+    "one": "Этот пароль встречается в публичных утечках {times} раз.",
     "other": "Этот пароль встречается в публичных утечках {times} раза."
   },
   "exposure.reason_stale": {
-    "one": "Не менялся {count} месяц.",
     "few": "Не менялся {count} месяца.",
     "many": "Не менялся {count} месяцев.",
+    "one": "Не менялся {count} месяц.",
     "other": "Не менялся {count} месяца."
   },
   "exposure.reason_stopped": "Перестал работать: {message}. Если вы его не отзывали, вероятно, провайдер обнаружил утечку.",
@@ -140,15 +140,15 @@
   "exposure.unexpected_response_http": "Неожиданный ответ (HTTP {status_code}){_said}",
   "health.a_person": "Кто-то",
   "health.expired": {
-    "one": "Истекла {count} день назад.",
     "few": "Истекла {count} дня назад.",
     "many": "Истекла {count} дней назад.",
+    "one": "Истекла {count} день назад.",
     "other": "Истекла {count} дня назад."
   },
   "health.expiring": {
-    "one": "Истекает через {count} день.",
     "few": "Истекает через {count} дня.",
     "many": "Истекает через {count} дней.",
+    "one": "Истекает через {count} день.",
     "other": "Истекает через {count} дня."
   },
   "health.exposed": "Лежит в открытом виде в файле на этом ПК.",
@@ -168,29 +168,29 @@
   "health.label_was_exposed": "Была раскрыта",
   "health.label_weak": "Слабая",
   "health.left_team_ask": {
-    "one": "У {who} был доступ, но этого человека больше нет в команде: попросите менеджера сменить её.",
     "few": "У {who} был доступ, но их больше нет в команде: попросите менеджера сменить её.",
     "many": "У {who} был доступ, но их больше нет в команде: попросите менеджера сменить её.",
+    "one": "У {who} был доступ, но этого человека больше нет в команде: попросите менеджера сменить её.",
     "other": "У {who} был доступ, но их больше нет в команде: попросите менеджера сменить её."
   },
   "health.left_team_rotate": {
-    "one": "У {who} был доступ, но этого человека больше нет в команде: смените её на случай, если её видели.",
     "few": "У {who} был доступ, но их больше нет в команде: смените её на случай, если её видели.",
     "many": "У {who} был доступ, но их больше нет в команде: смените её на случай, если её видели.",
+    "one": "У {who} был доступ, но этого человека больше нет в команде: смените её на случай, если её видели.",
     "other": "У {who} был доступ, но их больше нет в команде: смените её на случай, если её видели."
   },
   "health.list_and": "{names} и {last}",
   "health.old": {
-    "one": "Ключу {count} день.",
     "few": "Ключу {count} дня.",
     "many": "Ключу {count} дней.",
+    "one": "Ключу {count} день.",
     "other": "Ключу {count} дня."
   },
   "health.old_alive": "Вы сменили ключ, но старый ещё работает: отзовите его.",
   "health.pwned": {
-    "one": "Встречается в публичных утечках {times} раз.",
     "few": "Встречается в публичных утечках {times} раза.",
     "many": "Встречается в публичных утечках {times} раз.",
+    "one": "Встречается в публичных утечках {times} раз.",
     "other": "Встречается в публичных утечках {times} раза."
   },
   "health.retired_pending": "Новый ключ активен · старый ещё нужно отозвать в {provider}.",
@@ -201,16 +201,16 @@
   "health.thousands_separator": " ",
   "health.unchecked": "Ещё не проверялось, работает ли.",
   "health.unshared_rotate": {
-    "one": "У {who} был доступ, но больше его нет: смените её на случай, если её скопировали.",
     "few": "У {who} был доступ, но больше его нет: смените её на случай, если её скопировали.",
     "many": "У {who} был доступ, но больше его нет: смените её на случай, если её скопировали.",
+    "one": "У {who} был доступ, но больше его нет: смените её на случай, если её скопировали.",
     "other": "У {who} был доступ, но больше его нет: смените её на случай, если её скопировали."
   },
   "health.upload_failed": "Не удалось загрузить новый в {place}: там остался старый.",
   "health.upload_failed_more": {
-    "one": "Не удалось загрузить новый в {place} и ещё в {count} место: там остался старый.",
     "few": "Не удалось загрузить новый в {place} и ещё в {count} места: там остался старый.",
     "many": "Не удалось загрузить новый в {place} и ещё в {count} мест: там остался старый.",
+    "one": "Не удалось загрузить новый в {place} и ещё в {count} место: там остался старый.",
     "other": "Не удалось загрузить новый в {place} и ещё в {count} места: там остался старый."
   },
   "health.was_exposed": "Был в открытом виде в файле. Его стоит сменить.",
@@ -313,9 +313,9 @@
   "resident.pause_ai": "Приостановить ИИ",
   "resident.quit": "Выход",
   "resident.reminders_need_attention": {
-    "one": "{count} запись требует внимания",
     "few": "{count} записи требуют внимания",
     "many": "{count} записей требуют внимания",
+    "one": "{count} запись требует внимания",
     "other": "{count} записи требуют внимания"
   },
   "resident.resume_ai": "Возобновить ИИ",
@@ -359,9 +359,9 @@
   "service.change_every_days": "каждые {days} дн.",
   "service.change_every_hours": {
     "=1": "каждый час",
-    "one": "каждый {count} час",
     "few": "каждые {count} часа",
     "many": "каждые {count} часов",
+    "one": "каждый {count} час",
     "other": "каждые {count} часа"
   },
   "service.change_expires": "Истекает",
@@ -374,15 +374,17 @@
   "service.change_rotate_every_days": "Напоминать сменить ключ",
   "service.change_rotation_guide": "Инструкция по ротации",
   "service.change_steps": {
-    "one": "{count} шаг",
     "few": "{count} шага",
     "many": "{count} шагов",
+    "one": "{count} шаг",
     "other": "{count} шага"
   },
   "service.change_tags": "Теги",
+  "service.change_template": "Тип учётных данных",
   "service.change_test_request": "Тестовый запрос",
   "service.change_used_in": "Где используется",
   "service.collection_no_longer_appears_on": "Коллекции больше нет на сервере. ",
+  "service.config_needs_variable_name": "«{id}» — это конфигурация: укажи имя переменной в .secretbroker (VARIABLE = {id}).",
   "service.confirm_it_you_once_windows": "Подтвердите один раз, что это вы (Windows Hello или пароль), чтобы ",
   "service.connect_this_browser_secretbroker_from": "Подключите этот браузер к SecretBroker из расширения",
   "service.connection_request_has_expired_click": "Срок запроса на подключение истёк: снова нажмите «Подключить» в браузере",
@@ -395,18 +397,18 @@
   "service.expected_response_must_be_code": "Ожидаемый ответ должен быть кодом от 200 до 399",
   "service.expected_response_must_be_http": "Ожидаемый ответ должен быть HTTP-кодом, например 200",
   "service.found_in_new_places": {
-    "one": "Найдена в открытом виде в {count} новом месте",
     "few": "Найдена в открытом виде в {count} новых местах",
     "many": "Найдена в открытом виде в {count} новых местах",
+    "one": "Найдена в открытом виде в {count} новом месте",
     "other": "Найдена в открытом виде в {count} новых места"
   },
   "service.generate_new_one": "сгенерируйте новый",
   "service.give_between_1_and_20": "Укажите от 1 до 20 записей в secret_ids",
   "service.has_no_environment_variables_in": "В разрешениях '{id}' нет переменных окружения, поэтому её нельзя передать локальным программам. Добавьте их в приложении SecretBroker.",
   "service.held_waiting": {
-    "one": "{count} запись из {collection} ждёт вашего решения",
     "few": "{count} записи из {collection} ждут вашего решения",
     "many": "{count} записей из {collection} ждут вашего решения",
+    "one": "{count} запись из {collection} ждёт вашего решения",
     "other": "{count} записи из {collection} ждут вашего решения"
   },
   "service.import_has_expired_choose_file": "Срок импорта истёк: выберите файл снова",
@@ -440,6 +442,7 @@
   "service.only_api_keys_and_other": "Проверочный запрос есть только у API keys и других секретов",
   "service.only_api_keys_and_passwords": "Так меняются только API keys и пароли",
   "service.only_api_keys_are_rotated": "меняются только API keys",
+  "service.only_convert_to_config": "Учётные данные можно преобразовать только в конфигурацию (template config).",
   "service.only_database_password_is_applied": "Так применяется только пароль базы данных",
   "service.only_user_can_write_value": "Значение «{name}» может ввести только пользователь, в приложении",
   "service.open_secretbroker_team_and_sign": "Откройте SecretBroker › Команда и войдите снова, чтобы продолжить получать и отправлять изменения. Пока всё работает с тем, что у вас уже есть.",
@@ -475,9 +478,9 @@
   "service.purpose_totp_code": "увидеть код 2FA",
   "service.request_is_no_longer_pending": "Запрос больше не ожидает ответа",
   "service.rotate_after_leave": {
-    "one": "У {names} был доступ, но этого человека больше нет в команде. Смените их на случай, если их видели.",
     "few": "У {names} был доступ, но их больше нет в команде. Смените их на случай, если их видели.",
     "many": "У {names} был доступ, но их больше нет в команде. Смените их на случай, если их видели.",
+    "one": "У {names} был доступ, но этого человека больше нет в команде. Смените их на случай, если их видели.",
     "other": "У {names} был доступ, но их больше нет в команде. Смените их на случай, если их видели."
   },
   "service.say_whether_is_still_same": "Укажите, остался ли {label} прежним или изменился",
@@ -545,9 +548,9 @@
   "teams.admin_bad_signups": "Выберите, открыта ли регистрация, только по приглашению или закрыта.",
   "teams.admin_last_admin": "Это единственный аккаунт, который администрирует сервер: его нельзя отключить или удалить.",
   "teams.admin_last_manager": {
-    "one": "{person} — единственный менеджер в {count} коллекции: кто-то из организации должен получить в ней право «Менеджер» (или удалить её), прежде чем аккаунт будет удалён.",
     "few": "{person} — единственный менеджер в {count} коллекциях: кто-то из организации должен получить в них право «Менеджер» (или удалить их), прежде чем аккаунт будет удалён.",
     "many": "{person} — единственный менеджер в {count} коллекциях: кто-то из организации должен получить в них право «Менеджер» (или удалить их), прежде чем аккаунт будет удалён.",
+    "one": "{person} — единственный менеджер в {count} коллекции: кто-то из организации должен получить в ней право «Менеджер» (или удалить её), прежде чем аккаунт будет удалён.",
     "other": "{person} — единственный менеджер в {count} коллекции: кто-то из организации должен получить в них право «Менеджер» (или удалить их), прежде чем аккаунт будет удалён."
   },
   "teams.admin_last_owner": "{person} — единственный владелец {orgs}: сделайте владельцем кого-то другого, прежде чем удалять аккаунт.",
@@ -669,9 +672,11 @@
   "templates.clave_privada_51c4fa": "Закрытый ключ",
   "templates.claves_de_acceso_de_aws_para_la_8fa404": "Ключи доступа AWS для CLI",
   "templates.client_id_app_id_account_id_32451f": "client id, app id, account id…",
+  "templates.client_id_app_id_tenant_id_5ab3b0": "client id, app id, tenant id…",
   "templates.codigo_2fa_totp_opcional_c21467": "Код 2FA (TOTP) (необязательно)",
   "templates.codigos_de_recuperacion_pregunta_2bfb4d": "Коды восстановления, контрольные вопросы…",
   "templates.como_se_envia_la_clave_92b57d": "Как отправляется ключ",
+  "templates.configuracion_no_secreta_bf2c21": "Конфигурация (не секрет)",
   "templates.contrasena_5a6d1c": "Пароль",
   "templates.cualquier_otro_dato_secreto_346338": "Любые другие секретные данные",
   "templates.db_ejemplo_com_ef9904": "db.example.com",
@@ -681,11 +686,14 @@
   "templates.https_api_ejemplo_com_394db1": "https://api.example.com",
   "templates.https_panel_ejemplo_com_ba88d4": "https://dashboard.example.com",
   "templates.id_asociado_opcional_537b83": "Связанный ID (необязательно)",
+  "templates.identificador_d05b0a": "Идентификатор",
+  "templates.ids_y_datos_publicos_client_id_t_e0839c": "Публичные ID и настройки: client ID, tenant, ID аккаунта…",
   "templates.la_clave_que_da_la_web_al_activa_38af10": "Ключ, который сайт выдаёт при включении двухэтапной проверки (под QR-кодом). SecretBroker показывает вам 6-значный код; ИИ его не видит.",
   "templates.la_ia_solo_podra_enviar_la_clave_d55a47": "ИИ сможет отправлять ключ только на этот домен.",
   "templates.la_ia_solo_podra_usar_esta_crede_3899cf": "ИИ сможет использовать эту запись только с этим сайтом.",
   "templates.motor_ceaed7": "СУБД",
   "templates.no_anadirla_automaticamente_a70e1a": "Не добавлять автоматически",
+  "templates.no_es_secreto_la_ia_lo_ve_y_los_392166": "Это не секрет: ИИ его видит, а программы получают его, не спрашивая тебя.",
   "templates.notas_privadas_opcional_2621d7": "Личные заметки (необязательно)",
   "templates.nube_aws_95df6b": "Облако (AWS)",
   "templates.otpauth_totp_o_la_clave_en_base3_b0c780": "otpauth://totp/… или ключ в base32",
@@ -704,11 +712,13 @@
   "templates.si_la_clave_va_emparejada_con_un_5f3d0f": "Если ключ связан с идентификатором. При смене ключа вас спросят, изменился ли он.",
   "templates.solo_para_ti_la_ia_no_las_ve_90d40d": "Только для вас: ИИ их не видит.",
   "templates.tambien_se_usa_para_sudo_f450d6": "Также используется для sudo.",
+  "templates.un_dato_de_configuracion_e7f7e9": "Параметр конфигурации",
   "templates.url_de_la_api_9c4317": "URL API",
   "templates.usuario_3f2ecd": "Имя пользователя",
   "templates.usuario_o_e_mail_e4cfe2": "Имя пользователя или e-mail",
   "templates.usuario_opcional_6b549e": "Имя пользователя (необязательно)",
   "templates.usuario_y_contrasena_de_una_web_17037d": "Имя пользователя и пароль для сайта, панели или приложения",
+  "templates.valor_opcional_0afb86": "Значение (необязательно)",
   "templates.variable_de_entorno_opcional_03da6c": "Переменная окружения (необязательно)",
   "templates.web_o_servicio_f398c8": "Сайт или сервис",
   "totp.2fa_code_has_invalid_parameters": "У кода 2FA недопустимые параметры",
@@ -736,6 +746,7 @@
   "update.this_version_has_no_signing": "У этой версии нет ключа подписи: она не может обновляться сама",
   "update.too_many_redirects": "Слишком много перенаправлений",
   "vault.backup_is_damaged": "Копия повреждена",
+  "vault.config_needs_identifier_or_value": "Для конфигурации нужен идентификатор или значение.",
   "vault.couldn_use_this_pc_key": "Не удалось использовать ключ этого ПК. Разблокируйте мастер-паролем.",
   "vault.credential_with_identifier_already_exist": "Запись с идентификатором '{id}' уже существует",
   "vault.expiry_date_must_be_yyyy": "Дата истечения должна быть в формате ГГГГ-ММ-ДД",

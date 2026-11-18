@@ -430,6 +430,7 @@ def run(app, env, devtools, api_port, client, integrations):
     check(wait_for(lambda: "Echo API" in page.text() and "pruebas" in page.text()), "it shows in the list, with its tag")
     page.shot("02-credentials")
     foreign_page_flow(page)
+    config_flow(page)
 
     print("Screens")
     for view, expected, name in (("access", "Qué puede hacer la IA", "03-access"), ("settings", desktop.os_text("Abrir con mi sesión de Windows"), "04-settings"),
@@ -1554,6 +1555,33 @@ def friction_flow(page, client):
     page.js("api().call('set_settings', { settings: { auto_lock_minutes: 0 } })")
     check(wait_for(lambda: client.request("status")["auto_lock_minutes"] == 0, 5), "(the inactivity lock off again for the rest of the test)")
     page.js("askProof = window.__askProof; delete window.__askProof; state.info.hello_supported = state.info.hello_supported_real ?? state.info.hello_supported")
+
+
+def config_flow(page):
+    """Configuration (not secret): its data in sight, nothing to reveal, approve, rotate or check."""
+    print("Configuration: data that is not secret")
+    client_id = "0f8e7d6c-1234-4abc-9def-00112233aabb"
+    entry = {"id": "entra-app", "name": "Entra app", "template": "config", "description": "App pública de Microsoft Entra",
+             "fields": {"username": client_id}, "policy": {"approval": "never"}}
+    proof = {"kind": "master_password", "value": MASTER}
+    saved = page.js(f"api().call('save_entry', {{ entry: {json.dumps(entry)} }}, {json.dumps(proof)})")
+    check(saved and saved["ok"], f"configuration saved {'' if saved and saved['ok'] else saved}")
+    page.js("loadEntries().then(() => { state.view = 'credentials'; state.selected = 'entra-app'; renderMain(); })")
+    check(wait_for(lambda: client_id in page.text() and "Configuración (no secreta)" in page.text(), 10), "its ID is in sight")
+    detail = page.js("document.querySelector('.detail') ? document.querySelector('.detail').innerText : document.body.innerText")
+    check("No es secreta" in detail and "Rotar" not in detail and "••••" not in detail and "Sin buscar copias" not in detail,
+          f"no hidden value, rotation or copies to look for: {detail[:300]!r}")
+    calm_shot(page, "02-config-detail")
+    page.js("openEditor(state.entries.find((e) => e.id === 'entra-app'))")
+    check(wait_for(lambda: page.js("!!document.querySelector('.modal')"), 5), "it opens in the editor")
+    modal = page.js("document.querySelector('.modal').innerText")
+    check("Permisos de la IA" not in modal and "Recordar rotarla" not in modal and "No es un secreto" in modal,
+          f"the editor has no permissions or rotation for it: {modal[:300]!r}")
+    calm_shot(page, "02-config-editor")
+    close_dialogs(page)
+    gone = page.js(f"api().call('delete_entry', {{ id: 'entra-app' }}, {json.dumps(proof)})")
+    check(gone and gone["ok"], "and it is deleted like any other")
+    page.js("loadEntries().then(() => { state.selected = 'echo-api'; renderMain(); })")
 
 
 def list_flow(page, client):

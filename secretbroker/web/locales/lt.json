@@ -78,9 +78,9 @@
   "activity_detail.created": "sukurta",
   "activity_detail.credentials": {
     "=0": "tuščia",
-    "one": "{count} kredencialas",
     "few": "{count} kredencialai",
     "many": "{count} kredencialo",
+    "one": "{count} kredencialas",
     "other": "{count} kredencialų"
   },
   "activity_detail.from_collection": "Iš rinkinio {name}",
@@ -99,17 +99,17 @@
   "activity_filter.all": "Visi",
   "activity_filter.denied": "Atmesta",
   "ai.requests_count": {
-    "one": "{count} užklausa",
     "few": "{count} užklausos",
     "many": "{count} užklausos",
+    "one": "{count} užklausa",
     "other": "{count} užklausų"
   },
   "ai_change.rotation_guide": "Rotacijos vadovas",
   "ai_change.sources": "šaltiniai: {sources}",
   "ai_change.steps": {
-    "one": "{count} žingsnis",
     "few": "{count} žingsniai",
     "many": "{count} žingsnio",
+    "one": "{count} žingsnis",
     "other": "{count} žingsnių"
   },
   "ai_change.test_request": "Bandomoji užklausa",
@@ -145,16 +145,16 @@
   "approval.allow_for_24_hours": "Leisti 24 valandoms",
   "approval.allow_for_8_hours": "Leisti 8 valandoms",
   "approval.for_hours": {
-    "one": "{count} valandai",
     "few": "{count} valandoms",
     "many": "{count} valandos",
+    "one": "{count} valandai",
     "other": "{count} valandų"
   },
   "approval.position": "{position} iš {total}",
   "approval.times_today": {
-    "one": "šiandien {count} kartą",
     "few": "šiandien {count} kartus",
     "many": "šiandien {count} karto",
+    "one": "šiandien {count} kartą",
     "other": "šiandien {count} kartų"
   },
   "approval.until_you_lock_vault": "kol užrakinsite saugyklą",
@@ -223,6 +223,7 @@
   "change_line.new_programs": "Naujos programos",
   "change_line.new_variables": "Nauji arba pakeisti kintamieji",
   "change_line.new_websites": "Nauji tinklalapiai",
+  "change_line.secret_value_deleted": "išsaugota slapta reikšmė ištrinama",
   "change_master_password.change_master_password": "Norint pakeisti pagrindinį slaptažodį.",
   "change_master_password.change_master_password_2": "Keisti pagrindinį slaptažodį",
   "change_master_password.choose_new_master_password": "Pasirinkite naują pagrindinį slaptažodį",
@@ -319,9 +320,9 @@
   "common.create_collection": "Norint sukurti rinkinį.",
   "common.credentials": "Kredencialai",
   "common.credentials_count": {
-    "one": "{count} kredencialas",
     "few": "{count} kredencialai",
     "many": "{count} kredencialo",
+    "one": "{count} kredencialas",
     "other": "{count} kredencialų"
   },
   "common.delete": "Ištrinti",
@@ -381,9 +382,9 @@
   "common.optional_suffix": " · neprivaloma",
   "common.organization": "Organizacija",
   "common.people_count": {
-    "one": "{count} asmuo",
     "few": "{count} asmenys",
     "many": "{count} asmens",
+    "one": "{count} asmuo",
     "other": "{count} asmenų"
   },
   "common.private_notes": "Privačios pastabos",
@@ -483,6 +484,7 @@
   "describe_permissions.run_on_this_pc": "Paleisti šiame kompiuteryje: {value}",
   "destination_label.github": "GitHub {repo}{value} · {name}",
   "detail.ai_knows_as": "DI jį žino kaip ",
+  "detail.config_not_secret": "Ne slapta: DI mato šiuos duomenis, o sb run perduoda juos programoms jūsų neklausdama. Ji nekeičiama ir nelaikoma atskleista.",
   "detail.copied_cleared_in": "Nukopijuota · bus išvalyta po {result} s",
   "detail.copy": "Norint nukopijuoti „{label}“ iš {name}.",
   "detail.decide_in_team": "nuspręskite skiltyje Komanda",
@@ -503,24 +505,24 @@
   "direct_block.stop_proof": "Norint nustoti bendrinti su {name}.",
   "direct_block.stop_sharing_with": "Nustoti bendrinti su {name}",
   "direct_block.stop_text": {
-    "one": "{name} nebegaus {count} kredencialo, kurį bendrinate su šiuo asmeniu. Šiame kompiuteryje jis lieka jūsų.",
     "few": "{name} nebegaus {count} kredencialų, kuriuos bendrinate su šiuo asmeniu. Šiame kompiuteryje jie lieka jūsų.",
     "many": "{name} nebegaus {count} kredencialo, kuriuos bendrinate su šiuo asmeniu. Šiame kompiuteryje jie lieka jūsų.",
+    "one": "{name} nebegaus {count} kredencialo, kurį bendrinate su šiuo asmeniu. Šiame kompiuteryje jis lieka jūsų.",
     "other": "{name} nebegaus {count} kredencialų, kuriuos bendrinate su šiuo asmeniu. Šiame kompiuteryje jie lieka jūsų."
   },
   "direct_block.stop_title": "Nustoti bendrinti su {name}?",
   "direct_block.stop_warning": {
-    "one": "Tas asmuo galėjo jį matyti ar nukopijuoti: priminsime jums jį pakeisti.",
     "few": "Tas asmuo galėjo juos matyti ar nukopijuoti: priminsime jums juos pakeisti.",
     "many": "Tas asmuo galėjo juos matyti ar nukopijuoti: priminsime jums juos pakeisti.",
+    "one": "Tas asmuo galėjo jį matyti ar nukopijuoti: priminsime jums jį pakeisti.",
     "other": "Tas asmuo galėjo juos matyti ar nukopijuoti: priminsime jums juos pakeisti."
   },
   "direct_block.stopped": "Su {name} nebebendrinate nieko",
   "direct_block.their_permission": "{name}: {value}",
   "direct_share.already_sharing": {
-    "one": "Su {name} jau bendrinate {count} kredencialą. Jūsų pasirinktas leidimas galioja viskam, ką bendrinate su šiuo asmeniu.",
     "few": "Su {name} jau bendrinate {count} kredencialus. Jūsų pasirinktas leidimas galioja viskam, ką bendrinate su šiuo asmeniu.",
     "many": "Su {name} jau bendrinate {count} kredencialo. Jūsų pasirinktas leidimas galioja viskam, ką bendrinate su šiuo asmeniu.",
+    "one": "Su {name} jau bendrinate {count} kredencialą. Jūsų pasirinktas leidimas galioja viskam, ką bendrinate su šiuo asmeniu.",
     "other": "Su {name} jau bendrinate {count} kredencialų. Jūsų pasirinktas leidimas galioja viskam, ką bendrinate su šiuo asmeniu."
   },
   "direct_share.compare_code": "Paprašykite to asmens perskaityti jums savo saugos kodą (telefonu ar susitikus) ir palyginkite jį su šiuo. Taip niekas, net serveris, negalės įterpti kito rakto.",
@@ -549,6 +551,7 @@
   "draw_team.sync_now": "Sinchronizuoti dabar",
   "draw_team.synced": "Sinchronizuota",
   "editor.aws_placeholder": "Asmeninis AWS",
+  "editor.config_placeholder": "Mano programos kliento ID",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
   "editor.tags_placeholder": "parduotuvė, gamyba",
   "empty_credentials.add_credential": "Pridėti kredencialą",
@@ -564,9 +567,9 @@
   "env_import.config_written": "Projekto aplanke dabar yra .secretbroker failas su kredencialų pavadinimais, be reikšmių. Jį galima įkelti į saugyklą.",
   "env_import.file_deleted": "{name} ištrintas",
   "env_import.import_keys": {
-    "one": "Importuoti {count} raktą",
     "few": "Importuoti {count} raktus",
     "many": "Importuoti {count} rakto",
+    "one": "Importuoti {count} raktą",
     "other": "Importuoti {count} raktų"
   },
   "env_import.keep_file": "Palikti taip",
@@ -577,9 +580,9 @@
   "env_import.remove_explained": "Pašalinkite juos iš failo: kiti kintamieji lieka, o jei neliks nė vieno, failas bus ištrintas.",
   "env_import.remove_from_file": "Pašalinti iš failo",
   "env_import.skipped_existing": {
-    "one": "{count} jau buvo saugykloje.",
     "few": "{count} jau buvo saugykloje.",
     "many": "{count} jau buvo saugykloje.",
+    "one": "{count} jau buvo saugykloje.",
     "other": "{count} jau buvo saugykloje."
   },
   "env_import.still_in_file": "Faile {name} šie raktai vis dar yra atviru tekstu.",
@@ -595,9 +598,9 @@
   "exposure.couldn_load_status": "Nepavyko įkelti būsenos.",
   "exposure.ignored": "ignoruojama",
   "exposure.ignored_count": {
-    "one": "{count} ignoruojamas",
     "few": "{count} ignoruojami",
     "many": "{count} ignoruojamo",
+    "one": "{count} ignoruojamas",
     "other": "{count} ignoruojamų"
   },
   "exposure.last_search_files": "Paskutinė paieška: {when} · failų: {files}",
@@ -606,27 +609,27 @@
   "exposure.no_search_for_copies_yet": "Kopijų dar neieškota",
   "exposure.paths_are_only_shown_after": "Keliai rodomi tik patvirtinus jūsų tapatybę. ",
   "exposure.places": {
-    "one": "{count} vieta",
     "few": "{count} vietos",
     "many": "{count} vietos",
+    "one": "{count} vieta",
     "other": "{count} vietų"
   },
   "exposure.removed_from_file": {
-    "one": "Pašalinta iš failo ({count} kartą)",
     "few": "Pašalinta iš failo ({count} kartus)",
     "many": "Pašalinta iš failo ({count} karto)",
+    "one": "Pašalinta iš failo ({count} kartą)",
     "other": "Pašalinta iš failo ({count} kartų)"
   },
   "exposure.revealed_times": {
-    "one": "Parodyta ar nukopijuota {count} kartą",
     "few": "Parodyta ar nukopijuota {count} kartus",
     "many": "Parodyta ar nukopijuota {count} karto",
+    "one": "Parodyta ar nukopijuota {count} kartą",
     "other": "Parodyta ar nukopijuota {count} kartų"
   },
   "exposure.search_done_exposed": {
-    "one": "Paieška baigta: atskleistas {count} kredencialas",
     "few": "Paieška baigta: atskleisti {count} kredencialai",
     "many": "Paieška baigta: atskleista {count} kredencialo",
+    "one": "Paieška baigta: atskleistas {count} kredencialas",
     "other": "Paieška baigta: atskleista {count} kredencialų"
   },
   "exposure.search_for_copies": "Ieškoti kopijų",
@@ -706,87 +709,87 @@
   "generator_panel.very_weak": "Labai silpnas",
   "generator_panel.words": "Žodžiai",
   "health.count_expired": {
-    "one": "{count} nebegalioja",
     "few": "{count} nebegalioja",
     "many": "{count} nebegalioja",
+    "one": "{count} nebegalioja",
     "other": "{count} nebegalioja"
   },
   "health.count_expiring": {
-    "one": "{count} netrukus nebegalios",
     "few": "{count} netrukus nebegalios",
     "many": "{count} netrukus nebegalios",
+    "one": "{count} netrukus nebegalios",
     "other": "{count} netrukus nebegalios"
   },
   "health.count_exposed": {
-    "one": "{count} atskleistas",
     "few": "{count} atskleisti",
     "many": "{count} atskleisto",
+    "one": "{count} atskleistas",
     "other": "{count} atskleistų"
   },
   "health.count_half_rotated": {
-    "one": "{count} nebaigtas keitimas",
     "few": "{count} nebaigti keitimai",
     "many": "{count} nebaigto keitimo",
+    "one": "{count} nebaigtas keitimas",
     "other": "{count} nebaigtų keitimų"
   },
   "health.count_old": {
-    "one": "{count} senas",
     "few": "{count} seni",
     "many": "{count} seno",
+    "one": "{count} senas",
     "other": "{count} senų"
   },
   "health.count_old_alive": {
-    "one": "{count} su vis dar veikiančiu senuoju raktu",
     "few": "{count} su vis dar veikiančiu senuoju raktu",
     "many": "{count} su vis dar veikiančiu senuoju raktu",
+    "one": "{count} su vis dar veikiančiu senuoju raktu",
     "other": "{count} su vis dar veikiančiu senuoju raktu"
   },
   "health.count_pwned": {
-    "one": "{count} nutekėjimuose",
     "few": "{count} nutekėjimuose",
     "many": "{count} nutekėjimuose",
+    "one": "{count} nutekėjimuose",
     "other": "{count} nutekėjimuose"
   },
   "health.count_retired_pending": {
-    "one": "{count} su dar neatšauktu senuoju raktu",
     "few": "{count} su dar neatšauktu senuoju raktu",
     "many": "{count} su dar neatšauktu senuoju raktu",
+    "one": "{count} su dar neatšauktu senuoju raktu",
     "other": "{count} su dar neatšauktu senuoju raktu"
   },
   "health.count_reused": {
-    "one": "{count} pakartotinai naudojamas",
     "few": "{count} pakartotinai naudojami",
     "many": "{count} pakartotinai naudojamo",
+    "one": "{count} pakartotinai naudojamas",
     "other": "{count} pakartotinai naudojamų"
   },
   "health.count_team_access": {
-    "one": "{count} su prieiga išėjusiam asmeniui",
     "few": "{count} su prieiga išėjusiam asmeniui",
     "many": "{count} su prieiga išėjusiam asmeniui",
+    "one": "{count} su prieiga išėjusiam asmeniui",
     "other": "{count} su prieiga išėjusiam asmeniui"
   },
   "health.count_unchecked": {
-    "one": "{count} nepatikrintas",
     "few": "{count} nepatikrinti",
     "many": "{count} nepatikrinto",
+    "one": "{count} nepatikrintas",
     "other": "{count} nepatikrintų"
   },
   "health.count_upload_failed": {
-    "one": "{count} neįkeltas",
     "few": "{count} neįkelti",
     "many": "{count} neįkelto",
+    "one": "{count} neįkeltas",
     "other": "{count} neįkeltų"
   },
   "health.count_was_exposed": {
-    "one": "{count} buvo atskleistas",
     "few": "{count} buvo atskleisti",
     "many": "{count} buvo atskleisto",
+    "one": "{count} buvo atskleistas",
     "other": "{count} buvo atskleistų"
   },
   "health.count_weak": {
-    "one": "{count} silpnas",
     "few": "{count} silpni",
     "many": "{count} silpno",
+    "one": "{count} silpnas",
     "other": "{count} silpnų"
   },
   "health.missing_both": "Dar liko: {what}. „Tikrinti dabar“ atliks abu.",
@@ -809,45 +812,45 @@
   "health_section.see_less": "Rodyti mažiau",
   "health_section.test_them_with_their_providers": "patikrinti juos pas jų tiekėjus",
   "held.deleted": {
-    "one": "Iš šio kompiuterio ištrintas {count} kredencialas",
     "few": "Iš šio kompiuterio ištrinti {count} kredencialai",
     "many": "Iš šio kompiuterio ištrinta {count} kredencialo",
+    "one": "Iš šio kompiuterio ištrintas {count} kredencialas",
     "other": "Iš šio kompiuterio ištrinta {count} kredencialų"
   },
   "held.deleted_by": {
-    "one": "{who} iš „{collection_name}“ vienu metu ištrynė {count} kredencialą.",
     "few": "{who} iš „{collection_name}“ vienu metu ištrynė {count} kredencialus.",
     "many": "{who} iš „{collection_name}“ vienu metu ištrynė {count} kredencialo.",
+    "one": "{who} iš „{collection_name}“ vienu metu ištrynė {count} kredencialą.",
     "other": "{who} iš „{collection_name}“ vienu metu ištrynė {count} kredencialų."
   },
   "held.kept": {
-    "one": "Šiame kompiuteryje paliktas {count} kredencialas",
     "few": "Šiame kompiuteryje palikti {count} kredencialai",
     "many": "Šiame kompiuteryje palikta {count} kredencialo",
+    "one": "Šiame kompiuteryje paliktas {count} kredencialas",
     "other": "Šiame kompiuteryje palikta {count} kredencialų"
   },
   "held.proof_delete": {
-    "one": "Norint ištrinti {count} kredencialą iš šio kompiuterio.",
     "few": "Norint ištrinti {count} kredencialus iš šio kompiuterio.",
     "many": "Norint ištrinti {count} kredencialo iš šio kompiuterio.",
+    "one": "Norint ištrinti {count} kredencialą iš šio kompiuterio.",
     "other": "Norint ištrinti {count} kredencialų iš šio kompiuterio."
   },
   "held.proof_keep": {
-    "one": "Norint pasilikti {count} kredencialą.",
     "few": "Norint pasilikti {count} kredencialus.",
     "many": "Norint pasilikti {count} kredencialo.",
+    "one": "Norint pasilikti {count} kredencialą.",
     "other": "Norint pasilikti {count} kredencialų."
   },
   "held.restored": {
-    "one": "Visai komandai atkurtas {count} kredencialas",
     "few": "Visai komandai atkurti {count} kredencialai",
     "many": "Visai komandai atkurta {count} kredencialo",
+    "one": "Visai komandai atkurtas {count} kredencialas",
     "other": "Visai komandai atkurta {count} kredencialų"
   },
   "held.waiting": {
-    "one": "{count} kredencialas laukia jūsų sprendimo",
     "few": "{count} kredencialai laukia jūsų sprendimo",
     "many": "{count} kredencialo laukia jūsų sprendimo",
+    "one": "{count} kredencialas laukia jūsų sprendimo",
     "other": "{count} kredencialų laukia jūsų sprendimo"
   },
   "held_deletions_card.collection_no_longer_appears_on": "Rinkinio „{collection_name}“ serveryje nebėra (jūsų prieiga pašalinta, jis ištrintas arba sutriko serveris).",
@@ -859,58 +862,58 @@
   "held_deletions_card.restoring_them_puts_them_back": "Atkūrus jie vėl bus prieinami visai komandai.",
   "import.already_in": "Jau yra",
   "import.count_conflict": {
-    "one": "{count} su kitu slaptažodžiu",
     "few": "{count} su kitu slaptažodžiu",
     "many": "{count} su kitu slaptažodžiu",
+    "one": "{count} su kitu slaptažodžiu",
     "other": "{count} su kitu slaptažodžiu"
   },
   "import.count_duplicate": {
-    "one": "{count} jau yra saugykloje",
     "few": "{count} jau yra saugykloje",
     "many": "{count} jau yra saugykloje",
+    "one": "{count} jau yra saugykloje",
     "other": "{count} jau yra saugykloje"
   },
   "import.count_new": {
-    "one": "{count} naujas",
     "few": "{count} nauji",
     "many": "{count} naujo",
+    "one": "{count} naujas",
     "other": "{count} naujų"
   },
   "import.different_password": "Kitas slaptažodis",
   "import.imported": {
-    "one": "Importuotas {count} kredencialas",
     "few": "Importuoti {count} kredencialai",
     "many": "Importuota {count} kredencialo",
+    "one": "Importuotas {count} kredencialas",
     "other": "Importuota {count} kredencialų"
   },
   "import.in_file": {
-    "one": "Faile yra {count} kredencialas: ",
     "few": "Faile yra {count} kredencialai: ",
     "many": "Faile yra {count} kredencialo: ",
+    "one": "Faile yra {count} kredencialas: ",
     "other": "Faile yra {count} kredencialų: "
   },
   "import.skipped_summary": {
-    "one": "{count} nebus importuotas",
     "few": "{count} nebus importuoti",
     "many": "{count} nebus importuota",
+    "one": "{count} nebus importuotas",
     "other": "{count} nebus importuota"
   },
   "import.stat_created": {
-    "one": "sukurtas",
     "few": "sukurti",
     "many": "sukurta",
+    "one": "sukurtas",
     "other": "sukurta"
   },
   "import.stat_failed": {
-    "one": "nepavyko",
     "few": "nepavyko",
     "many": "nepavyko",
+    "one": "nepavyko",
     "other": "nepavyko"
   },
   "import.stat_skipped": {
-    "one": "praleistas",
     "few": "praleisti",
     "many": "praleista",
+    "one": "praleistas",
     "other": "praleista"
   },
   "import_done.any_program_or_person_who": "Bet kuri programa ar asmuo, kuris jį perskaito, juos gauna. Ištrinkite jį dabar kartu su visomis kopijomis aplanke Atsisiuntimai, el. pašte ar debesyje.",
@@ -995,9 +998,9 @@
   "key_source_picker.where_do_i_get_key": "Kur gauti raktą?",
   "level.not_checked": "Nepatikrinta",
   "list.selected": {
-    "one": "Pasirinkta: {count}",
     "few": "Pasirinkta: {count}",
     "many": "Pasirinkta: {count}",
+    "one": "Pasirinkta: {count}",
     "other": "Pasirinkta: {count}"
   },
   "lock.couldn_open_with_windows_session": "Nepavyko atidaryti su Windows sesija. Naudokite slaptažodį.",
@@ -1054,33 +1057,33 @@
   "new_org_modal.new_organization": "Nauja organizacija",
   "new_org_modal.organization_is_team_has_its": "Organizacija – tai komanda: ji turi savo žmones ir rinkinius.",
   "offboarding.changed": {
-    "one": "Pakeista: {count}",
     "few": "Pakeista: {count}",
     "many": "Pakeista: {count}",
+    "one": "Pakeista: {count}",
     "other": "Pakeista: {count}"
   },
   "offboarding.could_see": {
-    "one": "{person} galėjo matyti {count} kredencialą",
     "few": "{person} galėjo matyti {count} kredencialus",
     "many": "{person} galėjo matyti {count} kredencialo",
+    "one": "{person} galėjo matyti {count} kredencialą",
     "other": "{person} galėjo matyti {count} kredencialų"
   },
   "offboarding.done_of_total": {
-    "one": "Pakeista {done} iš {count}",
     "few": "Pakeista {done} iš {count}",
     "many": "Pakeista {done} iš {count}",
+    "one": "Pakeista {done} iš {count}",
     "other": "Pakeista {done} iš {count}"
   },
   "offboarding.gone_to_change": {
-    "one": "{person} išėjo: reikia pakeisti {count} kredencialą",
     "few": "{person} išėjo: reikia pakeisti {count} kredencialus",
     "many": "{person} išėjo: reikia pakeisti {count} kredencialo",
+    "one": "{person} išėjo: reikia pakeisti {count} kredencialą",
     "other": "{person} išėjo: reikia pakeisti {count} kredencialų"
   },
   "offboarding.unshared_to_change": {
-    "one": "{person} nebeturi prieigos: reikia pakeisti {count} kredencialą",
     "few": "{person} nebeturi prieigos: reikia pakeisti {count} kredencialus",
     "many": "{person} nebeturi prieigos: reikia pakeisti {count} kredencialo",
+    "one": "{person} nebeturi prieigos: reikia pakeisti {count} kredencialą",
     "other": "{person} nebeturi prieigos: reikia pakeisti {count} kredencialų"
   },
   "offboarding_card.they_could_see_or_copy": "Jis galėjo jį matyti ar nukopijuoti. Pakeiskite jį; jei jo nevaldote, jį pakeis jo valdytojas.",
@@ -1093,9 +1096,9 @@
   "open_export.export_vault": "Eksportuoti saugyklą",
   "open_export.export_vault_2": "Norint eksportuoti saugyklą.",
   "open_export.exported_to": {
-    "one": "{count} kredencialas eksportuotas į {path}",
     "few": "{count} kredencialai eksportuoti į {path}",
     "many": "{count} kredencialo eksportuota į {path}",
+    "one": "{count} kredencialas eksportuotas į {path}",
     "other": "{count} kredencialų eksportuota į {path}"
   },
   "open_export.file_password": "Failo slaptažodis",
@@ -1139,9 +1142,9 @@
   "palette.sage": "Šalavijas",
   "palette.terracotta": "Terakota",
   "password.chars_left": {
-    "one": "Dar {count} simbolis",
     "few": "Dar {count} simboliai",
     "many": "Dar {count} simbolio",
+    "one": "Dar {count} simbolis",
     "other": "Dar {count} simbolių"
   },
   "pending_change_box.accept_new_description": "Priimti naują aprašą",
@@ -1225,57 +1228,57 @@
   "recovery_code.used": "Panaudojote savo atkūrimo kodą, todėl jis nebegalioja. Štai naujas: saugokite jį taip pat, kaip ankstesnįjį.",
   "recovery_code.vault_note": "Laikyti jį asmeninėje saugykloje gerai, bet tai nepadės, jei prarasite pačią saugyklą (šį kompiuterį ir jo atsargines kopijas): laikykite jį ir kitur.",
   "reminder.ask_manager_in_case": {
-    "one": "Paprašykite valdytojo jį pakeisti, jei tas asmuo jį matė.",
     "few": "Paprašykite valdytojo jį pakeisti, jei tie asmenys jį matė.",
     "many": "Paprašykite valdytojo jį pakeisti, jei tie asmenys jį matė.",
+    "one": "Paprašykite valdytojo jį pakeisti, jei tas asmuo jį matė.",
     "other": "Paprašykite valdytojo jį pakeisti, jei tie asmenys jį matė."
   },
   "reminder.change_in_case": {
-    "one": "Pakeiskite jį, jei tas asmuo jį matė.",
     "few": "Pakeiskite jį, jei tie asmenys jį matė.",
     "many": "Pakeiskite jį, jei tie asmenys jį matė.",
+    "one": "Pakeiskite jį, jei tas asmuo jį matė.",
     "other": "Pakeiskite jį, jei tie asmenys jį matė."
   },
   "reminder.change_people_had_it": {
-    "one": "Pakeisti: jį turėjo {names}",
     "few": "Pakeisti: jį turėjo {names}",
     "many": "Pakeisti: jį turėjo {names}",
+    "one": "Pakeisti: jį turėjo {names}",
     "other": "Pakeisti: jį turėjo {names}"
   },
   "reminder.change_people_left": {
-    "one": "Pakeisti: {names} išėjo",
     "few": "Pakeisti: {names} išėjo",
     "many": "Pakeisti: {names} išėjo",
+    "one": "Pakeisti: {names} išėjo",
     "other": "Pakeisti: {names} išėjo"
   },
   "reminder.expired_ago": {
-    "one": "Nebegalioja prieš {count} dieną. Sukurkite naują raktą arba pakeiskite jį.",
     "few": "Nebegalioja prieš {count} dienas. Sukurkite naują raktą arba pakeiskite jį.",
     "many": "Nebegalioja prieš {count} dienos. Sukurkite naują raktą arba pakeiskite jį.",
+    "one": "Nebegalioja prieš {count} dieną. Sukurkite naują raktą arba pakeiskite jį.",
     "other": "Nebegalioja prieš {count} dienų. Sukurkite naują raktą arba pakeiskite jį."
   },
   "reminder.expires_in": {
-    "one": "Nebegalios po {count} dienos. Pakeiskite jį, kol jis dar veikia.",
     "few": "Nebegalios po {count} dienų. Pakeiskite jį, kol jis dar veikia.",
     "many": "Nebegalios po {count} dienos. Pakeiskite jį, kol jis dar veikia.",
+    "one": "Nebegalios po {count} dienos. Pakeiskite jį, kol jis dar veikia.",
     "other": "Nebegalios po {count} dienų. Pakeiskite jį, kol jis dar veikia."
   },
   "reminder.key_age": {
-    "one": "Raktui {count} diena. Retkarčiais verta jį pakeisti.",
     "few": "Raktui {count} dienos. Retkarčiais verta jį pakeisti.",
     "many": "Raktui {count} dienos. Retkarčiais verta jį pakeisti.",
+    "one": "Raktui {count} diena. Retkarčiais verta jį pakeisti.",
     "other": "Raktui {count} dienų. Retkarčiais verta jį pakeisti."
   },
   "reminder.team_access_left": {
-    "one": "{names} turėjo prieigą prie šio komandos kredencialo ir nebėra komandoje.",
     "few": "{names} turėjo prieigą prie šio komandos kredencialo ir nebėra komandoje.",
     "many": "{names} turėjo prieigą prie šio komandos kredencialo ir nebėra komandoje.",
+    "one": "{names} turėjo prieigą prie šio komandos kredencialo ir nebėra komandoje.",
     "other": "{names} turėjo prieigą prie šio komandos kredencialo ir nebėra komandoje."
   },
   "reminder.unshared_access": {
-    "one": "{names} turėjo prieigą prie šio kredencialo, bet nebeturi.",
     "few": "{names} turėjo prieigą prie šio kredencialo, bet nebeturi.",
     "many": "{names} turėjo prieigą prie šio kredencialo, bet nebeturi.",
+    "one": "{names} turėjo prieigą prie šio kredencialo, bet nebeturi.",
     "other": "{names} turėjo prieigą prie šio kredencialo, bet nebeturi."
   },
   "reminder_short.change_had_it": "Pakeisti: jį turėjo žmonių: {length}",
@@ -1426,25 +1429,25 @@
   "rotation.id_changed_app": "Pasikeitė: sukūriau naują programą.",
   "rotation.id_changed_client": "Pasikeitė: sukūriau naują klientą.",
   "rotation.n_places": {
-    "one": "{count} vieta",
     "few": "{count} vietos",
     "many": "{count} vietos",
+    "one": "{count} vieta",
     "other": "{count} vietų"
   },
   "rotation.no_places_noted": "Vietų neužrašyta. Jei jį naudojate kur nors kitur (serveryje, Vercel, kitoje programoje…), pakeiskite ir ten.",
   "rotation.no_places_noted_revoke": "Vietų neužrašyta. Jei jį naudojate kur nors kitur (serveryje, Vercel, kitoje programoje…), prieš atšaukdami senąjį pakeiskite ir ten.",
   "rotation.old_key_exposed": {
-    "one": "Senasis raktas atviru tekstu buvo {count} vietoje. Vos jį atšaukus, ta kopija nebekels pavojaus.",
     "few": "Senasis raktas atviru tekstu buvo {count} vietose. Vos jį atšaukus, tos kopijos nebekels pavojaus.",
     "many": "Senasis raktas atviru tekstu buvo {count} vietos. Vos jį atšaukus, tos kopijos nebekels pavojaus.",
+    "one": "Senasis raktas atviru tekstu buvo {count} vietoje. Vos jį atšaukus, ta kopija nebekels pavojaus.",
     "other": "Senasis raktas atviru tekstu buvo {count} vietų. Vos jį atšaukus, tos kopijos nebekels pavojaus."
   },
   "rotation.pending_kept_key": "Naujas raktas lieka čia išsaugotas kaip laukiantis: grįžę į „Pakeisti su pagalba“ galėsite užbaigti.",
   "rotation.pending_kept_password": "Naujas slaptažodis lieka čia išsaugotas kaip laukiantis: grįžę į „Pakeisti su pagalba“ galėsite užbaigti.",
   "rotation.places_missing": {
-    "one": "Liko {count}. {then}",
     "few": "Liko {count}. {then}",
     "many": "Liko {count}. {then}",
+    "one": "Liko {count}. {then}",
     "other": "Liko {count}. {then}"
   },
   "rotation.proof_copy_key": "Norint nukopijuoti naują raktą: {name}.",
@@ -1498,9 +1501,9 @@
   "server_admin.backup_reason": "Norint padaryti serverio atsarginę kopiją.",
   "server_admin.backups": "Atsarginės kopijos",
   "server_admin.backups_kept": {
-    "one": "{count} saugoma",
     "few": "{count} saugomos",
     "many": "{count} saugomos",
+    "one": "{count} saugoma",
     "other": "{count} saugomų"
   },
   "server_admin.being_replaced": "Prarasta prieiga: nauja paskyra laukia, kad ją pakeistų",
@@ -1508,9 +1511,9 @@
   "server_admin.change_owner_text": "Pasirinkite asmenį, kuris jau yra organizacijoje. Kas jau buvo savininkas, tas juo ir lieka; naujas savininkas tai gali pakeisti skiltyje Žmonės.",
   "server_admin.change_owner_title": "Organizacijos {org} savininkas",
   "server_admin.collections_count": {
-    "one": "{count} rinkinys",
     "few": "{count} rinkiniai",
     "many": "{count} rinkinio",
+    "one": "{count} rinkinys",
     "other": "{count} rinkinių"
   },
   "server_admin.copy_code_only": "Kopijuoti tik kodą",
@@ -1641,9 +1644,9 @@
   "settings.app": "Programa",
   "settings.appearance": "Išvaizda",
   "settings.approved_now": {
-    "one": "Šiuo metu patvirtintas {count} kredencialas.",
     "few": "Šiuo metu patvirtinti {count} kredencialai.",
     "many": "Šiuo metu patvirtinta {count} kredencialo.",
+    "one": "Šiuo metu patvirtintas {count} kredencialas.",
     "other": "Šiuo metu patvirtinta {count} kredencialų."
   },
   "settings.ask_again_if_used_lot": "Klausti vėl, jei naudojama daug",
@@ -1729,27 +1732,27 @@
   "setup.you_ll_only_type_master": "Pagrindinį slaptažodį įvesite tik atkurdami atsargines kopijas arba kitame kompiuteryje.",
   "setup.your_keys_used_without_being": "Jūsų raktai, naudojami jų nerodant",
   "share.credentials_shared_in": {
-    "one": "{count} kredencialas bendrinamas rinkinyje {name}",
     "few": "{count} kredencialai bendrinami rinkinyje {name}",
     "many": "{count} kredencialo bendrinama rinkinyje {name}",
+    "one": "{count} kredencialas bendrinamas rinkinyje {name}",
     "other": "{count} kredencialų bendrinama rinkinyje {name}"
   },
   "share.not_shared": {
-    "one": "Nepavyko bendrinti {count}: {error}",
     "few": "Nepavyko bendrinti {count}: {error}",
     "many": "Nepavyko bendrinti {count}: {error}",
+    "one": "Nepavyko bendrinti {count}: {error}",
     "other": "Nepavyko bendrinti {count}: {error}"
   },
   "share.shared_in": {
-    "one": "{count} bendrinamas rinkinyje {name}",
     "few": "{count} bendrinami rinkinyje {name}",
     "many": "{count} bendrinama rinkinyje {name}",
+    "one": "{count} bendrinamas rinkinyje {name}",
     "other": "{count} bendrinama rinkinyje {name}"
   },
   "share.shared_with_count": {
-    "one": "Bendrinama su {name}: {count}",
     "few": "Bendrinama su {name}: {count}",
     "many": "Bendrinama su {name}: {count}",
+    "one": "Bendrinama su {name}: {count}",
     "other": "Bendrinama su {name}: {count}"
   },
   "share.shared_with_one": "Bendrinama su {name}",
@@ -1773,9 +1776,9 @@
   "share_with_person.nothing_to_share": "Neturite savo kredencialų, kuriuos galėtumėte bendrinti.",
   "share_with_person.search": "Ieškoti",
   "share_with_person.share_count": {
-    "one": "Bendrinti {count}",
     "few": "Bendrinti {count}",
     "many": "Bendrinti {count}",
+    "one": "Bendrinti {count}",
     "other": "Bendrinti {count}"
   },
   "shared_badge.shared": "Bendrinama · {value}",
@@ -1834,6 +1837,7 @@
   "show_form.change_type": "Keisti tipą",
   "show_form.changed_while_you_were_editing": "Jis pasikeitė, kol redagavote",
   "show_form.changes_saved": "Pakeitimai išsaugoti",
+  "show_form.config_not_secret": "Tai ne paslaptis: DI mato šiuos duomenis, o sb run juos perduoda jūsų neklausdama. Todėl nėra leidimų, keitimo ar patikrų.",
   "show_form.data_ai_can_insert_without": "Duomenys, kuriuos DI gali įterpti jų nematydamas",
   "show_form.deploy_token": "Diegimo žetonas",
   "show_form.discard_changes": "Atmesti pakeitimus?",
@@ -1883,15 +1887,15 @@
   "sidebar.closes_with_windows": "Saugykla užsidaro, kai užrakinate Windows.",
   "sidebar.closes_with_windows_or_idle": "Saugykla užsidaro, kai užrakinate Windows arba po kurio laiko nenaudojant, ir vėl atsidaro savaime.",
   "sidebar.drafts_waiting": {
-    "one": "{count} DI paruoštas kredencialas laukia savo rakto.",
     "few": "{count} DI paruošti kredencialai laukia savo raktų.",
     "many": "{count} DI paruošto kredencialo laukia savo raktų.",
+    "one": "{count} DI paruoštas kredencialas laukia savo rakto.",
     "other": "{count} DI paruoštų kredencialų laukia savo raktų."
   },
   "sidebar.to_review": {
-    "one": "Peržiūrėti: {count}",
     "few": "Peržiūrėti: {count}",
     "many": "Peržiūrėti: {count}",
+    "one": "Peržiūrėti: {count}",
     "other": "Peržiūrėti: {count}"
   },
   "sort.need_attention": "Reikia dėmesio",
@@ -1904,9 +1908,9 @@
   "source.settings": "Nustatymai",
   "source.terminal_history": "Terminalo istorija",
   "status.used_in_places": {
-    "one": "Naudojama {count} vietoje",
     "few": "Naudojama {count} vietose",
     "many": "Naudojama {count} vietos",
+    "one": "Naudojama {count} vietoje",
     "other": "Naudojama {count} vietų"
   },
   "status_strip.app_doesn_know_how_test": "Programa nežino, kaip patikrinti šį raktą: nurodykite, kuri užklausa jį patikrina",
@@ -1942,39 +1946,39 @@
   "sync_line.will_retry_by_itself": "Bus bandoma iš naujo savaime.",
   "team.another_account": "kita paskyra",
   "team.changes_wait_rekey": {
-    "one": "{count} pakeitimas laukia, kol jo rinkinys bus iš naujo užšifruotas.",
     "few": "{count} pakeitimai laukia, kol jų rinkinys bus iš naujo užšifruotas.",
     "many": "{count} pakeitimo laukia, kol jų rinkinys bus iš naujo užšifruotas.",
+    "one": "{count} pakeitimas laukia, kol jo rinkinys bus iš naujo užšifruotas.",
     "other": "{count} pakeitimų laukia, kol jų rinkinys bus iš naujo užšifruotas."
   },
   "team.disconnect_removes": {
-    "one": "{count} komandos kredencialas pašalinamas iš šio kompiuterio; kitiems jis lieka serveryje. Tie, kuriuos bendrinote iš savo saugyklos, ir neišsiųsti pakeitimai lieka asmeniniai.",
     "few": "{count} komandos kredencialai pašalinami iš šio kompiuterio; kitiems jie lieka serveryje. Tie, kuriuos bendrinote iš savo saugyklos, ir neišsiųsti pakeitimai lieka asmeniniai.",
     "many": "{count} komandos kredencialo pašalinama iš šio kompiuterio; kitiems jie lieka serveryje. Tie, kuriuos bendrinote iš savo saugyklos, ir neišsiųsti pakeitimai lieka asmeniniai.",
+    "one": "{count} komandos kredencialas pašalinamas iš šio kompiuterio; kitiems jis lieka serveryje. Tie, kuriuos bendrinote iš savo saugyklos, ir neišsiųsti pakeitimai lieka asmeniniai.",
     "other": "{count} komandos kredencialų pašalinama iš šio kompiuterio; kitiems jie lieka serveryje. Tie, kuriuos bendrinote iš savo saugyklos, ir neišsiųsti pakeitimai lieka asmeniniai."
   },
   "team.people_to_verify": {
-    "one": "{count} asmuo laukia patikrinimo",
     "few": "{count} asmenys laukia patikrinimo",
     "many": "{count} asmens laukia patikrinimo",
+    "one": "{count} asmuo laukia patikrinimo",
     "other": "{count} asmenų laukia patikrinimo"
   },
   "team.rekey_by_managers": {
-    "one": "Dar {count} iš naujo užšifruoja jo valdytojas.",
     "few": "Dar {count} iš naujo užšifruoja jų valdytojai.",
     "many": "Dar {count} iš naujo užšifruoja jų valdytojai.",
+    "one": "Dar {count} iš naujo užšifruoja jo valdytojas.",
     "other": "Dar {count} iš naujo užšifruoja jų valdytojai."
   },
   "team.rekey_next_sync": {
-    "one": "{count} rinkinys bus iš naujo užšifruotas kito sinchronizavimo metu.",
     "few": "{count} rinkiniai bus iš naujo užšifruoti kito sinchronizavimo metu.",
     "many": "{count} rinkinio bus iš naujo užšifruota kito sinchronizavimo metu.",
+    "one": "{count} rinkinys bus iš naujo užšifruotas kito sinchronizavimo metu.",
     "other": "{count} rinkinių bus iš naujo užšifruota kito sinchronizavimo metu."
   },
   "team.rekey_on_reconnect": {
-    "one": "{count} rinkinys bus iš naujo užšifruotas vėl prisijungus.",
     "few": "{count} rinkiniai bus iš naujo užšifruoti vėl prisijungus.",
     "many": "{count} rinkinio bus iš naujo užšifruota vėl prisijungus.",
+    "one": "{count} rinkinys bus iš naujo užšifruotas vėl prisijungus.",
     "other": "{count} rinkinių bus iš naujo užšifruota vėl prisijungus."
   },
   "team.this_pc": "šis kompiuteris: {device}",
@@ -2153,79 +2157,79 @@
   "time.date_at": "{date} {time}",
   "time.day_time": "{day} {time}",
   "time.days_ago": {
-    "one": "prieš {count} dieną",
     "few": "prieš {count} dienas",
     "many": "prieš {count} dienos",
+    "one": "prieš {count} dieną",
     "other": "prieš {count} dienų"
   },
   "time.every_hours": {
     "=1": "kas valandą",
-    "one": "kas {count} valandą",
     "few": "kas {count} valandas",
     "many": "kas {count} valandos",
+    "one": "kas {count} valandą",
     "other": "kas {count} valandų"
   },
   "time.every_months": {
     "=1": "kas mėnesį",
-    "one": "kas {count} mėnesį",
     "few": "kas {count} mėnesius",
     "many": "kas {count} mėnesio",
+    "one": "kas {count} mėnesį",
     "other": "kas {count} mėnesių"
   },
   "time.hours": {
-    "one": "{count} valanda",
     "few": "{count} valandos",
     "many": "{count} valandos",
+    "one": "{count} valanda",
     "other": "{count} valandų"
   },
   "time.hours_ago": "prieš {count} val.",
   "time.hours_label": "valandos",
   "time.hours_short": "{count} val.",
   "time.in_days": {
-    "one": "po {count} dienos",
     "few": "po {count} dienų",
     "many": "po {count} dienos",
+    "one": "po {count} dienos",
     "other": "po {count} dienų"
   },
   "time.in_months": {
-    "one": "po {count} mėnesio",
     "few": "po {count} mėnesių",
     "many": "po {count} mėnesio",
+    "one": "po {count} mėnesio",
     "other": "po {count} mėnesių"
   },
   "time.in_years": {
     "=1": "po metų",
-    "one": "po {count} metų",
     "few": "po {count} metų",
     "many": "po {count} metų",
+    "one": "po {count} metų",
     "other": "po {count} metų"
   },
   "time.minutes": {
-    "one": "{count} minutė",
     "few": "{count} minutės",
     "many": "{count} minutės",
+    "one": "{count} minutė",
     "other": "{count} minučių"
   },
   "time.minutes_ago": "prieš {count} min.",
   "time.minutes_short": "{count} min.",
   "time.months": {
-    "one": "{count} mėnuo",
     "few": "{count} mėnesiai",
     "many": "{count} mėnesio",
+    "one": "{count} mėnuo",
     "other": "{count} mėnesių"
   },
   "time.months_ago": {
-    "one": "prieš {count} mėnesį",
     "few": "prieš {count} mėnesius",
     "many": "prieš {count} mėnesio",
+    "one": "prieš {count} mėnesį",
     "other": "prieš {count} mėnesių"
   },
   "time.now": "ką tik",
   "time.relative_day_at": "{day} {time}",
   "time.years_ago": {
-    "one": "prieš {count} metus",
     "few": "prieš {count} metus",
     "many": "prieš {count} metų",
+    "one": "prieš {count} metus",
     "other": "prieš {count} metų"
   },
   "totp_prop.2fa_code_copied_valid_for": "2FA kodas nukopijuotas · galioja dar {remaining} s",
@@ -2271,9 +2275,9 @@
   "used_in_modal.where_is_used": "Kur naudojamas {name}",
   "used_in_modal.where_used_hasn_been_noted": "Neužrašyta, kur jis naudojamas.",
   "verify.shares_collections": {
-    "one": "Jis bendrina su jumis {count} rinkinį: patikrinkite jį, kad jį gautumėte.",
     "few": "Jis bendrina su jumis {count} rinkinius: patikrinkite jį, kad juos gautumėte.",
     "many": "Jis bendrina su jumis {count} rinkinio: patikrinkite jį, kad juos gautumėte.",
+    "one": "Jis bendrina su jumis {count} rinkinį: patikrinkite jį, kad jį gautumėte.",
     "other": "Jis bendrina su jumis {count} rinkinių: patikrinkite jį, kad juos gautumėte."
   },
   "verify_email_card.e_mail_code": "El. pašto kodas",

@@ -79,56 +79,56 @@
   "exposure.credential_doesn_say_how_put": "Poverilnica ne pove, kako vstaviti ključ v zahtevo (Uredi › kako se pošlje ključ)",
   "exposure.list_and": "{names} in {last}",
   "exposure.places_ai": {
-    "one": "v {count} pogovoru z UI",
-    "two": "v {count} pogovorih z UI",
     "few": "v {count} pogovorih z UI",
-    "other": "v {count} pogovorih z UI"
+    "one": "v {count} pogovoru z UI",
+    "other": "v {count} pogovorih z UI",
+    "two": "v {count} pogovorih z UI"
   },
   "exposure.places_config": {
-    "one": "v {count} nastavitvi programa",
-    "two": "v {count} nastavitvah programov",
     "few": "v {count} nastavitvah programov",
-    "other": "v {count} nastavitvah programov"
+    "one": "v {count} nastavitvi programa",
+    "other": "v {count} nastavitvah programov",
+    "two": "v {count} nastavitvah programov"
   },
   "exposure.places_env": {
-    "one": "v {count} okoljski spremenljivki",
-    "two": "v {count} okoljskih spremenljivkah",
     "few": "v {count} okoljskih spremenljivkah",
-    "other": "v {count} okoljskih spremenljivkah"
+    "one": "v {count} okoljski spremenljivki",
+    "other": "v {count} okoljskih spremenljivkah",
+    "two": "v {count} okoljskih spremenljivkah"
   },
   "exposure.places_git": {
-    "one": "v {count} zgodovini git",
-    "two": "v {count} zgodovinah git",
     "few": "v {count} zgodovinah git",
-    "other": "v {count} zgodovinah git"
+    "one": "v {count} zgodovini git",
+    "other": "v {count} zgodovinah git",
+    "two": "v {count} zgodovinah git"
   },
   "exposure.places_history": {
-    "one": "v {count} zgodovini terminala",
-    "two": "v {count} zgodovinah terminala",
     "few": "v {count} zgodovinah terminala",
-    "other": "v {count} zgodovinah terminala"
+    "one": "v {count} zgodovini terminala",
+    "other": "v {count} zgodovinah terminala",
+    "two": "v {count} zgodovinah terminala"
   },
   "exposure.places_project": {
-    "one": "v {count} datoteki projekta",
-    "two": "v {count} datotekah projektov",
     "few": "v {count} datotekah projektov",
-    "other": "v {count} datotekah projektov"
+    "one": "v {count} datoteki projekta",
+    "other": "v {count} datotekah projektov",
+    "two": "v {count} datotekah projektov"
   },
   "exposure.reason_ai_saw": "Videla jo je UI: poslana je bila njenemu ponudniku.",
   "exposure.reason_gone": "V golem besedilu je bila {places}. Čeprav je zdaj ni več, jo je vredno rotirati.",
   "exposure.reason_invalid": "Ne deluje: {message}.",
   "exposure.reason_present": "V golem besedilu je {places}.",
   "exposure.reason_pwned": {
-    "one": "To geslo se v javnih uhajanjih pojavi {times}-krat.",
-    "two": "To geslo se v javnih uhajanjih pojavi {times}-krat.",
     "few": "To geslo se v javnih uhajanjih pojavi {times}-krat.",
-    "other": "To geslo se v javnih uhajanjih pojavi {times}-krat."
+    "one": "To geslo se v javnih uhajanjih pojavi {times}-krat.",
+    "other": "To geslo se v javnih uhajanjih pojavi {times}-krat.",
+    "two": "To geslo se v javnih uhajanjih pojavi {times}-krat."
   },
   "exposure.reason_stale": {
-    "one": "Ni bila spremenjena {count} mesec.",
-    "two": "Ni bila spremenjena {count} meseca.",
     "few": "Ni bila spremenjena {count} mesece.",
-    "other": "Ni bila spremenjena {count} mesecev."
+    "one": "Ni bila spremenjena {count} mesec.",
+    "other": "Ni bila spremenjena {count} mesecev.",
+    "two": "Ni bila spremenjena {count} meseca."
   },
   "exposure.reason_stopped": "Nehala je delovati: {message}. Če je niste preklicali vi, jo je ponudnik verjetno zaznal kot ušlo.",
   "exposure.reason_unknown": "Vaših datotek še nismo preiskali.",
@@ -140,16 +140,16 @@
   "exposure.unexpected_response_http": "Nepričakovan odgovor (HTTP {status_code}){_said}",
   "health.a_person": "Nekdo",
   "health.expired": {
-    "one": "Potekla je pred {count} dnem.",
-    "two": "Potekla je pred {count} dnevoma.",
     "few": "Potekla je pred {count} dnevi.",
-    "other": "Potekla je pred {count} dnevi."
+    "one": "Potekla je pred {count} dnem.",
+    "other": "Potekla je pred {count} dnevi.",
+    "two": "Potekla je pred {count} dnevoma."
   },
   "health.expiring": {
-    "one": "Poteče čez {count} dan.",
-    "two": "Poteče čez {count} dneva.",
     "few": "Poteče čez {count} dni.",
-    "other": "Poteče čez {count} dni."
+    "one": "Poteče čez {count} dan.",
+    "other": "Poteče čez {count} dni.",
+    "two": "Poteče čez {count} dneva."
   },
   "health.exposed": "V golem besedilu je v datoteki v tem računalniku.",
   "health.half_rotated": "Novo geslo je pripravljeno, a ni shranjeno kot trenutno: dokončajte rotacijo ali ga zavrzite.",
@@ -168,30 +168,30 @@
   "health.label_was_exposed": "Bila je izpostavljena",
   "health.label_weak": "Šibka",
   "health.left_team_ask": {
-    "one": "{who} je imel(a) dostop in ni več v ekipi: prosite tistega, ki jo upravlja, naj jo spremeni.",
-    "two": "{who} sta imela dostop in nista več v ekipi: prosite tistega, ki jo upravlja, naj jo spremeni.",
     "few": "{who} so imeli dostop in niso več v ekipi: prosite tistega, ki jo upravlja, naj jo spremeni.",
-    "other": "{who} so imeli dostop in niso več v ekipi: prosite tistega, ki jo upravlja, naj jo spremeni."
+    "one": "{who} je imel(a) dostop in ni več v ekipi: prosite tistega, ki jo upravlja, naj jo spremeni.",
+    "other": "{who} so imeli dostop in niso več v ekipi: prosite tistega, ki jo upravlja, naj jo spremeni.",
+    "two": "{who} sta imela dostop in nista več v ekipi: prosite tistega, ki jo upravlja, naj jo spremeni."
   },
   "health.left_team_rotate": {
-    "one": "{who} je imel(a) dostop in ni več v ekipi: spremenite jo, za primer, da jo je videl(a).",
-    "two": "{who} sta imela dostop in nista več v ekipi: spremenite jo, za primer, da sta jo videla.",
     "few": "{who} so imeli dostop in niso več v ekipi: spremenite jo, za primer, da so jo videli.",
-    "other": "{who} so imeli dostop in niso več v ekipi: spremenite jo, za primer, da so jo videli."
+    "one": "{who} je imel(a) dostop in ni več v ekipi: spremenite jo, za primer, da jo je videl(a).",
+    "other": "{who} so imeli dostop in niso več v ekipi: spremenite jo, za primer, da so jo videli.",
+    "two": "{who} sta imela dostop in nista več v ekipi: spremenite jo, za primer, da sta jo videla."
   },
   "health.list_and": "{names} in {last}",
   "health.old": {
-    "one": "Ključ je star {count} dan.",
-    "two": "Ključ je star {count} dneva.",
     "few": "Ključ je star {count} dni.",
-    "other": "Ključ je star {count} dni."
+    "one": "Ključ je star {count} dan.",
+    "other": "Ključ je star {count} dni.",
+    "two": "Ključ je star {count} dneva."
   },
   "health.old_alive": "Rotirali ste jo, a stari še deluje: prekličite ga.",
   "health.pwned": {
-    "one": "V javnih uhajanjih se pojavi {times}-krat.",
-    "two": "V javnih uhajanjih se pojavi {times}-krat.",
     "few": "V javnih uhajanjih se pojavi {times}-krat.",
-    "other": "V javnih uhajanjih se pojavi {times}-krat."
+    "one": "V javnih uhajanjih se pojavi {times}-krat.",
+    "other": "V javnih uhajanjih se pojavi {times}-krat.",
+    "two": "V javnih uhajanjih se pojavi {times}-krat."
   },
   "health.retired_pending": "Nov ključ je aktiven · starega je treba še preklicati pri {provider}.",
   "health.reused": "Isto geslo ali ključ je v {names}.",
@@ -201,17 +201,17 @@
   "health.thousands_separator": ".",
   "health.unchecked": "Še ni bila preizkušena.",
   "health.unshared_rotate": {
-    "one": "{who} je imel(a) dostop in ga nima več: spremenite jo, za primer, da jo je kopiral(a).",
-    "two": "{who} sta imela dostop in ga nimata več: spremenite jo, za primer, da sta jo kopirala.",
     "few": "{who} so imeli dostop in ga nimajo več: spremenite jo, za primer, da so jo kopirali.",
-    "other": "{who} so imeli dostop in ga nimajo več: spremenite jo, za primer, da so jo kopirali."
+    "one": "{who} je imel(a) dostop in ga nima več: spremenite jo, za primer, da jo je kopiral(a).",
+    "other": "{who} so imeli dostop in ga nimajo več: spremenite jo, za primer, da so jo kopirali.",
+    "two": "{who} sta imela dostop in ga nimata več: spremenite jo, za primer, da sta jo kopirala."
   },
   "health.upload_failed": "Novega ni bilo mogoče naložiti v {place}: stari je še vedno tam.",
   "health.upload_failed_more": {
-    "one": "Novega ni bilo mogoče naložiti v {place} ali še {count} drugo mesto: stari je še vedno tam.",
-    "two": "Novega ni bilo mogoče naložiti v {place} ali še {count} druga mesta: stari je še vedno tam.",
     "few": "Novega ni bilo mogoče naložiti v {place} ali še {count} druga mesta: stari je še vedno tam.",
-    "other": "Novega ni bilo mogoče naložiti v {place} ali še {count} drugih mest: stari je še vedno tam."
+    "one": "Novega ni bilo mogoče naložiti v {place} ali še {count} drugo mesto: stari je še vedno tam.",
+    "other": "Novega ni bilo mogoče naložiti v {place} ali še {count} drugih mest: stari je še vedno tam.",
+    "two": "Novega ni bilo mogoče naložiti v {place} ali še {count} druga mesta: stari je še vedno tam."
   },
   "health.was_exposed": "Bila je v golem besedilu v datoteki. Vredno jo je rotirati.",
   "health.weak_0": "Zelo šibko geslo: hitro bi ga uganili.",
@@ -313,10 +313,10 @@
   "resident.pause_ai": "Začasno ustavi UI",
   "resident.quit": "Izhod",
   "resident.reminders_need_attention": {
-    "one": "{count} poverilnica potrebuje pozornost",
-    "two": "{count} poverilnici potrebujeta pozornost",
     "few": "{count} poverilnice potrebujejo pozornost",
-    "other": "{count} poverilnic potrebuje pozornost"
+    "one": "{count} poverilnica potrebuje pozornost",
+    "other": "{count} poverilnic potrebuje pozornost",
+    "two": "{count} poverilnici potrebujeta pozornost"
   },
   "resident.resume_ai": "Nadaljuj UI",
   "rotation.answered_http": "{provider} je odgovoril HTTP {status_code}",
@@ -358,10 +358,10 @@
   "service.change_env_vars": "Okoljske spremenljivke",
   "service.change_every_days": "vsakih {days} dni",
   "service.change_every_hours": {
-    "one": "vsako uro",
-    "two": "vsaki {count} uri",
     "few": "vsake {count} ure",
-    "other": "vsakih {count} ur"
+    "one": "vsako uro",
+    "other": "vsakih {count} ur",
+    "two": "vsaki {count} uri"
   },
   "service.change_expires": "Poteče",
   "service.change_keys": "Spremenite ključe v {collection}",
@@ -373,15 +373,17 @@
   "service.change_rotate_every_days": "Opomni me na rotacijo",
   "service.change_rotation_guide": "Navodila za rotacijo",
   "service.change_steps": {
-    "one": "{count} korak",
-    "two": "{count} koraka",
     "few": "{count} koraki",
-    "other": "{count} korakov"
+    "one": "{count} korak",
+    "other": "{count} korakov",
+    "two": "{count} koraka"
   },
   "service.change_tags": "Oznake",
+  "service.change_template": "Vrsta poverilnice",
   "service.change_test_request": "Preskusna zahteva",
   "service.change_used_in": "Kje se uporablja",
   "service.collection_no_longer_appears_on": "Zbirka se na strežniku ne prikazuje več. ",
+  "service.config_needs_variable_name": "»{id}« je konfiguracija: navedi ime spremenljivke v .secretbroker (VARIABLE = {id}).",
   "service.confirm_it_you_once_windows": "Enkrat potrdite, da ste to vi (Windows Hello ali geslo), da lahko ",
   "service.connect_this_browser_secretbroker_from": "Povežite ta brskalnik s SecretBroker iz razširitve",
   "service.connection_request_has_expired_click": "Zahteva za povezavo je potekla: v brskalniku znova kliknite »Poveži«",
@@ -394,19 +396,19 @@
   "service.expected_response_must_be_code": "Pričakovani odgovor mora biti koda med 200 in 399",
   "service.expected_response_must_be_http": "Pričakovani odgovor mora biti koda HTTP, npr. 200",
   "service.found_in_new_places": {
-    "one": "Najdeno v golem besedilu na {count} novem mestu",
-    "two": "Najdeno v golem besedilu na {count} novih mestih",
     "few": "Najdeno v golem besedilu na {count} novih mestih",
-    "other": "Najdeno v golem besedilu na {count} novih mestih"
+    "one": "Najdeno v golem besedilu na {count} novem mestu",
+    "other": "Najdeno v golem besedilu na {count} novih mestih",
+    "two": "Najdeno v golem besedilu na {count} novih mestih"
   },
   "service.generate_new_one": "ustvarite novega",
   "service.give_between_1_and_20": "V secret_ids navedite od 1 do 20 poverilnic",
   "service.has_no_environment_variables_in": "»{id}« v dovoljenjih nima okoljskih spremenljivk, zato je ni mogoče predati lokalnim programom. Dodajte jih v aplikaciji SecretBroker.",
   "service.held_waiting": {
-    "one": "{count} poverilnica iz {collection} čaka na vašo odločitev",
-    "two": "{count} poverilnici iz {collection} čakata na vašo odločitev",
     "few": "{count} poverilnice iz {collection} čakajo na vašo odločitev",
-    "other": "{count} poverilnic iz {collection} čaka na vašo odločitev"
+    "one": "{count} poverilnica iz {collection} čaka na vašo odločitev",
+    "other": "{count} poverilnic iz {collection} čaka na vašo odločitev",
+    "two": "{count} poverilnici iz {collection} čakata na vašo odločitev"
   },
   "service.import_has_expired_choose_file": "Uvoz je potekel: znova izberite datoteko",
   "service.invalid_approval_duration": "Neveljavno trajanje odobritve",
@@ -439,6 +441,7 @@
   "service.only_api_keys_and_other": "Preizkusno zahtevo imajo samo ključi API in druge skrivnosti",
   "service.only_api_keys_and_passwords": "Na ta način se rotirajo samo ključi API in gesla",
   "service.only_api_keys_are_rotated": "rotirajo se samo ključi API",
+  "service.only_convert_to_config": "Poverilnico je mogoče pretvoriti samo v konfiguracijo (template config).",
   "service.only_database_password_is_applied": "Na ta način se uveljavi samo geslo zbirke podatkov",
   "service.only_user_can_write_value": "Vrednost za »{name}« lahko vnese samo uporabnik, v aplikaciji",
   "service.open_secretbroker_team_and_sign": "Odprite SecretBroker › Ekipa in se znova prijavite, da boste še naprej prejemali in pošiljali spremembe. Medtem vse deluje s tem, kar že imate.",
@@ -474,10 +477,10 @@
   "service.purpose_totp_code": "vidite kodo 2FA",
   "service.request_is_no_longer_pending": "Zahteva ni več na čakanju",
   "service.rotate_after_leave": {
-    "one": "{names} je imel(a) dostop in ni več v ekipi. Spremenite jih, za primer, da jih je videl(a).",
-    "two": "{names} sta imela dostop in nista več v ekipi. Spremenite jih, za primer, da sta jih videla.",
     "few": "{names} so imeli dostop in niso več v ekipi. Spremenite jih, za primer, da so jih videli.",
-    "other": "{names} so imeli dostop in niso več v ekipi. Spremenite jih, za primer, da so jih videli."
+    "one": "{names} je imel(a) dostop in ni več v ekipi. Spremenite jih, za primer, da jih je videl(a).",
+    "other": "{names} so imeli dostop in niso več v ekipi. Spremenite jih, za primer, da so jih videli.",
+    "two": "{names} sta imela dostop in nista več v ekipi. Spremenite jih, za primer, da sta jih videla."
   },
   "service.say_whether_is_still_same": "Povejte, ali je {label} še vedno enak ali se je spremenil",
   "service.scan_session_has_expired": "Seja iskanja je potekla",
@@ -544,10 +547,10 @@
   "teams.admin_bad_signups": "Izberite, ali je registracija odprta, samo s povabilom ali zaprta.",
   "teams.admin_last_admin": "To je edini račun, ki upravlja strežnik: ni ga mogoče onemogočiti ali izbrisati.",
   "teams.admin_last_manager": {
-    "one": "{person} je edina oseba, ki upravlja zbirko: nekdo iz organizacije mora v njej dobiti »Upravitelj« (ali jo izbrisati), preden se račun izbriše.",
-    "two": "{person} je edina oseba, ki upravlja {count} zbirki: nekdo iz organizacije mora v njiju dobiti »Upravitelj« (ali ju izbrisati), preden se račun izbriše.",
     "few": "{person} je edina oseba, ki upravlja {count} zbirke: nekdo iz organizacije mora v njih dobiti »Upravitelj« (ali jih izbrisati), preden se račun izbriše.",
-    "other": "{person} je edina oseba, ki upravlja {count} zbirk: nekdo iz organizacije mora v njih dobiti »Upravitelj« (ali jih izbrisati), preden se račun izbriše."
+    "one": "{person} je edina oseba, ki upravlja zbirko: nekdo iz organizacije mora v njej dobiti »Upravitelj« (ali jo izbrisati), preden se račun izbriše.",
+    "other": "{person} je edina oseba, ki upravlja {count} zbirk: nekdo iz organizacije mora v njih dobiti »Upravitelj« (ali jih izbrisati), preden se račun izbriše.",
+    "two": "{person} je edina oseba, ki upravlja {count} zbirki: nekdo iz organizacije mora v njiju dobiti »Upravitelj« (ali ju izbrisati), preden se račun izbriše."
   },
   "teams.admin_last_owner": "{person} je edina oseba z vlogo lastnika v {orgs}: pred izbrisom računa nastavite za lastnika nekoga drugega.",
   "teams.admin_last_owner_some": "{person} je edina oseba z vlogo lastnika v eni od organizacij: pred izbrisom računa nastavite za lastnika nekoga drugega.",
@@ -668,9 +671,11 @@
   "templates.clave_privada_51c4fa": "Zasebni ključ",
   "templates.claves_de_acceso_de_aws_para_la_8fa404": "Dostopni ključi AWS za CLI",
   "templates.client_id_app_id_account_id_32451f": "client id, app id, account id …",
+  "templates.client_id_app_id_tenant_id_5ab3b0": "client id, app id, tenant id…",
   "templates.codigo_2fa_totp_opcional_c21467": "Koda 2FA (TOTP) (neobvezno)",
   "templates.codigos_de_recuperacion_pregunta_2bfb4d": "Obnovitvene kode, varnostna vprašanja …",
   "templates.como_se_envia_la_clave_92b57d": "Kako se pošlje ključ",
+  "templates.configuracion_no_secreta_bf2c21": "Konfiguracija (ni skrivna)",
   "templates.contrasena_5a6d1c": "Geslo",
   "templates.cualquier_otro_dato_secreto_346338": "Kateri koli drug skrivni podatek",
   "templates.db_ejemplo_com_ef9904": "db.example.com",
@@ -680,11 +685,14 @@
   "templates.https_api_ejemplo_com_394db1": "https://api.example.com",
   "templates.https_panel_ejemplo_com_ba88d4": "https://dashboard.example.com",
   "templates.id_asociado_opcional_537b83": "Povezani ID (neobvezno)",
+  "templates.identificador_d05b0a": "Identifikator",
+  "templates.ids_y_datos_publicos_client_id_t_e0839c": "Javni ID-ji in nastavitve: client ID, tenant, ID računa…",
   "templates.la_clave_que_da_la_web_al_activa_38af10": "Ključ, ki ga spletno mesto da ob vklopu preverjanja v dveh korakih (pod kodo QR). SecretBroker vam pokaže 6-mestno kodo; UI je ne vidi.",
   "templates.la_ia_solo_podra_enviar_la_clave_d55a47": "UI bo lahko ključ pošiljala samo na to domeno.",
   "templates.la_ia_solo_podra_usar_esta_crede_3899cf": "UI bo lahko to poverilnico uporabljala samo s tem spletnim mestom.",
   "templates.motor_ceaed7": "Pogon",
   "templates.no_anadirla_automaticamente_a70e1a": "Ne dodaj samodejno",
+  "templates.no_es_secreto_la_ia_lo_ve_y_los_392166": "Ni skrivnost: UI ga vidi in programi ga dobijo, ne da bi te vprašali.",
   "templates.notas_privadas_opcional_2621d7": "Zasebni zapiski (neobvezno)",
   "templates.nube_aws_95df6b": "Oblak (AWS)",
   "templates.otpauth_totp_o_la_clave_en_base3_b0c780": "otpauth://totp/… ali ključ base32",
@@ -703,11 +711,13 @@
   "templates.si_la_clave_va_emparejada_con_un_5f3d0f": "Če je ključ povezan z identifikatorjem. Ko ga rotirate, vas vpraša, ali se je spremenil.",
   "templates.solo_para_ti_la_ia_no_las_ve_90d40d": "Samo za vas: UI jih ne vidi.",
   "templates.tambien_se_usa_para_sudo_f450d6": "Uporablja se tudi za sudo.",
+  "templates.un_dato_de_configuracion_e7f7e9": "Konfiguracijski podatek",
   "templates.url_de_la_api_9c4317": "URL API-ja",
   "templates.usuario_3f2ecd": "Uporabniško ime",
   "templates.usuario_o_e_mail_e4cfe2": "Uporabniško ime ali e-pošta",
   "templates.usuario_opcional_6b549e": "Uporabniško ime (neobvezno)",
   "templates.usuario_y_contrasena_de_una_web_17037d": "Uporabniško ime in geslo za spletno mesto, nadzorno ploščo ali aplikacijo",
+  "templates.valor_opcional_0afb86": "Vrednost (neobvezno)",
   "templates.variable_de_entorno_opcional_03da6c": "Okoljska spremenljivka (neobvezno)",
   "templates.web_o_servicio_f398c8": "Spletno mesto ali storitev",
   "totp.2fa_code_has_invalid_parameters": "Koda 2FA ima neveljavne parametre",
@@ -735,6 +745,7 @@
   "update.this_version_has_no_signing": "Ta različica nima ključa za podpisovanje: ne more se posodobiti sama",
   "update.too_many_redirects": "Preveč preusmeritev",
   "vault.backup_is_damaged": "Varnostna kopija je poškodovana",
+  "vault.config_needs_identifier_or_value": "Konfiguracija potrebuje identifikator ali vrednost.",
   "vault.couldn_use_this_pc_key": "Ključa tega računalnika ni bilo mogoče uporabiti. Odklenite z glavnim geslom.",
   "vault.credential_with_identifier_already_exist": "Poverilnica z identifikatorjem »{id}« že obstaja",
   "vault.expiry_date_must_be_yyyy": "Datum poteka mora biti v obliki LLLL-MM-DD",
