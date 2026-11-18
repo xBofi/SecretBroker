@@ -3,16 +3,21 @@
 # installing again finds them; "purge" deletes them and the service account.
 set -e
 
+# Never holds up the removal waiting for systemd (see postinst).
+reload_systemd() {
+    if [ -d /run/systemd/system ]; then timeout --kill-after=5 60 systemctl daemon-reload || true; fi
+}
+
 case "$1" in
     remove)
         rm -rf /var/lib/secretbroker/*/public
-        if [ -d /run/systemd/system ]; then systemctl daemon-reload || true; fi
+        reload_systemd
         ;;
     purge)
         rm -rf /var/lib/secretbroker
         if getent passwd secretbroker >/dev/null; then userdel secretbroker || true; fi
         if getent group secretbroker >/dev/null; then groupdel secretbroker 2>/dev/null || true; fi
-        if [ -d /run/systemd/system ]; then systemctl daemon-reload || true; fi
+        reload_systemd
         ;;
 esac
 

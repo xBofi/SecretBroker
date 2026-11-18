@@ -1,9 +1,25 @@
 #!/bin/sh
 # SecretBroker .deb: after unpacking. Creates the service account and starts the service for the desktop users.
+#
+# Nothing here may hold up an installation: whatever waits for another program (systemd, the account database, a
+# user's home folder) runs through `limited`, which stops it after a while. The script then says what did not
+# finish and carries on: the app starts its service on demand and registers the browsers' native host by itself.
 set -e
 
+# limited <seconds> <command...>: the command's exit status, or 124 (137 if it had to be killed) when time ran out.
+limited() {
+    seconds=$1
+    shift
+    timeout --kill-after=5 "$seconds" "$@"
+}
+
+timed_out() {
+    [ "$1" -eq 124 ] || [ "$1" -eq 137 ]
+}
+
 desktop_users() {
-    getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 && $7 !~ /(nologin|false)$/ && $6 != "" { print $1 }'
+    accounts=$(limited 30 getent passwd) || echo "secretbroker: no se pudo leer la lista completa de cuentas" >&2
+    echo "$accounts" | awk -F: '$3 >= 1000 && $3 < 60000 && $7 !~ /(nologin|false)$/ && $6 != "" { print $1 }'
 }
 
 if [ "$1" = "configure" ]; then
@@ -12,22 +28,32 @@ if [ "$1" = "configure" ]; then
             --shell /usr/sbin/nologin --comment "SecretBroker service" secretbroker
     fi
     install -d -o root -g root -m 0755 /var/lib/secretbroker
+    users=$(desktop_users)
 
     if [ -d /run/systemd/system ]; then
-        systemctl daemon-reload || true
+        limited 60 systemctl daemon-reload || echo "secretbroker: systemd no ha recargado sus unidades" >&2
         # Every desktop account gets its own service (the app starts it on demand too, see 50-secretbroker.rules);
         # on an update the running ones restart with the new version.
-        for user in $(desktop_users); do
-            systemctl enable "secretbroker@$user.service" >/dev/null 2>&1 || true
-            systemctl restart "secretbroker@$user.service" || echo "secretbroker: no se pudo arrancar el servicio de $user" >&2
+        for user in $users; do
+            unit="secretbroker@$user.service"
+            limited 30 systemctl enable "$unit" >/dev/null 2>&1 || true
+            status=0
+            limited 60 systemctl --no-ask-password restart "$unit" </dev/null || status=$?
+            if timed_out "$status"; then
+                # Only the wait ends here: systemd goes on starting the service.
+                echo "secretbroker: el servicio de $user tarda en arrancar (systemctl status $unit)" >&2
+            elif [ "$status" -ne 0 ]; then
+                echo "secretbroker: no se pudo arrancar el servicio de $user" >&2
+            fi
         done
     fi
 
     # Let each user's browsers start the extension's native host (the app does it again on every start).
-    for user in $(desktop_users); do
-        home=$(getent passwd "$user" | cut -d: -f6)
+    for user in $users; do
+        home=$(limited 10 getent passwd "$user" | cut -d: -f6)
         [ -n "$home" ] && [ -d "$home" ] || continue
-        runuser -u "$user" -- env HOME="$home" /opt/secretbroker/venv/bin/python -I -c             "from secretbroker import native_host; native_host.register()" >/dev/null 2>&1 || true
+        limited 30 runuser -u "$user" -- env HOME="$home" /opt/secretbroker/venv/bin/python -I -c \
+            "from secretbroker import native_host; native_host.register()" </dev/null >/dev/null 2>&1 || true
     done
 
     if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database -q /usr/share/applications || true; fi

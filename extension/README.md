@@ -24,7 +24,7 @@ How it works and why it is safe: [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)
 
 | File | What |
 |---|---|
-| `manifest.json` | MV3 manifest. `key` pins the extension id (`cekklnambceaikefialdjijgolamnnab`) for unpacked installs; `browser_specific_settings.gecko.id` is Firefox's (`autofill@secretbroker`). Both must match `native_host.CHROME_EXTENSION_IDS` / `FIREFOX_EXTENSION_IDS`. |
+| `manifest.json` | MV3 manifest, for every browser at once when loaded unpacked. `key` pins the extension id (`cekklnambceaikefialdjijgolamnnab`) for unpacked installs; `browser_specific_settings.gecko.id` is Firefox's (`autofill@secretbroker`). Both must match `native_host.CHROME_EXTENSION_IDS` / `FIREFOX_EXTENSION_IDS`. The stores get a manifest of their own, made from this one by `tools/build_extension.py`. |
 | `background.js` | The only part that talks to the native host. Keeps per-tab state (frames with login forms, a pending "save?") in `storage.session`. |
 | `content.js` | Finds login and 2FA fields, draws the button, menu, save bar and notices in a closed shadow root, fills after trusted events, notices submitted forms. |
 | `popup.*` | The toolbar popup, styled like `secretbroker/web/styles.css` (Grafito, light and dark). |
@@ -86,15 +86,25 @@ Not covered by it, still checked by hand before a release:
 
 ## Publishing to the stores (needs the owner's developer accounts)
 
-Publishing is what turns installing into one click (and is the only way Firefox keeps it permanently). Each store
-needs an account in the owner's name, and each assigns the extension its own id:
+Publishing is what turns installing into one click (and is the only way Firefox keeps it permanently).
+**[docs/STORES.md](../docs/STORES.md) is the guide**: each store click by click, with the text for every field
+(listing in English and Spanish, why each permission, the data disclosures, the notes for the reviewer) and the
+images each one asks for.
 
-| Store | Account | Notes |
-|---|---|---|
-| Chrome Web Store | Google developer account (one-time fee) | Upload a zip of this folder **without** `key`. The store gives the item an id; add it to `native_host.CHROME_EXTENSION_IDS` (or copy the store's public key into `key` so unpacked builds keep the same id). Brave installs from the Chrome Web Store. |
-| Microsoft Edge Add-ons | Microsoft Partner Center (free) | Same zip; Edge assigns another id: add it to `CHROME_EXTENSION_IDS` too. |
-| Firefox Add-ons (AMO) | addons.mozilla.org account (free) | Keeps `autofill@secretbroker`. Listed or self-distributed (signed `.xpi`), reviewed by Mozilla. |
+```
+python tools/build_extension.py              # dist/secretbroker-extension-<version>-chromium.zip and -firefox.zip
+python tools/store_images.py --screenshots   # dist/store/: logo, promotional images, 1280x800 screenshots
+```
 
-Every store asks for a privacy policy (the extension sends page addresses to the local SecretBroker app only, never
-to a server) and a justification of `nativeMessaging` and `<all_urls>` (needed to find login fields on any site).
-Release the app with the new ids **before** the store build goes live, or the host will refuse the new extension.
+This folder is never uploaded as it is: a store's zip leaves out this README and gets a manifest for that store
+(`tools/build_extension.py` says what changes and why; `tests/test_extension_build.py` checks it). The zips are
+reproducible: the same source gives the same bytes on any system.
+
+| Store | Account | Zip | Its id |
+|---|---|---|---|
+| Chrome Web Store (Brave installs from it) | Google developer account (5 USD once) | `-chromium.zip` | Given at the first upload: add it to `native_host.CHROME_EXTENSION_IDS` |
+| Microsoft Edge Add-ons | Microsoft Partner Center (free) | the same `-chromium.zip` | Another one, given at the first upload: add it too |
+| Firefox Add-ons (AMO) | Mozilla account (free) | `-firefox.zip` | `autofill@secretbroker`, already allowed |
+
+Release the app with a store's id **before** that store's build is sent for review, or the host refuses the new
+extension. The privacy policy every store asks for is [docs/PRIVACY.md](../docs/PRIVACY.md).

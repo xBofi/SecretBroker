@@ -129,6 +129,9 @@ sed -i 's/\r$//' "$STAGE/DEBIAN/postinst" "$STAGE/DEBIAN/prerm" "$STAGE/DEBIAN/p
     "$STAGE/usr/share/polkit-1/rules.d/50-secretbroker.rules"
 
 SIZE=$(du -sk --exclude=DEBIAN "$STAGE" | cut -f1)
+# The AppIndicator extension (the icon next to the clock on GNOME) is only a suggestion: Ubuntu's desktop already has
+# it, and as a recommendation it made apt install GNOME Shell and its login screen (400 to 800 packages) on every
+# machine without them, such as Kubuntu, a server or a CI runner.
 cat > "$STAGE/DEBIAN/control" <<EOF
 Package: secretbroker
 Version: $VERSION
@@ -143,7 +146,8 @@ Depends: systemd, passwd, acl, libpam-runtime, libpam0g, polkitd | policykit-1, 
  libxcb-cursor0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0,
  libxcb-shape0, libxcb-xinerama0, libxcb-xkb1, libxcomposite1, libxdamage1, libxrandr2, libxtst6, libxshmfence1,
  libxkbfile1, libwayland-client0, libwayland-cursor0, libwayland-egl1, libasound2t64 | libasound2
-Recommends: gnome-shell-extension-appindicator, libnotify-bin, wl-clipboard | xclip
+Recommends: libnotify-bin, wl-clipboard | xclip
+Suggests: gnome-shell-extension-appindicator
 Description: Password and API key manager your AI can use without seeing the keys
  SecretBroker keeps passwords, API keys, SSH logins and databases in an encrypted
  vault. AI agents (Claude Code, Claude Desktop, Cursor, VS Code, Codex) use them

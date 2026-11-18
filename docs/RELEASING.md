@@ -52,8 +52,8 @@ meet a newer schema if someone downgrades by hand).
 always installs the latest release's archive. CI's `server-install` job runs the same test as the `server` job on
 every push, plus Caddy.
 
-Before tagging, run `tests/test_gui.py` and `tests/test_browser.py` on a Windows desktop (they open the real app and a
-real browser; CI cannot on Windows). CI runs `test_gui.py` on Ubuntu (job `desktop-gui-ubuntu`, screenshots in the
+Before tagging, run `tests/test_gui.py`, `tests/test_browser.py` and `tests/test_background_start.py` on a Windows
+desktop (they open the real app and a real browser, and the last one looks at the screen itself; CI cannot on Windows). CI runs `test_gui.py` on Ubuntu (job `desktop-gui-ubuntu`, screenshots in the
 `gui-screenshots-ubuntu` artifact) and only a smoke check of the app on macOS (`macos-package`: the page loads and
 reaches the service, `sb` works, one screenshot), because WKWebView cannot be driven from outside.
 
@@ -139,9 +139,20 @@ repository, so that updates also arrive with the system's updates, needs a GPG k
 
 The extension (`extension/`) is loaded unpacked from the app's folder for now (Settings › Browser shows how).
 Publishing it needs the owner's **Chrome Web Store** developer account (one-off 5 USD), a **Microsoft Partner
-Center** account for Edge Add-ons, and an **addons.mozilla.org** account for Firefox. Each store gives the
-extension its own id: add it to `native_host.CHROME_EXTENSION_IDS` / `FIREFOX_EXTENSION_IDS` in the same release,
-or the native host refuses it.
+Center** account for Edge Add-ons, and an **addons.mozilla.org** account for Firefox.
+[docs/STORES.md](STORES.md) is the guide, click by click and with the text of every field.
+
+* `python tools/build_extension.py` writes the two packages into `dist/`: `secretbroker-extension-<v>-chromium.zip`
+  (Chrome Web Store and Edge Add-ons) and `-firefox.zip` (addons.mozilla.org), each with the manifest that store
+  takes. They are reproducible and are not part of the GitHub release; `tests/test_extension_build.py` checks them
+  (CI runs it). `python tools/store_images.py --screenshots` writes the listings' images into `dist/store/`.
+* The Chrome Web Store and Edge each give the extension its own id at the first upload, and the native host
+  refuses ids it does not know: the owner uploads a draft, sends the id back, it is added to
+  `native_host.CHROME_EXTENSION_IDS` (one line each) and **released before** the draft is sent for review.
+  Firefox keeps `autofill@secretbroker`, which is already allowed.
+* After a release that changed `extension/`, build the zips again and upload them as a new version in each store
+  (the extension's version is the app's, and a store only takes a higher one). A release that did not touch
+  `extension/` needs no upload.
 
 ## macOS: what is untested
 
