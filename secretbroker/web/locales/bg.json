@@ -539,6 +539,7 @@
   "editor.identity_placeholder": "Моят паспорт",
   "editor.license_placeholder": "Лиценз за Office",
   "editor.note_placeholder": "Кодове за възстановяване на имейла",
+  "editor.personal_tags_placeholder": "дом, работа",
   "editor.tags_placeholder": "магазин, продукция",
   "editor.wifi_placeholder": "Домашен Wi-Fi",
   "empty_credentials.add_credential": "Добавяне на запис",

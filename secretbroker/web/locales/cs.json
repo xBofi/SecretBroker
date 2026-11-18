@@ -559,6 +559,7 @@
   "editor.identity_placeholder": "Můj pas",
   "editor.license_placeholder": "Licence Office",
   "editor.note_placeholder": "Kódy pro obnovení e-mailu",
+  "editor.personal_tags_placeholder": "domov, práce",
   "editor.tags_placeholder": "obchod, produkce",
   "editor.wifi_placeholder": "Domácí Wi-Fi",
   "empty_credentials.add_credential": "Přidat pověření",

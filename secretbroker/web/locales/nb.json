@@ -539,6 +539,7 @@
   "editor.identity_placeholder": "Passet mitt",
   "editor.license_placeholder": "Office-lisens",
   "editor.note_placeholder": "Gjenopprettingskoder for e-post",
+  "editor.personal_tags_placeholder": "hjem, jobb",
   "editor.tags_placeholder": "butikk, produksjon",
   "editor.wifi_placeholder": "Wi-Fi hjemme",
   "empty_credentials.add_credential": "Legg til en oppføring",

@@ -539,6 +539,7 @@
   "editor.identity_placeholder": "Mon passeport",
   "editor.license_placeholder": "Licence Office",
   "editor.note_placeholder": "Codes de récupération de l’e-mail",
+  "editor.personal_tags_placeholder": "maison, travail",
   "editor.tags_placeholder": "boutique, production",
   "editor.wifi_placeholder": "Wi-Fi de la maison",
   "empty_credentials.add_credential": "Ajouter un identifiant",

@@ -539,6 +539,7 @@
   "editor.identity_placeholder": "Minu pass",
   "editor.license_placeholder": "Office'i litsents",
   "editor.note_placeholder": "E-posti taastekoodid",
+  "editor.personal_tags_placeholder": "kodu, töö",
   "editor.tags_placeholder": "pood, tootmine",
   "editor.wifi_placeholder": "Kodune Wi-Fi",
   "empty_credentials.add_credential": "Lisa mandaat",

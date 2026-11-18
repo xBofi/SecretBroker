@@ -559,6 +559,7 @@
   "editor.identity_placeholder": "Mano pasas",
   "editor.license_placeholder": "Office licencija",
   "editor.note_placeholder": "El. pašto atkūrimo kodai",
+  "editor.personal_tags_placeholder": "namai, darbas",
   "editor.tags_placeholder": "parduotuvė, gamyba",
   "editor.wifi_placeholder": "Namų Wi-Fi",
   "empty_credentials.add_credential": "Pridėti kredencialą",

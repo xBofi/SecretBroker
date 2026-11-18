@@ -539,6 +539,7 @@
   "editor.identity_placeholder": "Το διαβατήριό μου",
   "editor.license_placeholder": "Άδεια Office",
   "editor.note_placeholder": "Κωδικοί ανάκτησης email",
+  "editor.personal_tags_placeholder": "σπίτι, δουλειά",
   "editor.tags_placeholder": "κατάστημα, παραγωγή",
   "editor.wifi_placeholder": "Wi-Fi σπιτιού",
   "empty_credentials.add_credential": "Προσθήκη διαπιστευτηρίου",

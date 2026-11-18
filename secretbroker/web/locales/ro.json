@@ -549,6 +549,7 @@
   "editor.identity_placeholder": "Pașaportul meu",
   "editor.license_placeholder": "Licență Office",
   "editor.note_placeholder": "Coduri de recuperare pentru e-mail",
+  "editor.personal_tags_placeholder": "acasă, serviciu",
   "editor.tags_placeholder": "magazin, producție",
   "editor.wifi_placeholder": "Wi-Fi de acasă",
   "empty_credentials.add_credential": "Adaugă o credențială",

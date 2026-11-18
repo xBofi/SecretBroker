@@ -539,6 +539,7 @@
   "editor.identity_placeholder": "Mein Reisepass",
   "editor.license_placeholder": "Office-Lizenz",
   "editor.note_placeholder": "E-Mail-Wiederherstellungscodes",
+  "editor.personal_tags_placeholder": "zuhause, arbeit",
   "editor.tags_placeholder": "shop, produktion",
   "editor.wifi_placeholder": "WLAN zu Hause",
   "empty_credentials.add_credential": "Zugangsdaten hinzufügen",

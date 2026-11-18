@@ -529,6 +529,7 @@
   "editor.identity_placeholder": "我的护照",
   "editor.license_placeholder": "Office 许可证",
   "editor.note_placeholder": "邮箱恢复码",
+  "editor.personal_tags_placeholder": "home, work",
   "editor.tags_placeholder": "shop, production",
   "editor.wifi_placeholder": "家里的 Wi-Fi",
   "empty_credentials.add_credential": "添加凭据",

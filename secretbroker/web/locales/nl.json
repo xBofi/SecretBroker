@@ -539,6 +539,7 @@
   "editor.identity_placeholder": "Mijn paspoort",
   "editor.license_placeholder": "Office-licentie",
   "editor.note_placeholder": "Herstelcodes voor e-mail",
+  "editor.personal_tags_placeholder": "thuis, werk",
   "editor.tags_placeholder": "winkel, productie",
   "editor.wifi_placeholder": "Wifi thuis",
   "empty_credentials.add_credential": "Inloggegevens toevoegen",

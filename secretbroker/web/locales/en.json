@@ -539,6 +539,7 @@
   "editor.identity_placeholder": "My passport",
   "editor.license_placeholder": "Office license",
   "editor.note_placeholder": "E-mail recovery codes",
+  "editor.personal_tags_placeholder": "home, work",
   "editor.tags_placeholder": "shop, production",
   "editor.wifi_placeholder": "Home Wi-Fi",
   "empty_credentials.add_credential": "Add a credential",

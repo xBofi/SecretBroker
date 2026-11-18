@@ -539,6 +539,7 @@
   "editor.identity_placeholder": "El meu passaport",
   "editor.license_placeholder": "Llicència d'Office",
   "editor.note_placeholder": "Codis de recuperació del correu",
+  "editor.personal_tags_placeholder": "casa, feina",
   "editor.tags_placeholder": "botiga, producció",
   "editor.wifi_placeholder": "Wi-Fi de casa",
   "empty_credentials.add_credential": "Afegeix una credencial",

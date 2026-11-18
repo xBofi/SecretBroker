@@ -559,6 +559,7 @@
   "editor.identity_placeholder": "Мій паспорт",
   "editor.license_placeholder": "Ліцензія Office",
   "editor.note_placeholder": "Коди відновлення пошти",
+  "editor.personal_tags_placeholder": "дім, робота",
   "editor.tags_placeholder": "shop, prod",
   "editor.wifi_placeholder": "Домашній Wi-Fi",
   "empty_credentials.add_credential": "Додати запис",

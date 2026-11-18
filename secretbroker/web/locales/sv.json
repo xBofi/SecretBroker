@@ -539,6 +539,7 @@
   "editor.identity_placeholder": "Mitt pass",
   "editor.license_placeholder": "Office-licens",
   "editor.note_placeholder": "Återställningskoder för e-posten",
+  "editor.personal_tags_placeholder": "hem, jobb",
   "editor.tags_placeholder": "butik, produktion",
   "editor.wifi_placeholder": "Wifi hemma",
   "empty_credentials.add_credential": "Lägg till en post",

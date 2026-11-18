@@ -539,6 +539,7 @@
   "editor.identity_placeholder": "Oma passi",
   "editor.license_placeholder": "Office-lisenssi",
   "editor.note_placeholder": "Sähköpostin palautuskoodit",
+  "editor.personal_tags_placeholder": "koti, työ",
   "editor.tags_placeholder": "kauppa, tuotanto",
   "editor.wifi_placeholder": "Kodin Wi-Fi",
   "empty_credentials.add_credential": "Lisää kohde",

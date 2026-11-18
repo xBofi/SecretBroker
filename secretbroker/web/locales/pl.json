@@ -559,6 +559,7 @@
   "editor.identity_placeholder": "Mój paszport",
   "editor.license_placeholder": "Licencja na Office",
   "editor.note_placeholder": "Kody odzyskiwania konta e-mail",
+  "editor.personal_tags_placeholder": "dom, praca",
   "editor.tags_placeholder": "sklep, produkcja",
   "editor.wifi_placeholder": "Domowe Wi-Fi",
   "empty_credentials.add_credential": "Dodaj poświadczenie",

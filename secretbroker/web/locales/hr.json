@@ -550,6 +550,7 @@
   "editor.identity_placeholder": "Moja putovnica",
   "editor.license_placeholder": "Licenca za Office",
   "editor.note_placeholder": "Kôdovi za oporavak e-pošte",
+  "editor.personal_tags_placeholder": "dom, posao",
   "editor.tags_placeholder": "trgovina, produkcija",
   "editor.wifi_placeholder": "Kućni Wi-Fi",
   "empty_credentials.add_credential": "Dodaj vjerodajnicu",

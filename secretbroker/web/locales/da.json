@@ -539,6 +539,7 @@
   "editor.identity_placeholder": "Mit pas",
   "editor.license_placeholder": "Office-licens",
   "editor.note_placeholder": "Gendannelseskoder til e-mail",
+  "editor.personal_tags_placeholder": "hjem, arbejde",
   "editor.tags_placeholder": "butik, produktion",
   "editor.wifi_placeholder": "Wi-Fi derhjemme",
   "empty_credentials.add_credential": "Tilføj adgangsoplysninger",
