@@ -2,7 +2,7 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
-## Unreleased
+## 0.19.0 (2026-11-18)
 
 - **Configuration that is not secret.** A new kind of credential, «Configuración (no secreta)», keeps IDs and settings
   a program needs but that aren't secrets (a public app's client ID, a tenant, an account ID). `.secretbroker` and
