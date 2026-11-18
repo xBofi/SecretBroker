@@ -52,8 +52,8 @@ meet a newer schema if someone downgrades by hand).
 always installs the latest release's archive. CI's `server-install` job runs the same test as the `server` job on
 every push, plus Caddy.
 
-Before tagging, run `tests/test_gui.py` and `tests/test_browser.py` on a Windows desktop (they open the real app and a
-real browser; CI cannot on Windows). CI runs `test_gui.py` on Ubuntu (job `desktop-gui-ubuntu`, screenshots in the
+Before tagging, run `tests/test_gui.py`, `tests/test_browser.py` and `tests/test_background_start.py` on a Windows
+desktop (they open the real app and a real browser, and the last one looks at the screen itself; CI cannot on Windows). CI runs `test_gui.py` on Ubuntu (job `desktop-gui-ubuntu`, screenshots in the
 `gui-screenshots-ubuntu` artifact) and only a smoke check of the app on macOS (`macos-package`: the page loads and
 reaches the service, `sb` works, one screenshot), because WKWebView cannot be driven from outside.
 

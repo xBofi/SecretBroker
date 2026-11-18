@@ -1130,9 +1130,15 @@ def main():
         except Exception:
             pass
     api = Api()
+    # Started with the session: the window starts hidden. On Windows never minimized: WebView2 created in a
+    # minimized window stays blank the first time the window is shown (only the background colour, nothing of the
+    # page, until it was hidden and shown again). pywebview's hidden window is shown once at full size, invisible,
+    # and hidden through WinForms, so WebView2 starts and loads the page as in a normal window.
+    hidden_start = background and platform.NAME == "windows"
     window = webview.create_window(
         "SecretBroker", url=str(WEB_DIR / "index.html"), js_api=page_api(api),
-        width=1120, height=740, min_size=(880, 600), background_color="#0f1115", minimized=background,
+        width=1120, height=740, min_size=(880, 600), background_color="#0f1115",
+        minimized=background and not hidden_start, hidden=hidden_start,
     )
     api._window = window
     window.events.loaded += lambda: _back_to_the_app(window)
