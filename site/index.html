@@ -127,10 +127,13 @@
     <div class="duo">
       <div class="term" role="img" aria-label="Terminal: sb import .env --delete moves a project's keys into the vault, then sb run -- npm run dev starts the app with its variables from the vault.">
         <span class="term-title">A project's .env, moved into the vault</span>
-<pre><code><span class="p">$</span> sb import .env --delete   <span class="c"># stores the keys, writes a .secretbroker file you can commit</span>
-<span class="p">$</span> sb run -- npm run dev     <span class="c"># your app gets the variables straight from the vault</span>
+<pre><code><span class="c"># stores the keys, writes a .secretbroker file you can commit</span>
+<span class="p">$</span> sb import .env --delete
 
-<span class="c"># .secretbroker: which credential each variable comes from. No values.</span>
+<span class="c"># your app gets its variables straight from the vault</span>
+<span class="p">$</span> sb run -- npm run dev
+
+<span class="c"># .secretbroker: where each variable comes from. No values.</span>
 OPENAI_API_KEY = openai
 DATABASE_URL   = shop-db:connection_url</code></pre>
       </div>
@@ -282,23 +285,23 @@ DATABASE_URL   = shop-db:connection_url</code></pre>
       </div>
       <div>
         <div class="dl-list">
-          <div class="dl-row" data-row="windows" data-yours="Your system">
-            <h3>Windows 10 and 11</h3>
+          <div class="dl-row" data-row="windows">
+            <h3 data-yours="Your system">Windows 10 and 11</h3>
             <p>Installer (.exe)<span data-size></span>. Asks for administrator permission once.</p>
             <a class="btn" href="https://github.com/xBofi/SecretBroker/releases/latest" rel="noopener" data-asset="windows">Download .exe</a>
           </div>
-          <div class="dl-row" data-row="linux" data-yours="Your system">
-            <h3>Ubuntu 22.04 and 24.04</h3>
+          <div class="dl-row" data-row="linux">
+            <h3 data-yours="Your system">Ubuntu 22.04 and 24.04</h3>
             <p>Package (.deb) for 64-bit PCs<span data-size></span>. Double-click to install.</p>
             <a class="btn" href="https://github.com/xBofi/SecretBroker/releases/latest" rel="noopener" data-asset="linux">Download .deb</a>
           </div>
-          <div class="dl-row" data-row="macos-arm64" data-yours="For your Mac">
-            <h3>macOS 12 or later, Apple silicon <span class="tag">Preview</span></h3>
+          <div class="dl-row" data-row="macos-arm64">
+            <h3 data-yours="For your Mac">macOS 12 or later, Apple silicon <span class="tag">Preview</span></h3>
             <p>Package (.pkg) for M1 and later<span data-size></span>. Built and installed by automated tests; not yet tried on real Macs.</p>
             <a class="btn" href="https://github.com/xBofi/SecretBroker/releases/latest" rel="noopener" data-asset="macos-arm64">Download .pkg</a>
           </div>
-          <div class="dl-row" data-row="macos-x86_64" data-yours="For your Mac">
-            <h3>macOS 12 or later, Intel <span class="tag">Preview</span></h3>
+          <div class="dl-row" data-row="macos-x86_64">
+            <h3 data-yours="For your Mac">macOS 12 or later, Intel <span class="tag">Preview</span></h3>
             <p>Package (.pkg) for Intel Macs<span data-size></span>. The same preview.</p>
             <a class="btn" href="https://github.com/xBofi/SecretBroker/releases/latest" rel="noopener" data-asset="macos-x86_64">Download .pkg</a>
           </div>

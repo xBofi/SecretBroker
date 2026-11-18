@@ -236,6 +236,12 @@ html:not(.js) .theme-toggle { display: none; }
 .facts .soon::before { background: var(--warning); }
 .hero-shot { margin-top: clamp(2.25rem, 6vw, 4rem); }
 .hero-shot figcaption { text-align: right; }
+/* On a phone the whole window would be too small to read: show the list of logins, larger. */
+@media (max-width: 40rem) {
+  .hero-shot .frame { position: relative; aspect-ratio: 1 / 1; }
+  .hero-shot .frame img { position: absolute; left: -34%; top: 0; width: 215%; max-width: none; }
+  .hero-shot figcaption { text-align: left; }
+}
 
 /* ---------- landing: sections ---------- */
 .section { padding-block: clamp(4rem, 10vw, 7.5rem); }
