@@ -94,6 +94,9 @@ jobs:
       - name: Browser autofill tests
         run: $PY tests/test_autofill.py
 
+      - name: Extension packages for the stores
+        run: $PY tests/test_extension_build.py
+
   # tests/test_gui.py on Ubuntu: the real app (QtWebEngine) on a virtual display with a window manager and an icon
   # area next to the clock, driven through the DevTools Protocol. The screenshots are kept to look at.
   desktop-gui-ubuntu:

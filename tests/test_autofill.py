@@ -469,7 +469,8 @@ def check_registration():
         chrome = next(p for p in written if "google-chrome" in str(p) or "Google/Chrome" in str(p).replace("\\", "/"))
         data = json.loads(chrome.read_text())
         check(data["name"] == native_host.HOST_NAME and data["type"] == "stdio" and data["path"] == str(launcher)
-              and data["allowed_origins"] == [CHROME], f"{system}: Chrome's manifest allows only our extension")
+              and data["allowed_origins"] == [f"chrome-extension://{i}/" for i in native_host.CHROME_EXTENSION_IDS],
+              f"{system}: Chrome's manifest allows only our extension")
         check(json.loads(firefox.read_text())["allowed_extensions"] == list(native_host.FIREFOX_EXTENSION_IDS),
               f"{system}: Firefox's lists our extension id")
         native_host.remove_manifests(home=home, system=system)
