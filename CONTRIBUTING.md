@@ -43,6 +43,7 @@ first failure. All tests use temporary vaults and **fake** credentials.
 | `.venv\Scripts\python.exe tests\test_teams.py` | Desktop side of team sharing against a local server, when present |
 | `.venv\Scripts\python.exe tests\test_gui.py` | The real app window, tray, approvals and MCP over HTTP, with a separate test vault. Saves screenshots. Needs a desktop session (Windows, or Linux with an X display: `xvfb-run` works). |
 | `.venv\Scripts\python.exe tests\test_browser.py` | The browser extension in a real Microsoft Edge (or Chrome for Testing), with its native host and the app, against local test sites. Saves screenshots. Skips without a supported browser. |
+| `.venv\Scripts\python.exe tests\test_extension_build.py` | The extension's packages for the browser stores (`tools/build_extension.py`): each store's manifest, nothing for development inside, the same bytes every time |
 | `.venv\Scripts\python.exe tests\test_ssh.py` | SSH against a local test server |
 | `.venv\Scripts\python.exe tests\test_exposure.py` | Exposure scanning against a fake user profile (needs `git`) |
 | `python server/tests/test_server.py` | Team server API (any OS) |

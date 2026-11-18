@@ -109,6 +109,11 @@ also kept out of the clipboard history and the cloud clipboard.
 The extension sends **nothing to the SecretBroker project, to its developers or to any third party**. It contains
 no analytics and loads no code from the internet.
 
+The extension's use of the data it handles complies with the Chrome Web Store User Data Policy, including its
+Limited Use requirements, and with the equivalent policies of Microsoft Edge Add-ons and addons.mozilla.org: the
+data is used only to fill in and save your logins, is not transferred to anyone, is never used for advertising or
+to judge creditworthiness, and no person reads it.
+
 ### What it keeps in the browser
 
 - A random key that identifies this browser to your app (created when you connect the browser; "Disconnect" in the
