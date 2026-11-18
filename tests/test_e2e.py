@@ -1326,6 +1326,9 @@ def main():
     print("The installer's language")
     check_installer_language()
 
+    print("Appearance preferences")
+    check_appearance()
+
     print("Following the Windows session (Win+L simulated)")
     from secretbroker import resident
     session_token = call("enable_session_unlock", {}, "hello")["token"]
@@ -1454,6 +1457,59 @@ def check_installer_language():
         integrations.PREFS_FILE.write_text("{broken", encoding="utf-8")
         check(not integrations.adopt_language(other) and integrations.PREFS_FILE.read_text(encoding="utf-8") == "{broken",
               "an unreadable preferences file is left alone")
+    finally:
+        integrations.PREFS_FILE.unlink(missing_ok=True)
+        integrations.PREFS_FILE = saved
+
+
+def check_appearance():
+    """Ajustes › Apariencia on the Python side: what set_pref stores, the colour the window starts in, and that the
+    palettes are the ones of the page (web/styles.css, web/appearance.js)."""
+    import re
+    from urllib.parse import parse_qs
+    from secretbroker import appearance, integrations
+    from secretbroker.app import Api
+    saved = integrations.PREFS_FILE
+    integrations.PREFS_FILE = HOME / "appearance-prefs.json"
+    try:
+        api = Api()
+        look = {"theme": "dark", "palette": "custom", "accent": "#12ab9f", "text_size": "xlarge", "density": "compact", "reduce_motion": True}
+        check(all(api.set_pref(key, value) for key, value in look.items()) and integrations.load_prefs() == look,
+              "theme, colour, text size, density and motion are saved")
+        refused = [("theme", "pink"), ("theme", ["dark"]), ("palette", "dark"), ("palette", {"grafito": 1}), ("accent", "red"),
+                   ("accent", "#12AB9"), ("accent", "#12ab9f;x"), ("accent", 7), ("text_size", "huge"), ("text_size", 2), ("density", None),
+                   ("reduce_motion", "yes"), ("auto_scan", "no"), ("scan_folders", [1]), ("scan_folders", "C:/"), ("language", "xx"),
+                   ("mcp_token", "x"), ("backup_folder", "C:/"), ("start_with_windows", True), (["theme"], "dark")]
+        check(not any(api.set_pref(key, value) for key, value in refused) and integrations.load_prefs() == look,
+              "values the app doesn't know, and keys that are not the page's to set, are never stored")
+        check(api.set_pref("auto_scan", False) and api.set_pref("scan_folders", ["C:/proyectos"]) and api.set_pref("language", None)
+              and api.set_pref("language", "en"), "the other preferences of the page are still saved")
+
+        check(appearance.background(look, False) == "#161616" and appearance.background({"theme": "light", "palette": "cobalto"}, True) == "#fbfbfc"
+              and appearance.background({"palette": "terracota"}, True) == "#191715" and appearance.background({"palette": "terracota"}, False) == "#fcfbf9",
+              "the window starts in the background of the chosen theme and palette")
+        check(appearance.background({}, False) == "#fbfbfb" and appearance.background({}, True) == "#161616"
+              and appearance.background({}, None) == "#161616" and appearance.background({"theme": 7, "palette": "dark"}, False) == "#fbfbfb",
+              "with «Sistema» it follows the system (dark when it doesn't say), and an unknown value is the default")
+        check(platform.prefers_dark() in (True, False, None), "the system says whether it is dark, or doesn't")
+        told = parse_qs(appearance.fragment({**integrations.load_prefs(), "mcp_token": "secret", "text_size": "huge"}))
+        check(told == {"theme": ["dark"], "palette": ["custom"], "accent": ["#12ab9f"], "density": ["compact"], "reduce_motion": ["1"]},
+              f"the page is told the look in its address, and nothing else ({told})")
+
+        web = Path(__file__).resolve().parents[1] / "secretbroker" / "web"
+        css = (web / "styles.css").read_text(encoding="utf-8")
+
+        def page_background(selector):
+            found = re.search(re.escape(selector) + r"\s*\{[^}]*?--bg:\s*(#[0-9a-f]{6})", css)
+            return found.group(1) if found else None
+
+        page = {"grafito": (page_background(":root"), page_background(':root[data-scheme="dark"]'))}
+        for name in re.findall(r'^:root\[data-palette="(\w+)"\]', css, re.M):
+            page[name] = (page_background(f':root[data-palette="{name}"]'), page_background(f':root[data-scheme="dark"][data-palette="{name}"]'))
+        check({**page, "custom": page["grafito"]} == appearance.PALETTES,
+              "every palette of the page is known here with the page's own background, light and dark")
+        offered = re.findall(r"^\s+\['(\w+)', '#[0-9a-f]{6}', '#[0-9a-f]{6}'\],$", (web / "appearance.js").read_text(encoding="utf-8"), re.M)
+        check(sorted(offered + ["custom"]) == sorted(appearance.PALETTES), f"and the picker offers the same ones ({offered})")
     finally:
         integrations.PREFS_FILE.unlink(missing_ok=True)
         integrations.PREFS_FILE = saved

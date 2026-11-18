@@ -325,6 +325,7 @@ def main():
     app = desktop.start(["-m", "secretbroker.app"], ROOT, env)
     try:
         run(app, env, devtools, api_port, client, integrations)
+        appearance_restart_flow(env, devtools, integrations)
     finally:
         if app.poll() is None:
             desktop.stop_tree(app)
@@ -335,6 +336,29 @@ def main():
         team_server.should_exit = True
     print(f"\n{'ALL PASSED' if not failures else f'{failures} FAILED'}  (screenshots: {SHOTS})")
     sys.exit(1 if failures else 0)
+
+
+def appearance_restart_flow(env, devtools, integrations):
+    """A fresh app process starts with the preferences saved on disk, including on the locked screen."""
+    print("Appearance after restarting the app")
+    wanted = {"theme": "dark", "palette": "custom", "accent": "#ffc53d", "text_size": "xlarge",
+              "density": "compact", "reduce_motion": True}
+    for key, value in {**wanted, "language": "es"}.items():
+        integrations.set_pref(key, value)
+    restarted = desktop.start(["-m", "secretbroker.app"], ROOT, env)
+    try:
+        page = Page(devtools)
+        check(wait_for(lambda: page.js("typeof APPEARANCE !== 'undefined' && APPEARANCE.current.theme === 'dark'"
+                                       " && document.documentElement.dataset.motion === 'reduce'"), 30),
+              "a fresh process applies the saved look")
+        check(page.js("APPEARANCE.current") == wanted,
+              "theme, custom colour, text size, density and motion survive a full restart")
+        check(page.js("new URLSearchParams(location.hash.slice(1)).get('accent')") == wanted["accent"],
+              "the fresh page receives its saved colour before boot")
+        calm_shot(page, "04-appearance-restarted")
+    finally:
+        if restarted.poll() is None:
+            desktop.stop_tree(restarted)
 
 
 def foreign_page_flow(page):
@@ -444,6 +468,7 @@ def run(app, env, devtools, api_port, client, integrations):
           "settings show backups")
     check("Importar de otro gestor" in page.text() and "Exportar" in page.text(), "settings offer import and export")
     shell_checks(page)
+    appearance_flow(page)
     browser_flow(page, client)
     friction_flow(page, client)
 
@@ -1410,6 +1435,163 @@ def shell_checks(page):
           != page.js("getComputedStyle(document.body).color"), "the current view is marked in the interactive colour, not the text colour")
     page.send("Emulation.setEmulatedMedia", features=[])
     wait_for(lambda: page.js("!document.querySelector('#modal-root > *')"), 3)
+
+
+def appearance_flow(page):
+    """Ajustes › Apariencia: theme, colour (the palettes and «Personalizado»), text size, density and motion. Each is
+    applied at once, saved with the preferences, there again after a reload, and legible whatever colour is picked."""
+    print("Appearance")
+    look = lambda: json.loads(page.js("JSON.stringify(document.documentElement.dataset)"))
+    token = lambda name: page.js(f"getComputedStyle(document.documentElement).getPropertyValue({json.dumps(name)}).trim()")
+    ratio = lambda a, b: page.js(f"contrast({json.dumps(a)}, {json.dumps(b)})")
+    prefs = lambda: page.js("api().info().then((info) => info.prefs)")
+    media = lambda **features: page.send("Emulation.setEmulatedMedia", features=[
+        {"name": name.replace("_", "-"), "value": value} for name, value in features.items()])
+    group = ".settings-group.appearance"
+    choose = lambda label: page.click(label, f"{group} .segmented button")
+    row_height = lambda: page.js("document.querySelector('.list .row').getBoundingClientRect().height")
+
+    def settings():
+        page.js("state.view = 'settings'; renderMain()")
+        ok = wait_for(lambda: page.js(f"!!document.querySelector('{group} .swatches')"), 10)
+        page.js(f"document.querySelector('{group}').scrollIntoView({{ block: 'start' }})")
+        return ok
+
+    check(settings() and page.js(f"[...document.querySelectorAll('{group} .setting h3')].map((h) => h.innerText)")
+          == ["Idioma", "Tema", "Color", "Tamaño del texto", "Densidad", "Reducir animaciones"],
+          "Apariencia: language, theme, colour, text size, density and motion")
+    check(look().get("theme") == "system" and page.js(f"document.querySelector('{group} .segmented button.active').innerText.trim()") == "Sistema",
+          "the theme starts as «Sistema»")
+
+    print("Theme")
+    media(prefers_color_scheme="dark")
+    check(wait_for(lambda: look()["scheme"] == "dark", 5) and token("--bg") == "#161616", "«Sistema» follows the system to dark")
+    media(prefers_color_scheme="light")
+    check(wait_for(lambda: look()["scheme"] == "light", 5) and token("--bg") == "#fbfbfb", "and back to light, while the app is open")
+    media(prefers_color_scheme="dark")
+    check(choose("Claro") and look()["theme"] == "light" and look()["scheme"] == "light" and token("--bg") == "#fbfbfb"
+          and page.js("getComputedStyle(document.body).backgroundColor") == "rgb(251, 251, 251)"
+          and page.js("getComputedStyle(document.documentElement).colorScheme") == "light",
+          "«Claro» is light even when the system is dark")
+    check(wait_for(lambda: prefs().get("theme") == "light", 5), "and it is saved")
+    calm_shot(page, "04-appearance-light")
+    media(prefers_color_scheme="light")
+    check(choose("Oscuro") and look()["scheme"] == "dark" and token("--bg") == "#161616" and token("--text") == "#ececec"
+          and page.js("getComputedStyle(document.documentElement).colorScheme") == "dark",
+          "«Oscuro» is dark even when the system is light")
+    calm_shot(page, "04-appearance-dark")
+
+    print("Colour")
+    names = page.js(f"[...document.querySelectorAll('{group} .swatch .swatch-name')].map((n) => n.innerText.trim())")
+    check(names == ["Grafito", "Cobalto", "Violeta", "Frambuesa", "Terracota", "Oliva", "Salvia", "Personalizado"],
+          f"a swatch per palette, with its name, and «Personalizado» ({names})")
+    page.click("Cobalto", f"{group} .swatch")
+    check(wait_for(lambda: look()["palette"] == "cobalto", 5) and token("--accent") == "#5b9bf0"
+          and page.js(f"document.querySelector('{group} .swatch.active').innerText.trim()") == "Cobalto",
+          "picking a palette applies it at once")
+    check(ratio(token("--accent-text"), token("--accent")) >= 4.5, "the accent button's label passes AA on it")
+    # Every palette in both themes: text, muted and faint text and links on the page, and the label on the accent button.
+    weak = page.js("""(() => { const weak = []; const saved = { ...APPEARANCE.current };
+      const value = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      for (const [palette] of APPEARANCE.palettes) for (const theme of ['light', 'dark']) {
+        applyAppearance({ ...saved, palette, theme });
+        for (const [fore, back] of [['--text', '--bg'], ['--muted', '--bg'], ['--faint', '--bg'], ['--faint', '--bg-subtle'], ['--interactive', '--bg'],
+          ['--interactive', '--elevated'], ['--danger', '--bg'], ['--warning', '--bg'], ['--ok', '--bg'], ['--accent-text', '--accent'], ['--on-danger', '--danger']]) {
+          const ratio = contrast(value(fore), value(back));
+          if (ratio < 4.5) weak.push(`${palette} ${theme} ${fore} on ${back}: ${ratio.toFixed(2)}`);
+        }
+      }
+      applyAppearance(saved); return weak; })()""")
+    check(weak == [], f"every palette passes AA in both themes ({weak})")
+    from secretbroker import appearance
+    page_backgrounds = page.js("""(() => { const out = {}; const saved = { ...APPEARANCE.current };
+      for (const palette of [...APPEARANCE.palettes.map(([id]) => id), 'custom']) {
+        out[palette] = ['light', 'dark'].map((theme) => { applyAppearance({ ...saved, palette, theme });
+          return getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(); });
+      }
+      applyAppearance(saved); return out; })()""")
+    check({name: tuple(pair) for name, pair in page_backgrounds.items()} == appearance.PALETTES,
+          "the window starts in the same background colour the page has, for every palette")
+
+    page.click("Personalizado", f"{group} .swatch")
+    check(wait_for(lambda: look()["palette"] == "custom"
+                   and page.js(f"!document.querySelector('{group} .custom-color').classList.contains('hidden')"), 5),
+          "«Personalizado» shows its colour field")
+    page.js(f"(() => {{ const hex = document.querySelector('{group} .color-hex'); hex.value = 'fe0'; hex.dispatchEvent(new Event('input', {{ bubbles: true }})); }})()")
+    check(wait_for(lambda: prefs().get("accent") == "#ffee00", 5) and token("--accent") != "", "a typed colour (even «fe0») is taken and saved")
+    check(ratio(token("--accent-text"), token("--accent")) >= 4.5 and ratio(token("--interactive"), token("--bg")) >= 4.5
+          and ratio(token("--interactive"), token("--elevated")) >= 4.5, "yellow in the dark theme: label and links pass AA")
+    calm_shot(page, "04-appearance-custom")
+    choose("Claro")
+    check(ratio(token("--accent-text"), token("--accent")) >= 4.5 and ratio(token("--interactive"), token("--bg")) >= 4.5
+          and ratio(token("--interactive"), "#ffee00") > 3,
+          "yellow in the light theme: the label is dark and links are darkened until they read")
+    check("oscurecido o aclarado" in page.js(f"document.querySelector('{group} .custom-color .help').innerText"), "and the app says it adjusted it")
+    page.js(f"(() => {{ const hex = document.querySelector('{group} .color-hex'); hex.value = 'zzz'; hex.dispatchEvent(new Event('input', {{ bubbles: true }})); }})()")
+    check(page.js("APPEARANCE.current.accent") == "#ffee00", "what is not a colour is ignored")
+    worst = page.js("""(() => { let worst = 99; const surfaces = { light: ['#fbfbfb', '#f4f4f4', '#ffffff'], dark: ['#161616', '#1b1b1b', '#202020'] };
+      for (const hex of ['#ffffff', '#000000', '#ffff00', '#00ff00', '#0000ff', '#ff0000', '#ff00ff', '#808080', '#fff59d', '#101010', '#c0ffee'])
+        for (const scheme of ['light', 'dark']) { const tokens = customTokens(hex, scheme);
+          worst = Math.min(worst, contrast(tokens['--accent-text'], tokens['--accent']), contrast(tokens['--accent-text'], tokens['--accent-hover']),
+            ...surfaces[scheme].map((s) => contrast(tokens['--interactive'], s))); }
+      return worst; })()""")
+    check(worst >= 4.5, f"any colour, white and black included, stays legible in both themes (worst {worst:.2f}:1)")
+    check(page.js("api().set_pref('accent', 'red')") is False and page.js("api().set_pref('palette', 'nope')") is False
+          and page.js("api().set_pref('text_size', 'huge')") is False and page.js("api().set_pref('mcp_token', 'x')") is False
+          and prefs().get("accent") == "#ffee00", "the app stores only values it knows")
+
+    print("Text size, density and motion")
+    page.js("state.view = 'credentials'; renderMain()")
+    wait_for(lambda: page.js("!!document.querySelector('.list .row')"), 10)
+    normal = row_height()
+    settings()
+    check(choose("Muy grande") and look()["textSize"] == "xlarge" and page.js("getComputedStyle(document.documentElement).zoom") == "1.25",
+          "«Muy grande» scales the whole interface")
+    page.js("state.view = 'credentials'; renderMain()")
+    wait_for(lambda: page.js("!!document.querySelector('.list .row')"), 10)
+    check(abs(row_height() - normal * 1.25) < 1.5, f"a list row is a quarter taller ({normal} -> {row_height()})")
+    fits = page.js("""(() => { const content = document.querySelector('.content'); const layout = document.querySelector('.layout').getBoundingClientRect();
+      return content.scrollWidth <= content.clientWidth + 1 && Math.round(layout.right) <= innerWidth && Math.round(layout.bottom) <= innerHeight; })()""")
+    check(fits, "and nothing is cut off at that size")
+    settings()
+    check(choose("Pequeño") and page.js("getComputedStyle(document.documentElement).zoom") == "0.9", "«Pequeño» makes it smaller")
+    choose("Normal")
+    check(choose("Compacta") and look()["density"] == "compact", "«Compacta»")
+    page.js("state.view = 'credentials'; renderMain()")
+    wait_for(lambda: page.js("!!document.querySelector('.list .row')"), 10)
+    check(row_height() <= normal - 8, f"rows are tighter ({normal} -> {row_height()})")
+    calm_shot(page, "02-credentials-compact")
+    settings()
+    duration = lambda: page.js("parseFloat(getComputedStyle(document.querySelector('.btn')).transitionDuration)")
+    check(duration() > 0.05, "buttons ease between states")
+    page.js(f"document.querySelector('{group} input.switch').click()")
+    check(wait_for(lambda: look().get("motion") == "reduce", 5) and duration() < 0.001, "«Reducir animaciones» stops transitions")
+    page.js(f"document.querySelector('{group} input.switch').click()")
+    check(wait_for(lambda: "motion" not in look(), 5) and duration() > 0.05, "and they are back without it")
+    media(prefers_reduced_motion="reduce")
+    check(wait_for(lambda: duration() < 0.001, 5), "the system's own «reduce motion» is respected too")
+    media()
+    page.js(f"document.querySelector('{group} input.switch').click()")
+
+    print("Kept")
+    wanted = {"theme": "light", "palette": "custom", "accent": "#ffee00", "text_size": "normal", "density": "compact", "reduce_motion": True}
+    check(wait_for(lambda: {key: prefs().get(key) for key in wanted} == wanted, 5), "every choice is in the preferences")
+    before = look()
+    page.js("location.reload()")
+    time.sleep(1)
+    check(wait_for(lambda: page.js("typeof state !== 'undefined' && state.screen === 'main' && !!document.querySelector('.nav')"), 30)
+          and look() == before and token("--accent") != "#171717", f"after reloading the page the look is the same ({look()})")
+    page.js("state.view = 'settings'; renderMain()")
+    check(settings() and page.js(f"[...document.querySelectorAll('{group} .segmented button.active')].map((b) => b.innerText.trim())") == ["Claro", "Normal", "Compacta"]
+          and page.js(f"document.querySelector('{group} .swatch.active').innerText.trim()") == "Personalizado"
+          and page.js(f"document.querySelector('{group} input.switch').checked"), "and Ajustes shows the choices")
+
+    # Back to how the app starts, for the steps that follow.
+    page.js("""Promise.all([['theme', 'system'], ['palette', 'grafito'], ['text_size', 'normal'], ['density', 'comfortable'], ['reduce_motion', false]]
+      .map(([key, value]) => setAppearance(key, value)))""")
+    check(wait_for(lambda: prefs().get("theme") == "system" and prefs().get("palette") == "grafito" and prefs().get("reduce_motion") is False, 5)
+          and look()["palette"] == "grafito" and "motion" not in look(), "the defaults again")
+    page.js("state.view = 'credentials'; renderMain()")
 
 
 def browser_flow(page, client):

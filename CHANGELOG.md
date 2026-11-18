@@ -4,6 +4,8 @@ What changed for people who use SecretBroker. The commit history has the details
 
 ## Unreleased
 
+## 0.20.0 (2026-11-18)
+
 - **Not only keys: cards, notes, documents, Wi-Fi, bank accounts and licenses.** Six new kinds of item for everyday
   things: «Tarjeta de pago», «Nota segura», «Documento de identidad», «Red Wi-Fi», «Cuenta bancaria» and «Licencia de
   software». They are kept, tagged, searched, backed up, exported and shared with your team like everything else, and
@@ -18,6 +20,17 @@ What changed for people who use SecretBroker. The commit history has the details
 - **Importing brings your notes, cards and identities.** Secure notes, cards and identities of a Bitwarden export (and
   the notes and cards of a CSV) become notes, cards and identity documents instead of being skipped or turned into
   generic secrets; what has no place of its own goes to their private notes. The CSV export keeps everything they say.
+- **The app looks the way you like.** *Ajustes › Apariencia* now has a theme («Sistema», which follows your system as it
+  changes, «Claro» or «Oscuro»), seven colours (Grafito, Cobalto, Violeta, Frambuesa, Terracota, Oliva and Salvia) and
+  «Personalizado»: pick any colour and the app adapts it, so buttons, links and what is selected stay readable in the
+  light theme and in the dark one. Four text sizes make the whole interface smaller or larger, «Compacta» fits more
+  rows on screen, and «Reducir animaciones» stops transitions (if your system already reduces them, so does the app). Each
+  choice applies at once and is remembered; the app opens already looking that way, the lock and welcome screens
+  included.
+- **Sharper to use.** Buttons, rows and tabs answer a press, and a button that is off no longer lights up under the
+  pointer. Small grey text, status chips and the red button's label are easier to read in every colour and theme.
+  Icons have the same line weight at every size, every on/off setting is a switch, and with a large text size in a
+  small window nothing is cut off.
 
 ## 0.19.1 (2026-11-18)
 

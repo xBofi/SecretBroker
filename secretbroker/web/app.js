@@ -5892,9 +5892,20 @@ function showAppearance(key, value) {
   applyAppearance(state.info.prefs);
 }
 
-async function setAppearance(key, value) {
+// pywebview runs each call in its own thread: send saves in order so an earlier colour or theme cannot finish last.
+// A failed write is reported, and the next choice can still be saved.
+let appearanceSaves = Promise.resolve();
+function saveAppearance(key, value) {
+  appearanceSaves = appearanceSaves.then(() => api().set_pref(key, value)).catch((error) => {
+    toast(error.message || String(error), 'error');
+    return false;
+  });
+  return appearanceSaves;
+}
+
+function setAppearance(key, value) {
   showAppearance(key, value);
-  await api().set_pref(key, value);
+  return saveAppearance(key, value);
 }
 
 // A few exclusive choices side by side; `options`: [value, label, icon name]. The arrow keys move between them.
@@ -5944,7 +5955,7 @@ function palettePicker() {
   const choose = (color, save) => {
     showAppearance('accent', color);
     draw();
-    if (save) api().set_pref('accent', color);
+    if (save) saveAppearance('accent', color);
   };
   well.addEventListener('input', () => choose(well.value, false));
   well.addEventListener('change', () => choose(well.value, true));
@@ -5959,7 +5970,7 @@ function palettePicker() {
       const on = look.palette === id;
       return el('button', { type: 'button', role: 'radio', class: `swatch ${on ? 'active' : ''} ${id === 'custom' ? 'is-custom' : ''}`,
         'aria-checked': String(on), tabindex: on ? '0' : '-1', 'data-palette': id, style: `--swatch-light:${light};--swatch-dark:${dark}`,
-        onclick: () => { if (!on) setAppearance('palette', id).then(() => { draw(); swatches.querySelector('.swatch.active')?.focus(); }); },
+        onclick: () => { if (on) return; setAppearance('palette', id); draw(); swatches.querySelector('.swatch.active')?.focus(); },
       }, el('span', { class: 'swatch-dot' }, on ? icon('check', 'sm') : null), el('span', { class: 'swatch-name' }, PALETTE_NAMES[id]));
     });
     swatches.replaceChildren(buttons);
@@ -6003,7 +6014,7 @@ function appearanceGroup() {
   const look = APPEARANCE.current;
   const palettes = palettePicker();
   const theme = choiceGroup(t('settings.theme'), [['system', t('settings.theme_system'), 'monitor'], ['light', t('settings.theme_light'), 'sun'],
-    ['dark', t('settings.theme_dark'), 'moon']], look.theme, (value) => setAppearance('theme', value).then(palettes.draw));
+    ['dark', t('settings.theme_dark'), 'moon']], look.theme, (value) => { setAppearance('theme', value); palettes.draw(); });
   const size = choiceGroup(t('settings.text_size'), [['small', t('settings.text_size_small')], ['normal', t('settings.text_size_normal')],
     ['large', t('settings.text_size_large')], ['xlarge', t('settings.text_size_xlarge')]], look.text_size, (value) => setAppearance('text_size', value));
   const density = choiceGroup(t('settings.density'), [['comfortable', t('settings.density_comfortable')], ['compact', t('settings.density_compact')]],

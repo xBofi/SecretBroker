@@ -82,6 +82,9 @@ jobs:
       - name: End-to-end tests
         run: $PY tests/test_e2e.py
 
+      - name: Appearance on launch and reload
+        run: node tests/test_appearance.js
+
       - name: Personal tests
         run: $PY tests/test_personal.py
 

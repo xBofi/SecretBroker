@@ -6,10 +6,21 @@
                      segmented controls and tags, checkboxes and radios, the current view. In Grafito a
                      desaturated blue, so it never reads as plain text; in the other palettes, its hue.
       --warning      needs attention soon (badges and banners); --danger: broken, exposed, denied,
-                     destructive. A list badge and the banner in the detail use the same one.
+                     destructive (--on-danger: the label of a filled red button). A list badge and the
+                     banner in the detail use the same one.
       --ok           done / healthy. Category colours (--c-*) only on credential icons.
+    Seven palettes (Grafito, Cobalto, Violeta, Frambuesa, Terracota, Oliva, Salvia) and «Personalizado»,
+    whose accent and interactive colours appearance.js works out from the colour the user picked. A new
+    palette needs its light and dark blocks here, its swatch in appearance.js and its page background in
+    secretbroker/appearance.py (tests/test_e2e.py compares the three).
+  - Contrast (WCAG AA) holds in every palette and theme: 4.5:1 for --text, --muted, --faint and
+    --interactive on --bg, --bg-subtle and --elevated, for --accent-text on --accent, and for the status
+    colours on a surface and on their own soft background; 3:1 for a category icon on its tile.
   - Surfaces: --bg page, --bg-subtle sidebar, --fill controls, --elevated dialogs and toasts
     (lighter than the page in dark, with a 1px --modal-border), --scrim behind dialogs.
+  - What the user chooses in Ajustes › Apariencia arrives as attributes of the root element (appearance.js):
+    data-scheme (light | dark: the theme, or the system's with «Sistema»), data-palette, data-text-size
+    (--zoom scales everything), data-density (the --row-pad… tokens) and data-motion.
   - Type: 5 sizes (--fs-xs 12 / --fs-sm 13 / --fs-md 14 / --fs-lg 16 / --fs-xl 22) and 3 weights
     (--fw-regular 400 / --fw-medium 500 / --fw-semibold 600). Section headings are small muted labels,
     so the values under them win. Segoe UI Variable; Cascadia Mono only for hosts, commands and
@@ -979,6 +990,7 @@ label.with-icon { display: flex; }
 .choice-text { display: block; margin-top: 2px; line-height: 1.45; }
 .badge-soft { display: inline-block; margin-left: 8px; padding: 0 7px; border-radius: 999px; font-size: var(--fs-xs); font-weight: var(--fw-semibold);
   color: var(--interactive); background: var(--interactive-soft); vertical-align: 1px; }
+.choice.active .badge-soft { background: var(--bg); }  /* on the selected choice's own soft background it would lose contrast */
 
 /* ---------- the approval ---------- */
 .modal.approval { max-width: 560px; }

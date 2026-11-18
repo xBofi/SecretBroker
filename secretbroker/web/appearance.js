@@ -30,7 +30,7 @@ const APPEARANCE = {
   densities: ['comfortable', 'compact'],
   defaults: { theme: 'system', palette: 'grafito', accent: '#7a5af5', text_size: 'normal', density: 'comfortable', reduce_motion: false },
   current: null,
-  mirror: 'appearance',  // localStorage: this window's copy, for a reload
+  mirror: 'appearance',  // sessionStorage: this window's copy, for a reload (a new window trusts its address)
 };
 
 const DARK_SCHEME = window.matchMedia('(prefers-color-scheme: dark)');
@@ -72,7 +72,7 @@ function applyAppearance(raw) {
     if (custom[name]) root.style.setProperty(name, custom[name]);
     else root.style.removeProperty(name);
   }
-  try { localStorage.setItem(APPEARANCE.mirror, JSON.stringify(prefs)); } catch { /* a reload starts from the address */ }
+  try { sessionStorage.setItem(APPEARANCE.mirror, JSON.stringify(prefs)); } catch { /* a reload starts from the address */ }
   return prefs;
 }
 
@@ -188,7 +188,7 @@ function customTokens(hex, scheme) {
 
 (function startAppearance() {
   let known = null;
-  try { known = JSON.parse(localStorage.getItem(APPEARANCE.mirror)); } catch { /* the address, then */ }
+  try { known = JSON.parse(sessionStorage.getItem(APPEARANCE.mirror)); } catch { /* the address, then */ }
   if (!known) known = Object.fromEntries(new URLSearchParams(window.location.hash.slice(1)));
   applyAppearance(known);
 }());
