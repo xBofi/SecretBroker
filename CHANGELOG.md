@@ -2,6 +2,23 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
+## 0.19.1 (2026-11-18)
+
+- **The window no longer opens empty.** When SecretBroker had started with Windows (hidden next to the clock), the
+  first time you opened its window it could show only a dark background, nothing of the app, until you closed it
+  and opened it again. It now always shows the app.
+- **A copied password is always cleared from the clipboard.** Clearing it after 30 seconds asked Windows for the
+  clipboard once; if another program was using it at that very moment (a clipboard manager, Windows' own
+  clipboard history), the password stayed there. The app now keeps trying until it is cleared.
+- **Ubuntu 26.04, and Ubuntu without GNOME.** Installing the package no longer brings in a whole GNOME desktop on
+  systems that don't have one (Kubuntu, a server, Ubuntu 26.04 without it): the icon next to the clock is now
+  offered, not required. Nothing in the installation can wait forever any more. The package is checked on Ubuntu
+  22.04, 24.04 and 26.04.
+- **The browser extension is ready for the stores.** Its packages for the Chrome Web Store, Microsoft Edge
+  Add-ons and addons.mozilla.org are built from the same source (`tools/build_extension.py`), and
+  [docs/PRIVACY.md](docs/PRIVACY.md) says exactly what the app, the extension and the team server do with data.
+  Until it is published it is still loaded from the app's folder, as before.
+
 ## 0.19.0 (2026-11-18)
 
 - **Configuration that is not secret.** A new kind of credential, «Configuración (no secreta)», keeps IDs and settings

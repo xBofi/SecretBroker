@@ -12,7 +12,7 @@ Bóveda de credenciales para Windows, Ubuntu y macOS que permite a un agente de 
  Claude ── MCP: «usa 'github'» ─────▶  ─ ejecuta y censura la salida ◀── respuesta sin secretos
 ```
 
-> **Estado.** Funciona en **Windows 10/11** y **Ubuntu 22.04 / 24.04**. La versión para **macOS 12+** (Apple
+> **Estado.** Funciona en **Windows 10/11** y **Ubuntu 22.04 / 24.04 / 26.04**. La versión para **macOS 12+** (Apple
 > silicon e Intel) la compila e instala la integración continua, pero aún no se ha probado en un Mac real. La app, la
 > extensión del navegador y los mensajes del servicio están en **32 idiomas**: inglés, español, catalán, gallego,
 > euskera, alemán, francés, italiano, portugués, neerlandés, danés, sueco, noruego, finés, polaco, checo, eslovaco,
@@ -46,7 +46,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\build_installer.ps1
 
 El resultado es `dist\SecretBroker-Setup-<versión>.exe`, de unos 26 MB, con Python y todas las dependencias incluidos. El `.exe` no está firmado, así que Windows SmartScreen mostrará «Windows protegió su PC» (Más información → Ejecutar de todas formas). Para distribuirlo sin ese aviso hay que firmarlo con un certificado de firma de código.
 
-### Ubuntu (22.04 y 24.04)
+### Ubuntu (22.04, 24.04 y 26.04)
 
 Se instala con doble clic en `secretbroker_<versión>_amd64.deb` (el instalador de software pide la contraseña una vez). Va a `/opt/secretbroker` con su propio Python, crea el usuario de sistema `secretbroker`, guarda la bóveda de cada usuario en `/var/lib/secretbroker/<usuario>` (solo su servicio puede leerla) y arranca `secretbroker@<usuario>.service` con el equipo. Para generar el paquete, en Linux o WSL:
 

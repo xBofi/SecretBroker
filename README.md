@@ -17,7 +17,7 @@ working, and walks you through rotating it everywhere it is used.
  AI ── MCP: "use 'github'" ─────▶    - runs it and redacts output  ◀──   response without secrets
 ```
 
-> **Status.** SecretBroker Desktop runs on **Windows 10/11** and **Ubuntu 22.04 / 24.04**; the **macOS 12+** port
+> **Status.** SecretBroker Desktop runs on **Windows 10/11** and **Ubuntu 22.04 / 24.04 / 26.04**; the **macOS 12+** port
 > (Apple silicon and Intel) is built and installed by CI but not yet tried on real Macs (see
 > [docs/RELEASING.md](docs/RELEASING.md)). The app, the browser extension and the service's messages are in
 > **32 languages**: English, Spanish, Catalan, Galician, Basque, German, French, Italian, Portuguese, Dutch, Danish,
