@@ -134,8 +134,25 @@ def check_importers():
     check(hosting["fields"]["totp"].startswith("otpauth://totp/"), "a login's TOTP goes to its own 2FA field, not the notes")
     check(by_name["GitHub token"]["template"] == "api_key" and by_name["GitHub token"]["fields"]["base_url"] == "https://api.github.com",
           "an obvious API key (ghp_...) without user becomes a GitHub API key")
-    check(by_name["Códigos de recuperación"]["template"] == "generic", "a secure note becomes a secret")
-    check({s["reason"] for s in bw_skipped} == {"Las tarjetas no se importan", "No tiene contraseña"}, "cards and empty logins are skipped, with the reason")
+    note = by_name["Códigos de recuperación"]
+    check(note["template"] == "note" and note["fields"] == {"text": "fake-code-1111\nfake-code-2222\n"}, "a secure note becomes a secure note")
+    visa = by_name["Visa"]
+    check(visa["template"] == "card" and visa["fields"] == {"holder": "ANA EJEMPLO", "number": "4111111111111111", "cvv": "123",
+                                                             "brand": "Visa", "notes": "La de empresa\n"}
+          and visa["expires"] == "2031-08-31" and visa["tags"] == ["trabajo"],
+          "a card becomes a payment card: holder, number, CVV, brand, and its expiry as the entry's own date")
+    passport, licence = by_name["Ana (Pasaporte)"], by_name["Ana (Carné de conducir)"]
+    check(passport["template"] == "identity" and passport["fields"]["doc_type"] == "passport"
+          and passport["fields"]["number"] == "FAKE-PASS-0001" and passport["fields"]["full_name"] == "Ana Ejemplo"
+          and passport["fields"]["country"] == "ES", "an identity's passport becomes an identity document")
+    check(licence["fields"]["doc_type"] == "driving" and licence["fields"]["number"] == "FAKE-LIC-0002" and "notes" not in licence["fields"],
+          "and its driving licence another one")
+    check(all(text in passport["fields"]["notes"] for text in ("Calle Falsa 123, 28001, Madrid", "600000000", "ana@example.com", "Grupo sanguíneo: fake-0+")),
+          "the rest of what the identity says (address, phone, custom fields) is kept in the private notes")
+    bare = by_name["Tarjeta sin número"]
+    check(bare["template"] == "note" and "Mastercard" in bare["fields"]["text"], "a card without a number is kept as a note, not lost")
+    check({s["reason"] for s in bw_skipped} == {"No tiene contraseña"}, "only the empty login is skipped, with the reason")
+    check(not any(importers.is_dev(c) for c in (note, visa, passport)), "none of them is a development key")
     try:
         importers.parse(json.dumps({"encrypted": True, "items": []}))
         check(False, "an encrypted Bitwarden file is refused")
@@ -144,7 +161,18 @@ def check_importers():
 
     bwcsv = {c["name"]: c for c in parsed["bitwarden.csv"][0]}
     check(bwcsv["Correo"]["fields"]["username"] == "ana" and bwcsv["Correo"]["tags"] == ["personal"], "Bitwarden CSV login")
-    check(bwcsv["Nota segura"]["template"] == "generic" and bwcsv["Nota segura"]["fields"]["value"].startswith("fake secret note"), "Bitwarden CSV note")
+    check(bwcsv["Nota segura"]["template"] == "note" and bwcsv["Nota segura"]["fields"]["text"].startswith("fake secret note"), "Bitwarden CSV note")
+    typed = importers.parse('name,type,password,notes,cardholder,number,cvv,exp_month,exp_year,color\n'
+                            'Mastercard,card,,De viaje,ANA EJEMPLO,5555555555554444,321,3,29,roja\n'
+                            'Sin datos,card,,Solo esto,,,,,,\n'
+                            'Pasaporte viejo,identity,,,,,,,,azul\n', "auto")[1]
+    typed = {c["name"]: c for c in typed}
+    check(typed["Mastercard"]["template"] == "card" and typed["Mastercard"]["fields"]["number"] == "5555555555554444"
+          and typed["Mastercard"]["fields"]["cvv"] == "321" and typed["Mastercard"]["expires"] == "2029-03-31"
+          and "color: roja" in typed["Mastercard"]["fields"]["notes"] and "De viaje" in typed["Mastercard"]["fields"]["notes"],
+          "a CSV row of type card becomes a card, and columns nobody knows go to its private notes")
+    check(typed["Sin datos"]["template"] == "note" and typed["Pasaporte viejo"]["template"] == "note"
+          and "color: azul" in typed["Pasaporte viejo"]["fields"]["text"], "a card or an identity with no number to keep is a note")
     one = {c["name"]: c for c in parsed["onepassword.csv"][0]}
     check(one["Banco"]["template"] == "web_login" and one["Banco"]["tags"] == ["finanzas"] and "Llamar" in one["Banco"]["fields"]["notes"],
           "1Password CSV login with tag and notes")
@@ -198,6 +226,13 @@ def check_importers():
     check(planned[0]["status"] == "conflict" and "Tienda" in planned[0]["reason"], "same site and user with another password: conflict")
     preview = json.dumps([importers.preview(p) for p in planned])
     check("fake-" not in preview and "shop.example.com" in preview, "the preview has names and sites, never values")
+    other = {**visa, "name": "Otra Visa", "fields": {**visa["fields"], "number": "4000000000000002"}}
+    planned = importers.plan([visa, other, visa, note], [dict(note, id="codigos")])
+    check([p["status"] for p in planned] == ["new", "new", "duplicate", "duplicate"],
+          "two cards are two cards; the same card or note again is a duplicate (never «otra contraseña»)")
+    preview = json.dumps([importers.preview(p) for p in planned])
+    check("4111" not in preview and "4000" not in preview and "fake-code" not in preview and '"subtitle": "Visa"' in preview,
+          "a card's preview says its brand, never its number")
 
 
 def check_exports():
@@ -224,6 +259,26 @@ def check_exports():
     check(csv_text.splitlines()[0] == "name,url,username,password,note" and "fake-A-pass" in csv_text, "CSV in Chrome's columns")
     _, candidates, _ = importers.parse(csv_text)
     check(candidates[0]["fields"]["password"] == "fake-A-pass", "and SecretBroker reads its own CSV back")
+    personal = [{"id": "visa", "name": "Visa", "template": "card", "expires": "2031-08-31", "policy": {"approval": "always"},
+                 "fields": {"holder": "ANA EJEMPLO", "number": "4111111111111111", "cvv": "123", "brand": "Visa", "notes": "fake note\n"}},
+                {"id": "wifi", "name": "Casa", "template": "wifi", "policy": {"approval": "always"},
+                 "fields": {"ssid": "CasaEjemplo", "security": "wpa", "password": "fake-wifi-pass"}},
+                {"id": "nota", "name": "Códigos", "template": "note", "policy": {"approval": "always"}, "fields": {"text": "fake-code-1\nfake-code-2\n"}}]
+    import csv as csv_module
+    import io
+    rows = {row["name"]: row for row in csv_module.DictReader(io.StringIO(exports.build(personal, "csv")))}
+    check(rows["Visa"]["password"] == "4111111111111111" and all(line in rows["Visa"]["note"].splitlines() for line in (
+        "Titular de la tarjeta: ANA EJEMPLO", "Caducidad: 2031-08-31", "CVV: 123", "Banco o marca: Visa", "fake note")),
+          "CSV: a card's number is the password, and everything else it says is in the note")
+    check(rows["Casa"]["username"] == "CasaEjemplo" and rows["Casa"]["password"] == "fake-wifi-pass"
+          and rows["Casa"]["note"] == "Seguridad: WPA / WPA2 / WPA3", "CSV: a Wi-Fi's name and password")
+    check(rows["Códigos"]["password"] == "" and rows["Códigos"]["note"] == "fake-code-1\nfake-code-2", "CSV: a note is its text")
+    document = json.loads(exports.build(personal, "json"))
+    check([e["template"] for e in document["entries"]] == ["card", "wifi", "note"] and document["entries"][0]["expires"] == "2031-08-31"
+          and document["entries"][0]["fields"]["number"] == "4111111111111111", "the JSON export has them whole")
+    back = importers.parse(json.dumps(document))[1]
+    check([(c["template"], c["fields"], c.get("expires")) for c in back] == [(e["template"], e["fields"], e.get("expires")) for e in personal],
+          "and they come back the same from it")
 
 
 def check_service():
@@ -240,11 +295,15 @@ def check_service():
         params = {"content": fixture("bitwarden.json"), "source": "bitwarden.json"}
         expect_error(lambda: call("import_file", params), "proof_required", "importing needs the app that unlocked")
         preview = call("import_file", params, one_click)
-        check(preview["format"] == "bitwarden_json" and len(preview["items"]) == 3 and len(preview["skipped"]) == 2,
-              "preview: 3 to import, 2 skipped")
-        check("fake-" not in json.dumps(preview), "the preview has no values")
+        check(preview["format"] == "bitwarden_json" and len(preview["items"]) == 7 and len(preview["skipped"]) == 1,
+              "preview: 7 to import, 1 skipped")
+        check("fake-" not in json.dumps(preview).lower() and "4111" not in json.dumps(preview), "the preview has no values")
+        check({i["name"]: i["template"] for i in preview["items"]} == {
+            "Panel Hosting": "web_login", "GitHub token": "api_key", "Códigos de recuperación": "note", "Visa": "card",
+            "Ana (Pasaporte)": "identity", "Ana (Carné de conducir)": "identity", "Tarjeta sin número": "note"},
+              "the preview says what each one becomes: notes, cards and identities too")
         result = call("import_file", {**params, "selected": [i["key"] for i in preview["items"]]}, one_click)
-        check(len(result["created"]) == 3 and not result["failed"], "imported with one click")
+        check(len(result["created"]) == 7 and not result["failed"], "imported with one click")
         entries = {e["name"]: e for e in client.request("entries")}
         hosting = entries["Panel Hosting"]
         check("notes" in hosting["secrets_set"] and "notes" not in hosting["fields"] and "fake" not in json.dumps(hosting),
@@ -252,6 +311,17 @@ def check_service():
         check(hosting["policy"]["http"]["allowed_hosts"] == ["panel.example.com"], "AI permissions come from the template")
         listing = json.dumps(client.request("list_secrets"))
         check("fake-pin" not in listing and "otpauth" not in listing, "the AI never sees the private notes")
+        visa = entries["Visa"]
+        check(visa["template"] == "card" and visa["expires"] == "2031-08-31" and set(visa["secrets_set"]) == {"number", "cvv", "notes"}
+              and visa["fields"] == {"holder": "ANA EJEMPLO", "brand": "Visa"} and visa["policy"] == {"approval": "always"}
+              and not visa["description"] and not visa["secret_since"],
+              "the imported card: number and CVV hidden, no AI permissions, no note for the AI, no key age")
+        check(call("reveal", {"id": visa["id"], "field": "number"}, PROOF) == "4111111111111111"
+              and call("reveal", {"id": entries["Ana (Pasaporte)"]["id"], "field": "number"}, PROOF) == "FAKE-PASS-0001"
+              and call("reveal", {"id": entries["Códigos de recuperación"]["id"], "field": "text"}, PROOF).startswith("fake-code-1111"),
+              "and what they hide is shown to the user with a proof")
+        check(all(name not in listing for name in ("Visa", "ANA EJEMPLO", "Pasaporte", "Ana Ejemplo", "Códigos de recuperación")),
+              "the AI's list has no card, document or note: not even their names")
         again = call("import_file", params, one_click)
         check(all(i["status"] == "duplicate" and not i["selected"] for i in again["items"]), "importing the same file again: all duplicates, unselected")
 

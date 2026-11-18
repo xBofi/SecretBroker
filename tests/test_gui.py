@@ -431,6 +431,7 @@ def run(app, env, devtools, api_port, client, integrations):
     page.shot("02-credentials")
     foreign_page_flow(page)
     config_flow(page)
+    personal_flow(page)
 
     print("Screens")
     for view, expected, name in (("access", "Qué puede hacer la IA", "03-access"), ("settings", desktop.os_text("Abrir con mi sesión de Windows"), "04-settings"),
@@ -1071,6 +1072,23 @@ def dialog_shots(page, lang):
     label = page.js("fieldLabel('ssh', TEMPLATES.ssh.fields.find((f) => f.name === 'host'))")
     check(line == f"{label}: a.example → b.example" and (lang == "es" or "Servidor" not in line),
           f"a teammate's change is worded in {lang} ({line})")
+    # «Nueva»: the picker in two groups and a personal item's form (a payment card).
+    page.js("openEditor(null)")
+    check(wait_for(lambda: page.js("document.querySelectorAll('.modal .template-option').length") == 13, 10), f"the «new» picker in {lang}")
+    clipped |= set(page.js(CLIPPED) or [])
+    if lang == "en":
+        leaks = spanish_leaks(page)
+        check(not leaks, f"no Spanish in the picker ({leaks[:5]})")
+    calm_shot(page, f"{lang}-16-new-picker")
+    page.js("document.querySelector('.template-option[data-template=card]').click()")
+    check(wait_for(lambda: page.js("!!document.querySelector('.modal input[data-field=number]')"), 10), f"a payment card's form in {lang}")
+    clipped |= set(page.js(CLIPPED) or [])
+    if lang == "en":
+        leaks = spanish_leaks(page)
+        check(not leaks, f"no Spanish in a card's form ({leaks[:5]})")
+    calm_shot(page, f"{lang}-16-card-form")
+    page.js("document.querySelectorAll('.overlay').forEach((o) => o.dispatchEvent(new Event('dismiss')))")
+    wait_for(lambda: page.js("!document.querySelector('.modal')"), 5)
     clipped |= ai_edit_approval(page, lang)
     return clipped
 
@@ -1582,6 +1600,120 @@ def config_flow(page):
     gone = page.js(f"api().call('delete_entry', {{ id: 'entra-app' }}, {json.dumps(proof)})")
     check(gone and gone["ok"], "and it is deleted like any other")
     page.js("loadEntries().then(() => { state.selected = 'echo-api'; renderMain(); })")
+
+
+def confirm_if_asked(page, done, seconds=10):
+    """Wait for `done`; if the app asks who you are first (it depends on how the vault was opened), answer with the
+    master password."""
+    if wait_for(lambda: done() or "Confirma que eres tú" in page.text(), seconds) and not done():
+        type_proof(page, MASTER)
+    return wait_for(done, seconds)
+
+
+def personal_flow(page):
+    """Personal items, made like a person would: «Nueva», the picker in two groups, a payment card and a secure note.
+    In the list they say which one they are without showing what they hide; their detail and their form have
+    nothing about the AI, rotation, checks or copies. Screenshots of the picker (both themes, smallest window), the
+    card's form and detail, and the list."""
+    print("Personal items: a payment card and a secure note, from «Nueva»")
+    from datetime import date
+    year = date.today().year + 5  # a card that is not about to expire, whenever this runs
+    expiry = f"08/{year % 100:02d}"
+    page.js("state.view = 'credentials'; renderMain()")
+    page.click("Nueva")
+    check(wait_for(lambda: page.js("document.querySelectorAll('.template-picker .template-group').length") == 2, 5),
+          "«Nueva» opens the picker, in two groups")
+    groups = page.js("""[...document.querySelectorAll('.template-picker .template-group')].map((g) =>
+      [g.querySelector('h3').innerText.trim(), [...g.querySelectorAll('.template-option')].map((o) => o.dataset.template)])""")
+    check(groups == [["Para el día a día", ["web_login", "card", "note", "identity", "wifi", "bank", "license"]],
+                     ["Para desarrolladores", ["api_key", "ssh", "database", "aws", "config", "generic"]]],
+          f"what everyone keeps first, then what developers keep: {groups}")
+    calm_shot(page, "02-new-picker")
+    page.send("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": "light"}])
+    calm_shot(page, "02-new-picker-light")
+    page.send("Emulation.setDeviceMetricsOverride", width=880, height=600, deviceScaleFactor=1, mobile=False)
+    try:
+        page.settled()
+        sizes = page.js("(() => { const b = document.querySelector('.template-picker .modal-body'); return [b.scrollHeight, b.clientHeight]; })()")
+        print(f"  ...  the picker at 880x600: {sizes[0]} px of {sizes[1]} in sight{'' if sizes[0] <= sizes[1] else ' (it scrolls)'}")
+        calm_shot(page, "02-new-picker-small-light")
+        page.send("Emulation.setEmulatedMedia", features=[])
+        calm_shot(page, "02-new-picker-small")
+    finally:
+        page.send("Emulation.setEmulatedMedia", features=[])
+        page.send("Emulation.clearDeviceMetricsOverride")
+
+    page.click("Tarjeta de pago", ".template-option .title")
+    check(wait_for(lambda: "Titular de la tarjeta" in (page.js("(document.querySelector('.modal') || {}).innerText") or ""), 5),
+          "choosing «Tarjeta de pago» opens its form")
+    form = page.js("document.querySelector('.modal').innerText")
+    check(not any(text in form for text in ("Permisos de la IA", "Instrucciones para la IA", "Recordar rotarla", "Dónde se usa",
+                                            "Comprobar que funciona", "Nombre para la IA"))
+          and "Solo para ti: la IA no lo ve ni puede usarlo." in form and "PIN · opcional" in form and "CVV · opcional" not in form,
+          f"its form has the card's data and nothing about the AI, rotation or checks: {form[:300]!r}")
+    fill(page, "Nombre", "Visa personal", ".modal")
+    fill(page, "Titular de la tarjeta", "ANA EJEMPLO", ".modal")
+    fill(page, "Número de la tarjeta", "4111111111111111", ".modal")
+    fill(page, "Caducidad", f"13/{year % 100:02d}", ".modal")
+    fill(page, "CVV", "123", ".modal")
+    fill(page, "Banco o marca", "Banco Ejemplo", ".modal")
+    page.click("Guardar")
+    check(wait_for(lambda: "MM/AA" in (page.js("(document.querySelector('.modal .error-text') || {}).innerText") or ""), 5),
+          "a month that isn't one is not saved: the form says how to write it")
+    fill(page, "Caducidad", expiry, ".modal")
+    calm_shot(page, "02-card-form")
+    page.click("Guardar")
+    check(confirm_if_asked(page, lambda: page.js("!document.querySelector('.modal') && state.selected === 'visa-personal'")),
+          "the card is saved and selected")
+    stored = page.js("state.entries.find((e) => e.id === 'visa-personal')") or {}
+    check(stored.get("expires") == f"{year}-08-31" and sorted(stored.get("secrets_set") or []) == ["cvv", "number"]
+          and stored.get("fields") == {"holder": "ANA EJEMPLO", "brand": "Banco Ejemplo"} and stored.get("policy") == {"approval": "always"},
+          f"with its number and CVV hidden, its expiry as the entry's date, and no AI permissions: {stored.get('fields')} {stored.get('expires')}")
+    detail = page.js("document.querySelector('.detail').innerText")
+    check(expiry in detail and "Banco Ejemplo" in detail and "4111" not in detail and "Solo para ti: la IA no lo ve ni puede usarlo." in detail
+          and not any(text in detail for text in ("Qué puede hacer la IA", "La IA la conoce como", "Rotar", "Actividad reciente",
+                                                  "Sin buscar copias", "Instrucciones para la IA")),
+          f"its detail: the card's data, and nothing about the AI, rotation, checks or copies: {detail[:300]!r}")
+    calm_shot(page, "02-card-detail")
+    page.js("""[...document.querySelectorAll('.detail .prop')].find((p) => p.querySelector('.k').innerText.trim() === 'Número de la tarjeta')
+      .querySelector('.actions button').click()""")
+    check(confirm_if_asked(page, lambda: "4111 1111 1111 1111" in page.js("document.querySelector('.detail').innerText")),
+          "its number is shown in groups of four, as on the card")
+    page.send("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": "light"}])
+    calm_shot(page, "02-card-detail-light")
+    page.send("Emulation.setEmulatedMedia", features=[])
+    page.js("state.revealed = {}; renderMain()")
+
+    page.click("Nueva")
+    wait_for(lambda: page.js("!!document.querySelector('.template-picker')"), 5)
+    page.click("Nota segura", ".template-option .title")
+    check(wait_for(lambda: page.js("!!document.querySelector('.modal textarea[data-field=text]')"), 5), "choosing «Nota segura» opens its form")
+    fill(page, "Nombre", "Códigos de recuperación", ".modal")
+    page.js("""(() => { const area = document.querySelector('.modal textarea[data-field=text]');
+      area.value = 'fake-code-1111\\nfake-code-2222'; area.dispatchEvent(new Event('input')); })()""")
+    calm_shot(page, "02-note-form")
+    page.click("Guardar")
+    check(confirm_if_asked(page, lambda: page.js("!document.querySelector('.modal') && state.selected === 'codigos-de-recuperacion'")),
+          "the note is saved and selected")
+    rows = page.js("[...document.querySelectorAll('.list .row')].map((r) => r.innerText.replace(/\\n+/g, ' | '))")
+    check(f"Visa personal | Banco Ejemplo · {expiry}" in rows and "Códigos de recuperación | Nota segura" in rows
+          and "fake-code" not in " ".join(rows) and "4111" not in " ".join(rows),
+          f"in the list each says which one it is, and nothing it hides: {rows}")
+    check(page.js("[...document.querySelectorAll('.list .row .glyph')].map((g) => g.className).filter((c) => /card|note/.test(c)).length") == 2,
+          "each with its own icon")
+    calm_shot(page, "02-personal-list")
+    page.send("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": "light"}])
+    calm_shot(page, "02-personal-list-light")
+    page.send("Emulation.setEmulatedMedia", features=[])
+    listed = page.js("api().call('list_secrets', {})")
+    check(listed and listed["ok"] and not any(text in json.dumps(listed["result"]) for text in ("visa-personal", "Banco Ejemplo", "codigos-de-recuperacion")),
+          "and the AI's list has neither")
+    proof = {"kind": "master_password", "value": MASTER}
+    for entry_id in ("visa-personal", "codigos-de-recuperacion"):
+        gone = page.js(f"api().call('delete_entry', {{ id: {json.dumps(entry_id)} }}, {json.dumps(proof)})")
+        check(gone and gone["ok"], f"{entry_id} is deleted like any other")
+    page.js("loadEntries().then(() => { state.selected = 'echo-api'; renderMain(); })")
+    wait_for(lambda: page.js("!state.entries.some((e) => e.id === 'visa-personal') && state.selected === 'echo-api'"), 10)
 
 
 def list_flow(page, client):

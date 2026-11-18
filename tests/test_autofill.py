@@ -37,6 +37,7 @@ def check(condition, message):
 
 def _clipboard(read):
     import ctypes
+    import time
     from ctypes import wintypes
     user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
     user32.GetClipboardData.restype = wintypes.HANDLE
@@ -44,8 +45,13 @@ def _clipboard(read):
     kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
     kernel32.GlobalLock.restype = ctypes.c_void_p
     kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
-    if not user32.OpenClipboard(None):
-        return None
+    # Another program may have the clipboard open for a moment right after it changes (a clipboard manager,
+    # Windows' own history): wait for it, as the app does when it clears what it copied.
+    deadline = time.monotonic() + 3
+    while not user32.OpenClipboard(None):
+        if time.monotonic() >= deadline:
+            return None
+        time.sleep(0.05)
     try:
         return read(user32, kernel32, ctypes)
     finally:
@@ -259,6 +265,9 @@ def check_host():
         vault.put(entry("team-use", "Panel del equipo", "https://example.com", "equipo", "fake-pass-4",
                         shared={"org": "o1", "collection": "c1", "item": "i1", "permission": "use", "collection_name": "Ops"}))
         vault.put(entry("github-pages", "Pages", "https://alice.github.io", "alice", "fake-pass-5"))
+        # A personal item is never the browser's, whatever it is called or says.
+        vault.put({"id": "wifi-tienda", "name": "Wi-Fi de la tienda", "template": "wifi", "description": "",
+                   "fields": {"ssid": "shop.example.org", "password": "fake-wifi-pass"}, "policy": {"approval": "always"}})
 
         reply = Host("chrome-extension://abcdefghijklmnopabcdefghijklmnop/").ask("hello")
         check(not reply["ok"] and reply["code"] == "forbidden", f"another extension is refused [{reply.get('code')}]")
@@ -364,6 +373,10 @@ def check_host():
         check(reply["ok"] and [r["id"] for r in reply["result"]["results"]] == ["shop"]
               and reply["result"]["results"][0]["url"] == "https://shop.example.org", "finds by name, with its site to open")
         check("fake-pass" not in json.dumps(reply), "search gives no password")
+        reply = host.ask("search", {"query": "wi-fi"}, pair)
+        check(reply["ok"] and reply["result"]["results"] == [], "a personal item (a Wi-Fi, a card) is never offered")
+        reply = host.ask("fill", {"url": "https://shop.example.org", "id": "wifi-tienda"}, pair)
+        check(not reply["ok"] and reply["code"] == "not_found" and "fake-wifi" not in json.dumps(reply), "nor given, even asked for by its id")
 
         print("Saving what the user typed (after a click)")
         reply = host.ask("save_check", {"url": "https://example.com/login", "username": "ana@example.com", "password": "fake-pass-1"}, pair)
@@ -469,7 +482,8 @@ def check_registration():
         chrome = next(p for p in written if "google-chrome" in str(p) or "Google/Chrome" in str(p).replace("\\", "/"))
         data = json.loads(chrome.read_text())
         check(data["name"] == native_host.HOST_NAME and data["type"] == "stdio" and data["path"] == str(launcher)
-              and data["allowed_origins"] == [CHROME], f"{system}: Chrome's manifest allows only our extension")
+              and data["allowed_origins"] == [f"chrome-extension://{i}/" for i in native_host.CHROME_EXTENSION_IDS],
+              f"{system}: Chrome's manifest allows only our extension")
         check(json.loads(firefox.read_text())["allowed_extensions"] == list(native_host.FIREFOX_EXTENSION_IDS),
               f"{system}: Firefox's lists our extension id")
         native_host.remove_manifests(home=home, system=system)

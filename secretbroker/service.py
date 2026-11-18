@@ -619,6 +619,8 @@ class Service:
         live = self._live_grants()
         result = []
         for entry in self.vault.entries():
+            if templates.is_personal(entry["template"]):
+                continue  # whatever its policy says (a file, a teammate), the AI never uses it
             mode = (entry.get("policy") or {}).get("approval", "session")
             if mode == "never":
                 result.append({"secret_id": entry["id"], "name": entry.get("name", entry["id"]),
@@ -736,6 +738,11 @@ class Service:
             entry["policy"] = templates.default_policy(entry["template"], entry["fields"])
             for key in ("rotate_every_days", "check_every_hours", "test_request", "rotation_guide", "draft"):
                 entry.pop(key, None)
+        elif templates.is_personal(entry.get("template")):
+            # A personal item: nothing for the AI or for programs, so no permissions, rotation, checks or autofill.
+            entry["policy"] = templates.default_policy(entry["template"], entry["fields"])
+            for key in ("rotate_every_days", "check_every_hours", "test_request", "rotation_guide", "draft", "autofill"):
+                entry.pop(key, None)
         elif replaces and "rotation_guide" not in entry and old.get("rotation_guide"):
             entry["rotation_guide"] = old["rotation_guide"]  # written by the AI; the editor doesn't show it
         if replaces and old.get("team_rotate"):
@@ -763,10 +770,11 @@ class Service:
 
     def op_delete_entry(self, params):
         self._verify_proof("delete_entry", params)
-        self._require_team_write(self.vault.get(params["id"]))
+        entry = self.vault.get(params["id"])
+        self._require_team_write(entry)
         self.vault.delete(params["id"])
         self._entry_removed(params["id"])
-        self._audit(params["id"], "delete", "", "ok")
+        self._audit(params["id"], "delete", "", "ok", personal=templates.is_personal(entry["template"]))
         return True
 
     def _entry_removed(self, entry_id):
@@ -1316,8 +1324,8 @@ class Service:
         timestamp = exposure.now_iso()
         items = []
         for entry in self.vault.entries():
-            if templates.is_public(entry["template"]):
-                continue  # configuration, not a secret: finding it in a file is not an exposure
+            if templates.is_public(entry["template"]) or templates.is_personal(entry["template"]):
+                continue  # configuration, or a personal item: no key that could be found in a file or tested
             record = (data.get("entries") or {}).get(entry["id"])
             if record and record.get("fp") != exposure.secret_fingerprint(self.vault, entry):
                 record = None
@@ -1538,7 +1546,7 @@ class Service:
     # ------------------------------------------------------------------ agent
 
     def op_list_secrets(self, params):
-        return [agent_view(e) for e in self.vault.entries()]
+        return [agent_view(e) for e in self.vault.entries() if not templates.is_personal(e["template"])]
 
     def _run_action(self, action, params):
         entry = self._get_secret(params.get("secret_id"))
@@ -1564,7 +1572,7 @@ class Service:
 
     def _get_secret(self, secret_id):
         try:
-            entry = self.vault.get(secret_id)
+            entry = _for_ai(self.vault.get(secret_id))
         except KeyError:
             raise ServiceError(tr("service.secret_doesn_exist_use_list", secret_id=secret_id), "not_found") from None
         if entry.get("draft"):
@@ -1653,8 +1661,9 @@ class Service:
             params = {**params, "template": "api_key", "fields": fields, "description": description,
                       "name": params.get("name") or preset[0]}
         template = params.get("template")
-        if template not in templates.TEMPLATES:
-            raise ServiceError(tr("service.unknown_template_use_one", template=template, value=', '.join(templates.TEMPLATES)), "invalid")
+        if template not in templates.TEMPLATES or templates.is_personal(template):  # personal items: only the user, in the app
+            raise ServiceError(tr("service.unknown_template_use_one", template=template, value=', '.join(
+                t for t in templates.TEMPLATES if not templates.is_personal(t))), "invalid")
         name = str(params.get("name") or "").strip()
         entry_id = params.get("id") or SLUG_RE.sub("-", name.lower()).strip("-")[:64]
         if entry_id in {e["id"] for e in self.vault.entries()}:
@@ -1689,7 +1698,7 @@ class Service:
         """Change a credential's context or configuration. Name and notes change at once; anything that
         decides where its secret can go needs the user's OK in the app once it has a secret."""
         try:
-            entry = self.vault.get(params.get("secret_id"))
+            entry = _for_ai(self.vault.get(params.get("secret_id")))
         except KeyError:
             raise ServiceError(tr("service.secret_doesn_exist", get=params.get('secret_id')), "not_found") from None
         target = params.get("template")
@@ -1727,7 +1736,7 @@ class Service:
 
     def op_check_env(self, params):
         """`sb check`: is every credential a project's .secretbroker names ready? No values involved."""
-        entries = {e["id"]: e for e in self.vault.entries()}
+        entries = {e["id"]: e for e in self.vault.entries() if not templates.is_personal(e["template"])}
         result = []
         for item in params.get("vars") or []:
             entry = entries.get(item.get("secret_id"))
@@ -1854,20 +1863,24 @@ class Service:
         return {"check": result["check"], "uploads": [{k: v for k, v in u.items() if k != "token"} for u in result["uploads"]]}
 
     def op_ai_activity(self, params):
-        """What was done with the credentials (by the AI or the user): no values, only what and when."""
-        return self._activity(params.get("secret_id"), params.get("limit") or 50)
+        """What was done with the credentials (by the AI or the user): no values, only what and when. Nothing about
+        personal items: for the AI they were never there."""
+        return self._activity(params.get("secret_id"), params.get("limit") or 50, for_ai=True)
 
-    def _activity(self, secret_id, limit):
+    def _activity(self, secret_id, limit, for_ai=False):
         events = self.op_audit({"limit": 1000})
         if secret_id:
             events = [e for e in events if e.get("secret") == secret_id]
+        if for_ai:
+            personal = {e["id"] for e in self.vault.entries() if templates.is_personal(e["template"])}
+            events = [e for e in events if not e.get("personal") and e.get("secret") not in personal]
         return events[:min(int(limit), 200)]
 
     def op_ai_delete(self, params):
         """The AI proposes deleting a credential; the user always confirms (it can't be undone, except
         from a backup)."""
         try:
-            entry = self.vault.get(params.get("secret_id"))
+            entry = _for_ai(self.vault.get(params.get("secret_id")))
         except KeyError:
             raise ServiceError(tr("service.secret_doesn_exist", get=params.get('secret_id')), "not_found") from None
         self._require_team_write(entry)
@@ -1968,8 +1981,11 @@ class Service:
         for item in planned:
             if item["key"] in selected:
                 entry = copy.deepcopy(item["entry"])
-                entry.setdefault("description", f"Importada de {importers.FORMATS[fmt]}.")
-                entry.setdefault("policy", templates.default_policy(entry["template"], entry["fields"]))
+                if templates.is_personal(entry["template"]):  # no note for the AI, and no permissions, whatever the file says
+                    entry["policy"] = templates.default_policy(entry["template"], entry["fields"])
+                else:
+                    entry.setdefault("description", f"Importada de {importers.FORMATS[fmt]}.")
+                    entry.setdefault("policy", templates.default_policy(entry["template"], entry["fields"]))
                 batch.append(entry)
         created, failed = [], []
         for entry, (_, error) in zip(batch, self.vault.put_many(batch)):
@@ -2209,7 +2225,7 @@ class Service:
         what = params.get("what") or "login"
         if what not in ("login", "totp", "username", "password"):
             raise ServiceError(tr("service.what_fill_in_login_totp"), "invalid")
-        entry = self.vault.get(str(params.get("id") or ""))
+        entry = _for_ai(self.vault.get(str(params.get("id") or "")))
         if not autofill.match_entry(entry, target):
             self._audit(entry["id"], "browser_fill", target.label, "denied", "La página no es la de esta credencial")
             raise ServiceError(tr("service.this_credential_isn_for", label=target.label), "mismatch")
@@ -2658,7 +2674,8 @@ class Service:
     def _team_notices(self, notes):
         # Actividad shows who changed what: the name of whoever signed the change (2.6), not just "Equipo".
         for change in notes.get("changes", []):
-            self._audit(change["id"], change["action"], change.get("detail") or "", "ok", by=change.get("by"))
+            self._audit(change["id"], change["action"], change.get("detail") or "", "ok", by=change.get("by"),
+                        personal=change.get("personal"))
         for name in notes["quarantined"]:
             self._notify(tr("service.change_review_in", name=name), tr("service.teammate_changed_where_key_can"))
         for held in notes.get("held_deletions", []):
@@ -3046,8 +3063,9 @@ class Service:
 
     # ------------------------------------------------------------------ audit
 
-    def _audit(self, secret_id, action, detail, status, message="", by=None):
-        """`by`: for a team change, the name of the teammate who signed it."""
+    def _audit(self, secret_id, action, detail, status, message="", by=None, personal=None):
+        """`by`: for a team change, the name of the teammate who signed it. `personal`: about a personal item that is
+        no longer in the vault (while it is there, the event is marked by itself): the AI's activity leaves it out."""
         actor = "team" if action in TEAM_SYNC_EVENTS else getattr(_ACTOR, "value", None) or \
             ("team" if action.startswith("team_") else "system")
         event = {"ts": datetime.now().isoformat(timespec="seconds"), "secret": secret_id, "action": action,
@@ -3056,6 +3074,8 @@ class Service:
             event["message"] = message[:300]
         if by:
             event["by"] = str(by)[:100]
+        if personal or self._is_personal(secret_id):
+            event["personal"] = True
         client = getattr(_ACTOR, "client", None)
         if client:
             event["client"] = client["name"]
@@ -3072,6 +3092,12 @@ class Service:
             self.data_dir.mkdir(parents=True, exist_ok=True)
             with self.audit_file.open("a", encoding="utf-8") as log:
                 log.write(self._seal_audit_event(public_key, event) + "\n")
+
+    def _is_personal(self, secret_id):
+        try:
+            return templates.is_personal(self.vault.get(secret_id)["template"])
+        except (KeyError, VaultLocked):
+            return False
 
     @staticmethod
     def _seal_audit_event(public_key, event):
@@ -3106,6 +3132,14 @@ class Service:
 CHANGE_LABELS = {"name": "Nombre", "description": "Notas para la IA", "tags": "Etiquetas", "expires": "Caduca",
                  "rotate_every_days": "Rotar cada (días)", "rotation_guide": "Guía de rotación", "used_in": "Dónde se usa",
                  "check_every_hours": "Comprobar cada (horas)"}
+def _for_ai(entry):
+    """`entry`, unless it is a personal item (a card, a document, a note…): those don't exist for the AI, for `sb run`
+    or for the browser. KeyError, the same as an id that isn't in the vault, so nothing tells them apart."""
+    if templates.is_personal(entry["template"]):
+        raise KeyError(entry["id"])
+    return entry
+
+
 def _config_template(entry, field):
     """What `sb run` gives from a configuration entry: the field asked for, or its value, or else its ID; None if empty."""
     fields = entry["fields"]

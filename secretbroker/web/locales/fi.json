@@ -479,6 +479,7 @@
   "detail.expires_on": "Vanhenee {expires}",
   "detail.its_collection_no_longer_appears": "Sen kokoelma ei enää näy palvelimella. Täältä ei ole poistettu mitään: ",
   "detail.nothing_yet_edit_credential_and": "Ei vielä mitään. Muokkaa kohdetta ja avaa ”Tekoälyn oikeudet”.",
+  "detail.personal_private": "Vain sinulle: tekoäly ei näe sitä eikä voi käyttää sitä.",
   "detail.show": "Jotta voit näyttää kentän ”{label}” kohteesta {name}.",
   "direct_block.can": "Henkilön {name} käyttöoikeus",
   "direct_block.leave": "Lopeta vastaanottaminen",
@@ -531,9 +532,16 @@
   "draw_team.sync_now": "Synkronoi nyt",
   "draw_team.synced": "Synkronoitu",
   "editor.aws_placeholder": "Henkilökohtainen AWS",
+  "editor.bank_placeholder": "Päätili",
+  "editor.card_placeholder": "Henkilökohtainen Visa",
   "editor.config_placeholder": "Sovellukseni client ID",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "Oma passi",
+  "editor.license_placeholder": "Office-lisenssi",
+  "editor.note_placeholder": "Sähköpostin palautuskoodit",
+  "editor.personal_tags_placeholder": "koti, työ",
   "editor.tags_placeholder": "kauppa, tuotanto",
+  "editor.wifi_placeholder": "Kodin Wi-Fi",
   "empty_credentials.add_credential": "Lisää kohde",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge tai Firefox. Näet luettelon ennen tuontia.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf tai Codex yhdellä napsautuksella.",
@@ -983,6 +991,8 @@
   "offboarding_card.they_could_see_or_copy": "Hän pystyi näkemään tai kopioimaan sen. Vaihda se; jos et hallinnoi sitä, sen hallinnoija vaihtaa sen.",
   "offboarding_card.they_could_see_or_copy_2": "Hän pystyi näkemään tai kopioimaan ne. Vaihda ne yksi kerrallaan; ne, joita et hallinnoi, vaihtaa niiden hallinnoija.",
   "open_connect_ai.with_one_click_ai_will": "Yhdellä napsautuksella tekoäly voi käyttää avaimiasi SecretBrokerin kautta näkemättä niitä.",
+  "open_editor.developers": "Kehittäjille",
+  "open_editor.everyday": "Arkikäyttöön",
   "open_editor.new_credential": "Uusi kohde",
   "open_export.all_credentials_with_their_notes": "Kaikki kohteet muistiinpanoineen ja käyttöoikeuksineen tiedostossa, jota suojaa valitsemasi salasana (scrypt ja AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "CSV-tiedoston (nimi, sivusto, käyttäjätunnus, salasana, muistiinpano) osaavat lukea Bitwarden, 1Password, KeePassXC ja selaimet. Siihen tallentuu vain kunkin kohteen pääavain.",
@@ -1144,6 +1154,14 @@
   "reminder.expires_in": {
     "one": "Vanhenee {count} päivän kuluttua. Kierrätä se, ennen kuin se lakkaa toimimasta.",
     "other": "Vanhenee {count} päivän kuluttua. Kierrätä se, ennen kuin se lakkaa toimimasta."
+  },
+  "reminder.item_expired_ago": {
+    "one": "Vanheni {count} päivä sitten.",
+    "other": "Vanheni {count} päivää sitten."
+  },
+  "reminder.item_expires_in": {
+    "one": "Vanhenee {count} päivän kuluttua.",
+    "other": "Vanhenee {count} päivän kuluttua."
   },
   "reminder.key_age": {
     "one": "Avain on {count} päivän vanha. Se kannattaa kierrättää aina välillä.",
@@ -1710,6 +1728,7 @@
   "show_form.authorization": "Authorization",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "Se kuuluu tiimille ja käyttöoikeutesi on ”{value}”: täällä voit muuttaa vain sitä, milloin tekoäly pyytää hyväksyntääsi.",
+  "show_form.card_expiry_invalid": "Kirjoita voimassaoloaika muodossa KK/VV, esimerkiksi 08/27.",
   "show_form.change_type": "Vaihda tyyppi",
   "show_form.changed_while_you_were_editing": "Sitä muutettiin muokatessasi",
   "show_form.changes_saved": "Muutokset tallennettu",

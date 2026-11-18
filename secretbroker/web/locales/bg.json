@@ -479,6 +479,7 @@
   "detail.expires_on": "Изтича на {expires}",
   "detail.its_collection_no_longer_appears": "Колекцията му вече не се показва на сървъра. Тук нищо не е изтрито: ",
   "detail.nothing_yet_edit_credential_and": "Все още нищо. Редактирайте записа и отворете „Разрешения на ИИ“.",
+  "detail.personal_private": "Само за вас: ИИ не го вижда и не може да го използва.",
   "detail.show": "За показване на „{label}“ от {name}.",
   "direct_block.can": "Разрешение на {name}",
   "direct_block.leave": "Спиране на получаването",
@@ -531,9 +532,16 @@
   "draw_team.sync_now": "Синхронизиране сега",
   "draw_team.synced": "Синхронизирано",
   "editor.aws_placeholder": "Личен AWS",
+  "editor.bank_placeholder": "Основна сметка",
+  "editor.card_placeholder": "Лична Visa",
   "editor.config_placeholder": "Client ID на моето приложение",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "Моят паспорт",
+  "editor.license_placeholder": "Лиценз за Office",
+  "editor.note_placeholder": "Кодове за възстановяване на имейла",
+  "editor.personal_tags_placeholder": "дом, работа",
   "editor.tags_placeholder": "магазин, продукция",
+  "editor.wifi_placeholder": "Домашен Wi-Fi",
   "empty_credentials.add_credential": "Добавяне на запис",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge или Firefox. Виждате списъка преди импортирането.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf или Codex, с едно щракване.",
@@ -983,6 +991,8 @@
   "offboarding_card.they_could_see_or_copy": "Можел е да го види или копира. Сменете го; ако не го управлявате вие, ще го смени този, който го управлява.",
   "offboarding_card.they_could_see_or_copy_2": "Можел е да ги види или копира. Сменете ги един по един; тези, които не управлявате, се сменят от този, който ги управлява.",
   "open_connect_ai.with_one_click_ai_will": "С едно щракване ИИ ще може да използва ключовете ви чрез SecretBroker, без да ги вижда.",
+  "open_editor.developers": "За разработчици",
+  "open_editor.everyday": "За всеки ден",
   "open_editor.new_credential": "Нов запис",
   "open_export.all_credentials_with_their_notes": "Всички записи, с бележките и разрешенията им, във файл, защитен с парола по ваш избор (scrypt и AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "CSV файлът (име, уебсайт, потребителско име, парола, бележка) се чете от Bitwarden, 1Password, KeePassXC и браузърите. Пази само главния ключ на всеки запис.",
@@ -1144,6 +1154,14 @@
   "reminder.expires_in": {
     "one": "Изтича след {count} ден. Ротирайте го, преди да спре да работи.",
     "other": "Изтича след {count} дни. Ротирайте го, преди да спре да работи."
+  },
+  "reminder.item_expired_ago": {
+    "one": "Изтекъл е преди {count} ден.",
+    "other": "Изтекъл е преди {count} дни."
+  },
+  "reminder.item_expires_in": {
+    "one": "Изтича след {count} ден.",
+    "other": "Изтича след {count} дни."
   },
   "reminder.key_age": {
     "one": "Ключът е на {count} ден. Добре е да се ротира от време на време.",
@@ -1710,6 +1728,7 @@
   "show_form.authorization": "Упълномощаване",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "Принадлежи на екипа и разрешението ви е „{value}“: тук можете да промените само кога ИИ иска вашето одобрение.",
+  "show_form.card_expiry_invalid": "Въведете срока на валидност във формат ММ/ГГ, например 08/27.",
   "show_form.change_type": "Смяна на типа",
   "show_form.changed_while_you_were_editing": "Промени се, докато го редактирахте",
   "show_form.changes_saved": "Промените са запазени",

@@ -17,7 +17,7 @@ working, and walks you through rotating it everywhere it is used.
  AI ── MCP: "use 'github'" ─────▶    - runs it and redacts output  ◀──   response without secrets
 ```
 
-> **Status.** SecretBroker Desktop runs on **Windows 10/11** and **Ubuntu 22.04 / 24.04**; the **macOS 12+** port
+> **Status.** SecretBroker Desktop runs on **Windows 10/11** and **Ubuntu 22.04 / 24.04 / 26.04**; the **macOS 12+** port
 > (Apple silicon and Intel) is built and installed by CI but not yet tried on real Macs (see
 > [docs/RELEASING.md](docs/RELEASING.md)). The app, the browser extension and the service's messages are in
 > **32 languages**: English, Spanish, Catalan, Galician, Basque, German, French, Italian, Portuguese, Dutch, Danish,
@@ -84,8 +84,10 @@ Until the extension is published in the browser stores, it is loaded from the ap
 
 1. **Create your vault.** Pick a master password. Optionally enable Windows Hello (PIN, fingerprint, face) and
    "open with my Windows session" so you never type it again on this PC.
-2. **Add a credential** from a template (website, API key, SSH server, database, AWS, other secret). Known providers
-   (OpenAI, Anthropic, GitHub, Stripe, Cloudflare…) fill in the URL, auth header and environment variable for you.
+2. **Add a credential** from a template: everyday things (website, payment card, secure note, identity document,
+   Wi-Fi, bank account, software license) or what developers keep (API key, SSH server, database, AWS, configuration,
+   other secret). Known providers (OpenAI, Anthropic, GitHub, Stripe, Cloudflare…) fill in the URL, auth header and
+   environment variable for you.
 3. **Ask your AI to use it.** For example: _"List my open GitHub issues using the `github` credential."_ The first time,
    SecretBroker pops up and you approve with one click ("allow today" lasts 24 h by default).
 4. **Move a project's `.env` into the vault**: in the app, *Import a project's .env* (pick the file, tick its keys,
@@ -149,6 +151,11 @@ Until the extension is published in the browser stores, it is loaded from the ap
 - Shared credentials work with the AI broker, `sb run`, exposure checks and rotation exactly like personal ones.
 
 ### Everyday
+- Not only keys: payment cards, secure notes, identity documents, Wi-Fi networks, bank accounts and software licenses.
+  These personal items are yours alone: the AI never sees or uses them, `sb run` and the browser extension never get
+  them, and they are not scanned for or asked to be rotated. Cards and documents remind you before they expire.
+- Import from Bitwarden, 1Password, KeePass / KeePassXC, Chrome, Edge and Firefox (logins, secure notes, cards and
+  identities), and export to an encrypted file or plain JSON / CSV: your data is never locked in.
 - Backups of the encrypted vault to a folder of your choice (OneDrive by default), restorable on a new PC.
 - Tray icon, auto-start, keyboard shortcuts, clipboard cleared after 30 s and kept out of Windows clipboard history.
 - Tags, expiry dates, activity history (encrypted, readable only when unlocked).

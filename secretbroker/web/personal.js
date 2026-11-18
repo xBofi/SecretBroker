@@ -107,6 +107,7 @@ function generatorPresetFor(templateId, field) {
 }
 
 function canGenerate(templateId, field) {
+  if ((TEMPLATES[templateId] || {}).personal) return false;  // a Wi-Fi's password is the router's, not one to make up
   return field === 'password' || (templateId === 'generic' && field === 'value');
 }
 
@@ -173,7 +174,7 @@ function healthAction(entry, issue, reminder) {
     node.addEventListener('click', () => onclick(node));
     return node;
   };
-  if (!canWrite(entry)) return button(t('common.open'), () => openEntry(entry));
+  if (!canWrite(entry) || (TEMPLATES[entry.template] || {}).personal) return button(t('common.open'), () => openEntry(entry));  // a card about to expire: nothing to rotate
   if (issue.kind === 'upload_failed') return button(t('common.retry_upload'), (node) => retryUploads(entry, node));
   if (issue.kind === 'half_rotated') return button(t('common.finish_rotation'), () => rotateWithHelp(entry));
   if (issue.kind === 'retired_pending' || issue.kind === 'old_alive') return button(t('health_action.revoke_old_one'), () => openEntry(entry));

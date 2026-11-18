@@ -39,6 +39,7 @@
 
   --c-web: #2f6fd6; --c-key: #b6720d; --c-server: #13865f;
   --c-database: #7a52c7; --c-cloud: #d4581c; --c-lock: #6b7280;
+  --c-card: #b8386f; --c-id: #0f7f8a;
   /* Status colours read as text (4.5:1) on every surface and on their own soft background (chips, banners). */
   --danger: #b72f1d;
   --warning: #945400;
@@ -115,6 +116,7 @@
   --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
   --c-web: #6b9ef0; --c-key: #e0a440; --c-server: #45c08d;
   --c-database: #a98be6; --c-cloud: #ef8a55; --c-lock: #9aa1ab;
+  --c-card: #ee82b0; --c-id: #4fc4cf;
   --danger: #f2705f; --ok: #4cc38a; --warning: #f0b34a; --on-danger: #1d0a07;
   --interactive: #8eaee6; --interactive-hover: #aac3ef;
   --interactive-soft: color-mix(in srgb, var(--interactive) 16%, transparent);
@@ -212,6 +214,8 @@ code, .mono { font-family: var(--font-mono); font-size: var(--fs-sm); }
 .glyph.lg { width: 44px; height: 44px; border-radius: var(--radius-lg); }
 .glyph.globe { --cat: var(--c-web); } .glyph.key { --cat: var(--c-key); } .glyph.server { --cat: var(--c-server); }
 .glyph.database { --cat: var(--c-database); } .glyph.cloud { --cat: var(--c-cloud); } .glyph.lock { --cat: var(--c-lock); }
+.glyph.card { --cat: var(--c-card); } .glyph.idcard { --cat: var(--c-id); } .glyph.note { --cat: var(--c-key); }
+.glyph.wifi { --cat: var(--c-web); } .glyph.bank { --cat: var(--c-server); } .glyph.badge { --cat: var(--c-database); }
 
 .mark {
   width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; flex: none;
@@ -418,6 +422,7 @@ kbd { font-family: var(--font); font-size: var(--fs-xs); color: var(--faint); bo
 .prop .v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .prop .v.secret { font-family: var(--font-mono); letter-spacing: .12em; color: var(--muted); }
 .prop .v.revealed { font-family: var(--font-mono); letter-spacing: 0; color: var(--text); white-space: pre-wrap; word-break: break-all; }
+.prop .v.revealed.prose { font-family: var(--font); word-break: normal; overflow-wrap: anywhere; line-height: 1.45; }
 .prop .actions { display: flex; gap: 2px; opacity: .55; transition: opacity .12s; }
 .prop:hover .actions { opacity: 1; }
 .notes { white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -455,14 +460,25 @@ kbd { font-family: var(--font); font-size: var(--fs-xs); color: var(--faint); bo
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
 @keyframes sink { to { opacity: 0; transform: translateY(4px); } }
 
-.template-list { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+/* «Nueva»: what everyone keeps first, then what developers keep. Each group under a small muted label, like a section.
+   Wider than other dialogs, so most descriptions take one line and both groups fit the smallest window. */
+.modal.wide.template-picker { max-width: 800px; }
+.template-picker .modal-body { gap: 12px; padding-bottom: 14px; }
+.template-group { display: flex; flex-direction: column; gap: 4px; }
+.template-group > h3 { font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--muted); letter-spacing: .02em; padding: 0 10px; }
+.template-group + .template-group { border-top: 1px solid var(--line); padding-top: 12px; }
+.template-list { display: grid; grid-template-columns: 1fr 1fr; gap: 0 4px; }
 .template-option {
-  display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: var(--radius); border: none;
-  background: transparent; cursor: pointer; text-align: left;
+  display: flex; gap: 12px; align-items: center; padding: 6px 10px; border-radius: var(--radius); border: none;
+  background: transparent; cursor: pointer; text-align: left; min-width: 0;
 }
 .template-option:hover { background: var(--bg-subtle); }
-.template-option .title { font-weight: var(--fw-medium); }
-.template-option .summary { color: var(--muted); font-size: var(--fs-sm); line-height: 1.35; }
+.template-option > div:last-child { min-width: 0; }
+.template-option .title { font-weight: var(--fw-medium); line-height: 1.4; }
+.template-option .summary { color: var(--muted); font-size: var(--fs-sm); line-height: 1.3; }
+/* A personal item's last line, in the detail and in its form: only the user sees it. */
+.private-line { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: var(--fs-sm); }
+.private-line .icon { color: var(--faint); }
 
 details.advanced { border-top: 1px solid var(--line); padding-top: 4px; }
 details.advanced > summary {

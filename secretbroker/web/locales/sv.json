@@ -479,6 +479,7 @@
   "detail.expires_on": "Går ut {expires}",
   "detail.its_collection_no_longer_appears": "Dess samling syns inte längre på servern. Inget har raderats här: ",
   "detail.nothing_yet_edit_credential_and": "Inget än. Redigera posten och öppna ”AI-behörigheter”.",
+  "detail.personal_private": "Bara för dig: AI:n ser det inte och kan inte använda det.",
   "detail.show": "För att visa ”{label}” för {name}.",
   "direct_block.can": "Behörighet för {name}",
   "direct_block.leave": "Sluta ta emot dem",
@@ -531,9 +532,16 @@
   "draw_team.sync_now": "Synkronisera nu",
   "draw_team.synced": "Synkroniserat",
   "editor.aws_placeholder": "Personlig AWS",
+  "editor.bank_placeholder": "Huvudkonto",
+  "editor.card_placeholder": "Privat Visa",
   "editor.config_placeholder": "Min apps klient-id",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "Mitt pass",
+  "editor.license_placeholder": "Office-licens",
+  "editor.note_placeholder": "Återställningskoder för e-posten",
+  "editor.personal_tags_placeholder": "hem, jobb",
   "editor.tags_placeholder": "butik, produktion",
+  "editor.wifi_placeholder": "Wifi hemma",
   "empty_credentials.add_credential": "Lägg till en post",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge eller Firefox. Du ser listan innan du importerar.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf eller Codex, med ett klick.",
@@ -983,6 +991,8 @@
   "offboarding_card.they_could_see_or_copy": "Personen kunde se eller kopiera den. Byt den; om du inte hanterar den byter den som hanterar den.",
   "offboarding_card.they_could_see_or_copy_2": "Personen kunde se eller kopiera dem. Byt dem en i taget; de du inte hanterar byts av den som hanterar dem.",
   "open_connect_ai.with_one_click_ai_will": "Med ett klick kan AI:n använda dina nycklar via SecretBroker utan att se dem.",
+  "open_editor.developers": "För utvecklare",
+  "open_editor.everyday": "Till vardags",
   "open_editor.new_credential": "Ny post",
   "open_export.all_credentials_with_their_notes": "Alla poster, med anteckningar och behörigheter, i en fil som skyddas av ett lösenord du väljer (scrypt och AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "CSV-filen (namn, webbplats, användarnamn, lösenord, anteckning) kan läsas av Bitwarden, 1Password, KeePassXC och webbläsare. Den behåller bara varje posts huvudnyckel.",
@@ -1144,6 +1154,14 @@
   "reminder.expires_in": {
     "one": "Går ut om {count} dag. Rotera den innan den slutar fungera.",
     "other": "Går ut om {count} dagar. Rotera den innan den slutar fungera."
+  },
+  "reminder.item_expired_ago": {
+    "one": "Gick ut för {count} dag sedan.",
+    "other": "Gick ut för {count} dagar sedan."
+  },
+  "reminder.item_expires_in": {
+    "one": "Går ut om {count} dag.",
+    "other": "Går ut om {count} dagar."
   },
   "reminder.key_age": {
     "one": "Nyckeln är {count} dag gammal. Det är bra att rotera den då och då.",
@@ -1710,6 +1728,7 @@
   "show_form.authorization": "Authorization",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "Den tillhör teamet och din behörighet är ”{value}”: här kan du bara ändra när AI:n ber om ditt godkännande.",
+  "show_form.card_expiry_invalid": "Ange utgångsdatumet som MM/ÅÅ, till exempel 08/27.",
   "show_form.change_type": "Byt typ",
   "show_form.changed_while_you_were_editing": "Den ändrades medan du redigerade",
   "show_form.changes_saved": "Ändringarna sparade",

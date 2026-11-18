@@ -479,6 +479,7 @@
   "detail.expires_on": "Udløber den {expires}",
   "detail.its_collection_no_longer_appears": "Dens samling vises ikke længere på serveren. Intet er slettet her: ",
   "detail.nothing_yet_edit_credential_and": "Intet endnu. Redigér adgangsoplysningerne, og åbn »AI-tilladelser«.",
+  "detail.personal_private": "Kun til dig: AI'en ser det ikke og kan ikke bruge det.",
   "detail.show": "For at vise »{label}« fra {name}.",
   "direct_block.can": "Tilladelse for {name}",
   "direct_block.leave": "Stop med at modtage dem",
@@ -531,9 +532,16 @@
   "draw_team.sync_now": "Synkronisér nu",
   "draw_team.synced": "Synkroniseret",
   "editor.aws_placeholder": "Personlig AWS",
+  "editor.bank_placeholder": "Hovedkonto",
+  "editor.card_placeholder": "Privat Visa",
   "editor.config_placeholder": "Min apps klient-id",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "Mit pas",
+  "editor.license_placeholder": "Office-licens",
+  "editor.note_placeholder": "Gendannelseskoder til e-mail",
+  "editor.personal_tags_placeholder": "hjem, arbejde",
   "editor.tags_placeholder": "butik, produktion",
+  "editor.wifi_placeholder": "Wi-Fi derhjemme",
   "empty_credentials.add_credential": "Tilføj adgangsoplysninger",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge eller Firefox. Du ser listen, før du importerer.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf eller Codex, med ét klik.",
@@ -983,6 +991,8 @@
   "offboarding_card.they_could_see_or_copy": "Personen kunne se eller kopiere den. Skift den; hvis du ikke administrerer den, skifter den, der administrerer den, den.",
   "offboarding_card.they_could_see_or_copy_2": "Personen kunne se eller kopiere dem. Skift dem én ad gangen; dem, du ikke administrerer, skiftes af den, der administrerer dem.",
   "open_connect_ai.with_one_click_ai_will": "Med ét klik kan AI'en bruge dine nøgler via SecretBroker uden at se dem.",
+  "open_editor.developers": "Til udviklere",
+  "open_editor.everyday": "Til hverdag",
   "open_editor.new_credential": "Nye adgangsoplysninger",
   "open_export.all_credentials_with_their_notes": "Alle adgangsoplysninger med noter og tilladelser i en fil, der er beskyttet med en adgangskode, du selv vælger (scrypt og AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "CSV-filen (navn, websted, brugernavn, adgangskode, note) kan læses af Bitwarden, 1Password, KeePassXC og browsere. Den indeholder kun hovednøglen fra hvert element.",
@@ -1144,6 +1154,14 @@
   "reminder.expires_in": {
     "one": "Udløber om {count} dag. Roter den, før den holder op med at virke.",
     "other": "Udløber om {count} dage. Roter den, før den holder op med at virke."
+  },
+  "reminder.item_expired_ago": {
+    "one": "Udløb for {count} dag siden.",
+    "other": "Udløb for {count} dage siden."
+  },
+  "reminder.item_expires_in": {
+    "one": "Udløber om {count} dag.",
+    "other": "Udløber om {count} dage."
   },
   "reminder.key_age": {
     "one": "Nøglen er {count} dag gammel. Det er en god idé at rotere den en gang imellem.",
@@ -1710,6 +1728,7 @@
   "show_form.authorization": "Authorization",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "Den tilhører teamet, og din tilladelse er »{value}«: her kan du kun ændre, hvornår AI'en beder om din godkendelse.",
+  "show_form.card_expiry_invalid": "Skriv udløbsdatoen som MM/ÅÅ, f.eks. 08/27.",
   "show_form.change_type": "Skift type",
   "show_form.changed_while_you_were_editing": "Den blev ændret, mens du redigerede",
   "show_form.changes_saved": "Ændringer gemt",

@@ -15,6 +15,7 @@ import sys
 import tempfile
 import threading
 import time
+from datetime import date, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -623,6 +624,75 @@ def main():
           "the app can't give configuration permissions or rotation")
     for entry_id in ("tenant", "entra-app"):
         call("delete_entry", {"id": entry_id}, "hello")
+
+    print("Personal items: cards, notes, documents… that only the user sees")
+    card_number, wifi_password = "4111111111111111", "fake-wifi-password-0001"
+    soon = (date.today() + timedelta(days=5)).isoformat()
+    call("save_entry", {"entry": {"id": "tarjeta-zqx7", "name": "Tarjeta zqx7", "template": "card", "expires": soon, "rotate_every_days": 30,
+                                  "fields": {"holder": "ANA EJEMPLO", "number": card_number, "cvv": "123", "pin": "4321", "brand": "Banco Ejemplo"},
+                                  "policy": {"approval": "never", "http": {"allowed_hosts": ["x.test"], "auth": {"kind": "none"}},
+                                             "commands": {"allowed": ["python"], "env": {"CARD": "{{number}}"}}}}}, "hello")
+    for entry_id, name in (("wifi-casa-zqx7", "Wi-Fi de casa"), ("wifi-oficina-zqx7", "Wi-Fi de la oficina")):  # the same weak password twice
+        call("save_entry", {"entry": {"id": entry_id, "name": name, "template": "wifi", "policy": {"approval": "session"},
+                                      "fields": {"ssid": "RedEjemplo", "security": "wpa", "password": wifi_password}}}, "hello")
+    visa = next(e for e in client.request("entries") if e["id"] == "tarjeta-zqx7")
+    check(visa["template"] == "card" and set(visa["secrets_set"]) == {"number", "cvv", "pin"}
+          and visa["fields"] == {"holder": "ANA EJEMPLO", "brand": "Banco Ejemplo"} and card_number not in json.dumps(visa),
+          "a card is stored with its number, CVV and PIN hidden")
+    check(visa["policy"] == {"approval": "always"} and visa["rotate_every_days"] is None and not visa["secret_since"] and visa["expires"] == soon,
+          "whatever the app sends, it has no AI permissions, rotation or key age; its expiry date stays")
+    expect_error(lambda: call("reveal", {"id": "tarjeta-zqx7", "field": "number"}), "proof_required", "showing its number needs a proof, like any secret")
+    check(call("reveal", {"id": "tarjeta-zqx7", "field": "number"}, "hello") == card_number and call("reveal", {"id": "tarjeta-zqx7", "field": "cvv"}, "hello") == "123",
+          "and with the proof the user sees it")
+    listing = json.dumps(client.request("list_secrets"))
+    leaked = [text for text in ("tarjeta-zqx7", "Tarjeta zqx7", "ANA EJEMPLO", "Banco Ejemplo", "wifi-casa-zqx7", "RedEjemplo") if text in listing]
+    check(not leaked, f"list_secrets has nothing of them: not their names, not their data {leaked or ''}")
+
+    def refusal(op, params):
+        try:
+            client.request(op, params)
+            return "no error", ""
+        except BrokerError as exc:
+            return exc.code, str(exc)
+    refused = [(op, refusal(op, params)[0]) for op, params in (
+        ("http_request", {"secret_id": "tarjeta-zqx7", "url": base + "/x"}), ("run_command", {"secret_id": "tarjeta-zqx7", "command": "python"}),
+        ("ssh_exec", {"secret_id": "tarjeta-zqx7", "command": "id"}), ("ai_check", {"secret_id": "tarjeta-zqx7"}), ("ai_rotate", {"secret_id": "tarjeta-zqx7"}),
+        ("ai_delete", {"secret_id": "tarjeta-zqx7"}), ("update_credential", {"secret_id": "tarjeta-zqx7", "name": "Otra"}),
+        ("request_access", {"secret_ids": ["echo-api", "tarjeta-zqx7"]}),
+        ("release_env", {"vars": [{"secret_id": "tarjeta-zqx7", "name": "CARD", "field": "number"}], "command": "x", "cwd": "."}),
+        ("push_github_secret", {"secret_id": "tarjeta-zqx7", "github_secret_id": "echo-api", "repo": "o/r", "name": "CARD"}),
+        ("push_github_secret", {"secret_id": "echo-api", "github_secret_id": "tarjeta-zqx7", "repo": "o/r", "name": "CARD"}))]
+    check({code for _, code in refused} == {"not_found"}, f"no AI operation accepts one ({refused})")
+    code, message = refusal("ai_check", {"secret_id": "tarjeta-zqx7"})
+    check((code, message.replace("tarjeta-zqx7", "ID")) == tuple(t.replace("no-such-id", "ID") for t in refusal("ai_check", {"secret_id": "no-such-id"})),
+          "and the answer is the one for an id that isn't in the vault: nothing tells them apart")
+    code, message = refusal("create_draft", {"template": "card", "name": "Otra tarjeta"})
+    check(code == "invalid" and "card" not in message.split(":")[-1] and "api_key" in message, f"the AI can't prepare one: for it the type doesn't exist ({message})")
+    expect_error(lambda: client.request("update_credential", {"secret_id": "echo-api", "template": "note"}), "invalid",
+                 "nor turn a credential into one")
+    check(client.request("check_env", {"vars": [{"name": "CARD", "secret_id": "tarjeta-zqx7"}]})[0]["status"] == "missing", "sb check finds no such credential")
+    (HOME / "project" / ".secretbroker").write_text("CARD = tarjeta-zqx7:number\n")
+    completed = subprocess.run([sys.executable, "-m", "secretbroker.cli", "run", "--", "python", "-c", "import os;print(os.environ.get('CARD'))"],
+                               cwd=project, capture_output=True, text=True)
+    check(completed.returncode != 0 and card_number not in completed.stdout + completed.stderr, f"sb run doesn't give it ({completed.stderr.strip()[:80]})")
+    check(not {"tarjeta-zqx7", "wifi-casa-zqx7", "wifi-oficina-zqx7"} & {i["id"] for i in client.request("exposure_report")["entries"]},
+          "they are not in the report of copies found: nothing to look for")
+    session = call("exposure_begin", {}, "hello")["session"]
+    found = client.request("exposure_scan", {"session": session, "items": [
+        {"location": "C:/fake/notas.txt", "source": "project", "data": base64.b64encode(f"tarjeta {card_number} wifi {wifi_password}".encode()).decode()}]})
+    check(found["found"] == 0, "a file with the card's number and the Wi-Fi's password in it is not a finding")
+    issues = {i["id"]: [x["kind"] for x in i["issues"]] for i in client.request("health")["items"]}
+    check(issues.get("tarjeta-zqx7") == ["expiring"] and "wifi-casa-zqx7" not in issues and "wifi-oficina-zqx7" not in issues,
+          f"in Salud only the card's expiry counts: nothing weak, reused or to rotate ({issues.get('tarjeta-zqx7')}, {issues.get('wifi-casa-zqx7')})")
+    reminder = next((r for r in client.request("reminders") if r["id"] == "tarjeta-zqx7"), {})
+    check(reminder.get("kind") == "expiring" and reminder.get("days") == 5, "a card about to expire is in the reminders, like any expiry date")
+    check(any(e["secret"] == "tarjeta-zqx7" and e["action"] == "reveal" for e in client.request("audit", {"limit": 50})), "the app's activity says it was shown")
+    seen = client.request("ai_activity", {"limit": 200}) + client.request("ai_activity", {"secret_id": "tarjeta-zqx7"})
+    check("zqx7" not in json.dumps(seen), f"the AI's activity says nothing about them {[e for e in seen if 'zqx7' in json.dumps(e)][:2] or ''}")
+    for entry_id in ("tarjeta-zqx7", "wifi-casa-zqx7", "wifi-oficina-zqx7"):
+        call("delete_entry", {"id": entry_id}, "hello")
+    seen = client.request("ai_activity", {"limit": 200}) + client.request("ai_activity", {"secret_id": "tarjeta-zqx7"})
+    check("zqx7" not in json.dumps(seen), f"nor once they are deleted {[e for e in seen if 'zqx7' in json.dumps(e)][:2] or ''}")
 
     print("Projects: sb check and sb import")
     (HOME / "project" / ".secretbroker").write_text("DATABASE_URL = shop-db\nX = nothing-here\nY = old-ssh\n")
