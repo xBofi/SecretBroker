@@ -328,6 +328,15 @@ def session_locked():
     return False
 
 
+def prefers_dark():
+    """The desktop's colour scheme as GNOME and the desktops that follow it keep it; GTK_THEME (…:dark) overrides it."""
+    theme = os.environ.get("GTK_THEME", "")
+    if theme:
+        return theme.lower().endswith("dark")
+    result = _run(["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"], timeout=2)
+    return "dark" in result.stdout if result else None
+
+
 def _autostart_file():
     return roaming_dir(Path.home()) / "autostart" / DESKTOP_FILE.format(suffix=_suffix())
 

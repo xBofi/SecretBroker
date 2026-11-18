@@ -19,7 +19,8 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from . import __version__, cli, client, generator, i18n, integrations, links, native_host, paths, platform, resident, scanner, templates
+from . import (__version__, appearance, cli, client, generator, i18n, integrations, links, native_host, paths, platform, resident,
+               scanner, templates)
 from .client import BrokerError, BrokerUnavailable
 from .i18n import tr
 
@@ -37,6 +38,13 @@ JOIN_LINK_MINUTES = 10
 log = logging.getLogger("secretbroker.app")
 BACKUP_EVERY_HOURS = 24
 BACKUPS_KEPT = 10
+# What the page may save with set_pref, and the values each takes: nothing else reaches prefs.json.
+PREF_RULES = {
+    "auto_scan": lambda value: isinstance(value, bool),
+    "scan_folders": lambda value: isinstance(value, list) and all(isinstance(folder, str) for folder in value),
+    "language": lambda value: value is None or i18n.valid(value),
+    **appearance.RULES,
+}
 # Team changes (see service.TEAM_CHANGE_OPS): one click too.
 TEAM_CHANGE_OPS = ("team_connect", "team_disconnect", "team_create_org", "team_invite", "team_accept_invite",
                    "team_confirm_member", "team_set_role", "team_remove_member", "team_create_collection", "team_grant",
@@ -238,9 +246,11 @@ class Api:
                 "languages": i18n.available()}
 
     def set_pref(self, key, value):
-        if key in ("palette", "auto_scan", "scan_folders") or (key == "language" and (value is None or i18n.valid(value))):
+        valid = PREF_RULES.get(key) if isinstance(key, str) else None
+        if valid and valid(value):
             integrations.set_pref(key, value)
-        return True
+            return True
+        return False
 
     # ----- language (see docs/I18N.md)
 
@@ -1135,9 +1145,13 @@ def main():
     # page, until it was hidden and shown again). pywebview's hidden window is shown once at full size, invisible,
     # and hidden through WinForms, so WebView2 starts and loads the page as in a normal window.
     hidden_start = background and platform.NAME == "windows"
+    # The window starts in the colour of the page it is about to show, and the page is told how it should look in
+    # its address (Ajustes › Apariencia): no flash of another theme while the app starts.
+    prefs = integrations.load_prefs()
+    look = appearance.fragment(prefs)
     window = webview.create_window(
-        "SecretBroker", url=str(WEB_DIR / "index.html"), js_api=page_api(api),
-        width=1120, height=740, min_size=(880, 600), background_color="#0f1115",
+        "SecretBroker", url=str(WEB_DIR / "index.html") + (f"#{look}" if look else ""), js_api=page_api(api),
+        width=1120, height=740, min_size=(880, 600), background_color=appearance.background(prefs, _system_dark()),
         minimized=background and not hidden_start, hidden=hidden_start,
     )
     api._window = window
@@ -1158,6 +1172,14 @@ def main():
     else:
         webview.start(private_mode=True, storage_path=str(storage))
     _exit_after_window()
+
+
+def _system_dark():
+    try:
+        return platform.prefers_dark()
+    except Exception:
+        log.exception("could not read the system's theme")
+        return None
 
 
 def _exit_after_window():
