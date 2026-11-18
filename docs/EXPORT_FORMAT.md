@@ -83,6 +83,12 @@ name,url,username,password,note
 * `password`: the main secret (password, API key, secret access key or private key).
 * `note`: the private notes.
 
+Personal items (cards, secure notes, identity documents, Wi-Fi networks, bank accounts, software licenses) are in
+the same columns: `password` is what the item hides (the card's or document's number, the Wi-Fi's password, the IBAN,
+the license key), `username` a Wi-Fi's network name, and everything else it says goes to `note`, one `label: value`
+line each (holder, expiry, CVV, PIN, bank…), followed by its private notes. A secure note has no `password`: its
+text is the `note`.
+
 It is lossy (AI notes, permissions, tags and dates are dropped); use the encrypted export to move between
 SecretBroker installs.
 
@@ -94,4 +100,11 @@ columns, and the two SecretBroker exports above. The service maps each item to a
 when the value is obviously one, e.g. `ghp_…`, or a generic secret), puts notes, TOTP seeds and custom fields into
 the private notes, turns folders into tags, and compares every item with the vault (same site and user and same
 password: already there; another password: conflict). The app only receives names, users, sites and statuses.
-Cards and identities are skipped. A project's `.env` goes through `sb import`.
+
+Secure notes, cards and identities become personal items, which the AI never sees: a secure note (Bitwarden type 2,
+or a CSV row of type `note`) is a `note`; a card (type 3, or a CSV row of type `card` with a number column) is a
+`card`, with its expiry month as the entry's `expires` (the last day of that month); a Bitwarden identity is a
+person, so each document number it has (passport, driving license, social security) becomes an `identity`
+document, and its address, phone and e-mail go to the private notes of the first. A card or an identity with no
+number is kept as a note with what it does say. Two personal items are the same only if everything in them is. A
+project's `.env` goes through `sb import`.

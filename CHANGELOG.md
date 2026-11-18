@@ -2,6 +2,23 @@
 
 What changed for people who use SecretBroker. The commit history has the details.
 
+## Unreleased
+
+- **Not only keys: cards, notes, documents, Wi-Fi, bank accounts and licenses.** Six new kinds of item for everyday
+  things: «Tarjeta de pago», «Nota segura», «Documento de identidad», «Red Wi-Fi», «Cuenta bancaria» and «Licencia de
+  software». They are kept, tagged, searched, backed up, exported and shared with your team like everything else, and
+  what they hide (a card's number, CVV and PIN, a document's number, an IBAN, a Wi-Fi's password, a license key, a
+  note's text) is shown or copied the same way as a password. **The AI never sees or uses them**: they are not in its
+  list, none of its tools accepts them, `sb run` doesn't give them and the browser extension never offers them. They
+  are not looked for in files, tested, or called weak, reused or due for rotation; a card or a document about to
+  expire does show «Caduca en…», in the list, in its detail and in *Salud*.
+- **«Nueva» starts with what everyone keeps.** The picker has two groups: everyday things first (a website's login,
+  card, note, document, Wi-Fi, bank account, license), then what developers keep (API key, SSH server, database, AWS,
+  configuration, other secret).
+- **Importing brings your notes, cards and identities.** Secure notes, cards and identities of a Bitwarden export (and
+  the notes and cards of a CSV) become notes, cards and identity documents instead of being skipped or turned into
+  generic secrets; what has no place of its own goes to their private notes. The CSV export keeps everything they say.
+
 ## 0.19.0 (2026-11-18)
 
 - **Configuration that is not secret.** A new kind of credential, «Configuración (no secreta)», keeps IDs and settings

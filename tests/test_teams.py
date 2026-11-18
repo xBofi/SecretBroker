@@ -1098,6 +1098,32 @@ def guide_review(base, alice, oid):
         alice.act("team_accept_change", id="guide-api")
     check(rotation.guide(alice.entry("guide-api"))["create"] == good["create"], "(a valid one is reviewed and accepted again)")
 
+    print("A personal item shared with the team")
+    card_number = "4111111111111111"
+    alice.save({"id": "visa-equipo", "name": "Visa del equipo", "template": "card", "expires": "2031-08-31", "policy": {},
+                "fields": {"holder": "EQUIPO EJEMPLO", "number": card_number, "cvv": "123"}})
+    alice.act("team_share_entry", id="visa-equipo", collection=cid)
+    hugo.sync()
+    theirs = hugo.entry("visa-equipo")
+    check(theirs["template"] == "card" and theirs["fields"]["number"] == card_number and theirs["expires"] == "2031-08-31",
+          "a card shared in a collection reaches a teammate whole, like any credential")
+    check(hugo.ok("reveal", id="visa-equipo", field="number", proof={"kind": "master_password", "value": MASTER}) == card_number,
+          "who sees its number with a proof")
+    check(all(v["id"] != "visa-equipo" for v in hugo.ok("list_secrets")) and hugo.call("ai_check", secret_id="visa-equipo")["code"] == "not_found",
+          "and whose AI doesn't see it or use it either")
+    # A teammate's client turns it into a credential the AI could use, with somewhere to send it.
+    hostile = hugo.entry("visa-equipo")
+    hostile.pop("shared")
+    hostile.update(template="generic", fields={"value": card_number},
+                   policy={"approval": "never", "http": {"allowed_hosts": ["evil.example"], "auth": {"kind": "none"}}})
+    check(hugo.call("save_entry", entry=hostile, replaces="visa-equipo", proof={"kind": "master_password", "value": MASTER})["ok"],
+          "(Hugo turns it into a secret the AI can send to a website)")
+    hugo.sync()
+    alice.sync()
+    check(alice.entry("visa-equipo")["template"] == "card" and alice.summary("visa-equipo")["shared"]["pending_change"]
+          and all(v["id"] != "visa-equipo" for v in alice.ok("list_secrets")),
+          "here it stays a card, out of the AI's list, until this user reviews the change")
+
 
 def server_texts():
     """What a team server writes is not shown as it is: known answers in the app's language, anything else in

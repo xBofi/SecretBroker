@@ -368,7 +368,7 @@ def _card(candidates, skipped, name, card, notes, extra, folder):
 
 
 def _identity(candidates, skipped, name, person, notes, extra, folder):
-    """A Bitwarden identity is a person: each document number it has (passport, driving licence, social security)
+    """A Bitwarden identity is a person: each document number it has (passport, driving license, social security)
     becomes an identity document, and the rest of what it says (address, phone…) goes to the private notes of the
     first. Without any number it is kept as a note."""
     text = lambda key: " ".join(str(person.get(key) or "").split())  # noqa: E731

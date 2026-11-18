@@ -619,6 +619,8 @@ class Service:
         live = self._live_grants()
         result = []
         for entry in self.vault.entries():
+            if templates.is_personal(entry["template"]):
+                continue  # whatever its policy says (a file, a teammate), the AI never uses it
             mode = (entry.get("policy") or {}).get("approval", "session")
             if mode == "never":
                 result.append({"secret_id": entry["id"], "name": entry.get("name", entry["id"]),
@@ -1979,9 +1981,11 @@ class Service:
         for item in planned:
             if item["key"] in selected:
                 entry = copy.deepcopy(item["entry"])
-                if not templates.is_personal(entry["template"]):  # a note for the AI, which reads nothing of these
+                if templates.is_personal(entry["template"]):  # no note for the AI, and no permissions, whatever the file says
+                    entry["policy"] = templates.default_policy(entry["template"], entry["fields"])
+                else:
                     entry.setdefault("description", f"Importada de {importers.FORMATS[fmt]}.")
-                entry.setdefault("policy", templates.default_policy(entry["template"], entry["fields"]))
+                    entry.setdefault("policy", templates.default_policy(entry["template"], entry["fields"]))
                 batch.append(entry)
         created, failed = [], []
         for entry, (_, error) in zip(batch, self.vault.put_many(batch)):
