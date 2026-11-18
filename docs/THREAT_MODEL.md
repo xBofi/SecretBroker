@@ -12,6 +12,7 @@ in [SECURITY.md](../SECURITY.md).
 | Secret values (API keys, passwords, SSH keys, connection strings) | Encrypted vault, service memory while unlocked, the target process during `run_command` / `sb run` |
 | Vault data key and master password | Data key wrapped by scrypt(master password) and by DPAPI; master password only typed in the app |
 | Credential metadata (names, notes, tags, policies, `used_in`) | Encrypted vault; shared items encrypted with their collection key |
+| Personal items (cards, secure notes, identity documents, Wi-Fi, bank accounts, licenses) | Encrypted vault like any credential; never listed to the AI or given to `sb run`, the browser extension or any AI operation (`service._for_ai`) |
 | Credential policies (allowed hosts, programs, env variables) | Encrypted vault; they decide where a key can go |
 | Approvals and presence | Service memory; Windows Hello key in the TPM |
 | Activity history | Encrypted with an X25519 public key derived from the vault (write-only while locked) |

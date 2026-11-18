@@ -202,6 +202,27 @@ def listen_for_show(show):
 # --------------------------------------------------------------------------- clipboard, notifications, opening files
 
 
+def empty_clipboard_if(sequence, seconds=3):
+    """Empty the clipboard if it still holds what was copied at `sequence` (its sequence number then). Another
+    program can have the clipboard open at that moment (a clipboard manager reading the change, Windows' own
+    history): asked once, the copied password stayed there for good. Tries for a few seconds; True unless it
+    could never open it."""
+    user32 = ctypes.windll.user32
+    deadline = time.monotonic() + seconds
+    while True:
+        if user32.GetClipboardSequenceNumber() != sequence:
+            return True  # something else was copied since: not ours to clear
+        if user32.OpenClipboard(None):
+            try:
+                user32.EmptyClipboard()
+            finally:
+                user32.CloseClipboard()
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.05)
+
+
 def copy_to_clipboard(text, auto_clear=True, clear_seconds=30):
     from ctypes import wintypes
     user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
@@ -244,9 +265,7 @@ def copy_to_clipboard(text, auto_clear=True, clear_seconds=30):
 
         def clear():
             time.sleep(clear_seconds)
-            if user32.GetClipboardSequenceNumber() == sequence and user32.OpenClipboard(None):
-                user32.EmptyClipboard()
-                user32.CloseClipboard()
+            empty_clipboard_if(sequence)
 
         threading.Thread(target=clear, daemon=True).start()
 

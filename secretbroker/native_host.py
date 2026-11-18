@@ -279,11 +279,8 @@ def _clear_copied():
             pass
         return
     if copied_at[0] and sys.platform == "win32":
-        import ctypes
-        user32 = ctypes.windll.user32
-        if user32.GetClipboardSequenceNumber() == copied_at[0] and user32.OpenClipboard(None):
-            user32.EmptyClipboard()
-            user32.CloseClipboard()
+        from .platform import windows
+        windows.empty_clipboard_if(copied_at[0])  # tries again while another program holds the clipboard
 
 
 copied_at = [0]  # the clipboard's sequence number after the last copy (Windows), to clear it on exit

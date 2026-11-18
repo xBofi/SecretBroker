@@ -479,6 +479,7 @@
   "detail.expires_on": "Expires on {expires}",
   "detail.its_collection_no_longer_appears": "Its collection no longer appears on the server. Nothing has been deleted here: ",
   "detail.nothing_yet_edit_credential_and": "Nothing yet. Edit the credential and open “AI permissions”.",
+  "detail.personal_private": "Only for you: the AI can't see it or use it.",
   "detail.show": "To show “{label}” of {name}.",
   "direct_block.can": "{name}'s permission",
   "direct_block.leave": "Stop receiving them",
@@ -531,9 +532,16 @@
   "draw_team.sync_now": "Sync now",
   "draw_team.synced": "Synced",
   "editor.aws_placeholder": "Personal AWS",
+  "editor.bank_placeholder": "Main account",
+  "editor.card_placeholder": "Personal Visa",
   "editor.config_placeholder": "My app's client ID",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "My passport",
+  "editor.license_placeholder": "Office license",
+  "editor.note_placeholder": "E-mail recovery codes",
+  "editor.personal_tags_placeholder": "home, work",
   "editor.tags_placeholder": "shop, production",
+  "editor.wifi_placeholder": "Home Wi-Fi",
   "empty_credentials.add_credential": "Add a credential",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge or Firefox. You see the list before importing.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf or Codex, with one click.",
@@ -983,6 +991,8 @@
   "offboarding_card.they_could_see_or_copy": "They could see or copy it. Change it; if you don't manage it, whoever manages it changes it.",
   "offboarding_card.they_could_see_or_copy_2": "They could see or copy them. Change them one by one; the ones you don't manage are changed by whoever manages them.",
   "open_connect_ai.with_one_click_ai_will": "With one click, the AI will be able to use your keys through SecretBroker without seeing them.",
+  "open_editor.developers": "For developers",
+  "open_editor.everyday": "Everyday",
   "open_editor.new_credential": "New credential",
   "open_export.all_credentials_with_their_notes": "All credentials, with their notes and permissions, in a file protected with a password you choose (scrypt and AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "The CSV (name, website, username, password, note) is read by Bitwarden, 1Password, KeePassXC and browsers. It only keeps each credential's main key.",
@@ -1140,6 +1150,14 @@
   "reminder.expires_in": {
     "one": "Expires in {count} day. Rotate it before it stops working.",
     "other": "Expires in {count} days. Rotate it before it stops working."
+  },
+  "reminder.item_expired_ago": {
+    "one": "Expired {count} day ago.",
+    "other": "Expired {count} days ago."
+  },
+  "reminder.item_expires_in": {
+    "one": "Expires in {count} day.",
+    "other": "Expires in {count} days."
   },
   "reminder.key_age": {
     "one": "The key is {count} day old. It's worth rotating it now and then.",
@@ -1684,6 +1702,7 @@
   "show_form.authorization": "Authorization",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "It belongs to the team and your permission is “{value}”: here you can only change when the AI asks for your approval.",
+  "show_form.card_expiry_invalid": "Type the expiry date as MM/YY, for example 08/27.",
   "show_form.change_type": "Change type",
   "show_form.changed_while_you_were_editing": "It changed while you were editing",
   "show_form.changes_saved": "Changes saved",

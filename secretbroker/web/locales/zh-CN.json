@@ -472,6 +472,7 @@
   "detail.expires_on": "{expires} 到期",
   "detail.its_collection_no_longer_appears": "它所在的集合已不在服务器上。这里尚未删除任何内容：",
   "detail.nothing_yet_edit_credential_and": "暂无。编辑凭据并打开“AI 权限”。",
+  "detail.personal_private": "仅供你本人：AI 看不到，也无法使用。",
   "detail.show": "用于显示 {name} 的“{label}”。",
   "direct_block.can": "{name} 的权限",
   "direct_block.leave": "停止接收",
@@ -521,9 +522,16 @@
   "draw_team.sync_now": "立即同步",
   "draw_team.synced": "已同步",
   "editor.aws_placeholder": "个人 AWS",
+  "editor.bank_placeholder": "主账户",
+  "editor.card_placeholder": "个人 Visa 卡",
   "editor.config_placeholder": "我的应用的 client ID",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "我的护照",
+  "editor.license_placeholder": "Office 许可证",
+  "editor.note_placeholder": "邮箱恢复码",
+  "editor.personal_tags_placeholder": "home, work",
   "editor.tags_placeholder": "shop, production",
+  "editor.wifi_placeholder": "家里的 Wi-Fi",
   "empty_credentials.add_credential": "添加凭据",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden、1Password、KeePassXC、Chrome、Edge 或 Firefox。导入前你会看到列表。",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code、Claude Desktop、Cursor、VS Code、Windsurf 或 Codex，一键连接。",
@@ -930,6 +938,8 @@
   "offboarding_card.they_could_see_or_copy": "对方能看到或复制它。请更改它；如果不是你管理的，由管理者更改。",
   "offboarding_card.they_could_see_or_copy_2": "对方能看到或复制它们。请逐个更改；不是你管理的，由各自的管理者更改。",
   "open_connect_ai.with_one_click_ai_will": "一键连接后，AI 就能通过 SecretBroker 使用你的密钥，而看不到它们。",
+  "open_editor.developers": "面向开发者",
+  "open_editor.everyday": "日常使用",
   "open_editor.new_credential": "新建凭据",
   "open_export.all_credentials_with_their_notes": "所有凭据（包括备注和权限）保存在一个用你设置的密码保护的文件中（scrypt 和 AES-256-GCM）。",
   "open_export.csv_name_website_username_password": "Bitwarden、1Password、KeePassXC 和浏览器都能读取 CSV（名称、网站、用户名、密码、备注）。它只保留每个凭据的主密钥。",
@@ -1079,6 +1089,12 @@
   },
   "reminder.expires_in": {
     "other": "{count} 天后过期。请在失效前轮换。"
+  },
+  "reminder.item_expired_ago": {
+    "other": "已过期 {count} 天。"
+  },
+  "reminder.item_expires_in": {
+    "other": "{count} 天后过期。"
   },
   "reminder.key_age": {
     "other": "该密钥已使用 {count} 天。建议不时轮换。"
@@ -1609,6 +1625,7 @@
   "show_form.authorization": "Authorization",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "它属于团队，你的权限是“{value}”：在这里你只能更改 AI 何时请求你的批准。",
+  "show_form.card_expiry_invalid": "请按 MM/YY 格式输入有效期，例如 08/27。",
   "show_form.change_type": "更改类型",
   "show_form.changed_while_you_were_editing": "在你编辑时它已被更改",
   "show_form.changes_saved": "更改已保存",

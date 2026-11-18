@@ -14,7 +14,7 @@ Bóveda de credenciales para Windows, Ubuntu y macOS que permite a un agente de 
  Claude ── MCP: «usa 'github'» ─────▶  ─ ejecuta y censura la salida ◀── respuesta sin secretos
 ```
 
-> **Estado.** Funciona en **Windows 10/11** y **Ubuntu 22.04 / 24.04**. La versión para **macOS 12+** (Apple
+> **Estado.** Funciona en **Windows 10/11** y **Ubuntu 22.04 / 24.04 / 26.04**. La versión para **macOS 12+** (Apple
 > silicon e Intel) la compila e instala la integración continua, pero aún no se ha probado en un Mac real. La app, la
 > extensión del navegador y los mensajes del servicio están en **32 idiomas**: inglés, español, catalán, gallego,
 > euskera, alemán, francés, italiano, portugués, neerlandés, danés, sueco, noruego, finés, polaco, checo, eslovaco,
@@ -48,7 +48,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\build_installer.ps1
 
 El resultado es `dist\SecretBroker-Setup-<versión>.exe`, de unos 26 MB, con Python y todas las dependencias incluidos. El `.exe` no está firmado, así que Windows SmartScreen mostrará «Windows protegió su PC» (Más información → Ejecutar de todas formas). Para distribuirlo sin ese aviso hay que firmarlo con un certificado de firma de código.
 
-### Ubuntu (22.04 y 24.04)
+### Ubuntu (22.04, 24.04 y 26.04)
 
 Se instala con doble clic en `secretbroker_<versión>_amd64.deb` (el instalador de software pide la contraseña una vez). Va a `/opt/secretbroker` con su propio Python, crea el usuario de sistema `secretbroker`, guarda la bóveda de cada usuario en `/var/lib/secretbroker/<usuario>` (solo su servicio puede leerla) y arranca `secretbroker@<usuario>.service` con el equipo. Para generar el paquete, en Linux o WSL:
 
@@ -76,7 +76,8 @@ Organizaciones, colecciones compartidas y permisos por persona (gestionar, edita
 
 ## Uso
 
-- **Plantillas**: web o servicio, API key, servidor SSH, base de datos, AWS u otro secreto. Cada una muestra solo los campos que necesita.
+- **Plantillas**: para el día a día (web o servicio, tarjeta de pago, nota segura, documento de identidad, red Wi-Fi, cuenta bancaria, licencia de software) y para desarrolladores (API key, servidor SSH, base de datos, AWS, configuración u otro secreto). Cada una muestra solo los campos que necesita.
+- **Cosas personales**: las tarjetas, notas, documentos, redes Wi-Fi, cuentas bancarias y licencias son solo para ti. La IA no las ve ni puede usarlas, `sb run` y la extensión del navegador no las reciben, y no se buscan en archivos ni se pide rotarlas. Lo que ocultan (número de tarjeta, CVV, PIN, IBAN…) se muestra y se copia como una contraseña, y una tarjeta o un documento avisa antes de caducar.
 - **Notas para la IA**: texto que la IA sí lee, para explicarle qué es cada credencial y cómo usarla.
 - **Permisos de la IA**: se rellenan solos a partir de la plantilla (por ejemplo, el dominio sale de la URL). Incluyen las webs permitidas, la cabecera de autenticación, los programas locales permitidos y sus variables de entorno, y cuándo pedir aprobación.
 - **Aprobaciones**: la contraseña se escribe al desbloquear; después, aprobar lo que pide la IA es un clic. «Permitir hoy» deja a la IA usar esa credencial sin volver a preguntar durante 24 h (configurable: 8 h, 24 h o hasta bloquear), también tras el bloqueo automático. Bloquear a mano las olvida todas. Las credenciales con aprobación «Nunca» no preguntan nunca.
@@ -94,7 +95,7 @@ Organizaciones, colecciones compartidas y permisos por persona (gestionar, edita
 - **Generador de contraseñas**: junto a cada contraseña del editor, «Generar» pone una al momento (en bases de datos, 32 letras y números, nada que escapar en la URL de conexión) y el botón de al lado abre las opciones. También desde la barra lateral o con Ctrl+G: aleatoria (12 a 128 caracteres, con o sin símbolos, sin caracteres confusos) o una frase de palabras cortas en español e inglés, con separador, mayúsculas y número. Indica cuánto azar tiene.
 - **Notas privadas**: cada credencial puede guardar notas solo para ti (códigos de recuperación, preguntas de seguridad…). Se ocultan y se muestran como una contraseña y la IA no las ve nunca.
 - **Salud**: una puntuación de 0 a 100 y la lista de lo que conviene arreglar primero: contraseñas débiles, repetidas en varias credenciales (se comparan dentro del servicio, sin sacar ni un hash), antiguas, caducadas o expuestas. Cada una tiene «Rotar con ayuda»; en las webs y servidores SSH genera la nueva, te la copia y la guarda cuando la has cambiado allí (en SSH comprueba antes que entra con ella).
-- **Importar de otro gestor**: Bitwarden (JSON sin cifrar o CSV), 1Password, KeePass / KeePassXC, Chrome, Edge y Firefox (CSV). Antes de importar ves la lista (solo nombres, nunca valores), se marcan las que ya tienes y eliges cuáles. Las notas, códigos TOTP y campos extra pasan a las notas privadas, las carpetas a etiquetas. Al terminar, la app te recomienda borrar el archivo (tiene todas las contraseñas en claro) y lo borra con un clic.
+- **Importar de otro gestor**: Bitwarden (JSON sin cifrar o CSV), 1Password, KeePass / KeePassXC, Chrome, Edge y Firefox (CSV). Antes de importar ves la lista (solo nombres, nunca valores), se marcan las que ya tienes y eliges cuáles. Las notas seguras, tarjetas e identidades de Bitwarden pasan a ser notas, tarjetas y documentos de identidad; los códigos TOTP y campos extra pasan a las notas privadas, las carpetas a etiquetas. Al terminar, la app te recomienda borrar el archivo (tiene todas las contraseñas en claro) y lo borra con un clic.
 - **Exportar**: un archivo cifrado con la contraseña que elijas (scrypt + AES-256-GCM, formato en [docs/EXPORT_FORMAT.md](docs/EXPORT_FORMAT.md)) para llevar la bóveda a otro equipo, o JSON / CSV sin cifrar para otra herramienta, tras un aviso claro. Tus datos no quedan atrapados.
 - **Enlaces al proveedor**: las API keys de proveedores conocidos (OpenAI, Anthropic, GitHub, GitLab, Cloudflare, Stripe, OpenRouter, Mistral…) muestran enlaces directos a su página de claves, a la de crear una nueva y a la facturación. En Cloudflare se indica además el tipo de credencial (token de usuario o de cuenta, Global API Key, AI Gateway, R2, Access). Las de AI Gateway enlazan al panel de su cuenta y nombran su gateway.
 - **Rotar**: en las API keys de proveedores que permiten crear claves por API (por ahora **Cloudflare** y **GitLab**), el botón «Rotar clave» pide una clave nueva al proveedor, la guarda y la vuelve a subir a los secrets de GitHub donde se subió con `push_github_secret`. La clave vieja deja de funcionar al momento.
