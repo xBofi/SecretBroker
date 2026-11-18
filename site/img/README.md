@@ -13,10 +13,12 @@ middle of the window, where the app puts its dialogs, so the dialog must stay ce
 ```
 python tools/make_screenshots.py --lang es --out site/img
 python tools/make_screenshots.py --lang en --out site/img
+# Refresh selected screens in both languages without overwriting any other pair:
+python tools/make_screenshots.py --out site/img --only setup-unlock --only connect-ai --only import --only extension-pair
 ```
 
-**The files in `en/` are copies of the Spanish ones for now.** Run the second command to replace them with English
-screenshots; until then the English pages show the Spanish app.
+Regenerate both languages when the app changes. Each run switches the real interface to that language and uses
+matching demo names, notes, account holders and website addresses; no image translation or retouching is needed.
 
 | File (`-light` and `-dark`) | Screen and state | Used in |
 |---|---|---|
@@ -24,11 +26,22 @@ screenshots; until then the English pages show the Spanish app.
 | `approval` | The dialog “… wants to use a credential” over the vault, with Deny / Just this once / Allow for 24 hours | Home (“The idea”, *focus*); Developers › How approvals work (*focus*); the Open Graph images |
 | `generator` | Password generator, a random password rated Excellent | Home, track 01 (*focus*) |
 | `rotate` | Rotate with help, step 1 “Where it's used”, for an API key | Home, track 02 (*focus*); Developers › Rotate a key (*focus*) |
-| `new-item` | “New credential” with the list of types | Guide › Add your first password (*focus*) |
+| `new-item` | “New credential” with everyday items first and developer types below | Guide › Add your first password (*focus*) |
 | `welcome` | The first screen of the setup, with “Get started” | Guide › Create your vault |
+| `setup-unlock` | Setup step 3, with the real choices for how to open the vault each day | Guide › Create your vault |
+| `connect-ai` | The last setup step, with detected AI clients, a phrase to try and the first-request status | Developers › Connect your AI |
+| `import` | “Import from another manager”, with Bitwarden selected and its export instructions | Guide › Import |
+| `extension-pair` | “Connect Chrome?” with a six-digit code; generated through the isolated demo service, then rejected | Guide › Fill in passwords in your browser |
 | `settings` | Settings, the Security section | Guide › Locking and unlocking |
 | `api-key` | Credentials, an API key open with its “Instructions for the AI” | Developers › Add an API key |
 | `ai-access` | AI access: connected clients, “Pause the AI”, “What the AI can do” | Developers › How approvals work |
+| `appearance` | Settings scrolled to Appearance: language, theme, all palettes, text size, density and motion | Available for the personalization guide |
+| `visa` | Payment card, with its holder and expiry; secret fields stay hidden | Available for everyday-item examples |
+| `identity` | Passport, with its document type, name, country and expiry | Available for everyday-item examples |
+| `wifi` | Home Wi-Fi, with its network name and security type | Available for everyday-item examples |
+| `bank` | Bank account, with its bank and account holder | Available for everyday-item examples |
+| `note` | Secure note; its contents stay hidden | Available for everyday-item examples |
+| `license` | Software license, with its product and registered owner | Available for everyday-item examples |
 
 ## 2. Stand-ins from the GUI test suite (`<name>.png`)
 
@@ -49,10 +62,9 @@ proportions.
 | `move-pc.png` | “Move to another PC” dialog | 680×630 | English | Spanish | Guide › Backups |
 | `extension-install.png` | “Install the extension” dialog, Chrome tab | 480×653 | English | Spanish | Guide › Fill in passwords in your browser |
 | `lock.png` | The lock screen (centre of the window) with “Forgot your master password?” | 440×360 | English | Spanish | Guide › If you forget the master password |
-| `extension-pair.png` | “Connect Chrome?” dialog with the six-digit code | 480×381 | **Spanish** (no English capture) | Spanish | Guide › Fill in passwords in your browser |
-| `import.png` | “Import from another manager” dialog, one source chosen | 680×385 | **Spanish** | Spanish | Guide › Import |
-| `setup-unlock.png` | Setup step 3, “How do you want to open it each day?” (centre of the window) | 520×448 | **Spanish** | Spanish | Guide › Create your vault |
-| `connect-ai.png` | “Connect your AI” (centre of the window) | 520×588 | **Spanish** | Spanish | Developers › Connect your AI |
+
+Older single-file captures of `extension-pair`, `import`, `setup-unlock` and `connect-ai` are superseded by the
+localized demo-vault pairs above. The pairing capture never accepts the demo request or connects a real browser.
 
 Two of these were retouched because the test's capture showed a folder of the machine it ran on: in
 `env-import.png` the project's path next to “.env” is painted over, and in `extension-install.png` the extension's

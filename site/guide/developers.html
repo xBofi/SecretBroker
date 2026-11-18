@@ -68,8 +68,11 @@
   <li>Click <b>Connect</b> next to your client. Then let it notice: open a new session in Claude Code or Codex, restart Cursor or Windsurf, reload VS Code and use Copilot Chat in Agent mode, or quit Claude Desktop completely (next to the clock too) and open it again.</li>
   <li>Try it. The screen offers a phrase to paste into your AI: <i>“Use SecretBroker: call list_secrets and tell me which credentials I have saved, without showing any value.”</i> When the request arrives, the app says who it came from.</li>
 </ol>
-<figure class="shot dialog">
-  <img src="../img/en/connect-ai.png" width="520" height="588" alt="The Connect your AI screen: a list of AI clients with a Connect button each, a phrase to try and a line waiting for the first request." loading="lazy" decoding="async">
+<figure class="shot window focus">
+  <div class="frame">
+    <img class="only-light" src="../img/en/connect-ai-light.png" width="2400" height="1520" alt="The Connect your AI screen: a list of AI clients with a Connect button each, a phrase to try and a line waiting for the first request." loading="lazy" decoding="async">
+    <img class="only-dark" src="../img/en/connect-ai-dark.png" width="2400" height="1520" alt="The Connect your AI screen: a list of AI clients with a Connect button each, a phrase to try and a line waiting for the first request." loading="lazy" decoding="async">
+  </div>
   <figcaption>Connect your AI.</figcaption>
 </figure>
 <p>On Windows the installer already connects Claude Code and Claude Desktop if they are installed. The MCP endpoint listens on <code>127.0.0.1</code> only, asks for a token and checks where requests come from, so a web page cannot drive it.</p>

@@ -25,14 +25,23 @@ working, and walks you through rotating it everywhere it is used.
 > **32 languages**: English, Spanish, Catalan, Galician, Basque, German, French, Italian, Portuguese, Dutch, Danish,
 > Swedish, Norwegian, Finnish, Polish, Czech, Slovak, Slovenian, Croatian, Hungarian, Romanian, Bulgarian, Greek,
 > Estonian, Latvian, Lithuanian, Irish, Maltese, Russian, Ukrainian, Turkish and Simplified Chinese. It follows your
-> system's language; Settings › Language changes it. The team server runs anywhere Docker runs. What changed in each
-> version: [CHANGELOG.md](CHANGELOG.md).
+> system's language; Settings › Appearance changes it, along with the theme (light, dark or the system's), the colour
+> (seven palettes, or any colour of your own, kept readable in both themes), the text size, compact lists and reduced
+> motion. The team server runs anywhere Docker runs. What changed in each version: [CHANGELOG.md](CHANGELOG.md).
 
 ## Screenshots
 
-_Coming soon: vault list, one-click AI approval, guided rotation wizard, exposure report, team sharing._
+The real app with a demo vault; every value shown is made up.
 
-<!-- Put images in docs/img/ and reference them here, e.g. ![Vault](docs/img/vault.png) -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="site/img/en/vault-dark.png">
+  <img alt="Vault with everyday items and developer credentials" src="site/img/en/vault-light.png" width="1200">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="site/img/en/appearance-dark.png">
+  <img alt="Appearance settings: theme, palettes, text size, density and motion" src="site/img/en/appearance-light.png" width="1200">
+</picture>
 
 ## Install
 

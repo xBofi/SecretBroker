@@ -58,14 +58,14 @@
     </header>
     <nav class="toc" aria-label="En esta página">
       <h2>En esta página</h2>
-      <ol><li><a href="#basics">La idea, en un minuto</a></li><li><a href="#install">Instalarlo</a></li><li><a href="#vault">Crear tu bóveda</a></li><li><a href="#master-password">Elegir una buena contraseña maestra</a></li><li><a href="#first-password">Añadir tu primera contraseña</a></li><li><a href="#import">Importar de un navegador o de otro gestor</a></li><li><a href="#browser">Rellenar contraseñas en el navegador</a></li><li><a href="#2fa">Códigos de dos pasos (2FA)</a></li><li><a href="#backups">Copias de seguridad, restaurar y cambiar de PC</a></li><li><a href="#forgot">Si olvidas la contraseña maestra</a></li><li><a href="#locking">Bloquear y desbloquear</a></li><li><a href="#health">Revisar la salud de tus contraseñas</a></li><li><a href="#trouble">Cuando algo va mal</a></li><li><a href="#help">Pedir ayuda</a></li></ol>
+      <ol><li><a href="#basics">La idea, en un minuto</a></li><li><a href="#install">Instalarlo</a></li><li><a href="#vault">Crear tu bóveda</a></li><li><a href="#master-password">Elegir una buena contraseña maestra</a></li><li><a href="#first-password">Añadir tu primera contraseña</a></li><li><a href="#personal">Tarjetas, notas y otros elementos personales</a></li><li><a href="#import">Importar de un navegador o de otro gestor</a></li><li><a href="#browser">Rellenar contraseñas en el navegador</a></li><li><a href="#2fa">Códigos de dos pasos (2FA)</a></li><li><a href="#backups">Copias de seguridad, restaurar y cambiar de PC</a></li><li><a href="#forgot">Si olvidas la contraseña maestra</a></li><li><a href="#locking">Bloquear y desbloquear</a></li><li><a href="#health">Revisar la salud de tus contraseñas</a></li><li><a href="#appearance">Ajustar la app a tu gusto</a></li><li><a href="#trouble">Cuando algo va mal</a></li><li><a href="#help">Pedir ayuda</a></li></ol>
     </nav>
     <article class="prose">
 <h2 id="basics">La idea, en un minuto</h2>
 <p>Un gestor de contraseñas guarda todas tus contraseñas en un único archivo cifrado, la <b>bóveda</b>. La abres con una sola contraseña, la <b>contraseña maestra</b>. Como ya no tienes que recordar las demás, cada una puede ser larga, aleatoria y distinta.</p>
 <ul>
   <li>SecretBroker guarda la bóveda <b>en tu ordenador</b>. No hay que crear ninguna cuenta y no se sube nada.</li>
-  <li>Una <b>credencial</b> es como llama la app a cualquier cosa que guarda: el acceso a una web, una API key, el acceso a un servidor.</li>
+  <li>Una <b>credencial</b> es como llama la app a cada cosa que guarda: un acceso a una web, una tarjeta, una nota segura, una clave de API o un acceso a un servidor.</li>
   <li>Si no usas herramientas de IA, no hagas caso de lo que hable de «la IA». Cuando la instalación te ofrezca conectar una, elige <b>Ahora no</b>.</li>
 </ul>
 
@@ -129,8 +129,11 @@
   </li>
   <li><b>Conecta tu IA</b> es el último paso. Si no usas herramientas de IA, pulsa <b>Ahora no</b>. Si las usas, mira <a href="developers.html#connect">la guía para desarrolladores</a>.</li>
 </ol>
-<figure class="shot dialog">
-  <img src="../../img/es/setup-unlock.png" width="520" height="448" alt="La pantalla que pregunta cómo abrir la bóveda cada día, con Abrir con mi sesión de Windows elegida y marcada como recomendada." loading="lazy" decoding="async">
+<figure class="shot window focus">
+  <div class="frame">
+    <img class="only-light" src="../../img/es/setup-unlock-light.png" width="2400" height="1520" alt="La pantalla con las formas disponibles para abrir la bóveda cada día." loading="lazy" decoding="async">
+    <img class="only-dark" src="../../img/es/setup-unlock-dark.png" width="2400" height="1520" alt="La pantalla con las formas disponibles para abrir la bóveda cada día." loading="lazy" decoding="async">
+  </div>
   <figcaption>El tercer paso: cómo se abre la bóveda en el día a día. En Ubuntu y macOS la pantalla nombra tu sistema en lugar de Windows.</figcaption>
 </figure>
 
@@ -151,13 +154,32 @@
 </ol>
 <figure class="shot window focus">
   <div class="frame">
-    <img class="only-light" src="../../img/es/new-item-light.png" width="2400" height="1520" alt="El diálogo Nueva credencial con sus tipos: Web o servicio, API key o token, Servidor SSH, Base de datos, Nube (AWS), Otro secreto y Configuración (no secreta)." loading="lazy" decoding="async">
-    <img class="only-dark" src="../../img/es/new-item-dark.png" width="2400" height="1520" alt="El diálogo Nueva credencial con sus tipos: Web o servicio, API key o token, Servidor SSH, Base de datos, Nube (AWS), Otro secreto y Configuración (no secreta)." loading="lazy" decoding="async">
+    <img class="only-light" src="../../img/es/new-item-light.png" width="2400" height="1520" alt="El diálogo Nueva credencial, con los elementos del día a día primero y las credenciales para desarrolladores en otro bloque." loading="lazy" decoding="async">
+    <img class="only-dark" src="../../img/es/new-item-dark.png" width="2400" height="1520" alt="El diálogo Nueva credencial, con los elementos del día a día primero y las credenciales para desarrolladores en otro bloque." loading="lazy" decoding="async">
   </div>
   <figcaption>Nueva credencial: para el acceso a una web, elige Web o servicio.</figcaption>
 </figure>
 <p>Tu acceso ya está en la lista. El ojo muestra la contraseña y los dos cuadrados la copian; el portapapeles se borra a los 30 segundos. Las <b>Etiquetas</b> agrupan credenciales, por ejemplo por proyecto, y <kbd>Ctrl</kbd>+<kbd>F</kbd> busca.</p>
 <p>El <b>Generador de contraseñas</b> también va por libre, al pie de la barra lateral o con <kbd>Ctrl</kbd>+<kbd>G</kbd>: una contraseña <b>Aleatoria</b> de 12 a 128 caracteres o una <b>Frase de palabras</b> cortas.</p>
+
+<h2 id="personal">Tarjetas, notas y otros elementos personales</h2>
+<p>En <b>Nueva › Para el día a día</b> también tienes seis tipos para lo que quieres guardar a salvo:</p>
+<ul>
+  <li><b>Tarjeta de pago</b>: número, titular, caducidad, CVV y PIN opcional.</li>
+  <li><b>Nota segura</b>: un texto privado, por ejemplo unas instrucciones de recuperación.</li>
+  <li><b>Documento de identidad</b>: DNI, pasaporte o carné de conducir, con su número y sus fechas.</li>
+  <li><b>Red Wi-Fi</b>: nombre de la red, tipo de seguridad y contraseña.</li>
+  <li><b>Cuenta bancaria</b>: titular, banco, IBAN y BIC / SWIFT.</li>
+  <li><b>Licencia de software</b>: producto, clave de licencia y a nombre de quién está.</li>
+</ul>
+<p>Elige el tipo, rellena sus campos y pulsa <b>Guardar</b>. Puedes ver o copiar sus campos ocultos desde la app tras confirmar que eres tú. Estos elementos son <b>solo para ti: las herramientas de IA no pueden listarlos, leerlos ni usarlos</b>, y la extensión del navegador no los rellena. Las copias de seguridad y las exportaciones los conservan junto a tus accesos.</p>
+<figure class="shot window">
+  <div class="frame">
+    <img class="only-light" src="../../img/es/visa-light.png" width="2400" height="1520" alt="Una tarjeta de pago abierta en la bóveda, con Titular de la tarjeta y Caducidad visibles, y Número de la tarjeta y CVV ocultos." loading="lazy" decoding="async">
+    <img class="only-dark" src="../../img/es/visa-dark.png" width="2400" height="1520" alt="Una tarjeta de pago abierta en la bóveda, con Titular de la tarjeta y Caducidad visibles, y Número de la tarjeta y CVV ocultos." loading="lazy" decoding="async">
+  </div>
+  <figcaption>Una tarjeta de pago: su número y CVV siguen ocultos hasta que tú lo pides.</figcaption>
+</figure>
 
 <h2 id="import">Importar de un navegador o de otro gestor</h2>
 <p>SecretBroker lee lo que exportan <b>Chrome, Edge, Firefox, Bitwarden, 1Password, KeePass y KeePassXC</b>. Nunca lee por su cuenta los datos de otro programa: tú exportas un archivo allí y lo eliges aquí.</p>
@@ -167,18 +189,22 @@
     <ul>
       <li><b>Chrome</b>: Configuración → Autocompletar y contraseñas → Gestor de contraseñas de Google → Configuración → Exportar contraseñas → Descargar archivo.</li>
       <li><b>Edge</b>: Configuración → Perfiles → Contraseñas → … (Más acciones) → Exportar contraseñas.</li>
-      <li><b>Bitwarden</b>: exporta en <code>.json</code>, no en «.json (Encrypted)». Trae carpetas, notas y códigos 2FA; también vale <code>.csv</code>.</li>
+      <li><b>Bitwarden</b>: exporta en <code>.json</code>, no en «.json (Encrypted)». Trae carpetas, notas, tarjetas, identidades y códigos 2FA; también vale <code>.csv</code>.</li>
       <li><b>1Password</b>: exporta en CSV. El formato <code>.1pux</code> no se puede leer.</li>
     </ul>
   </li>
   <li>Pulsa <b>Elegir el archivo…</b>. Primero ves la lista, solo los nombres: las que ya tienes salen marcadas y tú decides cuáles traer. Después, <b>Importar</b>.</li>
   <li>Al terminar, la app te recuerda que el archivo exportado tiene todas tus contraseñas sin cifrar. Pulsa <b>Borrar el archivo</b>, y borra también las copias que queden en Descargas, en el correo o en la nube.</li>
 </ol>
-<figure class="shot dialog">
-  <img src="../../img/es/import.png" width="680" height="385" alt="El diálogo Importar de otro gestor, con una pestaña por origen y los pasos para exportar desde cada uno." loading="lazy" decoding="async">
+<figure class="shot window focus">
+  <div class="frame">
+    <img class="only-light" src="../../img/es/import-light.png" width="2400" height="1520" alt="El diálogo Importar de otro gestor, con una pestaña por origen y los pasos para exportar desde cada uno." loading="lazy" decoding="async">
+    <img class="only-dark" src="../../img/es/import-dark.png" width="2400" height="1520" alt="El diálogo Importar de otro gestor, con una pestaña por origen y los pasos para exportar desde cada uno." loading="lazy" decoding="async">
+  </div>
   <figcaption>El diálogo explica cómo exportar desde cada programa.</figcaption>
 </figure>
 <p>Las carpetas pasan a ser etiquetas, y las notas y los campos extra van a <b>Notas privadas</b>. Después, <b>Ver la salud</b> te enseña las contraseñas débiles o repetidas que traías.</p>
+<p>Las notas seguras, tarjetas y documentos de identidad de Bitwarden pasan a ser elementos personales. Si una tarjeta o identidad no tiene número, se conserva como nota segura para no perder sus datos.</p>
 
 <h2 id="browser">Rellenar contraseñas en el navegador</h2>
 <p>La extensión del navegador rellena el usuario, la contraseña y el código 2FA en <b>Chrome, Edge, Brave y Firefox</b>. Aún no está en las tiendas de extensiones, así que por ahora se carga desde la carpeta de la app. Son dos minutos y no hace falta terminal.</p>
@@ -192,8 +218,11 @@
   <img src="../../img/es/extension-install.png" width="480" height="653" alt="El diálogo Instalar la extensión con los cuatro pasos para Chrome." loading="lazy" decoding="async">
   <figcaption>Las instrucciones de la propia app, para cada navegador.</figcaption>
 </figure>
-<figure class="shot dialog">
-  <img src="../../img/es/extension-pair.png" width="480" height="381" alt="El diálogo ¿Conectar Chrome? con un código de seis cifras para compararlo con el de la extensión." loading="lazy" decoding="async">
+<figure class="shot window focus">
+  <div class="frame">
+    <img class="only-light" src="../../img/es/extension-pair-light.png" width="2400" height="1520" alt="El diálogo ¿Conectar Chrome? con un código de seis cifras para compararlo con el de la extensión." loading="lazy" decoding="async">
+    <img class="only-dark" src="../../img/es/extension-pair-dark.png" width="2400" height="1520" alt="El diálogo ¿Conectar Chrome? con un código de seis cifras para compararlo con el de la extensión." loading="lazy" decoding="async">
+  </div>
   <figcaption>En la extensión tiene que aparecer el mismo código.</figcaption>
 </figure>
 <p>A partir de ahí, en una página de inicio de sesión, pulsa el botón de SecretBroker dentro del campo o <kbd>Alt</kbd>+<kbd>Mayús</kbd>+<kbd>L</kbd>. <kbd>Ctrl</kbd>+<kbd>Mayús</kbd>+<kbd>Y</kbd> abre la extensión. También te ofrece guardar los accesos nuevos y las contraseñas que cambies.</p>
@@ -282,6 +311,24 @@
 </figure>
 <p>Cada línea tiene <b>Rotar con ayuda</b>: la app genera una contraseña nueva, te la copia para que la pegues en la página de «cambiar contraseña» de la web y la guarda cuando confirmas que la web la ha aceptado.</p>
 <p>Para saber si una contraseña está en una filtración conocida, la app pregunta al servicio Have I Been Pwned de una forma que no la revela: de tu PC solo salen los cinco primeros caracteres de una huella de la contraseña. La <a href="../privacy.html">página de privacidad</a> da los detalles.</p>
+
+<h2 id="appearance">Ajustar la app a tu gusto</h2>
+<p>Abre <b>Ajustes › Apariencia</b>. Los cambios se ven al momento y se conservan al reiniciar:</p>
+<ul>
+  <li><b>Idioma</b>: elige uno de los 32 idiomas o deja que la app siga al sistema.</li>
+  <li><b>Tema</b>: <b>Claro</b>, <b>Oscuro</b> o <b>Sistema</b>. Sistema sigue los cambios mientras la app está abierta.</li>
+  <li><b>Color</b>: elige una de las siete paletas, o <b>Personalizado</b> y tu propio color. La app lo ajusta donde hace falta para que el texto se lea bien.</li>
+  <li><b>Tamaño del texto</b>: Pequeño, Normal, Grande o Muy grande. Texto, iconos y botones cambian de tamaño juntos.</li>
+  <li><b>Densidad</b>: Cómoda o Compacta. Con Compacta caben más filas en pantalla.</li>
+  <li><b>Reducir animaciones</b>: elimina las transiciones y el movimiento. La app también respeta esta preferencia del sistema.</li>
+</ul>
+<figure class="shot window">
+  <div class="frame">
+    <img class="only-light" src="../../img/es/appearance-light.png" width="2400" height="1520" alt="Ajustes, Apariencia: Idioma, Tema, Color, Tamaño del texto, Densidad y Reducir animaciones." loading="lazy" decoding="async">
+    <img class="only-dark" src="../../img/es/appearance-dark.png" width="2400" height="1520" alt="Ajustes, Apariencia: Idioma, Tema, Color, Tamaño del texto, Densidad y Reducir animaciones." loading="lazy" decoding="async">
+  </div>
+  <figcaption>Ajustes › Apariencia: los cambios se ven al elegirlos.</figcaption>
+</figure>
 
 <h2 id="trouble">Cuando algo va mal</h2>
 <h3>«No se puede conectar con el servicio»</h3>

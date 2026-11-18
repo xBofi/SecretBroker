@@ -19,8 +19,24 @@ Bóveda de credenciales para Windows, Ubuntu y macOS que permite a un agente de 
 > extensión del navegador y los mensajes del servicio están en **32 idiomas**: inglés, español, catalán, gallego,
 > euskera, alemán, francés, italiano, portugués, neerlandés, danés, sueco, noruego, finés, polaco, checo, eslovaco,
 > esloveno, croata, húngaro, rumano, búlgaro, griego, estonio, letón, lituano, irlandés, maltés, ruso, ucraniano, turco
-> y chino simplificado. Sigue el idioma del sistema; se cambia en Ajustes › Idioma. Los cambios de cada versión están
+> y chino simplificado. Sigue el idioma del sistema; se cambia en Ajustes › Apariencia, donde también eliges el tema
+> (claro, oscuro o el del sistema), el color (siete paletas o cualquier color tuyo, que la app adapta para que se lea
+> bien con los dos temas), el tamaño del texto, listas compactas y menos animaciones. Los cambios de cada versión están
 > en [CHANGELOG.md](CHANGELOG.md) (en inglés).
+
+## Capturas
+
+La app real con una bóveda de demostración; todos los datos son inventados.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="site/img/es/vault-dark.png">
+  <img alt="Bóveda con elementos del día a día y credenciales para desarrollar" src="site/img/es/vault-light.png" width="1200">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="site/img/es/appearance-dark.png">
+  <img alt="Apariencia: tema, paletas, tamaño de texto, densidad y animaciones" src="site/img/es/appearance-light.png" width="1200">
+</picture>
 
 ## Instalación
 
@@ -37,7 +53,7 @@ Sin instalar, la app funciona en **modo de desarrollo** (`.venv\Scripts\secretbr
 
 ### Publicar una versión
 
-Sube la versión en `pyproject.toml`, `secretbroker/__init__.py`, `server/pyproject.toml`, `server/secretbroker_server/__init__.py`, `installer/SecretBroker.iss` y `extension/manifest.json`, añade la entrada en `CHANGELOG.md` y empuja una etiqueta `v<versión>`. GitHub Actions (`.github/workflows/release.yml`) pasa las pruebas en los tres sistemas, compila el instalador de Windows, el `.deb` y los `.pkg`, los firma con el secret `UPDATE_SIGNING_KEY` y deja un borrador en Releases que hay que publicar a mano (ver [docs/RELEASING.md](docs/RELEASING.md)). Las apps instaladas lo verán solas. La clave de firma se creó con `tools/new_signing_key.py`, que solo imprime la clave pública y la privada ya cifrada para GitHub.
+Sube la versión en `pyproject.toml`, `secretbroker/__init__.py`, `server/pyproject.toml`, `server/secretbroker_server/__init__.py`, `installer/SecretBroker.iss` y `extension/manifest.json`, añade la entrada en `CHANGELOG.md` y empuja una etiqueta `v<versión>`. GitHub Actions (`.github/workflows/release.yml`) pasa las pruebas en los tres sistemas, compila los instaladores y el archivo del servidor, los firma con el secret `UPDATE_SIGNING_KEY`, comprueba las firmas y publica la versión automáticamente (ver [docs/RELEASING.md](docs/RELEASING.md)). Las apps instaladas la verán solas. La clave de firma se creó con `tools/new_signing_key.py`, que solo imprime la clave pública y la privada ya cifrada para GitHub.
 
 ### Generar el instalador
 
@@ -188,7 +204,7 @@ python tools\make_icon.py secretbroker\assets\icon.ico
 .\tools\update_installed.ps1 -Full   # igual, pero con el instalador completo (si cambian dependencias o installer\)
 ```
 
-La interfaz sigue el sistema de diseño documentado al principio de `secretbroker/web/styles.css`: un único color de acento por paleta (Salvia, Cobalto, Terracota, Grafito), los colores de categoría solo en los iconos y la jerarquía marcada con el peso del texto, no con cajas.
+La interfaz sigue el sistema de diseño documentado al principio de `secretbroker/web/styles.css`: un único color de acento por paleta (Grafito, Cobalto, Violeta, Frambuesa, Terracota, Oliva, Salvia, o el color que elija el usuario en «Personalizado»), los colores de categoría solo en los iconos y la jerarquía marcada con el peso del texto, no con cajas. Tema, color, tamaño del texto, densidad y animaciones se eligen en Ajustes › Apariencia y llegan a la página como atributos del elemento raíz (`secretbroker/web/appearance.js`).
 
 ```text
 Atajos: Ctrl+F buscar · Ctrl+N nueva credencial · Ctrl+L bloquear · Esc cerrar

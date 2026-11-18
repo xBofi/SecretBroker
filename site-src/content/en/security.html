@@ -34,6 +34,7 @@ section: security
 <h2 id="ai">What an AI agent can and cannot do</h2>
 <ul>
   <li><b>No tool returns a secret.</b> The agent names a credential; the service adds the key to the request and removes it from the reply, in plain text, base64, URL-encoded, JSON and connection-string forms.</li>
+  <li><b>Personal items are excluded.</b> AI tools cannot list or use cards, secure notes, identity documents, Wi-Fi networks, bank accounts or software licenses. They are not available to <code>sb run</code> or browser autofill either.</li>
   <li><b>A key only goes where you allowed.</b> Each credential lists its domains (HTTPS only, redirects not followed), its programs and its environment variables. An SSH host comes from the vault, not from the agent.</li>
   <li><b>You approve.</b> Uses that ask are approved by you, in the app. Changes by the AI that would widen where a key may go wait for your approval, and the AI cannot change a secret's value or how a credential is approved.</li>
   <li><b>You can stop it.</b> “Pause the AI” cuts all access at once. An unusual number of uses asks again.</li>

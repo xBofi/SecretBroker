@@ -34,6 +34,7 @@ section: security
 <h2 id="ai">Qué puede y qué no puede hacer un agente de IA</h2>
 <ul>
   <li><b>Ninguna herramienta devuelve un secreto.</b> El agente nombra una credencial; el servicio añade la clave a la petición y la borra de la respuesta: en texto literal, en base64, codificada en una URL, dentro de un JSON y en cadenas de conexión.</li>
+  <li><b>Los elementos personales quedan fuera.</b> Las herramientas de IA no pueden listar ni usar tarjetas, notas seguras, documentos de identidad, redes Wi-Fi, cuentas bancarias o licencias de software. Tampoco están disponibles para <code>sb run</code> ni para el autorrelleno del navegador.</li>
   <li><b>Una clave solo va adonde tú permitiste.</b> Cada credencial lista sus dominios (solo HTTPS, sin seguir redirecciones), sus programas y sus variables de entorno. El servidor SSH sale de la bóveda, no del agente.</li>
   <li><b>Apruebas tú.</b> Los usos que preguntan los apruebas tú, en la app. Los cambios de la IA que ampliarían adónde puede ir una clave esperan tu aprobación, y la IA no puede cambiar el valor de un secreto ni cómo se aprueba una credencial.</li>
   <li><b>Puedes pararla.</b> «Pausar la IA» corta todo el acceso al instante. Un número inusual de usos vuelve a preguntar.</li>
