@@ -141,7 +141,7 @@ jobs:
 
   # Builds the Ubuntu package, installs it on the runner and checks that the service starts as `secretbroker`.
   linux-package:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # where the release builds it (release.yml > ubuntu): the same package users get
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
@@ -149,30 +149,46 @@ jobs:
       - name: Build dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq binutils dpkg-dev curl libnss3 libxkbcommon0 libxkbcommon-x11-0 libegl1 libgl1 \
-            libopengl0 libfontconfig1 libdbus-1-3 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
-            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 libxcomposite1 libxdamage1 \
-            libxrandr2 libxtst6 libxshmfence1 libxkbfile1 libwayland-client0 libwayland-cursor0 libwayland-egl1
+          sudo apt-get install -y -qq binutils dpkg-dev curl libnss3 libxkbcommon0 libxkbcommon-x11-0 libegl1 libgl1             libopengl0 libfontconfig1 libdbus-1-3 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 libxcomposite1 libxdamage1             libxrandr2 libxtst6 libxshmfence1 libxkbfile1 libwayland-client0 libwayland-cursor0 libwayland-egl1
 
       - name: Build the .deb
         run: bash tools/build_deb.sh
-
-      - name: Install it and check the service
-        run: |
-          sudo apt-get install -y -qq ./dist/secretbroker_*_amd64.deb
-          sleep 5
-          systemctl is-active "secretbroker@$USER.service"
-          test "$(ps -o user= -p "$(systemctl show -p MainPID --value "secretbroker@$USER.service")")" = secretbroker
-          stat -c '%U:%G %a' "/var/lib/secretbroker/$USER/data" "/var/lib/secretbroker/$USER/public/broker.json"
-          /opt/secretbroker/venv/bin/python -I -c "from secretbroker import client, paths; assert paths.is_installed(); print(client.request('status')['state'])"
-          sudo apt-get purge -y -qq secretbroker
-          test ! -e /var/lib/secretbroker
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: secretbroker-deb
           path: dist/secretbroker_*_amd64.deb
           retention-days: 7
+
+  # That package on every Ubuntu it is for, installed the way the software installer does. apt says what it does
+  # (no -qq) and the step has its own time limit: on Ubuntu 26.04 a recommended GNOME package once made apt install
+  # a whole desktop on the runner, and the job only ended at its 30 minutes, with nothing in the log.
+  linux-package-install:
+    needs: linux-package
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: secretbroker-deb
+          path: dist
+
+      - name: Install it and check the service
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ./dist/secretbroker_*_amd64.deb
+          sleep 5
+          systemctl is-active "secretbroker@$USER.service"
+          test "$(ps -o user= -p "$(systemctl show -p MainPID --value "secretbroker@$USER.service")")" = secretbroker
+          stat -c '%U:%G %a' "/var/lib/secretbroker/$USER/data" "/var/lib/secretbroker/$USER/public/broker.json"
+          /opt/secretbroker/venv/bin/python -I -c "from secretbroker import client, paths; assert paths.is_installed(); print(client.request('status')['state'])"
+          sudo apt-get purge -y secretbroker
+          test ! -e /var/lib/secretbroker
 
   # Builds the macOS package (unsigned), installs it on the runner and checks that the service runs as `_secretbroker`
   # and that the desktop account, and only it, can read broker.json.
