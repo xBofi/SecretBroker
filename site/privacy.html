@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Privacy: what leaves your computer when you use SecretBroker</title>
+<meta name="description" content="What SecretBroker keeps on your computer and every connection it makes: update checks to GitHub, key tests with each provider, Have I Been Pwned by k-anonymity and the optional team server. No telemetry.">
+<link rel="canonical" href="https://xbofi.github.io/SecretBroker/privacy.html">
+<link rel="alternate" hreflang="en" href="https://xbofi.github.io/SecretBroker/privacy.html">
+<link rel="alternate" hreflang="es" href="https://xbofi.github.io/SecretBroker/es/privacy.html">
+<link rel="alternate" hreflang="x-default" href="https://xbofi.github.io/SecretBroker/privacy.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SecretBroker">
+<meta property="og:title" content="Privacy: what leaves your computer when you use SecretBroker">
+<meta property="og:description" content="What SecretBroker keeps on your computer and every connection it makes: update checks to GitHub, key tests with each provider, Have I Been Pwned by k-anonymity and the optional team server. No telemetry.">
+<meta property="og:url" content="https://xbofi.github.io/SecretBroker/privacy.html">
+<meta property="og:image" content="https://xbofi.github.io/SecretBroker/img/og-en.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="es_ES">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbfbfb">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161616">
+<link rel="icon" href="favicon.ico" sizes="48x48">
+<link rel="icon" href="img/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="img/icon-180.png">
+<link rel="stylesheet" href="css/site.css">
+<script src="js/theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="SecretBroker home"><svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><rect class="mark-tile" x="4" y="4" width="92" height="92" rx="22"/><path class="mark-shield" d="M50 17 77 27V49L73 62 64 73 50 83 36 73 27 62 23 49V27Z"/><path class="mark-hole" d="M42.5 45a7.5 7.5 0 1 1 15 0 7.5 7.5 0 1 1-15 0ZM47 45h6l2.28 19H44.72Z"/></svg><span>SecretBroker</span></a>
+    <nav class="nav" aria-label="Main"><a href="guide/">Guide</a><a href="guide/developers.html">For developers</a><a href="guide/teams.html">For teams</a><a href="security.html">Security</a><a href="https://github.com/xBofi/SecretBroker" rel="noopener">GitHub</a></nav>
+    <div class="tools">
+      <a class="tool" href="es/privacy.html" hreflang="es" lang="es" aria-label="Leer en español">Español</a>
+      <button class="tool theme-toggle" type="button" aria-label="Switch between light and dark" title="Switch between light and dark"><svg class="icon to-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="icon to-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg></button>
+      <a class="btn primary sm" href="./#download">Download</a>
+      <details class="menu">
+        <summary class="tool" aria-label="Menu"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></summary>
+        <nav class="menu-panel" aria-label="Menu"><a href="guide/">Guide</a><a href="guide/developers.html">For developers</a><a href="guide/teams.html">For teams</a><a href="security.html">Security</a><a href="https://github.com/xBofi/SecretBroker" rel="noopener">GitHub</a><a href="privacy.html" aria-current="page">Privacy</a><a href="./#download">Download</a></nav>
+      </details>
+    </div>
+  </div>
+</header>
+<main id="main" class="page wrap">
+  <div class="page-grid">
+    <header class="page-head">
+      <p class="crumbs"><a href="./">SecretBroker</a></p>
+      <h1>Privacy</h1>
+      <p class="lede">What stays on your computer, and every connection the app, the browser extension, a team server and this website make. Each statement was checked against the source code.</p>
+      
+    </header>
+    <nav class="toc" aria-label="On this page">
+      <h2>On this page</h2>
+      <ol><li><a href="#short">In short</a></li><li><a href="#local">What stays on your computer</a></li><li><a href="#connections">Connections the app makes</a></li><li><a href="#ai">What your AI provider sees</a></li><li><a href="#extension">The browser extension</a></li><li><a href="#team-server">The team server</a></li><li><a href="#website">This website</a></li><li><a href="#choices">Your choices</a></li><li><a href="#contact">Questions</a></li></ol>
+    </nav>
+    <article class="prose">
+<aside class="note warn"><p><b>Not yet reviewed by a lawyer.</b> This page is the maintainers' plain description of what the software does. It is not legal advice. The fuller text, with the source file behind each statement, is <a href="https://github.com/xBofi/SecretBroker/blob/main/docs/PRIVACY.md" rel="noopener">docs/PRIVACY.md</a> in the repository.</p></aside>
+
+<h2 id="short">In short</h2>
+<ul>
+  <li>Your vault lives on your computer, encrypted. The project has no server that receives it and no way to see your credentials.</li>
+  <li>There is <b>no telemetry, analytics, crash reporting or advertising</b> in the app, the extension or the server. There is no account with us to create.</li>
+  <li>The app connects to the internet for a short, fixed list of reasons, all listed below.</li>
+  <li>If you join a team, its server stores only ciphertext it cannot read, plus the e-mail addresses and membership it needs to route it. Whoever runs that server is responsible for it.</li>
+</ul>
+
+<h2 id="local">What stays on your computer</h2>
+<ul>
+  <li><b>The vault</b>: your credentials, their notes and where each may be used. Encrypted on disk, in a folder only the SecretBroker service account can read.</li>
+  <li><b>Activity</b>: what was used, filled, copied, approved or refused, when and by which program. Encrypted, and readable only while the vault is unlocked.</li>
+  <li><b>The search for copies of your keys</b>: it reads files on your computer (AI conversations, terminal history, program settings, project folders and their git history). Nothing it reads or finds is sent anywhere.</li>
+</ul>
+
+<h2 id="connections">Connections the app makes</h2>
+<div class="table-scroll"><table>
+  <thead><tr><th>When</th><th>To</th><th>What is sent</th></tr></thead>
+  <tbody>
+    <tr><td>When the app starts, then once an hour while it runs</td><td>GitHub (<code>api.github.com</code>)</td><td>A request for SecretBroker's latest release. No identifier and no version number of yours. GitHub sees your IP address, as any site you visit does. This check has no off switch yet.</td></tr>
+    <tr><td>When you click to update</td><td>GitHub</td><td>The download of the installer and its signature. Nothing is installed unless the signature verifies.</td></tr>
+    <tr><td>While the vault is unlocked, as often as you chose: every day by default, down to “Never”</td><td>The provider of each API key the app recognises, such as OpenAI, Anthropic, GitHub, GitLab, Stripe or Cloudflare; your SSH servers</td><td>One read-only request with that key, to learn whether it still works. A key is only ever sent to the provider it belongs to. For SSH, the app signs in and out.</td></tr>
+    <tr><td>On the same schedule</td><td>Have I Been Pwned (<code>api.pwnedpasswords.com</code>)</td><td>For passwords of website logins, databases and SSH: the <b>first 5 characters of the password's SHA-1 hash</b>. The password and its full hash never leave your computer; the comparison is made locally.</td></tr>
+    <tr><td>When you, or an AI agent you approved, use or rotate a credential</td><td>The hosts that credential is allowed to reach</td><td>The request you approved, with the secret put in place by the app. Every use is in Activity.</td></tr>
+    <tr><td>Only if you connect to a team server</td><td>That server, at the address you typed</td><td>See <a href="#team-server">the team server</a>, below.</td></tr>
+  </tbody>
+</table></div>
+<p>The app also opens links in your browser when you click them, such as a provider's console. Its code makes no other connection.</p>
+
+<h2 id="ai">What your AI provider sees</h2>
+<p>AI agents talk to SecretBroker on your own computer. They receive the results of what they ask for with the secrets removed, never the secrets. They do see the <b>names</b> of your credentials, the <b>Instructions for the AI</b> you wrote and the redacted results, and those become part of your conversation with the AI, under that provider's own privacy terms. Private notes, passwords and keys are never given to the AI.</p>
+
+<h2 id="extension">The browser extension</h2>
+<ul>
+  <li>It talks only to the SecretBroker app on the same computer, through the browser's native messaging. It sends nothing to the project or to anyone else, and loads no code from the internet.</li>
+  <li>To do its job it reads the address of the tab you are on and the login fields of the page, and, when you send a login form, the username and password you typed, so the app can offer to save them. They are stored only if you click to save.</li>
+  <li>The one thing it asks the internet for is a website's own icon, fetched from that site without cookies and without saying which page asked. It never uses an icon service.</li>
+</ul>
+
+<h2 id="team-server">The team server</h2>
+<p>A team server is optional. The project runs none: each one is installed and run by the organization that uses it, and that organization is responsible for the data on it.</p>
+<p><b>It stores</b> accounts (e-mail address, the name you chose, public keys, and your private keys encrypted so that only your password or recovery code opens them), devices (the name of each signed-in device and when it was last seen), organizations (their names, members, roles and pending invitations) and shared credentials <b>as ciphertext only</b>, with who may open each collection, sizes, counts and times, and a log of who did what.</p>
+<p><b>It never receives</b> credentials, their names or notes in clear, collection names, your account password, your recovery code, your master password, or anything you did not share.</p>
+<p>If its operator set up e-mail, it sends two kinds of message and no others: the code that verifies your address, and invitations. A server installed with the one-command installer asks GitHub once a day for a newer signed version of itself.</p>
+
+<h2 id="website">This website</h2>
+<ul>
+  <li>It is a set of static files hosted on GitHub Pages. GitHub, as the host, receives your IP address when you load a page, like any web host.</li>
+  <li>It sets <b>no cookies</b> and runs <b>no analytics</b>, and loads no fonts, scripts or images from other servers. The pages forbid it themselves with a content security policy.</li>
+  <li>One exception, on the home page: the download buttons ask GitHub's public API (<code>api.github.com</code>) which release is the latest, to link straight to the right installer.</li>
+  <li>Your browser keeps two small things for this site: the theme you chose and, during your visit, the answer about the latest release. Neither is sent anywhere.</li>
+</ul>
+
+<h2 id="choices">Your choices</h2>
+<ul>
+  <li><b>Key tests and leak checks</b>: Settings › Security › Check that keys work, or each credential, down to “Never”.</li>
+  <li><b>The search for copies</b>: Settings › Copies of your keys.</li>
+  <li><b>The browser extension</b>: Disconnect in Settings › Browser, or remove it from the browser.</li>
+  <li><b>A team account</b>: disconnect in Team › Your account. To have the account deleted, ask whoever runs the server.</li>
+  <li><b>Everything</b>: uninstalling asks whether to delete the vault. If you keep it, it stays on your disk, encrypted, until you delete it.</li>
+</ul>
+
+<h2 id="contact">Questions</h2>
+<p>Open an issue on <a href="https://github.com/xBofi/SecretBroker/issues" rel="noopener">GitHub</a>. It is public, so never paste a secret there. To report a security problem in private, see the <a href="https://github.com/xBofi/SecretBroker/blob/main/SECURITY.md" rel="noopener">security policy</a>.</p>
+
+    <p class="updated">Last updated: November 18, 2026</p>
+    </article>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot">
+      <div class="foot-brand">
+        <a class="brand" href="./"><svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><rect class="mark-tile" x="4" y="4" width="92" height="92" rx="22"/><path class="mark-shield" d="M50 17 77 27V49L73 62 64 73 50 83 36 73 27 62 23 49V27Z"/><path class="mark-hole" d="M42.5 45a7.5 7.5 0 1 1 15 0 7.5 7.5 0 1 1-15 0ZM47 45h6l2.28 19H44.72Z"/></svg><span>SecretBroker</span></a>
+        <p>A free, open-source password and secrets manager for your computer. Windows and Ubuntu are supported; macOS is a preview.</p>
+      </div>
+      <div><h2>Product</h2><ul><li><a href="./#download">Download</a></li><li><a href="guide/">Guide</a></li><li><a href="guide/developers.html">For developers</a></li><li><a href="guide/teams.html">For teams</a></li></ul></div>
+      <div><h2>Trust</h2><ul><li><a href="security.html">Security</a></li><li><a href="privacy.html">Privacy</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/docs/THREAT_MODEL.md" rel="noopener">Threat model</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/SECURITY.md" rel="noopener">Report a vulnerability</a></li></ul></div>
+      <div><h2>Project</h2><ul><li><a href="https://github.com/xBofi/SecretBroker" rel="noopener">Source code</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/CHANGELOG.md" rel="noopener">Changelog</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/docs/ROADMAP.md" rel="noopener">Roadmap</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/LICENSE" rel="noopener">MIT License</a></li></ul></div>
+    </div>
+    <div class="fineprint"><p>This site sets no cookies and runs no analytics, and loads nothing from other servers. One exception, on the home page only: the download buttons ask GitHub's public API which version is the latest. Your theme choice is kept in your browser.</p><p>SecretBroker is open source under the MIT License. © 2026 xBofi.</p></div>
+  </div>
+</footer>
+<script src="js/site.js" defer></script>
+</body>
+</html>

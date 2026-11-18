@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>SecretBroker para equipos: comparte credenciales cifradas de extremo a extremo</title>
+<meta name="description" content="Instala el servidor de equipos de SecretBroker con un comando, invita a tu gente, comparte credenciales con permisos (Gestor, Editor, Lector, Solo uso) y resuelve qué pasa cuando alguien se va o pierde el acceso.">
+<link rel="canonical" href="https://xbofi.github.io/SecretBroker/es/guide/teams.html">
+<link rel="alternate" hreflang="en" href="https://xbofi.github.io/SecretBroker/guide/teams.html">
+<link rel="alternate" hreflang="es" href="https://xbofi.github.io/SecretBroker/es/guide/teams.html">
+<link rel="alternate" hreflang="x-default" href="https://xbofi.github.io/SecretBroker/guide/teams.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SecretBroker">
+<meta property="og:title" content="SecretBroker para equipos: comparte credenciales cifradas de extremo a extremo">
+<meta property="og:description" content="Instala el servidor de equipos de SecretBroker con un comando, invita a tu gente, comparte credenciales con permisos (Gestor, Editor, Lector, Solo uso) y resuelve qué pasa cuando alguien se va o pierde el acceso.">
+<meta property="og:url" content="https://xbofi.github.io/SecretBroker/es/guide/teams.html">
+<meta property="og:image" content="https://xbofi.github.io/SecretBroker/img/og-es.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="es_ES">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbfbfb">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161616">
+<link rel="icon" href="../../favicon.ico" sizes="48x48">
+<link rel="icon" href="../../img/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../../img/icon-180.png">
+<link rel="stylesheet" href="../../css/site.css">
+<script src="../../js/theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Saltar al contenido</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../" aria-label="Inicio de SecretBroker"><svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><rect class="mark-tile" x="4" y="4" width="92" height="92" rx="22"/><path class="mark-shield" d="M50 17 77 27V49L73 62 64 73 50 83 36 73 27 62 23 49V27Z"/><path class="mark-hole" d="M42.5 45a7.5 7.5 0 1 1 15 0 7.5 7.5 0 1 1-15 0ZM47 45h6l2.28 19H44.72Z"/></svg><span>SecretBroker</span></a>
+    <nav class="nav" aria-label="Principal"><a href="../guide/">Guía</a><a href="../guide/developers.html">Para desarrolladores</a><a href="../guide/teams.html" aria-current="page">Para equipos</a><a href="../security.html">Seguridad</a><a href="https://github.com/xBofi/SecretBroker" rel="noopener">GitHub</a></nav>
+    <div class="tools">
+      <a class="tool" href="../../guide/teams.html" hreflang="en" lang="en" aria-label="Read in English">English</a>
+      <button class="tool theme-toggle" type="button" aria-label="Cambiar entre tema claro y oscuro" title="Cambiar entre tema claro y oscuro"><svg class="icon to-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="icon to-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg></button>
+      <a class="btn primary sm" href="../#download">Descargar</a>
+      <details class="menu">
+        <summary class="tool" aria-label="Menú"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></summary>
+        <nav class="menu-panel" aria-label="Menú"><a href="../guide/">Guía</a><a href="../guide/developers.html">Para desarrolladores</a><a href="../guide/teams.html" aria-current="page">Para equipos</a><a href="../security.html">Seguridad</a><a href="https://github.com/xBofi/SecretBroker" rel="noopener">GitHub</a><a href="../privacy.html">Privacidad</a><a href="../#download">Descargar</a></nav>
+      </details>
+    </div>
+  </div>
+</header>
+<main id="main" class="page wrap">
+  <div class="page-grid">
+    <header class="page-head">
+      <p class="crumbs"><a href="../">SecretBroker</a> / <a href="../guide/">Guía</a></p>
+      <h1>Para equipos</h1>
+      <p class="lede">Comparte credenciales con tus compañeros a través de un servidor que no puede leerlas. Los equipos son una vista previa: la parte más nueva de SecretBroker.</p>
+      <nav class="subnav" aria-label="Guía"><a href="../guide/">Primeros pasos</a><a href="../guide/developers.html">Para desarrolladores</a><a href="../guide/teams.html" aria-current="page">Para equipos</a></nav>
+    </header>
+    <nav class="toc" aria-label="En esta página">
+      <h2>En esta página</h2>
+      <ol><li><a href="#how">Cómo funcionan los equipos</a></li><li><a href="#server">Instalar el servidor con un comando</a></li><li><a href="#account">Crear tu cuenta y la organización</a></li><li><a href="#invite">Invitar a personas</a></li><li><a href="#share">Compartir credenciales</a></li><li><a href="#permissions">Permisos</a></li><li><a href="#leaving">Cuando alguien se va</a></li><li><a href="#lost">Si alguien pierde el acceso</a></li><li><a href="#admin">Administrar el servidor desde la app</a></li><li><a href="#sees">Qué ve el servidor</a></li></ol>
+    </nav>
+    <article class="prose">
+<h2 id="how">Cómo funcionan los equipos</h2>
+<ul>
+  <li>Una <b>organización</b> es tu equipo: sus personas y sus colecciones.</li>
+  <li>Una <b>colección</b> es una carpeta compartida. Tú eliges quién entra y con qué permiso. También puedes compartir una credencial con <b>una sola persona</b>, sin montar ninguna colección.</li>
+  <li>Todo se cifra en tu PC antes de salir. El <b>servidor de equipos</b> lo guarda y lo reparte sin poder leerlo: ni los secretos, ni los nombres de las credenciales, ni los de las colecciones.</li>
+  <li>Solo se comparte lo que pones en una colección o le pasas a alguien. El resto de tu bóveda sigue solo en tu PC.</li>
+</ul>
+<p>Necesitas un servidor de equipos. Hoy lo pones tú, y el apartado siguiente lo deja en poco. Está previsto un servidor alojado; usará el mismo código, y el servidor propio seguirá teniendo todas las funciones.</p>
+
+<h2 id="server">Instalar el servidor con un comando</h2>
+<p>Para un servidor Linux pequeño, alquilado o tuyo, al que entras por SSH. Necesitas un servidor x86-64 con <b>Ubuntu 22.04, 24.04 o 26.04</b> (con 1 vCPU y 1 GB de RAM sobra), un dominio al que puedas añadir un registro DNS y los puertos 80 y 443 abiertos.</p>
+<ol class="steps">
+  <li><b>Apunta un nombre al servidor.</b> En tu proveedor de DNS, añade un registro <code>A</code>, por ejemplo <code>secretos.ejemplo.com</code>, con la IP pública del servidor.</li>
+  <li><b>Abre los puertos 80 y 443</b> en el cortafuegos de tu proveedor.</li>
+  <li><b>Ejecuta esto en el servidor.</b> Te pregunta el dominio y tu e-mail:
+    <pre data-copy="Copiar" data-copied="Copiado"><code>curl -fsSL https://github.com/xBofi/SecretBroker/releases/latest/download/install-server.sh | sudo bash</code></pre></li>
+  <li><b>Abre SecretBroker en tu PC</b>, ve a <b>Equipo › Crear cuenta</b> y usa la dirección del servidor, tu e-mail y el código de un solo uso que ha impreso el instalador. Ese código solo sirve para tu e-mail y te convierte en administrador del servidor.</li>
+</ol>
+<p>El comando deja montado HTTPS con un certificado que se renueva solo, una copia de seguridad cada noche (se guardan las 14 últimas) y el servidor como un servicio del sistema bien acotado. Solo instala un archivo cuya firma coincide con la clave de publicación de SecretBroker y, desde entonces, el servidor instala por su cuenta, cada noche, las actualizaciones firmadas; se puede desactivar. Volver a ejecutar el comando repara y actualiza.</p>
+<aside class="note"><p><b>Otros casos.</b> Los puertos 80 y 443 ya ocupados por nginx o Apache, un servidor en casa detrás de Cloudflare Tunnel o Tailscale, Docker, el envío de correo, las copias y la desinstalación están en la <a href="https://github.com/xBofi/SecretBroker/blob/main/server/README.md" rel="noopener">guía del propio servidor en GitHub</a> (en inglés). Un dato de esa guía que conviene saber antes de elegir un túnel: quien termina la conexión HTTPS delante de tu servidor ve lo mismo que ve el servidor.</p></aside>
+
+<h2 id="account">Crear tu cuenta y la organización</h2>
+<ol class="steps">
+  <li>En <b>Equipo</b>, elige <b>Crear cuenta</b>. Rellena <b>Servidor</b> (su dirección; aquí también puedes pegar un enlace de invitación), tu e-mail, <b>Tu nombre</b> y una <b>Contraseña de la cuenta</b> de 12 caracteres o más. El <b>Código de invitación</b> se pide si tu servidor lo exige.</li>
+  <li><b>Guarda tu código de recuperación.</b> Se muestra una sola vez: pulsa <b>Copiar</b>, <b>Guardar como archivo</b> o <b>Guardar en mi bóveda personal</b>, y ten una copia fuera de este PC. Si olvidas la contraseña de la cuenta y no te queda ningún PC conectado, es la única forma de volver a entrar sin perder lo que tu equipo comparte contigo.</li>
+  <li><b>Verifica tu e-mail.</b> El servidor te envía un código de 8 cifras. Si el servidor no envía correos, te pide que te verifique quien lo administra.</li>
+  <li>Pulsa <b>Crear organización</b> y ponle el nombre de tu equipo o tu empresa.</li>
+</ol>
+<p>La contraseña de la cuenta se pide una vez en cada PC. El servidor no la conoce nunca, así que nadie puede recuperarla por ti: para eso está el código de recuperación.</p>
+
+<h2 id="invite">Invitar a personas</h2>
+<figure class="shot window">
+  <img src="../../img/es/team-people.png" width="1104" height="701" alt="La pantalla Equipo en la pestaña Personas: un campo para el e-mail de la persona, el rol y el botón Invitar, sobre la lista de miembros." loading="lazy" decoding="async">
+  <figcaption>Equipo › Personas.</figcaption>
+</figure>
+<ol class="steps">
+  <li>En <b>Equipo › Personas</b>, escribe el <b>E-mail de la persona</b>, elige su rol y pulsa <b>Invitar</b>.</li>
+  <li>Si tu servidor envía correos, le llega la invitación con un enlace. Si no, <b>Copiar instrucciones</b> te da un texto para pasárselo por el canal que uséis. El enlace solo rellena su formulario; no lleva ninguna contraseña.</li>
+  <li>Esa persona instala SecretBroker, abre el enlace, crea su cuenta y pulsa <b>Aceptar</b>.</li>
+  <li><b>Confírmala.</b> Aparece en Personas con un código de seguridad. Pídele que te lea el suyo, que ve en <b>Equipo › Tu cuenta</b>, por teléfono o en persona, y compáralo. Si no coincide, no la confirmes: alguien podría estar haciéndose pasar por ella.</li>
+</ol>
+<p>Comparar el código es lo que impide que nadie, ni el servidor, cuele otra clave. Hasta que no has verificado a alguien en tu PC, no se comparte nada con esa persona.</p>
+
+<h2 id="share">Compartir credenciales</h2>
+<h3>Con una persona</h3>
+<ol class="steps">
+  <li>Abre una credencial y pulsa <b>Compartir</b>. El diálogo se abre en <b>Con una persona</b>.</li>
+  <li>Elige <b>Con quién</b> y <b>Su permiso</b>: <b>Editor</b>, <b>Lector</b> o <b>Solo uso</b>.</li>
+  <li>Pulsa <b>Compartir con</b> su nombre. Le llega cifrada.</li>
+</ol>
+<figure class="shot dialog">
+  <img src="../../img/es/share.png" width="480" height="520" alt="El diálogo Compartir en la pestaña Con una persona: la persona, su permiso (Editor, Lector o Solo uso) y lo que significa cada uno." loading="lazy" decoding="async">
+  <figcaption>Compartir con una persona.</figcaption>
+</figure>
+<p><b>Equipo › Personas › Compartir con…</b> hace lo mismo con varias credenciales a la vez.</p>
+<h3>En una colección</h3>
+<p>En <b>Equipo › Colecciones</b>, <b>Crear colección</b> y después elige quién entra y con qué permiso. A partir de ahí, <b>Compartir › En una colección</b> en cualquier credencial la pone allí.</p>
+<p>Una credencial se comparte entera: la clave, las notas y adónde puede ir. Cuándo pide aprobación la IA lo decide cada uno en su PC. Si después un compañero cambia adónde puede ir una clave compartida, o reescribe la descripción que lee tu IA, el cambio espera en tu PC hasta que pulses <b>Revisar</b> y lo aceptes.</p>
+
+<h2 id="permissions">Permisos</h2>
+<div class="table-scroll"><table>
+  <thead><tr><th>Permiso</th><th>Verla y copiarla</th><th>Que la usen su IA y sus programas</th><th>Cambiarla y rotar su clave</th><th>Añadir y quitar personas</th></tr></thead>
+  <tbody>
+    <tr><td><b>Gestor</b></td><td>Sí</td><td>Sí</td><td>Sí</td><td>Sí</td></tr>
+    <tr><td><b>Editor</b></td><td>Sí</td><td>Sí</td><td>Sí</td><td>No</td></tr>
+    <tr><td><b>Lector</b></td><td>Sí</td><td>Sí</td><td>No</td><td>No</td></tr>
+    <tr><td><b>Solo uso</b></td><td>No</td><td>Sí</td><td>No</td><td>No</td></tr>
+  </tbody>
+</table></div>
+<aside class="note warn"><p><b>«Solo uso» lo hace cumplir la app.</b> Significa «no la verá por accidente», no una barrera criptográfica: alguien con una app modificada podría sacar una clave que tiene permiso para usar.</p></aside>
+<p>En la organización, cada persona es <b>Propietario</b>, <b>Administrador</b> o <b>Miembro</b>. Los propietarios siempre pueden recuperar una colección, y la app te avisa mientras una colección la gestione una sola persona.</p>
+
+<h2 id="leaving">Cuando alguien se va</h2>
+<ol class="steps">
+  <li>En <b>Equipo › Personas</b>, usa la papelera junto a su nombre: <b>Quitar de la organización</b>.</li>
+  <li>Las colecciones que podía abrir se vuelven a cifrar con claves nuevas, y el servidor deja de servírselas.</li>
+  <li>La app lista todas las credenciales que pudo ver: <b>Cambiar lo que pudo ver</b> esa persona. Recórrela con <b>Empezar</b>; cada una abre <b>Rotar con ayuda</b>. Salud muestra la misma lista hasta que esté hecha.</li>
+</ol>
+<p>Lo mismo ocurre cuando dejas de compartir algo con una persona: la credencial queda marcada con <i>«Cambiar: la tenía…»</i>.</p>
+<aside class="note"><p>Volver a cifrar protege lo que venga después. Lo que alguien vio o copió mientras tenía acceso lo sigue sabiendo hasta que lo cambies en el proveedor. SecretBroker te lo lista y te guía; no puede cambiar por ti las claves de todos los proveedores.</p></aside>
+
+<h2 id="lost">Si alguien pierde el acceso</h2>
+<ul>
+  <li><b>Tiene su código de recuperación.</b> En el formulario de entrada, <b>¿Has olvidado la contraseña?</b> pide el e-mail, el código de recuperación y una contraseña nueva. Todo lo que tenía compartido vuelve.</li>
+  <li><b>Aún tiene un PC conectado.</b> <b>Equipo › Tu cuenta</b> y, en la contraseña de la cuenta, <b>La he olvidado</b>: pone una nueva sin la anterior.</li>
+  <li><b>Ni lo uno ni lo otro.</b> Un administrador abre <b>Ha perdido el acceso</b> junto a su nombre en Personas y elige <b>Quitar e invitar de nuevo</b>. Su cuenta anterior se quita como cualquier otra, y vuelve con una nueva cuando demuestra que el e-mail es suyo. Después, el administrador le da acceso otra vez a sus colecciones.</li>
+</ul>
+
+<h2 id="admin">Administrar el servidor desde la app</h2>
+<p>Quien administra el servidor ve una pestaña <b>Servidor</b> en Equipo. Sustituye a la terminal para casi todo.</p>
+<figure class="shot window">
+  <img src="../../img/es/server-panel.png" width="1104" height="701" alt="La pestaña Servidor: la versión del servidor, cuántas cuentas, organizaciones, colecciones y credenciales tiene, las actualizaciones automáticas, las copias de seguridad, el registro de cuentas y el correo." loading="lazy" decoding="async">
+  <figcaption>Equipo › Servidor › Resumen.</figcaption>
+</figure>
+<ul>
+  <li><b>Resumen</b>: la versión del servidor y si está al día, las <b>Actualizaciones automáticas</b>, las <b>Copias de seguridad</b> con <b>Hacer copia ahora</b>, y el <b>Registro de cuentas</b>: <b>Abierto</b>, <b>Solo con invitación</b> o <b>Cerrado</b>. Con invitación, <b>Crear código de registro</b> te da un código de un solo uso para pasárselo a alguien.</li>
+  <li><b>Cuentas</b>: verificar un e-mail, <b>Desactivar</b> una cuenta (un portátil perdido, alguien que se fue de malas maneras) o borrarla.</li>
+  <li><b>Organizaciones</b>: de quién es cada una, y cambiar su propietario.</li>
+  <li><b>Registro</b>: lo que se ha hecho con las cuentas y los ajustes.</li>
+</ul>
+<p>Restaurar una copia se queda en el servidor a propósito, porque devuelve a todo el equipo a un momento anterior. La app te muestra los comandos exactos.</p>
+
+<h2 id="sees">Qué ve el servidor</h2>
+<p><b>No ve nunca</b> contraseñas, claves, nombres de credenciales, notas, nombres de colecciones ni la contraseña de tu cuenta.</p>
+<p><b>Sí ve</b> los correos y los nombres visibles, los nombres de las organizaciones, quién pertenece a qué y con qué permiso, cuántos elementos hay, su tamaño y cuándo cambiaron. Si el servidor quedara totalmente comprometido, eso es lo que sabría el atacante. También podría negarse a atenderte o borrar lo que guarda el servidor, pero no falsificar un miembro, un cambio ni un borrado: van firmados por quien los hizo, y tu app lo comprueba.</p>
+<p>La <a href="../security.html#teams">página de seguridad</a> y el <a href="https://github.com/xBofi/SecretBroker/blob/main/docs/THREAT_MODEL.md" rel="noopener">modelo de amenazas</a> (en inglés) entran en más detalle.</p>
+<div class="next">
+  <a href="../guide/"><b>Primeros pasos</b><span>Instalar, la bóveda, las contraseñas, la extensión del navegador y las copias.</span></a>
+  <a href="developers.html"><b>Para desarrolladores</b><span>Agentes de IA, aprobaciones, los .env, la rotación y la búsqueda de filtraciones.</span></a>
+</div>
+
+    <p class="updated">Última actualización: 18 de noviembre de 2026</p>
+    </article>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot">
+      <div class="foot-brand">
+        <a class="brand" href="../"><svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><rect class="mark-tile" x="4" y="4" width="92" height="92" rx="22"/><path class="mark-shield" d="M50 17 77 27V49L73 62 64 73 50 83 36 73 27 62 23 49V27Z"/><path class="mark-hole" d="M42.5 45a7.5 7.5 0 1 1 15 0 7.5 7.5 0 1 1-15 0ZM47 45h6l2.28 19H44.72Z"/></svg><span>SecretBroker</span></a>
+        <p>Un gestor de contraseñas y secretos para tu ordenador, gratuito y de código abierto. Funciona en Windows y Ubuntu; en macOS es una vista previa.</p>
+      </div>
+      <div><h2>Producto</h2><ul><li><a href="../#download">Descargar</a></li><li><a href="../guide/">Guía</a></li><li><a href="../guide/developers.html">Para desarrolladores</a></li><li><a href="../guide/teams.html">Para equipos</a></li></ul></div>
+      <div><h2>Confianza</h2><ul><li><a href="../security.html">Seguridad</a></li><li><a href="../privacy.html">Privacidad</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/docs/THREAT_MODEL.md" rel="noopener">Modelo de amenazas (en inglés)</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/SECURITY.md" rel="noopener">Avisar de una vulnerabilidad</a></li></ul></div>
+      <div><h2>Proyecto</h2><ul><li><a href="https://github.com/xBofi/SecretBroker" rel="noopener">Código fuente</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/CHANGELOG.md" rel="noopener">Cambios de cada versión</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/docs/ROADMAP.md" rel="noopener">Hoja de ruta</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/LICENSE" rel="noopener">Licencia MIT</a></li></ul></div>
+    </div>
+    <div class="fineprint"><p>Esta web no usa cookies ni analítica y no carga nada de otros servidores. Una excepción, solo en la página de inicio: los botones de descarga preguntan a la API pública de GitHub cuál es la última versión. El tema que eliges se guarda en tu navegador.</p><p>SecretBroker es de código abierto, con licencia MIT. © 2026 xBofi.</p></div>
+  </div>
+</footer>
+<script src="../../js/site.js" defer></script>
+</body>
+</html>

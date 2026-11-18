@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Getting started with SecretBroker: the user guide</title>
+<meta name="description" content="Install SecretBroker on Windows, Ubuntu or macOS, create your vault, add and import passwords, fill them in your browser, back them up and move to another PC. Written for someone who has never used a password manager.">
+<link rel="canonical" href="https://xbofi.github.io/SecretBroker/guide/">
+<link rel="alternate" hreflang="en" href="https://xbofi.github.io/SecretBroker/guide/">
+<link rel="alternate" hreflang="es" href="https://xbofi.github.io/SecretBroker/es/guide/">
+<link rel="alternate" hreflang="x-default" href="https://xbofi.github.io/SecretBroker/guide/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SecretBroker">
+<meta property="og:title" content="Getting started with SecretBroker: the user guide">
+<meta property="og:description" content="Install SecretBroker on Windows, Ubuntu or macOS, create your vault, add and import passwords, fill them in your browser, back them up and move to another PC. Written for someone who has never used a password manager.">
+<meta property="og:url" content="https://xbofi.github.io/SecretBroker/guide/">
+<meta property="og:image" content="https://xbofi.github.io/SecretBroker/img/og-en.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="es_ES">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbfbfb">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161616">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../img/icon-180.png">
+<link rel="stylesheet" href="../css/site.css">
+<script src="../js/theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../" aria-label="SecretBroker home"><svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><rect class="mark-tile" x="4" y="4" width="92" height="92" rx="22"/><path class="mark-shield" d="M50 17 77 27V49L73 62 64 73 50 83 36 73 27 62 23 49V27Z"/><path class="mark-hole" d="M42.5 45a7.5 7.5 0 1 1 15 0 7.5 7.5 0 1 1-15 0ZM47 45h6l2.28 19H44.72Z"/></svg><span>SecretBroker</span></a>
+    <nav class="nav" aria-label="Main"><a href="../guide/" aria-current="page">Guide</a><a href="../guide/developers.html">For developers</a><a href="../guide/teams.html">For teams</a><a href="../security.html">Security</a><a href="https://github.com/xBofi/SecretBroker" rel="noopener">GitHub</a></nav>
+    <div class="tools">
+      <a class="tool" href="../es/guide/" hreflang="es" lang="es" aria-label="Leer en español">Español</a>
+      <button class="tool theme-toggle" type="button" aria-label="Switch between light and dark" title="Switch between light and dark"><svg class="icon to-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="icon to-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg></button>
+      <a class="btn primary sm" href="../#download">Download</a>
+      <details class="menu">
+        <summary class="tool" aria-label="Menu"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></summary>
+        <nav class="menu-panel" aria-label="Menu"><a href="../guide/" aria-current="page">Guide</a><a href="../guide/developers.html">For developers</a><a href="../guide/teams.html">For teams</a><a href="../security.html">Security</a><a href="https://github.com/xBofi/SecretBroker" rel="noopener">GitHub</a><a href="../privacy.html">Privacy</a><a href="../#download">Download</a></nav>
+      </details>
+    </div>
+  </div>
+</header>
+<main id="main" class="page wrap">
+  <div class="page-grid">
+    <header class="page-head">
+      <p class="crumbs"><a href="../">SecretBroker</a></p>
+      <h1>Getting started</h1>
+      <p class="lede">From the download to your first saved password, for someone who has never used a password manager. Buttons and screens are named exactly as the app shows them in English.</p>
+      <nav class="subnav" aria-label="Guide"><a href="../guide/" aria-current="page">Getting started</a><a href="../guide/developers.html">For developers</a><a href="../guide/teams.html">For teams</a></nav>
+    </header>
+    <nav class="toc" aria-label="On this page">
+      <h2>On this page</h2>
+      <ol><li><a href="#basics">The idea in a minute</a></li><li><a href="#install">Install it</a></li><li><a href="#vault">Create your vault</a></li><li><a href="#master-password">Choose a good master password</a></li><li><a href="#first-password">Add your first password</a></li><li><a href="#import">Import from a browser or another manager</a></li><li><a href="#browser">Fill in passwords in your browser</a></li><li><a href="#2fa">Two-step codes (2FA)</a></li><li><a href="#backups">Backups, restoring and moving to another PC</a></li><li><a href="#forgot">If you forget the master password</a></li><li><a href="#locking">Locking and unlocking</a></li><li><a href="#health">Check your passwords' health</a></li><li><a href="#trouble">When something goes wrong</a></li><li><a href="#help">Getting help</a></li></ol>
+    </nav>
+    <article class="prose">
+<h2 id="basics">The idea in a minute</h2>
+<p>A password manager keeps all your passwords in one encrypted file, the <b>vault</b>. You open it with a single password, the <b>master password</b>. Since you no longer have to remember the others, each one can be long, random and different.</p>
+<ul>
+  <li>SecretBroker keeps the vault <b>on your computer</b>. There is no account to create and nothing is uploaded.</li>
+  <li>A <b>credential</b> is the app's word for anything it keeps: a website login, an API key, a server login.</li>
+  <li>If you don't use AI tools, ignore everything that mentions “the AI”. When the setup offers to connect one, choose <b>Not now</b>.</li>
+</ul>
+
+<h2 id="install">Install it</h2>
+<p>Get the installer for your system from the <a href="../#download">download section</a>. SecretBroker runs on Windows 10 and 11 and on Ubuntu 22.04, 24.04 and 26.04. The macOS version is a preview.</p>
+
+<h3 id="install-windows">Windows</h3>
+<ol class="steps">
+  <li>Download <code>SecretBroker-Setup-&lt;version&gt;.exe</code>. Your browser may say the file is not commonly downloaded; choose to keep it.</li>
+  <li>Open the file. Today, Windows stops here with a blue window:
+    <div class="seen"><span class="label">What Windows shows</span><p class="title">Windows protected your PC</p><p>Microsoft Defender SmartScreen prevented an unrecognized app from starting. Running this app might put your PC at risk.</p><p><u>More info</u></p></div>
+    <p>Click <b>More info</b>. The window now names the file, says <b>Publisher: Unknown publisher</b> and shows a new button: click <b>Run anyway</b>.</p>
+  </li>
+  <li>Windows asks whether to let the program make changes to your device, again with an unknown publisher. Answer <b>Yes</b>.</li>
+  <li>The installer opens in the language of Windows. Follow it and finish with <b>Open SecretBroker</b>. It needs no internet connection.</li>
+</ol>
+<aside class="note warn"><p><b>Why the warning?</b> The installer is not signed with a code-signing certificate yet, so Windows cannot tell who published it. It shows the same window for any program from a publisher it does not recognise; it has not found anything in the file. Signing the installer is on the roadmap. Until then, download it only from this site's buttons or from the project's <a href="https://github.com/xBofi/SecretBroker/releases" rel="noopener">GitHub Releases</a> page.</p></aside>
+<p>Why it asks for administrator permission: the installer creates a hidden Windows account called <code>SecretBroker</code>, which cannot log in, and a folder only that account can read. That is what keeps your other programs away from the vault. The app goes into <code>C:\Program Files\SecretBroker</code>, starts with Windows and stays next to the clock.</p>
+
+<h3 id="install-ubuntu">Ubuntu</h3>
+<ol class="steps">
+  <li>Download <code>secretbroker_&lt;version&gt;_amd64.deb</code>.</li>
+  <li>Double-click it and choose <b>Install</b> in the software installer. It asks for your password once. If double-clicking does not offer to install it, open a terminal in the download folder and run <code>sudo apt install ./secretbroker_*_amd64.deb</code>.</li>
+  <li>Open <b>SecretBroker</b> from the app grid. Its icon next to the clock needs the AppIndicator extension, which Ubuntu enables by default.</li>
+</ol>
+<p>The package does not come from Ubuntu's own repositories, so Ubuntu may remind you that it is third-party software. There is no apt repository yet: the app updates itself and asks for your password when it does.</p>
+<aside class="note warn"><p><b>Encrypt your disk on Ubuntu.</b> So that your system password can open the vault, Ubuntu keeps what is needed for that in files on the disk. On a computer without disk encryption, someone who takes the disk can open the vault without the master password. Ubuntu's installer offers full-disk encryption: use it.</p></aside>
+
+<h3 id="install-macos">macOS (preview)</h3>
+<aside class="note"><p><b>What “preview” means.</b> The Mac version is built and installed by automated tests, but the project has not tried it on real Macs yet. The package is not signed, Touch ID does not work until it is, and there is no uninstaller. Use it if you are happy to test.</p></aside>
+<ol class="steps">
+  <li>Download the package for your Mac: <code>…-macos-arm64.pkg</code> for Apple silicon (M1 and later) or <code>…-macos-x86_64.pkg</code> for Intel. Apple menu › About This Mac says which you have.</li>
+  <li>Open it. macOS refuses and says the package cannot be verified, because it is not signed with an Apple Developer ID yet.</li>
+  <li>Right-click (or Control-click) the file and choose <b>Open</b>. If that offers no way through, which is the case on recent versions of macOS, open <b>System Settings › Privacy &amp; Security</b>, scroll down to Security and click <b>Open Anyway</b>.</li>
+  <li>Follow the installer. It asks for an administrator's password.</li>
+</ol>
+<p>Until the signed version exists you unlock with your Mac password or your master password once per session; after that, approvals are one click.</p>
+
+<h3 id="updates">Updates and uninstalling</h3>
+<p>When there is a new version, the sidebar shows <b>Update to &lt;version&gt;</b>. Click it: the installer is downloaded from GitHub and only installed if it carries the project's signature. Your vault and settings are kept and the app reopens by itself. <b>Settings › Updates › Check now</b> looks for one at any time.</p>
+<p>To uninstall on Windows, use “Installed apps”. The uninstaller asks whether to delete the vault too; unless you say yes, it is kept. On Ubuntu, removing the package keeps the vaults and purging it deletes them.</p>
+
+<h2 id="vault">Create your vault</h2>
+<p>The first time you open SecretBroker it walks you through four short screens.</p>
+<figure class="shot window">
+  <div class="frame">
+    <img class="only-light" src="../img/en/welcome-light.png" width="2400" height="1520" alt="The first screen of SecretBroker, with the Get started button and the links Restore a backup and Import from another manager." loading="lazy" decoding="async">
+    <img class="only-dark" src="../img/en/welcome-dark.png" width="2400" height="1520" alt="The first screen of SecretBroker, with the Get started button and the links Restore a backup and Import from another manager." loading="lazy" decoding="async">
+  </div>
+  <figcaption>The first screen.</figcaption>
+</figure>
+<ol class="steps">
+  <li>On the first screen, click <b>Get started</b>. The language can be changed at the bottom. If you are coming from another computer, <b>Restore a backup</b> is here too.</li>
+  <li><b>Choose a master password</b>: type it twice (12 characters or more) and click <b>Create vault</b>. The <a href="#master-password">next section</a> helps you pick one.</li>
+  <li><b>How do you want to open it each day?</b> Pick one and click <b>Continue</b>:
+    <ul>
+      <li><b>Windows Hello (PIN, fingerprint or face)</b>, if your PC has it. You are asked when you open the vault and when you view or copy a password.</li>
+      <li><b>Open with my Windows session</b>. The vault opens when you sign in to Windows and closes when you lock it. Convenient, with a cost the app states plainly: it protects you from the AI's mistakes, not from someone using your Windows session, because any program of yours could open it.</li>
+      <li><b>Type the master password every time</b>. The strictest, and the most tedious.</li>
+    </ul>
+  </li>
+  <li><b>Connect your AI</b> is the last step. If you don't use AI tools, click <b>Not now</b>. If you do, see <a href="developers.html#connect">the developer guide</a>.</li>
+</ol>
+<figure class="shot dialog">
+  <img src="../img/en/setup-unlock.png" width="520" height="448" alt="The setup screen that asks how to open the vault each day, with Open with my Windows session selected and marked as recommended." loading="lazy" decoding="async">
+  <figcaption>Step three: how the vault opens day to day. On Ubuntu and macOS the screen names your system instead of Windows.</figcaption>
+</figure>
+
+<h2 id="master-password">Choose a good master password</h2>
+<p>It is the one password that protects all the others, and the only one nobody can reset for you from outside your PC.</p>
+<ul>
+  <li><b>Make it long.</b> The app asks for at least 12 characters. Four or five unrelated words make a phrase that is easy to remember and hard to guess.</li>
+  <li><b>Use it nowhere else.</b></li>
+  <li><b>Write it on paper</b> and keep the paper at home. With Windows Hello or the Windows session you will type it so rarely that it is easy to forget, and you need it to restore a backup or move to another PC.</li>
+</ul>
+<p>To change it later: <b>Settings › Security › Master password › Change</b>.</p>
+
+<h2 id="first-password">Add your first password</h2>
+<ol class="steps">
+  <li>In <b>Credentials</b>, click <b>New</b> (or press <kbd>Ctrl</kbd>+<kbd>N</kbd>) and choose <b>Website or service</b>.</li>
+  <li>Fill in <b>Name</b>, <b>Web address</b>, <b>Username or e-mail</b> and <b>Password</b>. If you are creating the account right now, <b>Generate</b> writes a strong password for you.</li>
+  <li>Click <b>Save</b>. The app may ask you to confirm it's you.</li>
+</ol>
+<figure class="shot window focus">
+  <div class="frame">
+    <img class="only-light" src="../img/en/new-item-light.png" width="2400" height="1520" alt="The New credential dialog with its types: Website or service, API key or token, SSH server, Database, Cloud (AWS), Other secret and Configuration (not secret)." loading="lazy" decoding="async">
+    <img class="only-dark" src="../img/en/new-item-dark.png" width="2400" height="1520" alt="The New credential dialog with its types: Website or service, API key or token, SSH server, Database, Cloud (AWS), Other secret and Configuration (not secret)." loading="lazy" decoding="async">
+  </div>
+  <figcaption>New credential: for a website login, choose Website or service.</figcaption>
+</figure>
+<p>Your login is now in the list. The eye shows the password and the two squares copy it; the clipboard is cleared after 30 seconds. <b>Tags</b> group credentials, for example by project, and <kbd>Ctrl</kbd>+<kbd>F</kbd> searches.</p>
+<p>The <b>Password generator</b> is also on its own, at the bottom of the sidebar or with <kbd>Ctrl</kbd>+<kbd>G</kbd>: a <b>Random</b> password of 12 to 128 characters, or a <b>Passphrase</b> of short words.</p>
+
+<h2 id="import">Import from a browser or another manager</h2>
+<p>SecretBroker reads exports from <b>Chrome, Edge, Firefox, Bitwarden, 1Password, KeePass and KeePassXC</b>. It never reads another program's data by itself: you export a file there and choose it here.</p>
+<ol class="steps">
+  <li>Open the import: on an empty vault, <b>Import from another manager</b>; later, the <b>⋯</b> button next to New, or <b>Settings › Import and export</b>.</li>
+  <li>Pick where you are coming from. The dialog tells you where the export is in that program. For example:
+    <ul>
+      <li><b>Chrome</b>: Settings → Autofill and passwords → Google Password Manager → Settings → Export passwords → Download file.</li>
+      <li><b>Edge</b>: Settings → Profiles → Passwords → … (More actions) → Export passwords.</li>
+      <li><b>Bitwarden</b>: export as <code>.json</code>, not “.json (Encrypted)”. It brings folders, notes and 2FA codes; <code>.csv</code> works too.</li>
+      <li><b>1Password</b>: export as CSV. The <code>.1pux</code> format cannot be read.</li>
+    </ul>
+  </li>
+  <li>Click <b>Choose the file…</b>. You see the list first, names only: the ones you already have are marked, and you tick what to bring. Then <b>Import</b>.</li>
+  <li>When it finishes, the app reminds you that the exported file holds all your passwords unencrypted. Click <b>Delete the file</b>, and delete any copy left in Downloads, your e-mail or the cloud.</li>
+</ol>
+<figure class="shot dialog">
+  <img src="../img/en/import.png" width="680" height="385" alt="The Import from another manager dialog, with a tab per source and the steps to export from it." loading="lazy" decoding="async">
+  <figcaption>The import dialog explains how to export from each program.</figcaption>
+</figure>
+<p>Folders become tags, and notes and extra fields go to <b>Private notes</b>. Afterwards, <b>See health</b> shows the weak or reused passwords you brought along.</p>
+
+<h2 id="browser">Fill in passwords in your browser</h2>
+<p>The browser extension fills your username, password and 2FA code in <b>Chrome, Edge, Brave and Firefox</b>. It is not in the browser stores yet, so for now you load it from the app's folder. It takes two minutes and no terminal.</p>
+<ol class="steps">
+  <li>In the app, open <b>Settings › Browser</b> and click <b>Install the extension</b>. Choose your browser at the top of the dialog.</li>
+  <li><b>Chrome, Edge, Brave</b>: click <b>Open Chrome extensions</b> (or your browser's name), turn on <b>Developer mode</b>, click <b>Load unpacked</b> and choose the SecretBroker extension folder. The dialog shows the folder, with <b>Copy path</b> and <b>Show</b>.
+    <p><b>Firefox</b>: click <b>Open Firefox</b>, then <b>Load Temporary Add-on…</b> and choose the <code>manifest.json</code> file in that folder. In the extensions button of the toolbar, allow SecretBroker to access all websites.</p></li>
+  <li>Pin the SecretBroker icon to the toolbar, open it and click <b>Connect</b>. The app asks <b>Connect Chrome?</b> and shows a six-digit code: check that the extension shows the same code and click <b>Connect</b>. If you did not just click Connect in the browser, choose <b>Reject</b>.</li>
+</ol>
+<figure class="shot dialog">
+  <img src="../img/en/extension-install.png" width="480" height="653" alt="The Install the extension dialog with the four steps for Chrome." loading="lazy" decoding="async">
+  <figcaption>The app's own instructions, for each browser.</figcaption>
+</figure>
+<figure class="shot dialog">
+  <img src="../img/en/extension-pair.png" width="480" height="381" alt="The Connect Chrome? dialog showing a six-digit code to compare with the one in the extension." loading="lazy" decoding="async">
+  <figcaption>The same code must appear in the extension.</figcaption>
+</figure>
+<p>From then on, on a login page, click the SecretBroker button inside the field or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Y</kbd> opens the extension. It also offers to save new logins and changed passwords.</p>
+<ul>
+  <li>A login is only offered on the website it was saved for. A look-alike address, the usual trick of phishing e-mails, gets nothing.</li>
+  <li>Nothing is filled until you ask.</li>
+  <li>Chrome, Edge and Brave may warn at startup about extensions in developer mode: it is this one. Firefox forgets a temporary add-on when it closes, so until the extension is on addons.mozilla.org you load it again each time.</li>
+</ul>
+
+<h2 id="2fa">Two-step codes (2FA)</h2>
+<p>Many websites offer two-step verification with an “authenticator app”: besides the password you type a six-digit code that changes every 30 seconds. SecretBroker can be that app.</p>
+<ol class="steps">
+  <li>On the website, turn on two-step verification and choose the authenticator app option. The site shows a QR code and, below it or behind a link such as “can't scan it?”, a key written in letters and numbers.</li>
+  <li>Copy that key. In SecretBroker, open the login, click <b>Edit</b> and paste it into <b>2FA code (TOTP)</b>. Click <b>Save</b>.</li>
+  <li>The login now shows the current code, with <b>Show the code</b> and <b>Copy the code</b>. Type it into the website to finish turning it on.</li>
+</ol>
+<figure class="shot window">
+  <div class="frame">
+    <img class="only-light" src="../img/en/vault-light.png" width="2400" height="1520" alt="A login open in the vault showing its address, username, hidden password and the current six-digit 2FA code with a countdown." loading="lazy" decoding="async">
+    <img class="only-dark" src="../img/en/vault-dark.png" width="2400" height="1520" alt="A login open in the vault showing its address, username, hidden password and the current six-digit 2FA code with a countdown." loading="lazy" decoding="async">
+  </div>
+  <figcaption>The code sits next to the password and renews itself.</figcaption>
+</figure>
+<p>Keep the recovery codes the website gives you in the login's <b>Private notes</b>. One thing to weigh: a vault that holds both the password and the code holds both steps. For the few accounts that matter most, you may prefer to keep the code on your phone.</p>
+
+<h2 id="backups">Backups, restoring and moving to another PC</h2>
+<p>Your vault exists only on your computer. Without a backup, a broken disk takes every password with it.</p>
+<h3>Turn on the daily backup</h3>
+<p>Open <b>Settings › Backup copy</b> and click <b>Turn on</b> next to <b>Automatic daily backup</b>. Each day the encrypted vault is copied to a folder: OneDrive if you have it, so the copy is outside the PC, otherwise Documents. <b>Change folder</b> picks another, such as a USB drive. The last 10 copies are kept, and <b>Back up now</b> makes one at once.</p>
+<h3>Restore a backup</h3>
+<p><b>Settings › Backup copy › Restore…</b> replaces the vault with a backup. You need the master password the vault had when that copy was made. The current vault is kept aside, just in case.</p>
+<h3>Move to another PC</h3>
+<p><b>Settings › Changing PCs › Move to another PC › See the steps</b> guides you:</p>
+<ol class="steps">
+  <li><b>Save a backup…</b> writes your vault to an encrypted file. Take it on a USB drive or leave it in a cloud folder.</li>
+  <li>On the new PC, install SecretBroker. On the first screen choose <b>Restore a backup</b>, open that file and type your master password.</li>
+  <li>When everything works, uninstall SecretBroker from the old PC if you will not use it again.</li>
+</ol>
+<figure class="shot dialog">
+  <img src="../img/en/move-pc.png" width="680" height="630" alt="The Move to another PC dialog with its numbered steps." loading="lazy" decoding="async">
+  <figcaption>The steps, as the app shows them.</figcaption>
+</figure>
+<p>Windows Hello and “Open with my Windows session” belong to each PC: turn them on again on the new one, in <b>Settings › Security</b>.</p>
+<h3>Export, which is something else</h3>
+<p><b>Settings › Import and export › Export…</b> writes your credentials to a file for another tool: <b>Encrypted</b>, with a password you choose, or <b>Unencrypted (CSV)</b> or <b>(JSON)</b>, which Bitwarden, 1Password, KeePassXC and browsers can read. An unencrypted export has every password in plain view: import it straight away and delete it.</p>
+
+<h2 id="forgot">If you forget the master password</h2>
+<p>What you can do depends on where your vault is.</p>
+<h3>On the computer where the vault lives</h3>
+<ol class="steps">
+  <li>On the lock screen, click <b>Forgot your master password?</b></li>
+  <li>The <b>Recover access</b> dialog lets you sign in with <b>Windows Hello</b> or your <b>Windows password</b> (on Ubuntu and macOS, your system password).</li>
+  <li>Once in, the app asks you to choose a new master password.</li>
+</ol>
+<figure class="shot dialog">
+  <img src="../img/en/lock.png" width="440" height="360" alt="The lock screen, with the link Forgot your master password? under the unlock button." loading="lazy" decoding="async">
+  <figcaption>The link is on the lock screen.</figcaption>
+</figure>
+<p>If the vault is already open, <b>Settings › Security › Master password › Change</b> does the same after confirming with Windows.</p>
+<p>This only works on that PC, and it has a consequence worth knowing: on that PC your vault is as safe as your Windows sign-in. Use a good Windows password or PIN.</p>
+<h3>From a backup, or on another computer</h3>
+<p>A backup can only be opened with the master password the vault had when the copy was made. If the computer is lost or broken and you do not remember that password, nobody can open the backup: not you, and not the project, which never has your vault or your password. That is why the paper copy matters.</p>
+
+<h2 id="locking">Locking and unlocking</h2>
+<ul>
+  <li><b>Lock now</b>: <kbd>Ctrl</kbd>+<kbd>L</kbd>, the padlock at the bottom of the sidebar, or <b>Lock</b> in the menu of the icon next to the clock.</li>
+  <li><b>Automatic lock</b> (Settings › Security): after 15 minutes, 30 minutes, 1 hour or 4 hours without use, or never.</li>
+  <li><b>Windows Hello</b> (Settings › Security): <b>Turn on</b> to unlock and show passwords with your PIN, fingerprint or face. Ubuntu has no equivalent; on a Mac, Touch ID will arrive with the signed version.</li>
+  <li><b>Open with my Windows session</b> (Settings › Security): the vault follows your Windows session. Remember what it means: anyone, or any program, using your unlocked session can open it.</li>
+</ul>
+<figure class="shot window">
+  <div class="frame">
+    <img class="only-light" src="../img/en/settings-light.png" width="2400" height="1520" alt="The Settings screen, Security section: Windows Hello, Master password, Open with my Windows session and Automatic lock." loading="lazy" decoding="async">
+    <img class="only-dark" src="../img/en/settings-dark.png" width="2400" height="1520" alt="The Settings screen, Security section: Windows Hello, Master password, Open with my Windows session and Automatic lock." loading="lazy" decoding="async">
+  </div>
+  <figcaption>Settings › Security.</figcaption>
+</figure>
+<p>Closing the window does not quit SecretBroker: it stays next to the clock, where <b>Open SecretBroker</b>, <b>Lock</b> and <b>Quit</b> are. <b>Settings › App › Start with Windows</b> decides whether it starts by itself.</p>
+<aside class="note"><p>Only unlock in SecretBroker's own window. The app never asks for your password anywhere else.</p></aside>
+
+<h2 id="health">Check your passwords' health</h2>
+<p><b>Health</b>, in the sidebar, gives a score from 0 to 100 and lists what to fix first: passwords that are weak, reused in several places, old, expired or found in known leaks. <b>Check now</b> refreshes it.</p>
+<figure class="shot window">
+  <img src="../img/en/health.png" width="1104" height="655" alt="The Health screen with a score of 50, a list of credentials to change and a Rotate with help button on each." loading="lazy" decoding="async">
+  <figcaption>Each problem has its own button.</figcaption>
+</figure>
+<p>Each line has <b>Rotate with help</b>: the app generates a new password, copies it for you to paste into the website's “change password” page, and saves it once you confirm the site accepted it.</p>
+<p>To know whether a password is in a known leak, the app asks the Have I Been Pwned service in a way that does not reveal it: only the first five characters of a scrambled fingerprint of the password leave your PC. The <a href="../privacy.html">privacy page</a> has the details.</p>
+
+<h2 id="trouble">When something goes wrong</h2>
+<h3>“Can't connect to the service”</h3>
+<p>The SecretBroker service starts with your computer. If you have just installed it, wait a few seconds or restart the PC.</p>
+<h3>I closed the window and can't find the app</h3>
+<p>It is still running next to the clock. Click its icon and choose <b>Open SecretBroker</b>. On Ubuntu the icon needs the AppIndicator extension.</p>
+<h3>The extension does not offer my login</h3>
+<ul>
+  <li>Is the vault unlocked? The extension can only fill while it is.</li>
+  <li><b>Settings › Browser</b> should say the browser is <b>Connected</b>. If not, open the extension and click <b>Connect</b> again. Firefox needs the add-on loaded again after each restart.</li>
+  <li>The login may be saved under another address. Edit it and check <b>Web address</b>; <b>Other addresses</b> adds more sites for the same account.</li>
+</ul>
+<h3>The import does not recognise my file</h3>
+<p>Export again as CSV or, from Bitwarden, as unencrypted <code>.json</code>. Encrypted Bitwarden exports and 1Password's <code>.1pux</code> cannot be read.</p>
+<h3>An update will not install</h3>
+<p>Download the current installer from this site and run it over the one you have. Your vault and settings are kept.</p>
+
+<h2 id="help">Getting help</h2>
+<ul>
+  <li><b>Questions and bugs</b>: open an issue on <a href="https://github.com/xBofi/SecretBroker/issues" rel="noopener">GitHub</a>. Issues are public: never paste a password or a key, and check screenshots before attaching them. Say which version you have; it is at the bottom of Settings.</li>
+  <li><b>Security problems</b>: please do not open a public issue. Report it in private from the repository's Security tab, <a href="https://github.com/xBofi/SecretBroker/security/advisories/new" rel="noopener">Report a vulnerability</a>. The <a href="https://github.com/xBofi/SecretBroker/blob/main/SECURITY.md" rel="noopener">security policy</a> says what to include and when to expect an answer.</li>
+</ul>
+<div class="next">
+  <a href="developers.html"><b>For developers</b><span>Connect your AI, approvals, .env files, sb run, rotation and leak scanning.</span></a>
+  <a href="teams.html"><b>For teams</b><span>The team server, invitations, permissions and what happens when someone leaves.</span></a>
+</div>
+
+    <p class="updated">Last updated: November 18, 2026</p>
+    </article>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot">
+      <div class="foot-brand">
+        <a class="brand" href="../"><svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><rect class="mark-tile" x="4" y="4" width="92" height="92" rx="22"/><path class="mark-shield" d="M50 17 77 27V49L73 62 64 73 50 83 36 73 27 62 23 49V27Z"/><path class="mark-hole" d="M42.5 45a7.5 7.5 0 1 1 15 0 7.5 7.5 0 1 1-15 0ZM47 45h6l2.28 19H44.72Z"/></svg><span>SecretBroker</span></a>
+        <p>A free, open-source password and secrets manager for your computer. Windows and Ubuntu are supported; macOS is a preview.</p>
+      </div>
+      <div><h2>Product</h2><ul><li><a href="../#download">Download</a></li><li><a href="../guide/">Guide</a></li><li><a href="../guide/developers.html">For developers</a></li><li><a href="../guide/teams.html">For teams</a></li></ul></div>
+      <div><h2>Trust</h2><ul><li><a href="../security.html">Security</a></li><li><a href="../privacy.html">Privacy</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/docs/THREAT_MODEL.md" rel="noopener">Threat model</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/SECURITY.md" rel="noopener">Report a vulnerability</a></li></ul></div>
+      <div><h2>Project</h2><ul><li><a href="https://github.com/xBofi/SecretBroker" rel="noopener">Source code</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/CHANGELOG.md" rel="noopener">Changelog</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/docs/ROADMAP.md" rel="noopener">Roadmap</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/LICENSE" rel="noopener">MIT License</a></li></ul></div>
+    </div>
+    <div class="fineprint"><p>This site sets no cookies and runs no analytics, and loads nothing from other servers. One exception, on the home page only: the download buttons ask GitHub's public API which version is the latest. Your theme choice is kept in your browser.</p><p>SecretBroker is open source under the MIT License. © 2026 xBofi.</p></div>
+  </div>
+</footer>
+<script src="../js/site.js" defer></script>
+</body>
+</html>

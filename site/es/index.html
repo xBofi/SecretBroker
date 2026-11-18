@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>SecretBroker: tus contraseñas y claves, usadas sin ser vistas</title>
+<meta name="description" content="Un gestor de contraseñas gratuito y de código abierto para tu ordenador. Rellena tus accesos en el navegador y deja que los asistentes de IA usen tus API keys sin verlas nunca. Windows, Ubuntu y macOS (vista previa).">
+<link rel="canonical" href="https://xbofi.github.io/SecretBroker/es/">
+<link rel="alternate" hreflang="en" href="https://xbofi.github.io/SecretBroker/">
+<link rel="alternate" hreflang="es" href="https://xbofi.github.io/SecretBroker/es/">
+<link rel="alternate" hreflang="x-default" href="https://xbofi.github.io/SecretBroker/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SecretBroker">
+<meta property="og:title" content="SecretBroker: tus contraseñas y claves, usadas sin ser vistas">
+<meta property="og:description" content="Un gestor de contraseñas gratuito y de código abierto para tu ordenador. Rellena tus accesos en el navegador y deja que los asistentes de IA usen tus API keys sin verlas nunca. Windows, Ubuntu y macOS (vista previa).">
+<meta property="og:url" content="https://xbofi.github.io/SecretBroker/es/">
+<meta property="og:image" content="https://xbofi.github.io/SecretBroker/img/og-es.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="es_ES">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbfbfb">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161616">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../img/icon-180.png">
+<link rel="stylesheet" href="../css/site.css">
+<script src="../js/theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Saltar al contenido</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Inicio de SecretBroker"><svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><rect class="mark-tile" x="4" y="4" width="92" height="92" rx="22"/><path class="mark-shield" d="M50 17 77 27V49L73 62 64 73 50 83 36 73 27 62 23 49V27Z"/><path class="mark-hole" d="M42.5 45a7.5 7.5 0 1 1 15 0 7.5 7.5 0 1 1-15 0ZM47 45h6l2.28 19H44.72Z"/></svg><span>SecretBroker</span></a>
+    <nav class="nav" aria-label="Principal"><a href="guide/">Guía</a><a href="guide/developers.html">Para desarrolladores</a><a href="guide/teams.html">Para equipos</a><a href="security.html">Seguridad</a><a href="https://github.com/xBofi/SecretBroker" rel="noopener">GitHub</a></nav>
+    <div class="tools">
+      <a class="tool" href="../" hreflang="en" lang="en" aria-label="Read in English">English</a>
+      <button class="tool theme-toggle" type="button" aria-label="Cambiar entre tema claro y oscuro" title="Cambiar entre tema claro y oscuro"><svg class="icon to-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="icon to-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg></button>
+      <a class="btn primary sm" href="./#download">Descargar</a>
+      <details class="menu">
+        <summary class="tool" aria-label="Menú"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></summary>
+        <nav class="menu-panel" aria-label="Menú"><a href="guide/">Guía</a><a href="guide/developers.html">Para desarrolladores</a><a href="guide/teams.html">Para equipos</a><a href="security.html">Seguridad</a><a href="https://github.com/xBofi/SecretBroker" rel="noopener">GitHub</a><a href="privacy.html">Privacidad</a><a href="./#download">Descargar</a></nav>
+      </details>
+    </div>
+  </div>
+</header>
+<main id="main">
+<section class="hero wrap">
+  <div class="hero-text">
+    <p class="eyebrow">Gratuito y de código abierto. Para Windows, Ubuntu y macOS (vista previa).</p>
+    <h1>Tus contraseñas y claves, usadas sin ser vistas.</h1>
+    <p class="lede">SecretBroker es un gestor de contraseñas que vive en tu ordenador. Rellena tus accesos en el navegador y deja que los asistentes de IA <b>usen</b> tus API keys y tus accesos a servidores sin poder <b>leerlos</b> nunca.</p>
+    <div class="cta">
+      <a class="btn primary lg" href="#download" data-download="hero"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg><span>Descargar</span></a>
+      <a class="more" href="guide/">Leer la guía</a>
+    </div>
+    <p class="cta-note"><span data-version>Gratis y sin crear ninguna cuenta.</span> Tu bóveda se queda en tu ordenador.</p>
+  </div>
+  <figure class="shot window hero-shot">
+  <div class="frame">
+    <img class="only-light" src="../img/es/vault-light.png" width="2400" height="1520" alt="La ventana de SecretBroker: a la izquierda, la lista de accesos guardados; a la derecha, uno abierto, con la contraseña oculta y su código de dos pasos a la vista." loading="lazy" decoding="async">
+    <img class="only-dark" src="../img/es/vault-dark.png" width="2400" height="1520" alt="La ventana de SecretBroker: a la izquierda, la lista de accesos guardados; a la derecha, uno abierto, con la contraseña oculta y su código de dos pasos a la vista." loading="lazy" decoding="async">
+  </div>
+  <figcaption>La bóveda: todos tus accesos, y el código de dos pasos junto a su contraseña.</figcaption>
+</figure>
+</section>
+
+<section class="section tint moment" id="approve">
+  <div class="wrap moment-grid">
+    <figure class="shot window focus">
+  <div class="frame">
+    <img class="only-light" src="../img/es/approval-light.png" width="2400" height="1520" alt="Un diálogo de aprobación sobre la app: un agente de IA quiere usar la credencial de Stripe para listar los pagos de la semana. Muestra la petición y tres botones: Denegar, Solo esta vez y Permitir 24 horas." loading="lazy" decoding="async">
+    <img class="only-dark" src="../img/es/approval-dark.png" width="2400" height="1520" alt="Un diálogo de aprobación sobre la app: un agente de IA quiere usar la credencial de Stripe para listar los pagos de la semana. Muestra la petición y tres botones: Denegar, Solo esta vez y Permitir 24 horas." loading="lazy" decoding="async">
+  </div>
+</figure>
+    <div class="moment-text">
+      <p class="kicker">La idea</p>
+      <h2>Tu IA pide. Tú haces un clic. Nunca ve la clave.</h2>
+      <p class="lede">Cuando un agente de IA necesita una de tus claves, SecretBroker te enseña qué quiere hacer y adónde iría exactamente la clave. Al agente le llega la respuesta con todos los secretos borrados.</p>
+      <ul class="choices">
+        <li><b>Solo esta vez</b><span>Solo para esta petición.</span></li>
+        <li><b>Permitir 24 horas</b><span>Deja de preguntarte por esa credencial mientras trabajas.</span></li>
+        <li><b>Denegar</b><span>O pausa la IA del todo, desde la app o desde el icono junto al reloj.</span></li>
+      </ul>
+      <p><a class="more" href="#how">Cómo funciona</a></p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="everyday">
+  <div class="wrap track">
+    <div class="track-intro">
+      <p class="kicker"><span class="num">01</span> Para las contraseñas de cada día</p>
+      <h2>Todas tus contraseñas en un sitio, y se rellenan solas.</h2>
+      <p class="lede">Tú recuerdas una sola contraseña maestra. SecretBroker recuerda las demás, las rellena en la web correcta y te dice cuáles son débiles o se han filtrado.</p>
+      <a class="more" href="guide/">¿Nunca has usado un gestor de contraseñas? Empieza aquí</a>
+    </div>
+    <figure class="shot window focus">
+  <div class="frame">
+    <img class="only-light" src="../img/es/generator-light.png" width="2400" height="1520" alt="El generador de contraseñas: una contraseña aleatoria de 20 caracteres valorada como Excelente, con opciones de longitud, letras, números y símbolos." loading="lazy" decoding="async">
+    <img class="only-dark" src="../img/es/generator-dark.png" width="2400" height="1520" alt="El generador de contraseñas: una contraseña aleatoria de 20 caracteres valorada como Excelente, con opciones de longitud, letras, números y símbolos." loading="lazy" decoding="async">
+  </div>
+</figure>
+    <ul class="points">
+      <li><h3>Contraseñas y códigos 2FA juntos</h3><p>Guarda un acceso una vez. El código de seis cifras de la verificación en dos pasos aparece a su lado, listo para copiar.</p></li>
+      <li><h3>Se rellenan en tu navegador</h3><p>Una extensión para Chrome, Edge, Brave y Firefox rellena el usuario, la contraseña y el código. Solo en la web donde los guardaste, así que una dirección parecida no recibe nada, y solo cuando tú lo pides.</p></li>
+      <li><h3>Trae lo que ya tienes</h3><p>Importa de Chrome, Edge, Firefox, Bitwarden, 1Password o KeePass. Ves la lista antes de guardar nada.</p></li>
+      <li><h3>Copias de seguridad a tu manera</h3><p>Una copia cifrada cada día en la carpeta que elijas. La restauras en un PC nuevo con tu contraseña maestra.</p></li>
+      <li><h3>Un chequeo de salud</h3><p>Una puntuación de 0 a 100 y lo que conviene arreglar primero: contraseñas débiles, repetidas, antiguas o filtradas, cada una con su botón para cambiarla.</p></li>
+      <li><h3>Tus datos son tuyos</h3><p>Exporta todo a un archivo cifrado, o a CSV o JSON sin cifrar para otro gestor. Nada se queda atrapado.</p></li>
+    </ul>
+  </div>
+</section>
+
+<section class="section" id="ai">
+  <div class="wrap track flip">
+    <div class="track-intro">
+      <p class="kicker"><span class="num">02</span> Para quien programa con IA</p>
+      <h2>Que el agente trabaje. Las claves, contigo.</h2>
+      <p class="lede">Los agentes de programación necesitan tus API keys para ser útiles, y todo lo que leen puede acabar en una transcripción. Con SecretBroker el agente pide una operación; la clave se añade dentro de un servicio aparte y se borra de todo lo que vuelve.</p>
+      <a class="more" href="guide/developers.html">La guía para desarrolladores</a>
+    </div>
+    <div class="duo">
+      <div class="term" role="img" aria-label="Terminal: sb import .env --delete pasa las claves de un proyecto a la bóveda y sb run -- npm run dev arranca la app con sus variables sacadas de la bóveda.">
+        <span class="term-title">El .env de un proyecto, dentro de la bóveda</span>
+<pre><code><span class="c"># guarda las claves y escribe un .secretbroker que puedes subir a git</span>
+<span class="p">$</span> sb import .env --delete
+
+<span class="c"># tu app recibe sus variables directamente de la bóveda</span>
+<span class="p">$</span> sb run -- npm run dev
+
+<span class="c"># .secretbroker: de dónde sale cada variable. Sin valores.</span>
+OPENAI_API_KEY = openai
+DATABASE_URL   = tienda-db:connection_url</code></pre>
+      </div>
+      <figure class="shot window focus">
+  <div class="frame">
+    <img class="only-light" src="../img/es/rotate-light.png" width="2400" height="1520" alt="El asistente para rotar una clave de OpenAI, en el paso 1 de 5: dónde se usa la clave." loading="lazy" decoding="async">
+    <img class="only-dark" src="../img/es/rotate-dark.png" width="2400" height="1520" alt="El asistente para rotar una clave de OpenAI, en el paso 1 de 5: dónde se usa la clave." loading="lazy" decoding="async">
+  </div>
+  <figcaption>Rotar con ayuda empieza por todos los sitios donde se usa la clave.</figcaption>
+</figure>
+    </div>
+    <ul class="points">
+      <li><h3>Funciona con el agente que ya usas</h3><p>Conecta Claude Code, Claude Desktop, Cursor, VS Code (Copilot), Windsurf o Codex con un clic. Habla MCP, así que otros clientes también pueden usarlo.</p></li>
+      <li><h3>Aprobaciones que no agobian</h3><p>Una petición por tarea, «Permitir 24 horas», un límite para los usos inusuales y, en cada credencial, la lista de los únicos dominios y programas a los que puede llegar su clave.</p></li>
+      <li><h3>Los <code>.env</code>, a la bóveda</h3><p>Eliges el archivo, marcas sus claves y listo. <code>sb import</code> lo hace desde la terminal y no imprime nunca un valor, así que puede ejecutarlo tu agente.</p></li>
+      <li><h3><code>sb run</code></h3><p>Arranca tus apps con los secretos sacados directamente de la bóveda. El archivo <code>.secretbroker</code> solo nombra credenciales, así que puede ir al repositorio.</p></li>
+      <li><h3>Rotar con ayuda</h3><p>Dónde crear la clave nueva, una prueba con el proveedor antes de sustituir la actual, la lista de todos los sitios donde se usa y, al final, la comprobación de que la anterior ya no funciona.</p></li>
+      <li><h3>Búsqueda de filtraciones, en tu equipo</h3><p>Busca tus claves en conversaciones con IA, historiales de la terminal, archivos de configuración, carpetas de proyectos y su historial de git, y avisa si una clave que funcionaba deja de hacerlo.</p></li>
+    </ul>
+  </div>
+</section>
+
+<section class="section" id="teams">
+  <div class="wrap track">
+    <div class="track-intro">
+      <p class="kicker"><span class="num">03</span> Para equipos <span class="tag">Vista previa</span></p>
+      <h2>Comparte un acceso sin enviárselo a nadie.</h2>
+      <p class="lede">Pásale una credencial a un compañero o ponla en una colección compartida: el panel del hosting de un cliente, la cuenta de fotos de stock del estudio, la base de datos de producción. Se cifra en tu ordenador antes de salir, y el servidor que hay en medio solo guarda lo que no puede leer.</p>
+      <a class="more" href="guide/teams.html">La guía para equipos</a>
+    </div>
+    <figure class="shot dialog">
+  <img src="../img/es/share.png" width="480" height="520" alt="El diálogo Compartir: compartir una credencial con una persona eligiendo Editor, Lector o Solo uso." loading="lazy" decoding="async">
+  <figcaption>Compartir con una persona. El permiso se elige aquí.</figcaption>
+</figure>
+    <ul class="points">
+      <li><h3>Cifrado de extremo a extremo</h3><p>El servidor no ve nunca un secreto, el nombre de una credencial ni el de una colección. Sí ve los correos, los nombres de las organizaciones y quién pertenece a qué.</p></li>
+      <li><h3>Cuatro permisos</h3><p>Gestor, Editor, Lector y Solo uso: su IA y sus programas pueden usar la clave, pero la app no la muestra ni la copia.</p></li>
+      <li><h3>Vuestro servidor, con un comando</h3><p>En un servidor Ubuntu, un comando lo deja listo con HTTPS, copia de seguridad cada noche y actualizaciones firmadas automáticas. Después se administra desde la app. También funciona con Docker.</p></li>
+      <li><h3>Cuando alguien se va</h3><p>Sus colecciones se vuelven a cifrar y cada credencial que pudo ver queda en una lista para que las cambies una tras otra.</p></li>
+      <li><h3>Nadie se queda fuera para siempre</h3><p>Cada cuenta de equipo tiene su código de recuperación, y los administradores pueden devolver el acceso a un compañero que lo ha perdido todo.</p></li>
+      <li><h3>Habrá un servidor alojado</h3><p>Usará el mismo código abierto que puedes alojar tú, y el servidor propio seguirá teniendo todas las funciones.</p></li>
+    </ul>
+  </div>
+</section>
+
+<section class="section tint" id="how">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">Cómo funciona con la IA</p>
+      <h2>La clave va de la bóveda al servidor. Nunca pasa por la IA.</h2>
+      <p class="lede">Los mismos cuatro pasos cada vez que un agente usa una credencial. Aquí, un agente lista tus incidencias abiertas en GitHub.</p>
+    </div>
+    <div class="flow">
+      <div class="bands" aria-hidden="true"><div class="band b1"></div><div class="band b2"></div><div class="band b3"></div></div>
+      <div class="lane-heads" aria-hidden="true">
+        <div class="lane-head l1"><b><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4.5"/><circle cx="12" cy="3.5" r="1"/><path d="M9 13.5h.01M15 13.5h.01"/><path d="M2 13v3M22 13v3"/></svg> Tu sesión</b><span>Donde trabajáis tú y el agente de IA.</span></div>
+        <div class="lane-head l2"><b><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.7 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.8 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/></svg> Servicio SecretBroker</b><span>Funciona con una cuenta propia. Tus programas, la IA incluida, no pueden leer su memoria ni sus archivos.</span></div>
+        <div class="lane-head l3"><b><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z"/></svg> Internet, tus servidores</b><span>Solo los destinos que permitiste para cada credencial.</span></div>
+      </div>
+      <ol class="flow-steps">
+        <li class="flow-step">
+          <p class="step-title">El agente nombra una credencial</p>
+          <div class="cell c1"><p class="who"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4.5"/><circle cx="12" cy="3.5" r="1"/><path d="M9 13.5h.01M15 13.5h.01"/><path d="M2 13v3M22 13v3"/></svg> Agente de IA</p><p>«Lista mis incidencias abiertas.»</p><pre>http_request
+  credential: github
+  GET https://api.github.com/issues</pre><p class="quiet">Nombra la credencial. No tiene ninguna clave que enviar.</p></div>
+          <div class="wire w12 ltr" aria-hidden="true"><i></i></div>
+          <div class="cell service c2"><p class="who"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.7 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.8 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/></svg> Servicio SecretBroker</p><p>Comprueba lo que permitiste para <code>github</code>: solo HTTPS y solo <code>api.github.com</code>.</p></div>
+        </li>
+        <li class="flow-step">
+          <p class="step-title">SecretBroker te pregunta</p>
+          <div class="cell service c2"><p class="who"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.7 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.8 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/></svg> Servicio SecretBroker</p><p>Te pregunta, salvo que ya hayas permitido hoy esa credencial. Aprobar es un clic tuyo, no del agente.</p></div>
+          <div class="wire w12 rtl" aria-hidden="true"><i></i></div>
+          <div class="cell c1"><p class="who"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg> Tú</p><p>Ves la petición y respondes con un clic.</p><div class="ask" aria-hidden="true"><span>Solo esta vez</span><span class="yes">Permitir 24 horas</span></div></div>
+        </li>
+        <li class="flow-step">
+          <p class="step-title">La clave se añade dentro del servicio</p>
+          <div class="cell service c2"><p class="who"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.7 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.8 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/></svg> Servicio SecretBroker</p><p>Saca la clave de la bóveda cifrada y la pone en la petición.</p><pre>Authorization: Bearer <span class="bar" role="img" aria-label="la clave"></span></pre></div>
+          <div class="wire w23 ltr" aria-hidden="true"><i></i></div>
+          <div class="cell c3"><p class="who"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z"/></svg> api.github.com</p><p><code>api.github.com</code> recibe una petición autenticada como cualquier otra.</p></div>
+        </li>
+        <li class="flow-step">
+          <p class="step-title">La respuesta vuelve limpia</p>
+          <div class="cell c3"><p class="who"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z"/></svg> api.github.com</p><p>Responde.</p></div>
+          <div class="wire w23 rtl" aria-hidden="true"><i></i></div>
+          <div class="cell service c2"><p class="who"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.7 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.8 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/></svg> Servicio SecretBroker</p><p>Borra la clave de la respuesta si aparece en cualquier forma: tal cual, en base64, codificada en una URL o dentro de un JSON.</p></div>
+          <div class="wire w12 rtl plain" aria-hidden="true"><i></i></div>
+          <div class="cell c1"><p class="who"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4.5"/><circle cx="12" cy="3.5" r="1"/><path d="M9 13.5h.01M15 13.5h.01"/><path d="M2 13v3M22 13v3"/></svg> Agente de IA</p><p>Recibe el resultado.</p><pre>200 OK
+[{ "title": "Arreglar login", … }]
+"token": "[REDACTED:github]"</pre></div>
+        </li>
+      </ol>
+    </div>
+    <p class="flow-note">Los comandos por SSH, los clientes de bases de datos y otros programas funcionan igual: el agente nombra una credencial y SecretBroker ejecuta la operación. Un límite que conviene conocer: un programa que permites con <code>sb run</code> o <code>run_command</code> recibe la clave en claro, así que permite solo los que necesites. <a href="security.html">Más sobre los límites</a>.</p>
+  </div>
+</section>
+
+<section class="section" id="security">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">Seguridad</p>
+      <h2>Qué protege tus secretos, y hasta dónde llega.</h2>
+      <p class="lede">Ningún gestor de contraseñas puede prometerlo todo. Esto es lo que hace SecretBroker, dicho claro, y lo que no puede hacer.</p>
+    </div>
+    <div class="cols">
+      <div>
+        <h3><svg class="icon good" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg> Lo que hace</h3>
+        <ul class="facts-list">
+          <li><b>Cifrado en tu ordenador.</b> La bóveda se cierra con una clave que sale de tu contraseña maestra (AES-256-GCM, scrypt). No se sube nada, salvo que te unas a un equipo.</li>
+          <li><b>Un servicio aparte de tus programas.</b> La parte que guarda tus secretos funciona con una cuenta propia del sistema. Los programas que usas, un agente de IA incluido, no pueden leer sus archivos, su memoria ni su código.</li>
+          <li><b>La IA no recibe nunca un valor.</b> Pide una operación. Las respuestas se limpian, y una clave solo va a los dominios HTTPS y a los programas que le pusiste en su lista.</li>
+          <li><b>Tú decides cada uso.</b> Una aprobación vale para una petición concreta y la confirmas tú: con Windows Hello, con una contraseña o, una vez desbloqueada la bóveda, con un clic.</li>
+          <li><b>Solo se rellena en la web auténtica.</b> La extensión ofrece un acceso solo en el dominio donde se guardó, nunca al cargar la página, y sin abrir ningún puerto de red.</li>
+          <li><b>El servidor de equipos no puede leer lo que compartes.</b> Va cifrado de extremo a extremo; las listas de miembros, los cambios y los borrados van firmados por quien los hizo.</li>
+          <li><b>Las actualizaciones se verifican.</b> La app solo instala una versión firmada con la clave de publicación del proyecto.</li>
+        </ul>
+      </div>
+      <div>
+        <h3><svg class="icon limit" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg> Lo que no hace</h3>
+        <ul class="facts-list">
+          <li><b>Aún no tiene una auditoría independiente.</b> El código es abierto y el modelo de amenazas está escrito, pero ninguna empresa de seguridad externa lo ha auditado.</li>
+          <li><b>Tu escritorio es terreno compartido.</b> Un programa malicioso en tu sesión puede leer el portapapeles, capturar teclas o mostrar ventanas falsas, como con cualquier gestor. Con «Abrir con mi sesión de Windows» activado, cualquier programa tuyo puede abrir también la bóveda.</li>
+          <li><b>Los programas que permites reciben la clave.</b> Lo que arrancas con <code>sb run</code>, o dejas que la IA arranque con <code>run_command</code>, la recibe en claro.</li>
+          <li><b>«Solo uso» es una cortesía, no un muro.</b> Lo hace cumplir la app; un compañero con una app modificada podría sacar una clave que tiene permiso para usar.</li>
+          <li><b>Los permisos de administrador anulan el aislamiento.</b> No ejecutes nunca un agente de IA como administrador.</li>
+          <li><b>Es joven.</b> Los instaladores aún no llevan firma de código, la extensión aún no está en las tiendas, macOS es una vista previa y no hay app para móvil.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="after">
+      <a class="more" href="security.html">La página de seguridad</a>
+      <a href="https://github.com/xBofi/SecretBroker/blob/main/docs/THREAT_MODEL.md" rel="noopener">El modelo de amenazas completo, en GitHub (en inglés)</a>
+    </div>
+  </div>
+</section>
+
+<section class="section tint" id="download">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">Descargar</p>
+      <h2>Consigue SecretBroker</h2>
+      <p class="lede">Gratis y sin crear ninguna cuenta. Se instala en un par de minutos y se actualiza con un clic.</p>
+    </div>
+    <div class="download">
+      <div class="dl-main">
+        <a class="btn primary lg" href="https://github.com/xBofi/SecretBroker/releases/latest" rel="noopener" data-download="main"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg><span>Descargar la última versión</span></a>
+        <p class="meta" data-download="meta">Instaladores para Windows, Ubuntu y macOS.</p>
+        <p class="dl-status" data-download="status" hidden></p>
+        <p class="hint">Los instaladores aún no llevan firma de código, así que Windows y macOS muestran un aviso la primera vez. <a href="guide/#install">Qué vas a ver y por qué</a>.</p>
+      </div>
+      <div>
+        <div class="dl-list">
+          <div class="dl-row" data-row="windows">
+            <h3 data-yours="Tu sistema">Windows 10 y 11</h3>
+            <p>Instalador (.exe)<span data-size></span>. Pide permiso de administrador una vez.</p>
+            <a class="btn" href="https://github.com/xBofi/SecretBroker/releases/latest" rel="noopener" data-asset="windows">Descargar .exe</a>
+          </div>
+          <div class="dl-row" data-row="linux">
+            <h3 data-yours="Tu sistema">Ubuntu 22.04, 24.04 y 26.04</h3>
+            <p>Paquete (.deb) para PC de 64 bits<span data-size></span>. Se instala con doble clic.</p>
+            <a class="btn" href="https://github.com/xBofi/SecretBroker/releases/latest" rel="noopener" data-asset="linux">Descargar .deb</a>
+          </div>
+          <div class="dl-row" data-row="macos-arm64">
+            <h3 data-yours="Para tu Mac">macOS 12 o posterior, Apple silicon <span class="tag">Vista previa</span></h3>
+            <p>Paquete (.pkg) para M1 y posteriores<span data-size></span>. Lo compilan e instalan las pruebas automáticas; aún no se ha probado en un Mac real.</p>
+            <a class="btn" href="https://github.com/xBofi/SecretBroker/releases/latest" rel="noopener" data-asset="macos-arm64">Descargar .pkg</a>
+          </div>
+          <div class="dl-row" data-row="macos-x86_64">
+            <h3 data-yours="Para tu Mac">macOS 12 o posterior, Intel <span class="tag">Vista previa</span></h3>
+            <p>Paquete (.pkg) para Mac con Intel<span data-size></span>. La misma vista previa.</p>
+            <a class="btn" href="https://github.com/xBofi/SecretBroker/releases/latest" rel="noopener" data-asset="macos-x86_64">Descargar .pkg</a>
+          </div>
+        </div>
+        <p class="dl-notes">Todavía no hay app para móvil. La extensión del navegador viene con la app y, por ahora, se carga desde su carpeta: aún no está en las tiendas de extensiones. Todas las versiones, con un archivo de firma junto a cada instalador, están en <a href="https://github.com/xBofi/SecretBroker/releases" rel="noopener">GitHub Releases</a>.</p>
+      </div>
+    </div>
+  </div>
+  <script type="application/json" id="dl-texts">{"forWindows": "Descargar para Windows", "forLinux": "Descargar para Ubuntu", "forMac": "Descargar para macOS", "meta": "Versión {version} · {size} · {file}", "version": "Versión {version}. Gratis y sin crear ninguna cuenta.", "mobile": "SecretBroker funciona en ordenadores. Todavía no hay app para móvil: abre esta página en tu PC para descargarlo.", "macHint": "Hay dos versiones para Mac: Apple silicon (M1 y posteriores) o Intel. El menú Apple › Acerca de este Mac te dice cuál es el tuyo.", "offline": "GitHub no ha respondido ahora mismo, así que los botones abren la página de versiones, donde están los mismos archivos."}</script>
+</section>
+
+<section class="section" id="open-source">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">Código abierto</p>
+      <h2>Lee el código que guarda tus contraseñas.</h2>
+      <p class="lede">SecretBroker tiene licencia MIT y se desarrolla a la vista de todos: la app de escritorio, la extensión del navegador, el servidor de equipos y el proceso que compila y firma los instaladores.</p>
+    </div>
+    <div class="linklist">
+      <a href="https://github.com/xBofi/SecretBroker" rel="noopener"><b>Código fuente</b><span>github.com/xBofi/SecretBroker</span></a>
+      <a href="https://github.com/xBofi/SecretBroker/blob/main/LICENSE" rel="noopener"><b>Licencia MIT</b><span>Úsalo, cámbialo, alójalo.</span></a>
+      <a href="https://github.com/xBofi/SecretBroker/blob/main/SECURITY.md" rel="noopener"><b>Política de seguridad</b><span>Cómo avisar de una vulnerabilidad en privado y qué esperar (en inglés).</span></a>
+      <a href="https://github.com/xBofi/SecretBroker/blob/main/docs/THREAT_MODEL.md" rel="noopener"><b>Modelo de amenazas</b><span>Qué se protege, de quién, y todos los límites conocidos (en inglés).</span></a>
+      <a href="https://github.com/xBofi/SecretBroker/blob/main/CHANGELOG.md" rel="noopener"><b>Cambios de cada versión</b><span>Qué ha cambiado en cada una, dicho claro (en inglés).</span></a>
+      <a href="https://github.com/xBofi/SecretBroker/blob/main/CONTRIBUTING.md" rel="noopener"><b>Contribuir</b><span>El entorno de desarrollo, las pruebas y cómo añadir un idioma.</span></a>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="faq">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">Preguntas</p>
+      <h2>Antes de confiarle tus contraseñas</h2>
+    </div>
+    <div class="faq">
+      <details><summary>¿De verdad es gratis?</summary><div class="answer"><p>Sí. La app, la extensión y el servidor de equipos son gratuitos y de código abierto, con licencia MIT, y no creas ninguna cuenta con nosotros. Está previsto un servidor de equipos alojado para quien no quiera mantener el suyo; el servidor propio seguirá teniendo todas las funciones.</p></div></details>
+      <details><summary>¿Dónde se guardan mis contraseñas?</summary><div class="answer"><p>En una bóveda cifrada en tu propio ordenador. No se suben a ningún sitio. Si te unes a un equipo, de tu PC solo sale lo que decides compartir, ya cifrado. La <a href="privacy.html">página de privacidad</a> enumera todas las conexiones que hace la app.</p></div></details>
+      <details><summary>¿Hace falta saber programar?</summary><div class="answer"><p>No. Se instala con doble clic, y las contraseñas, los códigos 2FA, el relleno en el navegador, la importación y las copias de seguridad no necesitan terminal. Lo de la IA y la línea de comandos está ahí si lo quieres.</p></div></details>
+      <details><summary>¿Y si olvido la contraseña maestra?</summary><div class="answer"><p>En el ordenador donde está tu bóveda puedes entrar con Windows Hello o con la contraseña del sistema y elegir una nueva. Una copia de seguridad en otro ordenador solo se abre con la contraseña maestra que tenía, y nadie, tampoco el proyecto, puede recuperarla por ti. <a href="guide/#forgot">La guía lo explica con detalle</a>.</p></div></details>
+      <details><summary>¿Con qué herramientas de IA funciona?</summary><div class="answer"><p>La app conecta con un clic Claude Code, Claude Desktop, Cursor, VS Code (Copilot Chat en modo Agente), Windsurf y Codex. Es un servidor MCP, así que otros clientes MCP también pueden usarlo.</p></div></details>
+      <details><summary>¿Está auditado?</summary><div class="answer"><p>No por una empresa de seguridad independiente; está en la hoja de ruta. El código fuente, el <a href="https://github.com/xBofi/SecretBroker/blob/main/docs/THREAT_MODEL.md" rel="noopener">modelo de amenazas</a> con sus límites conocidos y el proceso de publicación son públicos, y las vulnerabilidades se pueden <a href="https://github.com/xBofi/SecretBroker/blob/main/SECURITY.md" rel="noopener">comunicar en privado</a>.</p></div></details>
+      <details><summary>¿Por qué me avisa Windows al instalarlo?</summary><div class="answer"><p>Porque el instalador aún no está firmado con un certificado de firma de código. Windows muestra «Windows protegió su PC» con los programas de editores que no reconoce. <a href="guide/#install-windows">La guía te dice dónde pulsar</a>. Las actualizaciones que instala la propia app sí se comprueban con la clave de publicación del proyecto.</p></div></details>
+      <details><summary>¿Funciona en Mac? ¿Y en el móvil?</summary><div class="answer"><p>La versión para Mac es una vista previa: la compilan e instalan las pruebas automáticas, pero aún no se ha probado en un Mac real, no está firmada y Touch ID llegará con la versión firmada. No hay app para móvil; una de solo lectura está en la hoja de ruta.</p></div></details>
+      <details><summary>¿Puedo pasarme después a otro gestor?</summary><div class="answer"><p>Sí. Ajustes › Importar y exportar escribe un archivo cifrado para otro PC, o un CSV o JSON sin cifrar que leen Bitwarden, 1Password, KeePassXC y los navegadores.</p></div></details>
+      <details><summary>¿En qué idiomas está?</summary><div class="answer"><p>La app, la extensión y el instalador están en 32 idiomas, entre ellos español, catalán, gallego y euskera. Sigue el idioma de tu sistema y se cambia en Ajustes › Apariencia › Idioma. La guía de esta web está en español y en inglés.</p></div></details>
+    </div>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot">
+      <div class="foot-brand">
+        <a class="brand" href="./"><svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><rect class="mark-tile" x="4" y="4" width="92" height="92" rx="22"/><path class="mark-shield" d="M50 17 77 27V49L73 62 64 73 50 83 36 73 27 62 23 49V27Z"/><path class="mark-hole" d="M42.5 45a7.5 7.5 0 1 1 15 0 7.5 7.5 0 1 1-15 0ZM47 45h6l2.28 19H44.72Z"/></svg><span>SecretBroker</span></a>
+        <p>Un gestor de contraseñas y secretos para tu ordenador, gratuito y de código abierto. Funciona en Windows y Ubuntu; en macOS es una vista previa.</p>
+      </div>
+      <div><h2>Producto</h2><ul><li><a href="./#download">Descargar</a></li><li><a href="guide/">Guía</a></li><li><a href="guide/developers.html">Para desarrolladores</a></li><li><a href="guide/teams.html">Para equipos</a></li></ul></div>
+      <div><h2>Confianza</h2><ul><li><a href="security.html">Seguridad</a></li><li><a href="privacy.html">Privacidad</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/docs/THREAT_MODEL.md" rel="noopener">Modelo de amenazas (en inglés)</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/SECURITY.md" rel="noopener">Avisar de una vulnerabilidad</a></li></ul></div>
+      <div><h2>Proyecto</h2><ul><li><a href="https://github.com/xBofi/SecretBroker" rel="noopener">Código fuente</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/CHANGELOG.md" rel="noopener">Cambios de cada versión</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/docs/ROADMAP.md" rel="noopener">Hoja de ruta</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/LICENSE" rel="noopener">Licencia MIT</a></li></ul></div>
+    </div>
+    <div class="fineprint"><p>Esta web no usa cookies ni analítica y no carga nada de otros servidores. Una excepción, solo en la página de inicio: los botones de descarga preguntan a la API pública de GitHub cuál es la última versión. El tema que eliges se guarda en tu navegador.</p><p>SecretBroker es de código abierto, con licencia MIT. © 2026 xBofi.</p></div>
+  </div>
+</footer>
+<script src="../js/site.js" defer></script>
+</body>
+</html>

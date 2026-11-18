@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Privacidad: qué sale de tu ordenador cuando usas SecretBroker</title>
+<meta name="description" content="Lo que SecretBroker guarda en tu ordenador y todas las conexiones que hace: la búsqueda de actualizaciones en GitHub, las pruebas de claves con cada proveedor, Have I Been Pwned por k-anonimato y el servidor de equipos opcional. Sin telemetría.">
+<link rel="canonical" href="https://xbofi.github.io/SecretBroker/es/privacy.html">
+<link rel="alternate" hreflang="en" href="https://xbofi.github.io/SecretBroker/privacy.html">
+<link rel="alternate" hreflang="es" href="https://xbofi.github.io/SecretBroker/es/privacy.html">
+<link rel="alternate" hreflang="x-default" href="https://xbofi.github.io/SecretBroker/privacy.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SecretBroker">
+<meta property="og:title" content="Privacidad: qué sale de tu ordenador cuando usas SecretBroker">
+<meta property="og:description" content="Lo que SecretBroker guarda en tu ordenador y todas las conexiones que hace: la búsqueda de actualizaciones en GitHub, las pruebas de claves con cada proveedor, Have I Been Pwned por k-anonimato y el servidor de equipos opcional. Sin telemetría.">
+<meta property="og:url" content="https://xbofi.github.io/SecretBroker/es/privacy.html">
+<meta property="og:image" content="https://xbofi.github.io/SecretBroker/img/og-es.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="es_ES">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbfbfb">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161616">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../img/icon-180.png">
+<link rel="stylesheet" href="../css/site.css">
+<script src="../js/theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Saltar al contenido</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Inicio de SecretBroker"><svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><rect class="mark-tile" x="4" y="4" width="92" height="92" rx="22"/><path class="mark-shield" d="M50 17 77 27V49L73 62 64 73 50 83 36 73 27 62 23 49V27Z"/><path class="mark-hole" d="M42.5 45a7.5 7.5 0 1 1 15 0 7.5 7.5 0 1 1-15 0ZM47 45h6l2.28 19H44.72Z"/></svg><span>SecretBroker</span></a>
+    <nav class="nav" aria-label="Principal"><a href="guide/">Guía</a><a href="guide/developers.html">Para desarrolladores</a><a href="guide/teams.html">Para equipos</a><a href="security.html">Seguridad</a><a href="https://github.com/xBofi/SecretBroker" rel="noopener">GitHub</a></nav>
+    <div class="tools">
+      <a class="tool" href="../privacy.html" hreflang="en" lang="en" aria-label="Read in English">English</a>
+      <button class="tool theme-toggle" type="button" aria-label="Cambiar entre tema claro y oscuro" title="Cambiar entre tema claro y oscuro"><svg class="icon to-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="icon to-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg></button>
+      <a class="btn primary sm" href="./#download">Descargar</a>
+      <details class="menu">
+        <summary class="tool" aria-label="Menú"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></summary>
+        <nav class="menu-panel" aria-label="Menú"><a href="guide/">Guía</a><a href="guide/developers.html">Para desarrolladores</a><a href="guide/teams.html">Para equipos</a><a href="security.html">Seguridad</a><a href="https://github.com/xBofi/SecretBroker" rel="noopener">GitHub</a><a href="privacy.html" aria-current="page">Privacidad</a><a href="./#download">Descargar</a></nav>
+      </details>
+    </div>
+  </div>
+</header>
+<main id="main" class="page wrap">
+  <div class="page-grid">
+    <header class="page-head">
+      <p class="crumbs"><a href="./">SecretBroker</a></p>
+      <h1>Privacidad</h1>
+      <p class="lede">Qué se queda en tu ordenador, y todas las conexiones que hacen la app, la extensión del navegador, un servidor de equipos y esta web. Cada afirmación se ha comprobado en el código fuente.</p>
+      
+    </header>
+    <nav class="toc" aria-label="En esta página">
+      <h2>En esta página</h2>
+      <ol><li><a href="#short">En pocas palabras</a></li><li><a href="#local">Qué se queda en tu ordenador</a></li><li><a href="#connections">Las conexiones que hace la app</a></li><li><a href="#ai">Qué ve el proveedor de tu IA</a></li><li><a href="#extension">La extensión del navegador</a></li><li><a href="#team-server">El servidor de equipos</a></li><li><a href="#website">Esta web</a></li><li><a href="#choices">Lo que puedes decidir</a></li><li><a href="#contact">Dudas</a></li></ol>
+    </nav>
+    <article class="prose">
+<aside class="note warn"><p><b>Aún no lo ha revisado un abogado.</b> Esta página es la descripción llana que hacen los mantenedores de lo que hace el software. No es asesoramiento legal. El texto completo, con el archivo de código que respalda cada afirmación, es <a href="https://github.com/xBofi/SecretBroker/blob/main/docs/PRIVACY.md" rel="noopener">docs/PRIVACY.md</a> en el repositorio (en inglés).</p></aside>
+
+<h2 id="short">En pocas palabras</h2>
+<ul>
+  <li>Tu bóveda vive en tu ordenador, cifrada. El proyecto no tiene ningún servidor que la reciba ni forma alguna de ver tus credenciales.</li>
+  <li><b>No hay telemetría, analítica, informes de fallos ni publicidad</b> en la app, en la extensión ni en el servidor. No hay ninguna cuenta que crear con nosotros.</li>
+  <li>La app se conecta a internet por una lista corta y cerrada de motivos, todos indicados más abajo.</li>
+  <li>Si te unes a un equipo, su servidor solo guarda texto cifrado que no puede leer, más los correos y la pertenencia que necesita para repartirlo. Quien administra ese servidor es responsable de él.</li>
+</ul>
+
+<h2 id="local">Qué se queda en tu ordenador</h2>
+<ul>
+  <li><b>La bóveda</b>: tus credenciales, sus notas y dónde puede usarse cada una. Cifrada en el disco, en una carpeta que solo puede leer la cuenta del servicio de SecretBroker.</li>
+  <li><b>Actividad</b>: qué se ha usado, rellenado, copiado, aprobado o denegado, cuándo y por qué programa. Cifrada, y legible solo con la bóveda desbloqueada.</li>
+  <li><b>La búsqueda de copias de tus claves</b>: lee archivos de tu ordenador (conversaciones con IA, historial de la terminal, configuración de programas, carpetas de proyectos y su historial de git). Nada de lo que lee o encuentra se envía a ningún sitio.</li>
+</ul>
+
+<h2 id="connections">Las conexiones que hace la app</h2>
+<div class="table-scroll"><table>
+  <thead><tr><th>Cuándo</th><th>Adónde</th><th>Qué se envía</th></tr></thead>
+  <tbody>
+    <tr><td>Al arrancar la app y, después, una vez por hora mientras está abierta</td><td>GitHub (<code>api.github.com</code>)</td><td>Una consulta por la última versión de SecretBroker. Ningún identificador ni tu número de versión. GitHub ve tu dirección IP, como cualquier web que visitas. Esta comprobación aún no se puede desactivar.</td></tr>
+    <tr><td>Cuando pulsas para actualizar</td><td>GitHub</td><td>La descarga del instalador y de su firma. No se instala nada si la firma no es válida.</td></tr>
+    <tr><td>Con la bóveda desbloqueada, con la frecuencia que elijas: cada día por defecto, hasta «Nunca»</td><td>El proveedor de cada API key que la app reconoce, como OpenAI, Anthropic, GitHub, GitLab, Stripe o Cloudflare; tus servidores SSH</td><td>Una petición de solo lectura con esa clave, para saber si sigue funcionando. Una clave solo se envía al proveedor al que pertenece. En SSH, la app entra y sale.</td></tr>
+    <tr><td>Con esa misma frecuencia</td><td>Have I Been Pwned (<code>api.pwnedpasswords.com</code>)</td><td>Para las contraseñas de webs, bases de datos y SSH: los <b>5 primeros caracteres del hash SHA-1 de la contraseña</b>. Ni la contraseña ni su hash completo salen de tu ordenador; la comparación se hace en local.</td></tr>
+    <tr><td>Cuando tú, o un agente de IA al que has dado permiso, usáis o rotáis una credencial</td><td>Los destinos que esa credencial tiene permitidos</td><td>La petición que aprobaste, con el secreto puesto en su sitio por la app. Cada uso queda en Actividad.</td></tr>
+    <tr><td>Solo si te conectas a un servidor de equipos</td><td>Ese servidor, en la dirección que escribiste</td><td>Mira <a href="#team-server">el servidor de equipos</a>, más abajo.</td></tr>
+  </tbody>
+</table></div>
+<p>La app también abre enlaces en tu navegador cuando los pulsas, como el panel de un proveedor. Su código no hace ninguna otra conexión.</p>
+
+<h2 id="ai">Qué ve el proveedor de tu IA</h2>
+<p>Los agentes de IA hablan con SecretBroker en tu propio ordenador. Reciben el resultado de lo que piden con los secretos borrados, nunca los secretos. Sí ven los <b>nombres</b> de tus credenciales, las <b>Instrucciones para la IA</b> que hayas escrito y los resultados ya limpios, y todo eso pasa a formar parte de tu conversación con la IA, con las condiciones de privacidad de ese proveedor. Las notas privadas, las contraseñas y las claves no se le dan nunca a la IA.</p>
+
+<h2 id="extension">La extensión del navegador</h2>
+<ul>
+  <li>Solo habla con la app de SecretBroker del mismo ordenador, por la mensajería nativa del navegador. No envía nada al proyecto ni a nadie más, y no carga código de internet.</li>
+  <li>Para hacer su trabajo lee la dirección de la pestaña en la que estás y los campos de inicio de sesión de la página y, cuando envías un formulario de acceso, el usuario y la contraseña que has escrito, para que la app pueda ofrecerte guardarlos. Solo se guardan si pulsas guardar.</li>
+  <li>Lo único que pide a internet es el icono de la propia web, descargado de esa web sin cookies y sin decir qué página lo pide. Nunca usa un servicio de iconos.</li>
+</ul>
+
+<h2 id="team-server">El servidor de equipos</h2>
+<p>El servidor de equipos es opcional. El proyecto no tiene ninguno: cada uno lo instala y lo administra la organización que lo usa, y esa organización es responsable de los datos que hay en él.</p>
+<p><b>Guarda</b> las cuentas (correo, el nombre que elegiste, las claves públicas y tus claves privadas cifradas de modo que solo las abre tu contraseña o tu código de recuperación), los dispositivos (el nombre de cada dispositivo con la sesión abierta y cuándo se vio por última vez), las organizaciones (sus nombres, miembros, roles e invitaciones pendientes) y las credenciales compartidas <b>solo como texto cifrado</b>, con quién puede abrir cada colección, tamaños, cantidades y fechas, y un registro de quién hizo qué.</p>
+<p><b>No recibe nunca</b> credenciales, sus nombres ni sus notas en claro, los nombres de las colecciones, la contraseña de tu cuenta, tu código de recuperación, tu contraseña maestra ni nada que no hayas compartido.</p>
+<p>Si quien lo administra ha configurado el correo, envía dos tipos de mensaje y ninguno más: el código que verifica tu dirección y las invitaciones. Un servidor instalado con el instalador de un comando pregunta a GitHub una vez al día si hay una versión firmada más nueva.</p>
+
+<h2 id="website">Esta web</h2>
+<ul>
+  <li>Son archivos estáticos alojados en GitHub Pages. GitHub, como alojamiento, recibe tu dirección IP al cargar una página, igual que cualquier servidor web.</li>
+  <li><b>No usa cookies</b> ni <b>analítica</b>, y no carga tipografías, scripts ni imágenes de otros servidores. Las propias páginas lo prohíben con una política de seguridad de contenido.</li>
+  <li>Una excepción, en la página de inicio: los botones de descarga preguntan a la API pública de GitHub (<code>api.github.com</code>) cuál es la última versión, para enlazar directamente al instalador adecuado.</li>
+  <li>Tu navegador guarda dos cosas pequeñas de esta web: el tema que has elegido y, durante tu visita, la respuesta sobre la última versión. Ninguna de las dos se envía a ningún sitio.</li>
+</ul>
+
+<h2 id="choices">Lo que puedes decidir</h2>
+<ul>
+  <li><b>Las pruebas de claves y de filtraciones</b>: Ajustes › Seguridad › Comprobar que las claves funcionan, o en cada credencial, hasta «Nunca».</li>
+  <li><b>La búsqueda de copias</b>: Ajustes › Copias de tus claves.</li>
+  <li><b>La extensión del navegador</b>: Desconectar en Ajustes › Navegador, o quitarla del navegador.</li>
+  <li><b>Una cuenta de equipo</b>: desconéctala en Equipo › Tu cuenta. Para que borren la cuenta, pídeselo a quien administra el servidor.</li>
+  <li><b>Todo</b>: al desinstalar se te pregunta si quieres borrar la bóveda. Si la conservas, se queda en tu disco, cifrada, hasta que la borres.</li>
+</ul>
+
+<h2 id="contact">Dudas</h2>
+<p>Abre una incidencia en <a href="https://github.com/xBofi/SecretBroker/issues" rel="noopener">GitHub</a>. Es pública, así que no pegues nunca un secreto. Para avisar en privado de un problema de seguridad, mira la <a href="https://github.com/xBofi/SecretBroker/blob/main/SECURITY.md" rel="noopener">política de seguridad</a> (en inglés).</p>
+
+    <p class="updated">Última actualización: 18 de noviembre de 2026</p>
+    </article>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot">
+      <div class="foot-brand">
+        <a class="brand" href="./"><svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><rect class="mark-tile" x="4" y="4" width="92" height="92" rx="22"/><path class="mark-shield" d="M50 17 77 27V49L73 62 64 73 50 83 36 73 27 62 23 49V27Z"/><path class="mark-hole" d="M42.5 45a7.5 7.5 0 1 1 15 0 7.5 7.5 0 1 1-15 0ZM47 45h6l2.28 19H44.72Z"/></svg><span>SecretBroker</span></a>
+        <p>Un gestor de contraseñas y secretos para tu ordenador, gratuito y de código abierto. Funciona en Windows y Ubuntu; en macOS es una vista previa.</p>
+      </div>
+      <div><h2>Producto</h2><ul><li><a href="./#download">Descargar</a></li><li><a href="guide/">Guía</a></li><li><a href="guide/developers.html">Para desarrolladores</a></li><li><a href="guide/teams.html">Para equipos</a></li></ul></div>
+      <div><h2>Confianza</h2><ul><li><a href="security.html">Seguridad</a></li><li><a href="privacy.html">Privacidad</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/docs/THREAT_MODEL.md" rel="noopener">Modelo de amenazas (en inglés)</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/SECURITY.md" rel="noopener">Avisar de una vulnerabilidad</a></li></ul></div>
+      <div><h2>Proyecto</h2><ul><li><a href="https://github.com/xBofi/SecretBroker" rel="noopener">Código fuente</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/CHANGELOG.md" rel="noopener">Cambios de cada versión</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/docs/ROADMAP.md" rel="noopener">Hoja de ruta</a></li><li><a href="https://github.com/xBofi/SecretBroker/blob/main/LICENSE" rel="noopener">Licencia MIT</a></li></ul></div>
+    </div>
+    <div class="fineprint"><p>Esta web no usa cookies ni analítica y no carga nada de otros servidores. Una excepción, solo en la página de inicio: los botones de descarga preguntan a la API pública de GitHub cuál es la última versión. El tema que eliges se guarda en tu navegador.</p><p>SecretBroker es de código abierto, con licencia MIT. © 2026 xBofi.</p></div>
+  </div>
+</footer>
+<script src="../js/site.js" defer></script>
+</body>
+</html>
