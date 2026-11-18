@@ -1,0 +1,60 @@
+# Publishes the website (site/) to GitHub Pages when it changes on main.
+# The site is plain HTML, CSS and JS: nothing is built, it is checked and uploaded as it is.
+# Once, in the repository: Settings › Pages › Build and deployment › Source: "GitHub Actions".
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer push waits for the one in progress instead of cancelling it half-way.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: read  # configure-pages asks whether Pages is set to deploy from Actions
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        with:
+          python-version: "3.12"
+
+      # Every link, anchor and image resolves, both languages have the same pages, and nothing loads from
+      # another server (standard library only: nothing is installed).
+      - name: Check the site
+        run: python tools/check_site.py site
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d  # v6.0.0
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write     # to publish
+      id-token: write  # to prove the deployment comes from this workflow
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1

@@ -2,6 +2,8 @@
 
 **English** · [Español](README.es.md)
 
+Website: https://xbofi.github.io/SecretBroker/ · [User guide](https://xbofi.github.io/SecretBroker/guide/)
+
 SecretBroker lets AI agents **use** your API keys, passwords and server logins **without ever seeing them**. Claude Code
 (or any MCP client) asks to call an API, run `psql` or SSH into a server; SecretBroker injects the credential, runs the
 operation in an isolated service and redacts the secret from everything that comes back. Your team can share those

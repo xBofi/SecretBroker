@@ -2,6 +2,8 @@
 
 [English](README.md) · **Español**
 
+Web: https://xbofi.github.io/SecretBroker/es/ · [Guía de uso](https://xbofi.github.io/SecretBroker/es/guide/)
+
 Bóveda de credenciales para Windows, Ubuntu y macOS que permite a un agente de IA (Claude Code u otro cliente MCP) **usar** tus API keys, contraseñas y accesos **sin poder leerlos nunca**.
 
 ```

@@ -3,9 +3,8 @@
 (function () {
   'use strict';
 
-  var REPO = 'xBofi/SecretBroker';
-  var RELEASE_API = 'https://api.github.com/repos/' + REPO + '/releases/latest';
-  var DOWNLOAD_PREFIX = 'https://github.com/' + REPO + '/releases/download/';
+  var RELEASE_API = 'https://api.github.com/repos/xBofi/SecretBroker/releases/latest';
+  var DOWNLOAD_PREFIX = 'https://github.com/xBofi/SecretBroker/releases/download/';  // the only links it writes
   var ASSETS = {
     windows: /^SecretBroker-Setup-(\d+\.\d+\.\d+)\.exe$/,
     linux: /^secretbroker_(\d+\.\d+\.\d+)_amd64\.deb$/,
