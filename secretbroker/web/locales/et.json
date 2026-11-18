@@ -479,6 +479,7 @@
   "detail.expires_on": "Aegub {expires}",
   "detail.its_collection_no_longer_appears": "Selle kollektsiooni pole enam serveris. Siin pole midagi kustutatud: ",
   "detail.nothing_yet_edit_credential_and": "Veel mitte midagi. Muuda mandaati ja ava „TI õigused“.",
+  "detail.personal_private": "Ainult sulle: TI seda ei näe ega saa kasutada.",
   "detail.show": "Välja „{label}“ näitamiseks: {name}.",
   "direct_block.can": "Kasutaja {name} õigus",
   "direct_block.leave": "Lõpeta vastuvõtmine",
@@ -531,9 +532,16 @@
   "draw_team.sync_now": "Sünkrooni kohe",
   "draw_team.synced": "Sünkroonitud",
   "editor.aws_placeholder": "Isiklik AWS",
+  "editor.bank_placeholder": "Põhikonto",
+  "editor.card_placeholder": "Isiklik Visa",
   "editor.config_placeholder": "Minu rakenduse kliendi ID",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "Minu pass",
+  "editor.license_placeholder": "Office'i litsents",
+  "editor.note_placeholder": "E-posti taastekoodid",
+  "editor.personal_tags_placeholder": "kodu, töö",
   "editor.tags_placeholder": "pood, tootmine",
+  "editor.wifi_placeholder": "Kodune Wi-Fi",
   "empty_credentials.add_credential": "Lisa mandaat",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge või Firefox. Näed nimekirja enne importimist.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf või Codex, ühe klõpsuga.",
@@ -983,6 +991,8 @@
   "offboarding_card.they_could_see_or_copy": "Ta võis seda näha või kopeerida. Muuda see; kui sina seda ei halda, muudab selle haldur.",
   "offboarding_card.they_could_see_or_copy_2": "Ta võis neid näha või kopeerida. Muuda need ükshaaval; need, mida sina ei halda, muudab nende haldur.",
   "open_connect_ai.with_one_click_ai_will": "Ühe klõpsuga saab TI sinu võtmeid SecretBrokeri kaudu kasutada, neid nägemata.",
+  "open_editor.developers": "Arendajatele",
+  "open_editor.everyday": "Igapäevaseks",
   "open_editor.new_credential": "Uus mandaat",
   "open_export.all_credentials_with_their_notes": "Kõik mandaadid koos märkmete ja õigustega failis, mida kaitseb sinu valitud parool (scrypt ja AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "CSV-faili (nimi, veebisait, kasutajanimi, parool, märkus) loevad Bitwarden, 1Password, KeePassXC ja brauserid. See säilitab ainult iga mandaadi põhivõtme.",
@@ -1140,6 +1150,14 @@
   "reminder.expires_in": {
     "one": "Aegub {count} päeva pärast. Vaheta see enne, kui see lakkab töötamast.",
     "other": "Aegub {count} päeva pärast. Vaheta see enne, kui see lakkab töötamast."
+  },
+  "reminder.item_expired_ago": {
+    "one": "Aegus {count} päev tagasi.",
+    "other": "Aegus {count} päeva tagasi."
+  },
+  "reminder.item_expires_in": {
+    "one": "Aegub {count} päeva pärast.",
+    "other": "Aegub {count} päeva pärast."
   },
   "reminder.key_age": {
     "one": "Võti on {count} päeva vana. Aeg-ajalt tasub seda vahetada.",
@@ -1684,6 +1702,7 @@
   "show_form.authorization": "Autoriseerimine",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "See kuulub meeskonnale ja sinu õigus on „{value}“: siin saad muuta ainult seda, millal TI sinu heakskiitu küsib.",
+  "show_form.card_expiry_invalid": "Sisesta kehtivusaeg kujul KK/AA, näiteks 08/27.",
   "show_form.change_type": "Muuda tüüpi",
   "show_form.changed_while_you_were_editing": "See muutus sinu redigeerimise ajal",
   "show_form.changes_saved": "Muudatused salvestatud",

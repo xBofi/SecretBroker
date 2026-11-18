@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 from cryptography.exceptions import InvalidTag
 
-from . import crypto, templates
+from . import crypto, i18n, templates
 from .i18n import tr
 
 PLAIN_FORMAT = "secretbroker-export"
@@ -25,6 +25,9 @@ FORMATS = ("encrypted", "json", "csv")
 ENTRY_KEYS = ("id", "name", "template", "description", "fields", "policy", "tags", "expires", "rotate_every_days",
               "check_every_hours", "used_in", "rotation_guide", "secret_since", "updated", "draft")
 CSV_COLUMNS = ("name", "url", "username", "password", "note")  # Chrome's columns: every manager reads them
+# What a personal item gives in the CSV's `password` column: the one thing it hides that another manager would keep
+# there. A note has none: its text is the `note`.
+PERSONAL_MAIN = {"card": "number", "identity": "number", "wifi": "password", "bank": "iban", "license": "license_key"}
 
 
 class ExportError(ValueError):
@@ -78,11 +81,32 @@ def main_secret(entry):
     return ""
 
 
+def _personal_row(entry):
+    """A personal item in Chrome's columns: `password` is what it hides (PERSONAL_MAIN), `username` a Wi-Fi's network
+    name, and everything else it says goes to `note`, one «label: value» line each, so the file loses nothing."""
+    fields, template = entry["fields"], entry["template"]
+    main = PERSONAL_MAIN.get(template)
+    lines = []
+    for spec in templates.field_specs(template):
+        name = spec["name"]
+        value = entry.get("expires") if name == templates.EXPIRES else fields.get(name)
+        if not value or name in (main, "text", "notes") or (template, name) == ("wifi", "ssid"):
+            continue
+        option = next((o["label"] for o in spec["options"] if o["value"] == value), None)
+        lines.append(f"{i18n.phrase('templates', spec['label'])}: {i18n.phrase('templates', option) if option else str(value).strip()}")
+    lines += [str(fields[name]).strip() for name in ("text", "notes") if fields.get(name)]
+    return [entry.get("name") or entry["id"], "", fields.get("ssid", "") if template == "wifi" else "",
+            str(fields.get(main) or "").strip() if main else "", "\n".join(lines)]
+
+
 def to_csv(entries):
     out = io.StringIO()
     writer = csv.writer(out, lineterminator="\n")
     writer.writerow(CSV_COLUMNS)
     for entry in entries:
+        if templates.is_personal(entry["template"]):
+            writer.writerow(_personal_row(entry))
+            continue
         fields = entry["fields"]
         url = fields.get("url") or fields.get("base_url") or ""
         if not url and fields.get("host"):

@@ -35,7 +35,10 @@ mcp = MCPServer(
         "as develop, pre or pro, a server's .env, Vercel, a CI, another project), add that place to its "
         "used_in, so nothing is forgotten when it is rotated. Data that is not secret (a public app's client id, a "
         "tenant id, an account id) goes in a credential of template config: no secret, its values are shown by "
-        "list_secrets, `sb run` gives them without asking, and it is never reported as exposed or due for rotation."
+        "list_secrets, `sb run` gives them without asking, and it is never reported as exposed or due for rotation. "
+        "The user's personal items (payment cards, identity documents, secure notes, Wi-Fi networks, bank accounts, "
+        "software licenses) are not available here at all: they are never listed and cannot be used, created or "
+        "changed with these tools. If the user asks for one, tell them to open it in the SecretBroker app."
     ),
 )
 

@@ -479,6 +479,7 @@
   "detail.expires_on": "Verloopt op {expires}",
   "detail.its_collection_no_longer_appears": "De collectie staat niet meer op de server. Hier is niets verwijderd: ",
   "detail.nothing_yet_edit_credential_and": "Nog niets. Bewerk de inloggegevens en open ‘AI-rechten’.",
+  "detail.personal_private": "Alleen voor jou: de AI ziet het niet en kan het niet gebruiken.",
   "detail.show": "Om ‘{label}’ van {name} te tonen.",
   "direct_block.can": "Recht van {name}",
   "direct_block.leave": "Niet meer ontvangen",
@@ -531,9 +532,16 @@
   "draw_team.sync_now": "Nu synchroniseren",
   "draw_team.synced": "Gesynchroniseerd",
   "editor.aws_placeholder": "Persoonlijke AWS",
+  "editor.bank_placeholder": "Hoofdrekening",
+  "editor.card_placeholder": "Visa privé",
   "editor.config_placeholder": "Client-ID van mijn app",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "Mijn paspoort",
+  "editor.license_placeholder": "Office-licentie",
+  "editor.note_placeholder": "Herstelcodes voor e-mail",
+  "editor.personal_tags_placeholder": "thuis, werk",
   "editor.tags_placeholder": "winkel, productie",
+  "editor.wifi_placeholder": "Wifi thuis",
   "empty_credentials.add_credential": "Inloggegevens toevoegen",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge of Firefox. Je ziet de lijst vóór het importeren.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf of Codex, met één klik.",
@@ -983,6 +991,8 @@
   "offboarding_card.they_could_see_or_copy": "Die persoon kon hem zien of kopiëren. Wijzig hem; als jij hem niet beheert, wijzigt degene die hem beheert hem.",
   "offboarding_card.they_could_see_or_copy_2": "Die persoon kon ze zien of kopiëren. Wijzig ze een voor een; die je niet beheert, worden gewijzigd door wie ze beheert.",
   "open_connect_ai.with_one_click_ai_will": "Met één klik kan de AI je sleutels via SecretBroker gebruiken zonder ze te zien.",
+  "open_editor.developers": "Voor ontwikkelaars",
+  "open_editor.everyday": "Voor dagelijks gebruik",
   "open_editor.new_credential": "Nieuwe inloggegevens",
   "open_export.all_credentials_with_their_notes": "Alle inloggegevens, met hun notities en rechten, in een bestand beveiligd met een wachtwoord dat je zelf kiest (scrypt en AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "De CSV (naam, website, gebruikersnaam, wachtwoord, notitie) kan worden gelezen door Bitwarden, 1Password, KeePassXC en browsers. Alleen de hoofdsleutel van elk item gaat mee.",
@@ -1140,6 +1150,14 @@
   "reminder.expires_in": {
     "one": "Verloopt over {count} dag. Roteer hem voordat hij niet meer werkt.",
     "other": "Verloopt over {count} dagen. Roteer hem voordat hij niet meer werkt."
+  },
+  "reminder.item_expired_ago": {
+    "one": "{count} dag geleden verlopen.",
+    "other": "{count} dagen geleden verlopen."
+  },
+  "reminder.item_expires_in": {
+    "one": "Verloopt over {count} dag.",
+    "other": "Verloopt over {count} dagen."
   },
   "reminder.key_age": {
     "one": "De sleutel is {count} dag oud. Het loont om hem af en toe te roteren.",
@@ -1684,6 +1702,7 @@
   "show_form.authorization": "Authorization",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "Dit hoort bij het team en je recht is ‘{value}’: hier kun je alleen wijzigen wanneer de AI om je goedkeuring vraagt.",
+  "show_form.card_expiry_invalid": "Typ de vervaldatum als MM/JJ, bijvoorbeeld 08/27.",
   "show_form.change_type": "Type wijzigen",
   "show_form.changed_while_you_were_editing": "Gewijzigd terwijl je aan het bewerken was",
   "show_form.changes_saved": "Wijzigingen opgeslagen",

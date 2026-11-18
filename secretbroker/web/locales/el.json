@@ -479,6 +479,7 @@
   "detail.expires_on": "Λήγει στις {expires}",
   "detail.its_collection_no_longer_appears": "Η συλλογή του δεν εμφανίζεται πια στον διακομιστή. Εδώ δεν έχει διαγραφεί τίποτα: ",
   "detail.nothing_yet_edit_credential_and": "Τίποτα ακόμα. Επεξεργαστείτε το διαπιστευτήριο και ανοίξτε τα «Δικαιώματα ΤΝ».",
+  "detail.personal_private": "Μόνο για εσάς: η ΤΝ δεν το βλέπει ούτε μπορεί να το χρησιμοποιήσει.",
   "detail.show": "Για να εμφανίσετε το «{label}» του {name}.",
   "direct_block.can": "Δικαίωμα για {name}",
   "direct_block.leave": "Διακοπή λήψης",
@@ -531,9 +532,16 @@
   "draw_team.sync_now": "Συγχρονισμός τώρα",
   "draw_team.synced": "Συγχρονίστηκε",
   "editor.aws_placeholder": "Προσωπικό AWS",
+  "editor.bank_placeholder": "Κύριος λογαριασμός",
+  "editor.card_placeholder": "Προσωπική Visa",
   "editor.config_placeholder": "Client ID της εφαρμογής μου",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "Το διαβατήριό μου",
+  "editor.license_placeholder": "Άδεια Office",
+  "editor.note_placeholder": "Κωδικοί ανάκτησης email",
+  "editor.personal_tags_placeholder": "σπίτι, δουλειά",
   "editor.tags_placeholder": "κατάστημα, παραγωγή",
+  "editor.wifi_placeholder": "Wi-Fi σπιτιού",
   "empty_credentials.add_credential": "Προσθήκη διαπιστευτηρίου",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge ή Firefox. Βλέπετε τη λίστα πριν από την εισαγωγή.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf ή Codex, με ένα κλικ.",
@@ -983,6 +991,8 @@
   "offboarding_card.they_could_see_or_copy": "Μπορούσε να το δει ή να το αντιγράψει. Αλλάξτε το· αν δεν το διαχειρίζεστε εσείς, θα το αλλάξει όποιος το διαχειρίζεται.",
   "offboarding_card.they_could_see_or_copy_2": "Μπορούσε να τα δει ή να τα αντιγράψει. Αλλάξτε τα ένα ένα· όσα δεν διαχειρίζεστε τα αλλάζει όποιος τα διαχειρίζεται.",
   "open_connect_ai.with_one_click_ai_will": "Με ένα κλικ, η ΤΝ θα μπορεί να χρησιμοποιεί τα κλειδιά σας μέσω του SecretBroker χωρίς να τα βλέπει.",
+  "open_editor.developers": "Για προγραμματιστές",
+  "open_editor.everyday": "Για την καθημερινότητα",
   "open_editor.new_credential": "Νέο διαπιστευτήριο",
   "open_export.all_credentials_with_their_notes": "Όλα τα διαπιστευτήρια, με τις σημειώσεις και τα δικαιώματά τους, σε ένα αρχείο προστατευμένο με κωδικό της επιλογής σας (scrypt και AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "Το CSV (όνομα, ιστότοπος, όνομα χρήστη, κωδικός, σημείωση) διαβάζεται από τα Bitwarden, 1Password, KeePassXC και τα προγράμματα περιήγησης. Κρατά μόνο το κύριο κλειδί κάθε διαπιστευτηρίου.",
@@ -1140,6 +1150,14 @@
   "reminder.expires_in": {
     "one": "Λήγει σε {count} ημέρα. Κάντε εναλλαγή πριν σταματήσει να λειτουργεί.",
     "other": "Λήγει σε {count} ημέρες. Κάντε εναλλαγή πριν σταματήσει να λειτουργεί."
+  },
+  "reminder.item_expired_ago": {
+    "one": "Έληξε πριν από {count} ημέρα.",
+    "other": "Έληξε πριν από {count} ημέρες."
+  },
+  "reminder.item_expires_in": {
+    "one": "Λήγει σε {count} ημέρα.",
+    "other": "Λήγει σε {count} ημέρες."
   },
   "reminder.key_age": {
     "one": "Το κλειδί είναι {count} ημέρας. Αξίζει να κάνετε εναλλαγή που και που.",
@@ -1684,6 +1702,7 @@
   "show_form.authorization": "Εξουσιοδότηση",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "Ανήκει στην ομάδα και το δικαίωμά σας είναι «{value}»: εδώ μπορείτε να αλλάξετε μόνο το πότε η ΤΝ ζητά την έγκρισή σας.",
+  "show_form.card_expiry_invalid": "Πληκτρολογήστε την ημερομηνία λήξης ως ΜΜ/ΕΕ, π.χ. 08/27.",
   "show_form.change_type": "Αλλαγή τύπου",
   "show_form.changed_while_you_were_editing": "Άλλαξε ενώ το επεξεργαζόσασταν",
   "show_form.changes_saved": "Οι αλλαγές αποθηκεύτηκαν",

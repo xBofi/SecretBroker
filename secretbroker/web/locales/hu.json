@@ -479,6 +479,7 @@
   "detail.expires_on": "Lejár: {expires}",
   "detail.its_collection_no_longer_appears": "A gyűjteménye már nem jelenik meg a szerveren. Itt semmi sem lett törölve: ",
   "detail.nothing_yet_edit_credential_and": "Még semmi. Szerkeszd a hitelesítő adatot, és nyisd meg az „MI-engedélyek” részt.",
+  "detail.personal_private": "Csak neked: az MI nem látja, és nem tudja használni.",
   "detail.show": "{name} „{label}” mezőjének megjelenítéséhez.",
   "direct_block.can": "{name} engedélye",
   "direct_block.leave": "Fogadás leállítása",
@@ -531,9 +532,16 @@
   "draw_team.sync_now": "Szinkronizálás most",
   "draw_team.synced": "Szinkronizálva",
   "editor.aws_placeholder": "Személyes AWS",
+  "editor.bank_placeholder": "Fő számla",
+  "editor.card_placeholder": "Saját Visa",
   "editor.config_placeholder": "Az alkalmazásom client ID-ja",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "Az útlevelem",
+  "editor.license_placeholder": "Office-licenc",
+  "editor.note_placeholder": "E-mail-fiók helyreállító kódjai",
+  "editor.personal_tags_placeholder": "otthon, munka",
   "editor.tags_placeholder": "webshop, éles",
+  "editor.wifi_placeholder": "Otthoni Wi-Fi",
   "empty_credentials.add_credential": "Hitelesítő adat hozzáadása",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge vagy Firefox. Importálás előtt látod a listát.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf vagy Codex, egy kattintással.",
@@ -983,6 +991,8 @@
   "offboarding_card.they_could_see_or_copy": "Láthatta vagy kimásolhatta. Módosítsd; ha nem te kezeled, az módosítja, aki kezeli.",
   "offboarding_card.they_could_see_or_copy_2": "Láthatta vagy kimásolhatta őket. Módosítsd őket egyenként; amelyeket nem te kezelsz, azokat az módosítja, aki kezeli.",
   "open_connect_ai.with_one_click_ai_will": "Egy kattintással az MI a SecretBrokeren keresztül használhatja a kulcsaidat, anélkül hogy látná őket.",
+  "open_editor.developers": "Fejlesztőknek",
+  "open_editor.everyday": "Mindennapokra",
   "open_editor.new_credential": "Új hitelesítő adat",
   "open_export.all_credentials_with_their_notes": "Az összes hitelesítő adat a jegyzeteivel és engedélyeivel együtt, egy általad választott jelszóval védett fájlban (scrypt és AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "A CSV-t (név, webhely, felhasználónév, jelszó, jegyzet) a Bitwarden, az 1Password, a KeePassXC és a böngészők is beolvassák. Minden hitelesítő adatnak csak a fő kulcsát tartalmazza.",
@@ -1140,6 +1150,14 @@
   "reminder.expires_in": {
     "one": "{count} nap múlva lejár. Rotáld, mielőtt leállna.",
     "other": "{count} nap múlva lejár. Rotáld, mielőtt leállna."
+  },
+  "reminder.item_expired_ago": {
+    "one": "{count} napja lejárt.",
+    "other": "{count} napja lejárt."
+  },
+  "reminder.item_expires_in": {
+    "one": "{count} nap múlva lejár.",
+    "other": "{count} nap múlva lejár."
   },
   "reminder.key_age": {
     "one": "A kulcs {count} napos. Érdemes időnként rotálni.",
@@ -1684,6 +1702,7 @@
   "show_form.authorization": "Engedélyezés",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "A csapaté, és az engedélyed: „{value}”. Itt csak azt módosíthatod, mikor kérjen az MI jóváhagyást.",
+  "show_form.card_expiry_invalid": "A lejáratot HH/ÉÉ formában add meg, például 08/27.",
   "show_form.change_type": "Típus módosítása",
   "show_form.changed_while_you_were_editing": "Megváltozott, miközben szerkesztetted",
   "show_form.changes_saved": "Módosítások mentve",

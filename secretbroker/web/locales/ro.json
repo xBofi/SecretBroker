@@ -486,6 +486,7 @@
   "detail.expires_on": "Expiră pe {expires}",
   "detail.its_collection_no_longer_appears": "Colecția ei nu mai apare pe server. Aici nu s-a șters nimic: ",
   "detail.nothing_yet_edit_credential_and": "Încă nimic. Editează credențiala și deschide „Permisiuni IA”.",
+  "detail.personal_private": "Doar pentru tine: IA nu îl vede și nu îl poate folosi.",
   "detail.show": "Pentru a afișa „{label}” din {name}.",
   "direct_block.can": "Permisiunea pentru {name}",
   "direct_block.leave": "Nu le mai primi",
@@ -541,9 +542,16 @@
   "draw_team.sync_now": "Sincronizează acum",
   "draw_team.synced": "Sincronizat",
   "editor.aws_placeholder": "AWS personal",
+  "editor.bank_placeholder": "Contul principal",
+  "editor.card_placeholder": "Visa personal",
   "editor.config_placeholder": "Client ID-ul aplicației mele",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "Pașaportul meu",
+  "editor.license_placeholder": "Licență Office",
+  "editor.note_placeholder": "Coduri de recuperare pentru e-mail",
+  "editor.personal_tags_placeholder": "acasă, serviciu",
   "editor.tags_placeholder": "magazin, producție",
+  "editor.wifi_placeholder": "Wi-Fi de acasă",
   "empty_credentials.add_credential": "Adaugă o credențială",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge sau Firefox. Vezi lista înainte de import.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf sau Codex, cu un clic.",
@@ -1036,6 +1044,8 @@
   "offboarding_card.they_could_see_or_copy": "O putea vedea sau copia. Schimb-o; dacă nu o gestionezi tu, o schimbă cine o gestionează.",
   "offboarding_card.they_could_see_or_copy_2": "Le putea vedea sau copia. Schimbă-le una câte una; pe cele pe care nu le gestionezi tu le schimbă cine le gestionează.",
   "open_connect_ai.with_one_click_ai_will": "Cu un clic, IA îți va putea folosi cheile prin SecretBroker fără să le vadă.",
+  "open_editor.developers": "Pentru dezvoltatori",
+  "open_editor.everyday": "De zi cu zi",
   "open_editor.new_credential": "Credențială nouă",
   "open_export.all_credentials_with_their_notes": "Toate credențialele, cu notele și permisiunile lor, într-un fișier protejat cu o parolă aleasă de tine (scrypt și AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "CSV-ul (nume, site, utilizator, parolă, notă) poate fi citit de Bitwarden, 1Password, KeePassXC și browsere. Păstrează doar cheia principală a fiecărei credențiale.",
@@ -1201,6 +1211,16 @@
     "few": "Expiră în {count} zile. Rotește-o înainte să nu mai funcționeze.",
     "one": "Expiră în {count} zi. Rotește-o înainte să nu mai funcționeze.",
     "other": "Expiră în {count} de zile. Rotește-o înainte să nu mai funcționeze."
+  },
+  "reminder.item_expired_ago": {
+    "few": "A expirat acum {count} zile.",
+    "one": "A expirat acum {count} zi.",
+    "other": "A expirat acum {count} de zile."
+  },
+  "reminder.item_expires_in": {
+    "few": "Expiră în {count} zile.",
+    "one": "Expiră în {count} zi.",
+    "other": "Expiră în {count} de zile."
   },
   "reminder.key_age": {
     "few": "Cheia are {count} zile. Merită s-o rotești din când în când.",
@@ -1759,6 +1779,7 @@
   "show_form.authorization": "Autorizare",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "Aparține echipei, iar permisiunea ta e „{value}”: aici poți schimba doar când îți cere IA aprobarea.",
+  "show_form.card_expiry_invalid": "Scrie data expirării ca LL/AA, de exemplu 08/27.",
   "show_form.change_type": "Schimbă tipul",
   "show_form.changed_while_you_were_editing": "S-a modificat în timp ce o editai",
   "show_form.changes_saved": "Modificări salvate",

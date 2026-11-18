@@ -91,6 +91,30 @@ credential into configuration in place (same id, so `.secretbroker` keeps workin
 `url` (or `base_url`) and the notes and **drops every secret field**, so converting never shows the AI a value; it
 always asks the user (`edit_config`, strict), and the card's `template` change carries `dropped: true`.
 
+**Personal items** (`templates.is_personal`: `card`, `note`, `identity`, `wifi`, `bank`, `license`) are the user's own
+things, for the user alone. They are entries like the rest (stored, revealed with a proof, tagged, backed up, exported,
+shared in collections), with two differences enforced by the template, never by the policy (a teammate's or an
+imported policy changes nothing):
+
+- **They don't exist for the AI, for programs or for the browser.** `list_secrets` leaves them out and every AI
+  operation that takes a credential goes through `service._for_ai` (in `_get_secret`, `update_credential`, `ai_delete`
+  and the extension's `ext_fill`), which answers exactly as for an id that is not in the vault; `check_env` says
+  `missing`, `create_draft` doesn't know their templates, and `update_credential {template}` only converts to `config`.
+  As a second layer `templates.placeholder_values` is empty for them, so nothing of theirs can be substituted into a
+  request, a command or a variable. Their events in the activity log carry `personal: true` (set while the entry
+  exists, or passed on deletion), and `ai_activity` leaves those out. A teammate changing a shared one's template is a
+  widening change (`teams.widening_changes`), held for review like any other.
+- **They have no key.** `key_field_names` is empty for them: what they hide (`number`, `cvv`, `pin`, `iban`, `text`,
+  `license_key`, a Wi-Fi's `password`) is a secret field to show or copy, but nothing is searched for in files,
+  redacted, tested, counted as weak or reused, or aged (`secret_since` is never set), and `teams.rotate_info` never
+  flags them. `save_entry` forces their policy to `{approval: always}` and drops rotation, checks and autofill.
+
+A card's or a document's expiry is not a field of its own: the template places a spec named `expires` among its
+fields (`templates._expires`; kind `month` for a card, typed MM/AA and kept as the last day of that month) and the
+page binds it to the entry's `expires`, so the existing reminders (`expired`, `expiring`) and *Salud* cover it. The
+`note` template has no private notes of its own. In the «Nueva» picker templates come in two groups: those without
+`dev` first, then those with it.
+
 Every template has an optional **private notes** field (`fields.notes`, `secret` + `note`): hidden and revealed like
 a secret, never given to the AI, programs, the scanner or the redactor, and not part of `secret_fields()` (editing it
 does not reset a key's age). Imported notes and custom fields go there. It travels with shared items like

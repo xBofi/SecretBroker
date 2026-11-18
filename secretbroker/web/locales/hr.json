@@ -487,6 +487,7 @@
   "detail.expires_on": "Istječe {expires}",
   "detail.its_collection_no_longer_appears": "Njezina zbirka više se ne pojavljuje na poslužitelju. Ovdje ništa nije izbrisano: ",
   "detail.nothing_yet_edit_credential_and": "Još ništa. Uredi vjerodajnicu i otvori „Dopuštenja za AI”.",
+  "detail.personal_private": "Samo za tebe: AI to ne vidi i ne može to koristiti.",
   "detail.show": "Za prikaz polja „{label}” za {name}.",
   "direct_block.can": "Dopuštenje osobe {name}",
   "direct_block.leave": "Prestani primati",
@@ -542,9 +543,16 @@
   "draw_team.sync_now": "Sinkroniziraj sada",
   "draw_team.synced": "Sinkronizirano",
   "editor.aws_placeholder": "Osobni AWS",
+  "editor.bank_placeholder": "Glavni račun",
+  "editor.card_placeholder": "Osobna Visa",
   "editor.config_placeholder": "Client ID moje aplikacije",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "Moja putovnica",
+  "editor.license_placeholder": "Licenca za Office",
+  "editor.note_placeholder": "Kôdovi za oporavak e-pošte",
+  "editor.personal_tags_placeholder": "dom, posao",
   "editor.tags_placeholder": "trgovina, produkcija",
+  "editor.wifi_placeholder": "Kućni Wi-Fi",
   "empty_credentials.add_credential": "Dodaj vjerodajnicu",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge ili Firefox. Popis vidiš prije uvoza.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf ili Codex, jednim klikom.",
@@ -1037,6 +1045,8 @@
   "offboarding_card.they_could_see_or_copy": "Mogao ju je vidjeti ili kopirati. Promijeni je; ako njome ne upravljaš ti, promijenit će je onaj tko njome upravlja.",
   "offboarding_card.they_could_see_or_copy_2": "Mogao ih je vidjeti ili kopirati. Promijeni ih jednu po jednu; one kojima ne upravljaš ti mijenja onaj tko njima upravlja.",
   "open_connect_ai.with_one_click_ai_will": "Jednim klikom AI će moći koristiti tvoje ključeve putem aplikacije SecretBroker a da ih ne vidi.",
+  "open_editor.developers": "Za razvojne programere",
+  "open_editor.everyday": "Za svaki dan",
   "open_editor.new_credential": "Nova vjerodajnica",
   "open_export.all_credentials_with_their_notes": "Sve vjerodajnice, s bilješkama i dopuštenjima, u datoteci zaštićenoj lozinkom koju odabereš (scrypt i AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "CSV (naziv, web-stranica, korisničko ime, lozinka, bilješka) čitaju Bitwarden, 1Password, KeePassXC i preglednici. Čuva samo glavni ključ svake vjerodajnice.",
@@ -1202,6 +1212,16 @@
     "few": "Istječe za {count} dana. Rotiraj je prije nego što prestane raditi.",
     "one": "Istječe za {count} dan. Rotiraj je prije nego što prestane raditi.",
     "other": "Istječe za {count} dana. Rotiraj je prije nego što prestane raditi."
+  },
+  "reminder.item_expired_ago": {
+    "few": "Istekla je prije {count} dana.",
+    "one": "Istekla je prije {count} dan.",
+    "other": "Istekla je prije {count} dana."
+  },
+  "reminder.item_expires_in": {
+    "few": "Istječe za {count} dana.",
+    "one": "Istječe za {count} dan.",
+    "other": "Istječe za {count} dana."
   },
   "reminder.key_age": {
     "few": "Ključ je star {count} dana. Isplati se povremeno ga rotirati.",
@@ -1760,6 +1780,7 @@
   "show_form.authorization": "Autorizacija",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "Pripada timu, a tvoje dopuštenje je „{value}”: ovdje možeš promijeniti samo kad AI traži tvoje odobrenje.",
+  "show_form.card_expiry_invalid": "Upiši datum isteka u obliku MM/GG, npr. 08/27.",
   "show_form.change_type": "Promijeni vrstu",
   "show_form.changed_while_you_were_editing": "Promijenjena je dok si je uređivao",
   "show_form.changes_saved": "Promjene spremljene",

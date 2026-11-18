@@ -907,9 +907,42 @@ function renderView() {
 
 // ----------------------------------------------------------------------- credentials
 
+// A card's expiry as the card says it (MM/AA), from the entry's expiry date (kept as the last day of that month).
+function cardExpiry(iso) {
+  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(iso || '');
+  return match ? `${match[2]}/${match[1].slice(2)}` : '';
+}
+
+// «08/27», «8/2027», «0827»… as the entry's expiry date (the last day of that month), or null if it isn't one.
+function cardExpiryDate(text) {
+  const match = /^\s*(\d{1,2})\s*[/\-. ]?\s*(\d{2}|\d{4})\s*$/.exec(text);
+  const month = match ? Number(match[1]) : 0;
+  if (month < 1 || month > 12) return null;
+  const year = match[2].length === 2 ? 2000 + Number(match[2]) : Number(match[2]);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${year}-${pad(month)}-${pad(new Date(year, month, 0).getDate())}`;
+}
+
+// A date without a time (YYYY-MM-DD) in the user's language: «31 de agosto de 2031». Anything else, as it is.
+function dateText(iso) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  return match ? fmtDate(new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])), { day: 'numeric', month: 'long', year: 'numeric' }) : iso || '';
+}
+
 function subtitleOf(entry) {
   const f = entry.fields;
+  const template = TEMPLATES[entry.template] || {};
+  const some = (...parts) => parts.filter(Boolean).join(' · ') || template.label;
   switch (entry.template) {
+    case 'card': return some(f.brand, cardExpiry(entry.expires));
+    case 'identity': {
+      const spec = template.fields.find((s) => s.name === 'doc_type');
+      return some(displayValue(spec, f.doc_type || spec.default), f.full_name);
+    }
+    case 'wifi': return some(f.ssid);
+    case 'bank': return some(f.bank, f.holder);
+    case 'license': return some(f.product, f.registered_to);
+    case 'note': return template.label;
     case 'web_login': return [f.username, hostOf(f.url)].filter(Boolean).join(' · ');
     case 'api_key': return hostOf(f.base_url) || 'API key';
     case 'ssh': return `${f.username || ''}@${f.host || ''}${f.port && f.port !== '22' ? ':' + f.port : ''}`;
@@ -1052,7 +1085,7 @@ function renderCredentials(content) {
     if (unsent) return el('span', { class: 'draft-badge', title: unsent }, t('common.not_sent'));
     const rotating = rotationBadge(entry);
     if (rotating) return rotating;
-    if (reminder) return el('span', { class: `draft-badge ${reminderTone(reminder)}`, title: reminderText(reminder) }, reminderShort(reminder));
+    if (reminder) return el('span', { class: `draft-badge ${reminderTone(reminder)}`, title: reminderText(reminder, TEMPLATES[entry.template].personal) }, reminderShort(reminder));
     return levelDot(entry.id);
   };
   // `pickFirst`: the search or a filter changed, so the first match is selected when the current one is gone.
@@ -1163,15 +1196,16 @@ function reminderShort(r) {
   return { expired: t('reminder_short.expired'), expiring: t('reminder_short.expires_in_d', { days: r.days }), old: t('reminder_short.old_key'), old_alive: t('common.revoke_old_one') }[r.kind];
 }
 
-function reminderText(r) {
+// `personal`: a card or a document that expires, with nothing to rotate.
+function reminderText(r, personal = false) {
   if (r.kind === 'team_access') {
     const count = (r.people || []).length;
     return `${tn(r.unshared ? 'reminder.unshared_access' : 'reminder.team_access_left', count, { names: listJoin(r.people) })} ${
       r.can_rotate ? tn('reminder.change_in_case', count) : tn('reminder.ask_manager_in_case', count)}`;
   }
   if (r.kind === 'old_alive') return t('reminder_text.you_rotated_key_but_old', { value: r.provider || t('common.provider_website') });
-  if (r.kind === 'expired') return tn('reminder.expired_ago', r.days);
-  if (r.kind === 'expiring') return tn('reminder.expires_in', r.days);
+  if (r.kind === 'expired') return tn(personal ? 'reminder.item_expired_ago' : 'reminder.expired_ago', r.days);
+  if (r.kind === 'expiring') return tn(personal ? 'reminder.item_expires_in' : 'reminder.expires_in', r.days);
   return tn('reminder.key_age', r.days);
 }
 
@@ -1236,8 +1270,17 @@ function renderDetail(panel) {
   const entry = state.entries.find((e) => e.id === state.selected);
   if (!entry) { panel.replaceChildren(); return; }
   const template = TEMPLATES[entry.template];
+  const personal = !!template.personal;  // a card, a note, a document: only the user's, nothing about the AI applies
+  const ownExpiry = template.fields.some((s) => s.name === 'expires');  // its expiry date is one of its data
 
   const props = activeSpecs(entry.template, entry.fields).map((spec) => {
+    if (spec.name === 'expires') {
+      if (!entry.expires) return null;
+      const text = spec.kind === 'month' ? cardExpiry(entry.expires) : dateText(entry.expires);
+      return el('div', { class: 'prop' },
+        el('div', { style: 'min-width:0' }, el('div', { class: 'k' }, shortLabel(spec.label)), el('div', { class: 'v selectable' }, text)),
+        el('div', { class: 'actions' }, copyButton(text)));
+    }
     if (spec.secret) {
       if (!entry.secrets_set.includes(spec.name)) return null;
       if (useOnly(entry)) {
@@ -1263,17 +1306,22 @@ function renderDetail(panel) {
         if (result.ok) toast(t('detail.copied_cleared_in', { result: result.result }));
         else if (result.code !== 'cancelled') toast(result.error, 'error');
       });
+      // A card's number and an IBAN read in groups of four, as they are printed (copying gives them as saved).
+      const grouped = ['card.number', 'bank.iban'].includes(`${entry.template}.${spec.name}`) && revealed && !/\s/.test(revealed);
+      const prose = personal && spec.kind === 'multiline' && spec.name !== 'license_key';  // a note is text to read, not a key
       return el('div', { class: 'prop' },
         el('div', { style: 'min-width:0' }, el('div', { class: 'k' }, shortLabel(spec.label)),
-          el('div', { class: `v ${revealed ? 'revealed selectable' : 'secret'}` }, revealed || '••••••••••')),
+          el('div', { class: `v ${revealed ? `revealed selectable ${prose ? 'prose' : ''}` : 'secret'}` },
+            grouped ? revealed.replace(/(.{4})(?=.)/g, '$1 ') : revealed || '••••••••••')),
         el('div', { class: 'actions' }, reveal, copy));
     }
     const raw = entry.fields[spec.name];
     if (!raw) return null;
+    const shown = spec.kind === 'date' ? dateText(raw) : displayValue(spec, raw);
     return el('div', { class: 'prop' },
       el('div', { style: 'min-width:0' }, el('div', { class: 'k' }, fieldLabel(entry.template, spec)),
-        el('div', { class: 'v selectable', title: raw }, displayValue(spec, raw))),
-      el('div', { class: 'actions' }, spec.kind === 'select' ? null : copyButton(raw)));
+        el('div', { class: 'v selectable', title: shown }, shown)),
+      el('div', { class: 'actions' }, spec.kind === 'select' ? null : copyButton(shown)));
   });
 
   const perms = describePermissions(entry);
@@ -1302,21 +1350,25 @@ function renderDetail(panel) {
     pendingRotationBox(entry),
     failedUploadsBox(entry),
     entry.retired && canWrite(entry) ? retiredBox(entry) : null,
-    (entry.tags || []).length || entry.expires ? el('div', { class: 'tag-line' },
+    personal && reminder && ['expired', 'expiring'].includes(reminder.kind) ? el('div', { class: `warning ${reminderTone(reminder)}` },
+      icon('clock', 'sm'), el('span', {}, reminderText(reminder, true))) : null,
+    (entry.tags || []).length || (entry.expires && !ownExpiry) ? el('div', { class: 'tag-line' },
       (entry.tags || []).map((t) => el('span', { class: 'tag static' }, t)),
-      entry.expires ? el('span', { class: 'muted small' }, t('detail.expires_on', { expires: entry.expires })) : null) : null,
+      entry.expires && !ownExpiry ? el('span', { class: 'muted small' }, t('detail.expires_on', { expires: entry.expires })) : null) : null,
     el('div', { class: 'section' }, props),
-    entry.description ? el('div', { class: 'section' }, el('h3', { class: 'with-icon' }, icon('bot', 'sm'), t('common.instructions_for_ai')),
+    entry.description && !personal ? el('div', { class: 'section' }, el('h3', { class: 'with-icon' }, icon('bot', 'sm'), t('common.instructions_for_ai')),
       el('p', { class: 'notes selectable muted' }, entry.description)) : null,
     providerSection(entry),
     rotationSection(entry),
     sharedSection(entry),
-    el('div', { class: 'section' },
-      el('h3', {}, t('common.what_ai_can_do')),
-      template.public ? el('p', { class: 'muted' }, t('detail.config_not_secret'))
-        : perms.length ? perms : el('p', { class: 'muted' }, t('detail.nothing_yet_edit_credential_and')),
-      el('p', { class: 'help', style: 'margin-top:6px' }, t('detail.ai_knows_as'), el('code', { class: 'selectable' }, entry.id))),
-    entry.draft ? null : recentActivity(entry));
+    // Nothing about the AI, rotation, checks or copies for a personal item: one line says why.
+    personal ? el('p', { class: 'private-line' }, icon('lock', 'sm'), el('span', {}, t('detail.personal_private')))
+      : el('div', { class: 'section' },
+        el('h3', {}, t('common.what_ai_can_do')),
+        template.public ? el('p', { class: 'muted' }, t('detail.config_not_secret'))
+          : perms.length ? perms : el('p', { class: 'muted' }, t('detail.nothing_yet_edit_credential_and')),
+        el('p', { class: 'help', style: 'margin-top:6px' }, t('detail.ai_knows_as'), el('code', { class: 'selectable' }, entry.id))),
+    entry.draft || personal ? null : recentActivity(entry));
 }
 
 // The AI's last uses of a credential: when, which app, what (method and host) and how it went.
@@ -2214,12 +2266,18 @@ async function deleteEntry(entry) {
 
 function openEditor(entry) {
   if (entry) { showForm(entry.template, entry); return; }
+  // What everyone keeps first (a website's login, a card, a note…), then what developers keep.
+  const group = (title, templates) => el('div', { class: 'template-group' }, el('h3', {}, title),
+    el('div', { class: 'template-list' }, templates.map((template) => el('button', {
+      class: 'template-option', 'data-template': template.id, onclick: () => { modal.close(); showForm(template.id, null); },
+    }, glyph(template.id), el('div', {}, el('div', { class: 'title' }, template.label), el('div', { class: 'summary' }, template.summary))))));
+  const all = Object.values(TEMPLATES);
   const modal = openModal({
     title: t('open_editor.new_credential'),
     wide: true,
-    body: el('div', { class: 'template-list' }, Object.values(TEMPLATES).map((t) => el('button', {
-      class: 'template-option', onclick: () => { modal.close(); showForm(t.id, null); },
-    }, glyph(t.id), el('div', {}, el('div', { class: 'title' }, t.label), el('div', { class: 'summary' }, t.summary))))),
+    className: 'template-picker',
+    body: [group(t('open_editor.everyday'), all.filter((template) => !template.dev)),
+      group(t('open_editor.developers'), all.filter((template) => template.dev))],
   });
 }
 
@@ -2232,7 +2290,9 @@ function showForm(templateId, entry) {
   const policy = isNew ? { approval: 'session' } : JSON.parse(JSON.stringify(entry.policy || {}));
   const touched = { id: !isNew, hosts: !isNew, auth: !isNew, commands: !isNew, env: !isNew };
 
-  const namePlaceholders = { web_login: t('show_form.hostinger_dashboard'), api_key: t('show_form.openai_production'), ssh: t('show_form.production_vps'), database: t('show_form.shop_database'), aws: t('editor.aws_placeholder'), generic: t('show_form.deploy_token'), config: t('editor.config_placeholder') };
+  const personal = !!template.personal;  // only the user's: the form has nothing about the AI, rotation or checks
+  const namePlaceholders = { web_login: t('show_form.hostinger_dashboard'), api_key: t('show_form.openai_production'), ssh: t('show_form.production_vps'), database: t('show_form.shop_database'), aws: t('editor.aws_placeholder'), generic: t('show_form.deploy_token'), config: t('editor.config_placeholder'),
+    note: t('editor.note_placeholder'), card: t('editor.card_placeholder'), identity: t('editor.identity_placeholder'), wifi: t('editor.wifi_placeholder'), bank: t('editor.bank_placeholder'), license: t('editor.license_placeholder') };
   const nameInput = el('input', { class: 'input', value: isNew ? '' : entry.name, placeholder: namePlaceholders[templateId] });
   const idInput = el('input', { class: 'input mono', value: isNew ? '' : entry.id, spellcheck: 'false' });
   nameInput.addEventListener('input', () => { if (!touched.id) idInput.value = slugify(nameInput.value); });
@@ -2241,20 +2301,40 @@ function showForm(templateId, entry) {
   const fieldsBox = el('div', { class: 'form-grid' });
   const labelFor = (spec) => spec.name === 'notes'
     ? el('label', { class: 'with-icon' }, icon('lock', 'sm'), t('common.private_notes'), el('span', { class: 'req' }, t('show_form.only_you_encrypted')))
-    : el('label', {}, editorLabel(templateId, spec), !spec.required ? el('span', { class: 'req' }, t('common.optional_suffix')) : null);
+    : el('label', {}, editorLabel(templateId, spec), spec.optional ? el('span', { class: 'req' }, t('common.optional_suffix')) : null);
+
+  // The entry's own expiry date, when the template places it among its fields (a card's «Caducidad», a document's
+  // «Válido hasta»): the same date that «Caduca» edits in the other forms, and the one the reminders follow.
+  const ownExpiry = template.fields.find((s) => s.name === 'expires');
+  let ownExpires = isNew ? '' : (entry.expires || '');
+  if (ownExpiry && ownExpiry.kind === 'month') ownExpires = cardExpiry(ownExpires) || ownExpires;
 
   const buildField = (spec) => {
     const existingSecret = spec.secret && secretsSet.includes(spec.name);
     const placeholder = existingSecret ? t('show_form.saved_type_change') : (spec.hint || '');
     let control;
     let node;
+    if (spec.name === 'expires') {
+      const month = spec.kind === 'month';  // as on the card: MM/AA
+      const input = el('input', { class: 'input', type: month ? null : 'date', value: ownExpires, placeholder: month ? spec.hint : null,
+        inputmode: month ? 'numeric' : null, maxlength: month ? '7' : null, spellcheck: 'false', 'data-field': 'expires' });
+      input.addEventListener('input', () => { ownExpires = input.value; });
+      return el('div', { class: 'field' }, labelFor(spec), input);
+    }
     if (spec.kind === 'select') {
       control = el('select', { class: 'input' }, spec.options.map((o) => el('option', { value: o.value }, o.label)));
       control.value = values[spec.name] || spec.default;
       control.addEventListener('change', onFieldChange);
-      node = el('div', { class: 'field' }, labelFor({ ...spec, required: true }), control, spec.help ? el('div', { class: 'help' }, spec.help) : null);
+      node = el('div', { class: 'field' }, labelFor({ ...spec, optional: false }), control, spec.help ? el('div', { class: 'help' }, spec.help) : null);
+    } else if (spec.kind === 'date') {
+      control = el('input', { class: 'input', type: 'date', value: values[spec.name] || '' });
+      control.addEventListener('input', onFieldChange);
+      node = el('div', { class: 'field' }, labelFor(spec), control);
     } else if (spec.kind === 'multiline') {
-      control = el('textarea', { class: 'input mono', rows: 5, placeholder, spellcheck: 'false' });
+      // A note is text to read (more room, the app's own font); a key keeps the monospace.
+      const prose = personal && spec.name !== 'license_key';
+      const rows = templateId === 'note' ? 8 : personal ? 3 : 5;
+      control = el('textarea', { class: prose ? 'input' : 'input mono', rows, placeholder, spellcheck: 'false' });
       const file = el('input', { type: 'file', class: 'hidden' });
       file.addEventListener('change', () => {
         const reader = new FileReader();
@@ -2263,7 +2343,7 @@ function showForm(templateId, entry) {
       });
       control.addEventListener('input', onFieldChange);
       node = el('div', { class: 'field full' }, labelFor(spec, existingSecret), control,
-        spec.note ? el('div', { class: 'help' }, spec.help)
+        spec.note ? (personal ? null : el('div', { class: 'help' }, spec.help))  // «la IA no las ve»: of a personal item it sees nothing
           : el('div', {}, el('button', { class: 'link small', type: 'button', onclick: () => file.click() }, t('show_form.load_from_file')), file));
     } else if (spec.kind === 'secret') {
       const group = passwordInput({ placeholder });
@@ -2290,6 +2370,7 @@ function showForm(templateId, entry) {
       const wide = ['url', 'base_url'].includes(spec.name) || !!FIELD_LABELS[`${templateId}.${spec.name}`];
       node = el('div', { class: `field ${wide ? 'full' : ''}` }, labelFor(spec), control, spec.help ? el('div', { class: 'help' }, spec.help) : null);
     }
+    control.dataset.field = spec.name;
     inputs[spec.name] = control;
     return node;
   };
@@ -2313,7 +2394,7 @@ function showForm(templateId, entry) {
   };
 
   const notes = el('textarea', { class: 'input', rows: 3, placeholder: t('show_form.e_g_production_account_use') }, isNew ? '' : entry.description);
-  const tagsInput = el('input', { class: 'input', placeholder: t('editor.tags_placeholder'), value: isNew ? '' : (entry.tags || []).join(', ') });
+  const tagsInput = el('input', { class: 'input', placeholder: t(personal ? 'editor.personal_tags_placeholder' : 'editor.tags_placeholder'), value: isNew ? '' : (entry.tags || []).join(', ') });
   const expiresInput = el('input', { class: 'input', type: 'date', value: isNew ? '' : (entry.expires || '') });
   const currentEvery = isNew ? null : (entry.rotate_every_days ?? null);
   const everyInput = el('select', { class: 'input' }, ROTATE_EVERY.map(([days, label]) =>
@@ -2375,6 +2456,7 @@ function showForm(templateId, entry) {
 
   let suggestTimer = null;
   function onFieldChange(event) {
+    if (personal) return;  // no permissions to suggest
     if (event && event.target === inputs.auth_method) renderFields();
     if (event && event.target === inputs.engine && inputs.port) inputs.port.placeholder = (DB_ENGINES[inputs.engine.value] || {}).port || '';
     updatePlaceholders();
@@ -2417,7 +2499,7 @@ function showForm(templateId, entry) {
     const fields = {};
     for (const spec of activeSpecs(templateId, f)) {
       let value = f[spec.name];
-      if (value === undefined) continue;
+      if (value === undefined) continue;  // also the entry's own expiry date, which is not one of its fields
       if (spec.kind !== 'secret' && spec.kind !== 'multiline') value = value.trim();
       if (spec.kind === 'multiline' && value) value = value.trim() + '\n';
       if (spec.secret && !value) { fields[spec.name] = secretsSet.includes(spec.name) ? null : ''; continue; }
@@ -2429,6 +2511,23 @@ function showForm(templateId, entry) {
       const index = line.indexOf('=');
       if (index < 1) throw new Error(t('show_form.variable_is_missing_its', { value: line.trim() }));
       env[line.slice(0, index).trim()] = line.slice(index + 1).trim();
+    }
+    if (personal) {
+      // Only the user's: no permissions, rotation, checks or notes for the AI (the service enforces it too). What the
+      // form doesn't show stays as it was.
+      let expires = isNew ? '' : (entry.expires || '');
+      if (ownExpiry) {
+        expires = ownExpiry.kind === 'month' && ownExpires.trim() ? cardExpiryDate(ownExpires) : ownExpires.trim();
+        if (expires === null) throw new Error(t('show_form.card_expiry_invalid'));
+      }
+      return {
+        id: isNew ? uniqueId(nameInput.value, templateId) : entry.id,
+        name: nameInput.value.trim(), template: templateId, description: isNew ? '' : (entry.description || ''), fields,
+        policy: { approval: 'always' },
+        tags: [...new Set(tagsInput.value.split(',').map((t) => slugify(t.trim())).filter(Boolean))],
+        ...(expires ? { expires } : {}),
+        used_in: isNew ? [] : (entry.used_in || []),
+      };
     }
     const newPolicy = { approval: template.public ? 'never' : policy.approval || 'session' };
     if (template.public) {
@@ -2510,20 +2609,26 @@ function showForm(templateId, entry) {
       el('div', { class: 'field' }, el('label', {}, t('common.name')), nameInput),
       isNew && ['api_key', 'generic'].includes(templateId) ? keySourcePicker() : null,
       fieldsBox,
-      el('div', { class: 'field' }, el('label', { class: 'with-icon' }, icon('bot', 'sm'), t('common.instructions_for_ai'),
-        el('span', { class: 'req' }, t('show_form.ai_reads_them_optional'))), notes,
-        el('div', { class: 'help' }, t('show_form.what_is_and_how_should'))),
-      el('div', { style: 'display:flex;gap:12px' },
-        el('div', { class: 'field', style: 'flex:2' }, el('label', {}, t('common.tags'), el('span', { class: 'req' }, t('common.optional_suffix'))), tagsInput,
-          el('div', { class: 'help' }, t('show_form.group_them_for_example_by'))),
-        el('div', { class: 'field', style: 'flex:1' }, el('label', {}, t('common.expires'), el('span', { class: 'req' }, t('common.optional_suffix'))), expiresInput),
-        template.public ? null : el('div', { class: 'field', style: 'flex:1' }, el('label', {}, t('common.remind_me_rotate')), everyInput)),
-      template.public ? null : el('div', { class: 'field' }, el('label', {}, t('common.check_that_works')), checkEvery.node,
-        el('div', { class: 'help' }, t('show_form.read_only_call_provider_or'))),
-      el('div', { class: 'field' }, el('label', {}, t('common.where_used'), el('span', { class: 'req' }, t('common.optional_suffix'))), usedInput,
-        el('div', { class: 'help' }, t('show_form.one_place_per_line_develop'))),
-      template.public ? el('div', { class: 'warning' }, icon('info', 'sm'), el('span', {}, t('show_form.config_not_secret'))) : advanced,
-      autofillBox ? autofillBox.node : null,
+      ...(personal ? [
+        // A personal item: its data, its tags, and nothing about the AI, rotation, checks or where it is used.
+        el('div', { class: 'field' }, el('label', {}, t('common.tags'), el('span', { class: 'req' }, t('common.optional_suffix'))), tagsInput),
+        el('p', { class: 'private-line' }, icon('lock', 'sm'), el('span', {}, t('detail.personal_private'))),
+      ] : [
+        el('div', { class: 'field' }, el('label', { class: 'with-icon' }, icon('bot', 'sm'), t('common.instructions_for_ai'),
+          el('span', { class: 'req' }, t('show_form.ai_reads_them_optional'))), notes,
+          el('div', { class: 'help' }, t('show_form.what_is_and_how_should'))),
+        el('div', { style: 'display:flex;gap:12px' },
+          el('div', { class: 'field', style: 'flex:2' }, el('label', {}, t('common.tags'), el('span', { class: 'req' }, t('common.optional_suffix'))), tagsInput,
+            el('div', { class: 'help' }, t('show_form.group_them_for_example_by'))),
+          el('div', { class: 'field', style: 'flex:1' }, el('label', {}, t('common.expires'), el('span', { class: 'req' }, t('common.optional_suffix'))), expiresInput),
+          template.public ? null : el('div', { class: 'field', style: 'flex:1' }, el('label', {}, t('common.remind_me_rotate')), everyInput)),
+        template.public ? null : el('div', { class: 'field' }, el('label', {}, t('common.check_that_works')), checkEvery.node,
+          el('div', { class: 'help' }, t('show_form.read_only_call_provider_or'))),
+        el('div', { class: 'field' }, el('label', {}, t('common.where_used'), el('span', { class: 'req' }, t('common.optional_suffix'))), usedInput,
+          el('div', { class: 'help' }, t('show_form.one_place_per_line_develop'))),
+        template.public ? el('div', { class: 'warning' }, icon('info', 'sm'), el('span', {}, t('show_form.config_not_secret'))) : advanced,
+        autofillBox ? autofillBox.node : null,
+      ]),
       errorText,
     ],
     footer: [
