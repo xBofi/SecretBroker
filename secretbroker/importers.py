@@ -6,8 +6,12 @@ its text; the app only ever gets back names, usernames, sites and what will happ
 Supported: Bitwarden (unencrypted .json and .csv), 1Password (.csv), KeePass / KeePassXC (.csv),
 Chrome / Edge / Brave (.csv), Firefox (.csv), any CSV with name/url/username/password columns, and
 SecretBroker's own exports (plain or encrypted). A project's .env goes through `sb import`.
+
+Secure notes, payment cards and identities become personal items (templates note, card and identity),
+which only the user sees: nothing of them is for the AI.
 """
 
+import calendar
 import csv
 import io
 import json
@@ -42,7 +46,25 @@ COLUMNS = {
     "folder": ("folder", "group", "grouping", "tags", "carpeta"),
     "type": ("type",),
 }
-SKIPPED_TYPES = {"card": "Las tarjetas no se importan", "identity": "Las identidades no se importan"}
+# A card or an identity in a CSV row (`type` says which): the names managers give their columns, as Bitwarden's JSON
+# calls each thing.
+CARD_COLUMNS = {
+    "cardholderName": ("cardholder", "cardholder name", "cardholdername", "name on card", "account_holder", "titular"),
+    "number": ("number", "card number", "cardnumber", "card_number", "cc_number", "numero"),
+    "code": ("cvv", "cvc", "code", "security code"),
+    "brand": ("brand", "issuing_bank", "bank", "marca"),
+    "expMonth": ("expmonth", "exp_month", "expiration_month", "expiry month"),
+    "expYear": ("expyear", "exp_year", "expiration_year", "expiry year"),
+}
+IDENTITY_COLUMNS = {
+    "firstName": ("firstname", "first name", "first_name"), "lastName": ("lastname", "last name", "last_name"),
+    "passportNumber": ("passport", "passport number", "passportnumber"),
+    "licenseNumber": ("license", "license number", "licensenumber", "driver license"),
+    "ssn": ("ssn", "social security number"), "country": ("country",), "email": ("email",), "phone": ("phone",),
+}
+# The document numbers of a Bitwarden identity: (its field, our document type, the name it goes by).
+IDENTITY_NUMBERS = (("passportNumber", "passport", "Pasaporte"), ("licenseNumber", "driving", "Carné de conducir"),
+                    ("ssn", "social_security", "Seguridad social"))
 
 
 class ImportFileError(ValueError):
@@ -137,11 +159,15 @@ def _bitwarden_json(doc):
                  item.get("notes"), login.get("totp"), extra + [f"Otra dirección: {u}" for u in uris[1:]], folder)
         elif kind == 2:
             _note(candidates, skipped, name, item.get("notes"), extra, folder)
+        elif kind == 3 and isinstance(item.get("card"), dict):
+            _card(candidates, skipped, name, item["card"], item.get("notes"), extra, folder)
+        elif kind == 4 and isinstance(item.get("identity"), dict):
+            _identity(candidates, skipped, name, item["identity"], item.get("notes"), extra, folder)
         elif kind == 5 and (item.get("sshKey") or {}).get("privateKey"):
             key = item["sshKey"]["privateKey"].strip() + "\n"
             candidates.append(_candidate(name or "Clave SSH", "generic", {"value": key, "notes": _notes(item.get("notes"), None, extra)}, folder))
         else:
-            skipped.append({"name": name or "(sin nombre)", "reason": {3: SKIPPED_TYPES["card"], 4: SKIPPED_TYPES["identity"]}.get(kind, "Tipo no compatible")})
+            skipped.append({"name": name or "(sin nombre)", "reason": "Tipo no compatible"})
     return candidates, skipped
 
 
@@ -169,10 +195,15 @@ def _csv(text, fmt):
         folder = get("folder").split("/")[-1].split(",")[0].strip()
         if fmt == "keepass_csv" and folder.lower() == "root":
             folder = ""  # KeePass puts every group under «Root»: it is not a folder of the user
-        if kind in SKIPPED_TYPES:
-            skipped.append({"name": get("name") or "(sin nombre)", "reason": SKIPPED_TYPES[kind]})
-        elif kind == "note":
+        if kind == "note":
             _note(candidates, skipped, get("name"), get("notes"), extra, folder)
+        elif kind in ("card", "identity"):
+            # Whatever the row says that isn't the card or the person itself is kept in the private notes.
+            cells = {header[i]: cell.strip() for i, cell in enumerate(row) if i < len(header) and i not in known and cell.strip()}
+            columns = CARD_COLUMNS if kind == "card" else IDENTITY_COLUMNS
+            item = {key: next((cells.pop(n) for n in names if n in cells), "") for key, names in columns.items()}
+            (_card if kind == "card" else _identity)(candidates, skipped, get("name"), item, get("notes"),
+                                                     [f"{column}: {value}" for column, value in cells.items()], folder)
         else:
             _add(candidates, skipped, get("name"), get("url"), get("username"), get("password"), get("notes"), get("totp"),
                  extra, folder)
@@ -306,15 +337,66 @@ def _note(candidates, skipped, name, notes, extra, folder):
     if not text:
         skipped.append({"name": name or "(sin nombre)", "reason": tr("importers.empty_note")})
         return
-    candidates.append(_candidate(name or "Nota", "generic", {"value": text + "\n"}, folder))
+    candidates.append(_candidate(name or "Nota", "note", {"text": text + "\n"}, folder))
+
+
+def _month_end(year, month):
+    """The last day of a card's expiry month (YYYY-MM-DD, as the entry's `expires`), or None if it isn't a date."""
+    try:
+        year, month = int(str(year).strip()), int(str(month).strip())
+        year += 2000 if year < 100 else 0
+        return f"{year:04d}-{month:02d}-{calendar.monthrange(year, month)[1]:02d}" if 2000 <= year <= 9999 else None
+    except (ValueError, calendar.IllegalMonthError):
+        return None
+
+
+def _card(candidates, skipped, name, card, notes, extra, folder):
+    """A payment card, with Bitwarden's names for its data. Without a number there is no card to keep: what it
+    does say stays as a note, so nothing is lost."""
+    text = lambda key: " ".join(str(card.get(key) or "").split())  # noqa: E731
+    if not text("number"):
+        said = [f"{label}: {text(key)}" for key, label in (("cardholderName", "Titular"), ("brand", "Marca")) if text(key)]
+        _note(candidates, skipped, name, notes, said + list(extra), folder)
+        return
+    candidate = _candidate(name or text("brand") or "Tarjeta", "card",
+                           {"holder": text("cardholderName"), "number": text("number"), "cvv": text("code"),
+                            "brand": text("brand"), "notes": _notes(notes, None, extra)}, folder)
+    expires = _month_end(card.get("expYear"), card.get("expMonth"))
+    if expires:
+        candidate["expires"] = expires
+    candidates.append(candidate)
+
+
+def _identity(candidates, skipped, name, person, notes, extra, folder):
+    """A Bitwarden identity is a person: each document number it has (passport, driving licence, social security)
+    becomes an identity document, and the rest of what it says (address, phone…) goes to the private notes of the
+    first. Without any number it is kept as a note."""
+    text = lambda key: " ".join(str(person.get(key) or "").split())  # noqa: E731
+    full_name = " ".join(filter(None, (text("firstName"), text("middleName"), text("lastName"))))
+    address = ", ".join(filter(None, (text(k) for k in ("address1", "address2", "address3", "postalCode", "city", "state"))))
+    said = [f"{label}: {value}" for label, value in (("Dirección", address), ("Teléfono", text("phone")), ("E-mail", text("email")),
+                                                      ("Empresa", text("company")), ("Usuario", text("username"))) if value]
+    documents = [(doc_type, label, text(key)) for key, doc_type, label in IDENTITY_NUMBERS if text(key)]
+    if not documents:
+        who = [f"{label}: {value}" for label, value in (("Nombre", full_name), ("País", text("country"))) if value]
+        _note(candidates, skipped, name or full_name, notes, who + said + list(extra), folder)
+        return
+    title = name or full_name
+    for index, (doc_type, label, number) in enumerate(documents):
+        candidates.append(_candidate((f"{title} ({label})" if len(documents) > 1 else title) if title else label, "identity",
+                                     {"doc_type": doc_type, "number": number, "full_name": full_name, "country": text("country"),
+                                      "notes": "" if index else _notes(notes, None, said + list(extra))}, folder))
 
 
 # --------------------------------------------------------------------------- what will happen
 
 
 def identity(entry):
-    """What makes two credentials 'the same account': kind, site and user."""
+    """What makes two credentials 'the same account': kind, site and user. A personal item (a card, a note, a
+    document) has neither: it is the same one only when everything it says is the same."""
     fields = entry.get("fields") or {}
+    if templates.is_personal(entry.get("template")):
+        return entry.get("template"), json.dumps(fields, sort_keys=True, ensure_ascii=False), ""
     site = _host(fields.get("url") or fields.get("base_url") or "") or fields.get("host") or ""
     return entry.get("template"), site.lower(), (fields.get("username") or fields.get("access_key_id") or "").lower()
 
@@ -373,8 +455,14 @@ def is_dev(entry):
     return bool(DEV_WORDS.search(_ascii(str(entry.get("name") or "")))) and "\n" not in value
 
 
+# What says which one a personal item is, without showing what it hides.
+PERSONAL_SUBTITLE = {"card": "brand", "identity": "full_name", "wifi": "ssid", "bank": "bank", "license": "product"}
+
+
 def subtitle(entry):
     fields = entry.get("fields") or {}
+    if templates.is_personal(entry.get("template")):
+        return str(fields.get(PERSONAL_SUBTITLE.get(entry["template"])) or "")
     site = _host(fields.get("url") or fields.get("base_url") or "") or fields.get("host") or ""
     return " · ".join(x for x in (fields.get("username") or fields.get("access_key_id"), site) if x)
 

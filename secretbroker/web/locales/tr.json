@@ -479,6 +479,7 @@
   "detail.expires_on": "Bitiş: {expires}",
   "detail.its_collection_no_longer_appears": "Koleksiyonu artık sunucuda görünmüyor. Burada hiçbir şey silinmedi: ",
   "detail.nothing_yet_edit_credential_and": "Henüz bir şey yok. Kimlik bilgisini düzenleyin ve “YZ izinleri”ni açın.",
+  "detail.personal_private": "Yalnızca sizin için: YZ bunu görmez ve kullanamaz.",
   "detail.show": "{name} kaydının “{label}” alanını göstermek için.",
   "direct_block.can": "{name} için izin",
   "direct_block.leave": "Almayı bırak",
@@ -531,9 +532,15 @@
   "draw_team.sync_now": "Şimdi eşitle",
   "draw_team.synced": "Eşitlendi",
   "editor.aws_placeholder": "Kişisel AWS",
+  "editor.bank_placeholder": "Ana hesap",
+  "editor.card_placeholder": "Kişisel Visa",
   "editor.config_placeholder": "Uygulamamın client ID'si",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "Pasaportum",
+  "editor.license_placeholder": "Office lisansı",
+  "editor.note_placeholder": "E-posta kurtarma kodları",
   "editor.tags_placeholder": "magaza, uretim",
+  "editor.wifi_placeholder": "Evdeki Wi-Fi",
   "empty_credentials.add_credential": "Kimlik bilgisi ekle",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge veya Firefox. İçe aktarmadan önce listeyi görürsünüz.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf veya Codex, tek tıkla.",
@@ -983,6 +990,8 @@
   "offboarding_card.they_could_see_or_copy": "Bu kişi onu görebilir veya kopyalayabilirdi. Değiştirin; yöneten siz değilseniz, sorumlusu değiştirir.",
   "offboarding_card.they_could_see_or_copy_2": "Bu kişi onları görebilir veya kopyalayabilirdi. Tek tek değiştirin; yönetmedikleriniz sorumluları tarafından değiştirilir.",
   "open_connect_ai.with_one_click_ai_will": "Tek tıkla YZ, anahtarlarınızı görmeden SecretBroker üzerinden kullanabilecek.",
+  "open_editor.developers": "Geliştiriciler için",
+  "open_editor.everyday": "Günlük kullanım için",
   "open_editor.new_credential": "Yeni kimlik bilgisi",
   "open_export.all_credentials_with_their_notes": "Tüm kimlik bilgileri, notları ve izinleriyle birlikte, seçtiğiniz bir parolayla korunan bir dosyada (scrypt ve AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "CSV'yi (ad, site, kullanıcı adı, parola, not) Bitwarden, 1Password, KeePassXC ve tarayıcılar okur. Her kimlik bilgisinin yalnızca ana anahtarını içerir.",
@@ -1140,6 +1149,14 @@
   "reminder.expires_in": {
     "one": "{count} gün içinde sona eriyor. Çalışmayı bırakmadan önce yenileyin.",
     "other": "{count} gün içinde sona eriyor. Çalışmayı bırakmadan önce yenileyin."
+  },
+  "reminder.item_expired_ago": {
+    "one": "{count} gün önce süresi doldu.",
+    "other": "{count} gün önce süresi doldu."
+  },
+  "reminder.item_expires_in": {
+    "one": "{count} gün içinde sona eriyor.",
+    "other": "{count} gün içinde sona eriyor."
   },
   "reminder.key_age": {
     "one": "Anahtar {count} günlük. Arada bir yenilemekte fayda var.",
@@ -1684,6 +1701,7 @@
   "show_form.authorization": "Authorization",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "Ekibe ait ve izniniz “{value}”: burada yalnızca YZ'nin ne zaman onayınızı isteyeceğini değiştirebilirsiniz.",
+  "show_form.card_expiry_invalid": "Son kullanma tarihini AA/YY biçiminde yazın, örneğin 08/27.",
   "show_form.change_type": "Türü değiştir",
   "show_form.changed_while_you_were_editing": "Siz düzenlerken değişti",
   "show_form.changes_saved": "Değişiklikler kaydedildi",

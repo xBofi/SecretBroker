@@ -9,11 +9,14 @@ PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-z_]+)\s*\}\}")
 
 
 def _field(name, label, kind="text", required=False, secret=False, hint="", help="",
-           options=None, default="", show_if=None, substitutable=True, note=False):
+           options=None, default="", show_if=None, substitutable=True, note=False, optional=None):
     return {
         "name": name, "label": label, "kind": kind, "required": required, "secret": secret,
         "hint": hint, "help": help, "options": options or [], "default": default,
         "show_if": show_if, "substitutable": substitutable, "note": note,
+        # What the form marks «opcional»: all that isn't required, unless the template says otherwise (a card's
+        # holder is not asked for, but nobody thinks of it as optional).
+        "optional": not required if optional is None else optional,
     }
 
 
@@ -22,6 +25,15 @@ def _notes():
     # given to programs, looked for in files or redacted, and changing it doesn't make the key "new".
     return _field("notes", "Notas privadas (opcional)", "multiline", secret=True, substitutable=False, note=True,
                   hint="Códigos de recuperación, preguntas de seguridad…", help="Solo para ti: la IA no las ve.")
+
+
+EXPIRES = "expires"
+
+
+def _expires(label, kind="date", hint=""):
+    # Not one of the entry's `fields`: its own expiry date (`expires`, the one behind «caduca pronto»), placed among
+    # them in the form and in the detail. `month`: typed as on a card, MM/AA, kept as the last day of that month.
+    return _field(EXPIRES, label, kind, hint=hint, substitutable=False, optional=False)
 
 
 DB_ENGINES = {
@@ -75,10 +87,93 @@ TEMPLATES = {
                         "SecretBroker te muestra el código de 6 cifras; la IA no lo ve."),
         ],
     },
+    # Personal items (`personal`): the user's own things, for the user alone. They are kept, shown, copied, shared and
+    # exported like the rest, but they don't exist for the AI, `sb run` or the browser (service._for_ai), and what
+    # they hide is not a key: nothing to give to a program, redact, rotate, test or look for in files.
+    "card": {
+        "label": "Tarjeta de pago",
+        "icon": "card",
+        "summary": "Tarjeta de crédito o débito",
+        "personal": True,
+        "fields": [
+            _field("holder", "Titular de la tarjeta", hint="Como aparece en la tarjeta", optional=False),
+            _field("number", "Número de la tarjeta", "secret", required=True, secret=True),
+            _expires("Caducidad", "month", hint="MM/AA"),
+            _field("cvv", "CVV", "secret", secret=True, optional=False),
+            _field("pin", "PIN", "secret", secret=True),
+            _field("brand", "Banco o marca", hint="Visa, Mastercard, tu banco…"),
+        ],
+    },
+    "note": {
+        "label": "Nota segura",
+        "icon": "note",
+        "summary": "Un texto que quieres guardar a salvo",
+        "personal": True,
+        "fields": [
+            _field("text", "Nota", "multiline", required=True, secret=True, hint="Escribe aquí lo que quieras guardar"),
+        ],
+    },
+    "identity": {
+        "label": "Documento de identidad",
+        "icon": "idcard",
+        "summary": "DNI, pasaporte, carné de conducir…",
+        "personal": True,
+        "fields": [
+            _field("doc_type", "Tipo de documento", "select", default="id_card",
+                   options=[{"value": "id_card", "label": "DNI o NIE"}, {"value": "passport", "label": "Pasaporte"},
+                            {"value": "driving", "label": "Carné de conducir"},
+                            {"value": "social_security", "label": "Seguridad social"},
+                            {"value": "other", "label": "Otro documento"}]),
+            _field("number", "Número del documento", "secret", required=True, secret=True),
+            _field("full_name", "Nombre completo", optional=False),
+            _field("country", "País", optional=False),
+            _field("issued", "Fecha de expedición", "date", optional=False),
+            _expires("Válido hasta"),
+        ],
+    },
+    "wifi": {
+        "label": "Red Wi-Fi",
+        "icon": "wifi",
+        "summary": "Nombre de la red y su contraseña",
+        "personal": True,
+        "fields": [
+            _field("ssid", "Nombre de la red", required=True, hint="El que aparece al conectarte (SSID)"),
+            _field("security", "Seguridad", "select", default="wpa",
+                   options=[{"value": "wpa", "label": "WPA / WPA2 / WPA3"}, {"value": "wep", "label": "WEP"},
+                            {"value": "open", "label": "Abierta (sin contraseña)"}]),
+            _field("password", "Contraseña", "secret", secret=True, optional=False),
+        ],
+    },
+    "bank": {
+        "label": "Cuenta bancaria",
+        "icon": "bank",
+        "summary": "IBAN y datos de tu cuenta",
+        "personal": True,
+        "fields": [
+            _field("bank", "Banco", optional=False),
+            _field("holder", "Titular de la cuenta", optional=False),
+            _field("iban", "IBAN", "secret", required=True, secret=True),
+            _field("bic", "BIC / SWIFT"),
+        ],
+    },
+    "license": {
+        "label": "Licencia de software",
+        "icon": "badge",
+        "summary": "Clave de un programa o juego que compraste",
+        "personal": True,
+        "fields": [
+            _field("product", "Producto", hint="Un programa, un juego, una suscripción…", optional=False),
+            _field("license_key", "Clave de licencia", "multiline", required=True, secret=True),
+            _field("registered_to", "A nombre de", hint="Nombre o e-mail con el que la registraste"),
+            _field("purchased", "Fecha de compra", "date"),
+        ],
+    },
+    # For developers (`dev`): the second group of the «Nueva» picker.
     "api_key": {
         "label": "API key o token",
         "icon": "key",
         "summary": "Clave de API de un servicio (OpenAI, Stripe, GitHub…)",
+        "dev": True,
         "fields": [
             _field("value", "API key o token", "secret", required=True, secret=True),
             _field("username", "ID asociado (opcional)", hint="client id, app id, account id…",
@@ -95,6 +190,7 @@ TEMPLATES = {
         "label": "Servidor SSH",
         "icon": "server",
         "summary": "Acceso a un servidor por SSH y SFTP",
+        "dev": True,
         "fields": [
             _field("host", "Servidor (IP o dominio)", required=True, hint="203.0.113.10"),
             _field("port", "Puerto", "number", default="22"),
@@ -113,6 +209,7 @@ TEMPLATES = {
         "label": "Base de datos",
         "icon": "database",
         "summary": "PostgreSQL, MySQL, SQL Server, MongoDB, Redis…",
+        "dev": True,
         "fields": [
             _field("engine", "Motor", "select", default="postgresql", substitutable=False,
                    options=[{"value": k, "label": v["label"]} for k, v in DB_ENGINES.items()]),
@@ -127,20 +224,11 @@ TEMPLATES = {
         "label": "Nube (AWS)",
         "icon": "cloud",
         "summary": "Claves de acceso de AWS para la CLI",
+        "dev": True,
         "fields": [
             _field("access_key_id", "Access key ID", required=True, hint="AKIA…"),
             _field("secret_access_key", "Secret access key", "secret", required=True, secret=True),
             _field("region", "Región", default="eu-west-1"),
-        ],
-    },
-    "generic": {
-        "label": "Otro secreto",
-        "icon": "lock",
-        "summary": "Cualquier otro dato secreto",
-        "fields": [
-            _field("value", "Secreto", "secret", required=True, secret=True),
-            _field("username", "Usuario (opcional)"),
-            _field("url", "Dirección web (opcional)", hint="https://…"),
         ],
     },
     # Not a secret: IDs and settings a program needs (a public app's client ID, a tenant, an account id). Kept here so
@@ -151,6 +239,7 @@ TEMPLATES = {
         "icon": "settings",
         "summary": "IDs y datos públicos: client ID, tenant, ID de cuenta…",
         "public": True,
+        "dev": True,
         "fields": [
             _field("username", "Identificador", hint="client id, app id, tenant id…",
                    help="No es secreto: la IA lo ve y los programas lo reciben sin pedirte permiso."),
@@ -158,12 +247,25 @@ TEMPLATES = {
             _field("url", "Dirección web (opcional)", hint="https://…"),
         ],
     },
+    "generic": {
+        "label": "Otro secreto",
+        "icon": "lock",
+        "summary": "Cualquier otro dato secreto",
+        "dev": True,
+        "fields": [
+            _field("value", "Secreto", "secret", required=True, secret=True),
+            _field("username", "Usuario (opcional)"),
+            _field("url", "Dirección web (opcional)", hint="https://…"),
+        ],
+    },
 }
 
-for _template in TEMPLATES.values():
-    _template["fields"].append(_notes())
+for _id, _template in TEMPLATES.items():
+    if _id != "note":  # a note is its text: private notes of its own would be a second one
+        _template["fields"].append(_notes())
 
-SECRET_FIELDS = sorted({f["name"] for t in TEMPLATES.values() for f in t["fields"] if f["secret"] and not f["note"]})
+SECRET_FIELDS = sorted({f["name"] for t in TEMPLATES.values() if not t.get("personal")
+                        for f in t["fields"] if f["secret"] and not f["note"]})
 COMPUTED_SECRETS = ("connection_url", "totp_code")
 
 
@@ -187,12 +289,21 @@ def is_public(template_id):
 PUBLIC_FIELDS = ("username", "value", "url")  # what a configuration entry may hold besides its notes
 
 
+def is_personal(template_id):
+    """A template for the user's own things (a card, a document, a note…): only the user sees and copies them. They
+    don't exist for the AI, `sb run` or the browser, and they have no key to give out, rotate, test or look for."""
+    return bool((TEMPLATES.get(template_id) or {}).get("personal"))
+
+
 def secret_field_names(template_id):
     return [s["name"] for s in field_specs(template_id) if s["secret"]]
 
 
 def key_field_names(template_id):
-    """The secret fields that are keys, not private notes."""
+    """The secret fields that are keys, not private notes. A personal item has none: what it hides (a card's number,
+    a document's) is shown and copied like a secret, but never given to a program, redacted, rotated or scanned for."""
+    if is_personal(template_id):
+        return []
     return [s["name"] for s in field_specs(template_id) if s["secret"] and not s["note"]]
 
 
@@ -225,6 +336,8 @@ def computed_values(entry):
 
 def placeholder_values(entry):
     """Values the agent may reference as {{name}}; the broker substitutes them server-side."""
+    if is_personal(entry["template"]):
+        return {}  # nothing of a personal item is ever put in a request, a command or a variable
     fields = entry["fields"]
     values = {s["name"]: str(fields[s["name"]]) for s in active_specs(entry["template"], fields)
               if s["substitutable"] and fields.get(s["name"])}
@@ -263,6 +376,8 @@ def default_policy(template_id, fields):
     commands = {"allowed": [], "env": {}}
     if is_public(template_id):
         return {"approval": "never"}  # nothing to approve: `sb run` and the AI get its data freely
+    if is_personal(template_id):
+        return {"approval": "always"}  # no permissions at all: the AI never gets to it (service._for_ai)
     if template_id in ("web_login", "generic"):
         host = _host_of(fields.get("url"))
         http["allowed_hosts"] = [host] if host else []

@@ -479,6 +479,7 @@
   "detail.expires_on": "Läuft ab am {expires}",
   "detail.its_collection_no_longer_appears": "Seine Sammlung erscheint nicht mehr auf dem Server. Hier wurde nichts gelöscht: ",
   "detail.nothing_yet_edit_credential_and": "Noch nichts. Bearbeite die Zugangsdaten und öffne „KI-Berechtigungen“.",
+  "detail.personal_private": "Nur für dich: Die KI sieht es nicht und kann es nicht verwenden.",
   "detail.show": "Um „{label}“ von {name} anzuzeigen.",
   "direct_block.can": "Berechtigung von {name}",
   "direct_block.leave": "Nicht mehr empfangen",
@@ -531,9 +532,15 @@
   "draw_team.sync_now": "Jetzt synchronisieren",
   "draw_team.synced": "Synchronisiert",
   "editor.aws_placeholder": "AWS privat",
+  "editor.bank_placeholder": "Hauptkonto",
+  "editor.card_placeholder": "Visa privat",
   "editor.config_placeholder": "Client-ID meiner App",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "Mein Reisepass",
+  "editor.license_placeholder": "Office-Lizenz",
+  "editor.note_placeholder": "E-Mail-Wiederherstellungscodes",
   "editor.tags_placeholder": "shop, produktion",
+  "editor.wifi_placeholder": "WLAN zu Hause",
   "empty_credentials.add_credential": "Zugangsdaten hinzufügen",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge oder Firefox. Du siehst die Liste vor dem Import.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf oder Codex, mit einem Klick.",
@@ -983,6 +990,8 @@
   "offboarding_card.they_could_see_or_copy": "Die Person konnte ihn sehen oder kopieren. Ändere ihn; wenn du ihn nicht verwaltest, ändert ihn, wer ihn verwaltet.",
   "offboarding_card.they_could_see_or_copy_2": "Die Person konnte sie sehen oder kopieren. Ändere sie einzeln; die, die du nicht verwaltest, ändert, wer sie verwaltet.",
   "open_connect_ai.with_one_click_ai_will": "Mit einem Klick kann die KI deine Schlüssel über SecretBroker verwenden, ohne sie zu sehen.",
+  "open_editor.developers": "Für Entwickler",
+  "open_editor.everyday": "Für den Alltag",
   "open_editor.new_credential": "Neue Zugangsdaten",
   "open_export.all_credentials_with_their_notes": "Alle Zugangsdaten mit ihren Notizen und Berechtigungen in einer Datei, geschützt mit einem Passwort deiner Wahl (scrypt und AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "Die CSV (Name, Website, Benutzername, Passwort, Notiz) können Bitwarden, 1Password, KeePassXC und Browser lesen. Sie enthält nur den Hauptschlüssel jedes Eintrags.",
@@ -1140,6 +1149,14 @@
   "reminder.expires_in": {
     "one": "Läuft in {count} Tag ab. Rotiere ihn, bevor er nicht mehr funktioniert.",
     "other": "Läuft in {count} Tagen ab. Rotiere ihn, bevor er nicht mehr funktioniert."
+  },
+  "reminder.item_expired_ago": {
+    "one": "Vor {count} Tag abgelaufen.",
+    "other": "Vor {count} Tagen abgelaufen."
+  },
+  "reminder.item_expires_in": {
+    "one": "Läuft in {count} Tag ab.",
+    "other": "Läuft in {count} Tagen ab."
   },
   "reminder.key_age": {
     "one": "Der Schlüssel ist {count} Tag alt. Es lohnt sich, ihn ab und zu zu rotieren.",
@@ -1684,6 +1701,7 @@
   "show_form.authorization": "Authorization",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "Gehört dem Team, und deine Berechtigung ist „{value}“: Hier kannst du nur ändern, wann die KI um deine Freigabe bittet.",
+  "show_form.card_expiry_invalid": "Gib das Ablaufdatum als MM/JJ ein, zum Beispiel 08/27.",
   "show_form.change_type": "Typ ändern",
   "show_form.changed_while_you_were_editing": "Wurde geändert, während du bearbeitet hast",
   "show_form.changes_saved": "Änderungen gespeichert",

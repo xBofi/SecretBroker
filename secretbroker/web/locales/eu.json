@@ -479,6 +479,7 @@
   "detail.expires_on": "Iraungitze-data: {expires}",
   "detail.its_collection_no_longer_appears": "Haren bilduma jada ez da agertzen zerbitzarian. Hemen ez da ezer ezabatu: ",
   "detail.nothing_yet_edit_credential_and": "Oraindik ezer ez. Editatu kredentziala eta ireki «AAren baimenak».",
+  "detail.personal_private": "Zuretzat soilik: AAk ez du ikusten eta ezin du erabili.",
   "detail.show": "{name}: «{label}» erakusteko.",
   "direct_block.can": "{name} pertsonaren baimena",
   "direct_block.leave": "Utzi jasotzeari",
@@ -531,9 +532,15 @@
   "draw_team.sync_now": "Sinkronizatu orain",
   "draw_team.synced": "Sinkronizatuta",
   "editor.aws_placeholder": "AWS pertsonala",
+  "editor.bank_placeholder": "Kontu nagusia",
+  "editor.card_placeholder": "Visa pertsonala",
   "editor.config_placeholder": "Nire aplikazioaren client IDa",
   "editor.hosts_placeholder": "api.adibidea.com, *.adibidea.com",
+  "editor.identity_placeholder": "Nire pasaportea",
+  "editor.license_placeholder": "Office-ren lizentzia",
+  "editor.note_placeholder": "Postaren berreskuratze-kodeak",
   "editor.tags_placeholder": "denda, ekoizpena",
+  "editor.wifi_placeholder": "Etxeko Wi-Fia",
   "empty_credentials.add_credential": "Gehitu kredentzial bat",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge edo Firefox. Zerrenda ikusiko duzu inportatu aurretik.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf edo Codex, klik batekin.",
@@ -983,6 +990,8 @@
   "offboarding_card.they_could_see_or_copy": "Ikusi edo kopiatu zezakeen. Aldatu; zuk kudeatzen ez baduzu, kudeatzen duenak aldatuko du.",
   "offboarding_card.they_could_see_or_copy_2": "Ikusi edo kopiatu zitzakeen. Aldatu banan-banan; zuk kudeatzen ez dituzunak kudeatzen dituenak aldatuko ditu.",
   "open_connect_ai.with_one_click_ai_will": "Klik batekin, AAk zure gakoak SecretBroker bidez erabili ahal izango ditu, ikusi gabe.",
+  "open_editor.developers": "Garatzaileentzat",
+  "open_editor.everyday": "Egunerokorako",
   "open_editor.new_credential": "Kredentzial berria",
   "open_export.all_credentials_with_their_notes": "Kredentzial guztiak, beren ohar eta baimenekin, zuk aukeratutako pasahitz batez babestutako fitxategi batean (scrypt eta AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "CSVa (izena, webgunea, erabiltzaile-izena, pasahitza, oharra) Bitwarden-ek, 1Password-ek, KeePassXC-k eta nabigatzaileek irakurtzen dute. Kredentzial bakoitzaren gako nagusia soilik gordetzen du.",
@@ -1140,6 +1149,14 @@
   "reminder.expires_in": {
     "one": "Egun {count} barru iraungiko da. Txandakatu funtzionatzeari utzi aurretik.",
     "other": "{count} egun barru iraungiko da. Txandakatu funtzionatzeari utzi aurretik."
+  },
+  "reminder.item_expired_ago": {
+    "one": "Duela egun {count} iraungi zen.",
+    "other": "Duela {count} egun iraungi zen."
+  },
+  "reminder.item_expires_in": {
+    "one": "Egun {count} barru iraungiko da.",
+    "other": "{count} egun barru iraungiko da."
   },
   "reminder.key_age": {
     "one": "Gakoak egun {count} du. Merezi du noizean behin txandakatzea.",
@@ -1684,6 +1701,7 @@
   "show_form.authorization": "Baimena",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "Taldearena da eta zure baimena «{value}» da: hemen AAk noiz eskatzen dizun onarpena soilik alda dezakezu.",
+  "show_form.card_expiry_invalid": "Idatzi iraungitze-data HH/UU formatuan, adibidez 08/27.",
   "show_form.change_type": "Aldatu mota",
   "show_form.changed_while_you_were_editing": "Editatzen ari zinen bitartean aldatu da",
   "show_form.changes_saved": "Aldaketak gordeta",

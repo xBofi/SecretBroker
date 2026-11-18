@@ -542,7 +542,10 @@ def _set_fill_part(entry, part):
 
 def rotate_info(entry):
     """Who had access to a credential and may have kept it ('rotate because…'): the team block's record, or the
-    one a credential keeps after it stopped being shared with someone (`team_rotate`, local only)."""
+    one a credential keeps after it stopped being shared with someone (`team_rotate`, local only). Never for a
+    personal item (a card, a document): it has no key to change, so the flag could not end."""
+    if templates.is_personal(entry.get("template")):
+        return None
     return (entry.get("shared") or {}).get("rotate") or entry.get("team_rotate")
 
 
@@ -2823,7 +2826,9 @@ class Team:
             edited = known is not None and content_hash(effective_content(local)) != known["hash"]
             self._leave(local, edited, notes)
         notes.setdefault("changes", []).append({"id": local["id"], "action": "team_delete", "by": found["by"],
-                                 "detail": f"«{local.get('name') or local['id']}» borrada del equipo"})
+                                 "detail": f"«{local.get('name') or local['id']}» borrada del equipo",
+                                 # gone by the time it is written to Actividad: the AI never reads about these
+                                 "personal": templates.is_personal(local.get("template"))})
 
     def _hold(self, state, cid, deletions, notes):
         """Too many deletions at once: nothing is deleted here until the user says so (resolve_deletions)."""

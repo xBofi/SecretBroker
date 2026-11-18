@@ -486,6 +486,7 @@
   "detail.expires_on": "Derīgs līdz {expires}",
   "detail.its_collection_no_longer_appears": "Tā krājums serverī vairs nav redzams. Šeit nekas nav izdzēsts: ",
   "detail.nothing_yet_edit_credential_and": "Pagaidām nekā. Rediģējiet piekļuves datus un atveriet „MI atļaujas”.",
+  "detail.personal_private": "Tikai jums: MI to neredz un nevar izmantot.",
   "detail.show": "Lai parādītu „{label}” no {name}.",
   "direct_block.can": "Atļauja ({name})",
   "direct_block.leave": "Pārtraukt saņemšanu",
@@ -541,9 +542,15 @@
   "draw_team.sync_now": "Sinhronizēt tagad",
   "draw_team.synced": "Sinhronizēts",
   "editor.aws_placeholder": "Personīgais AWS",
+  "editor.bank_placeholder": "Galvenais konts",
+  "editor.card_placeholder": "Personīgā Visa",
   "editor.config_placeholder": "Manas lietotnes klienta ID",
   "editor.hosts_placeholder": "api.example.com, *.example.com",
+  "editor.identity_placeholder": "Mana pase",
+  "editor.license_placeholder": "Office licence",
+  "editor.note_placeholder": "E-pasta atkopšanas kodi",
   "editor.tags_placeholder": "veikals, produkcija",
+  "editor.wifi_placeholder": "Mājas Wi-Fi",
   "empty_credentials.add_credential": "Pievienot piekļuves datus",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge vai Firefox. Pirms importēšanas redzat sarakstu.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf vai Codex – ar vienu klikšķi.",
@@ -1036,6 +1043,8 @@
   "offboarding_card.they_could_see_or_copy": "Viņš tos varēja redzēt vai nokopēt. Nomainiet tos; ja jūs tos nepārvaldāt, tos nomainīs to pārvaldnieks.",
   "offboarding_card.they_could_see_or_copy_2": "Viņš tos varēja redzēt vai nokopēt. Nomainiet tos pa vienam; tos, kurus nepārvaldāt, nomainīs to pārvaldnieks.",
   "open_connect_ai.with_one_click_ai_will": "Ar vienu klikšķi MI varēs izmantot jūsu atslēgas caur SecretBroker, tās neredzot.",
+  "open_editor.developers": "Izstrādātājiem",
+  "open_editor.everyday": "Ikdienai",
   "open_editor.new_credential": "Jauni piekļuves dati",
   "open_export.all_credentials_with_their_notes": "Visi piekļuves dati ar piezīmēm un atļaujām failā, ko aizsargā jūsu izvēlēta parole (scrypt un AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "CSV (nosaukums, vietne, lietotājvārds, parole, piezīme) nolasa Bitwarden, 1Password, KeePassXC un pārlūki. Tajā tiek saglabāta tikai katru piekļuves datu galvenā atslēga.",
@@ -1201,6 +1210,16 @@
     "one": "Termiņš beigsies pēc {count} dienas. Nomainiet to, pirms tā pārstāj darboties.",
     "other": "Termiņš beigsies pēc {count} dienām. Nomainiet to, pirms tā pārstāj darboties.",
     "zero": "Termiņš beigsies pēc {count} dienām. Nomainiet to, pirms tā pārstāj darboties."
+  },
+  "reminder.item_expired_ago": {
+    "one": "Termiņš beidzās pirms {count} dienas.",
+    "other": "Termiņš beidzās pirms {count} dienām.",
+    "zero": "Termiņš beidzās pirms {count} dienām."
+  },
+  "reminder.item_expires_in": {
+    "one": "Termiņš beigsies pēc {count} dienas.",
+    "other": "Termiņš beigsies pēc {count} dienām.",
+    "zero": "Termiņš beigsies pēc {count} dienām."
   },
   "reminder.key_age": {
     "one": "Atslēga ir {count} dienu veca. Laiku pa laikam to vērts nomainīt.",
@@ -1759,6 +1778,7 @@
   "show_form.authorization": "Autorizācija",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "Tie pieder komandai, un jūsu atļauja ir „{value}”: šeit varat mainīt tikai to, kad MI prasa jūsu apstiprinājumu.",
+  "show_form.card_expiry_invalid": "Ievadiet derīguma termiņu formātā MM/GG, piemēram, 08/27.",
   "show_form.change_type": "Mainīt tipu",
   "show_form.changed_while_you_were_editing": "Tie mainījās, kamēr rediģējāt",
   "show_form.changes_saved": "Izmaiņas saglabātas",

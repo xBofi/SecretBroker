@@ -479,6 +479,7 @@
   "detail.expires_on": "Caduca o {expires}",
   "detail.its_collection_no_longer_appears": "A súa colección xa non aparece no servidor. Aquí non se eliminou nada: ",
   "detail.nothing_yet_edit_credential_and": "Aínda nada. Edita a credencial e abre «Permisos da IA».",
+  "detail.personal_private": "Só para ti: a IA non o ve nin pode usalo.",
   "detail.show": "Para mostrar «{label}» de {name}.",
   "direct_block.can": "Permiso de {name}",
   "direct_block.leave": "Deixar de recibilas",
@@ -531,9 +532,15 @@
   "draw_team.sync_now": "Sincronizar agora",
   "draw_team.synced": "Sincronizado",
   "editor.aws_placeholder": "AWS persoal",
+  "editor.bank_placeholder": "Conta principal",
+  "editor.card_placeholder": "Visa persoal",
   "editor.config_placeholder": "Client ID da miña app",
   "editor.hosts_placeholder": "api.exemplo.com, *.exemplo.com",
+  "editor.identity_placeholder": "O meu pasaporte",
+  "editor.license_placeholder": "Licenza de Office",
+  "editor.note_placeholder": "Códigos de recuperación do correo",
   "editor.tags_placeholder": "tenda, produción",
+  "editor.wifi_placeholder": "Wi-Fi da casa",
   "empty_credentials.add_credential": "Engadir unha credencial",
   "empty_credentials.bitwarden_1password_keepassxc_chrome_edg": "Bitwarden, 1Password, KeePassXC, Chrome, Edge ou Firefox. Ves a lista antes de importar.",
   "empty_credentials.claude_code_claude_desktop_cursor": "Claude Code, Claude Desktop, Cursor, VS Code, Windsurf ou Codex, cun clic.",
@@ -983,6 +990,8 @@
   "offboarding_card.they_could_see_or_copy": "Podía vela ou copiala. Cámbiaa; se non a xestionas ti, cámbiaa quen a xestiona.",
   "offboarding_card.they_could_see_or_copy_2": "Podía velas ou copialas. Cámbiaas unha por unha; as que non xestionas ti, cámbiaas quen as xestiona.",
   "open_connect_ai.with_one_click_ai_will": "Cun clic, a IA poderá usar as túas claves a través de SecretBroker sen velas.",
+  "open_editor.developers": "Para desenvolvedores",
+  "open_editor.everyday": "Para o día a día",
   "open_editor.new_credential": "Nova credencial",
   "open_export.all_credentials_with_their_notes": "Todas as credenciais, coas súas notas e permisos, nun ficheiro protexido cun contrasinal que escolles ti (scrypt e AES-256-GCM). ",
   "open_export.csv_name_website_username_password": "O CSV (nome, sitio web, usuario, contrasinal, nota) leno Bitwarden, 1Password, KeePassXC e os navegadores. Só conserva a clave principal de cada credencial.",
@@ -1140,6 +1149,14 @@
   "reminder.expires_in": {
     "one": "Caduca en {count} día. Rótaa antes de que deixe de funcionar.",
     "other": "Caduca en {count} días. Rótaa antes de que deixe de funcionar."
+  },
+  "reminder.item_expired_ago": {
+    "one": "Caducou hai {count} día.",
+    "other": "Caducou hai {count} días."
+  },
+  "reminder.item_expires_in": {
+    "one": "Caduca en {count} día.",
+    "other": "Caduca en {count} días."
   },
   "reminder.key_age": {
     "one": "A clave ten {count} día. Paga a pena rotala de cando en vez.",
@@ -1684,6 +1701,7 @@
   "show_form.authorization": "Autorización",
   "show_form.bearer": "Bearer {{value}}",
   "show_form.belongs_team_and_your_permission": "É do equipo e o teu permiso é «{value}»: aquí só podes cambiar cando che pide aprobación a IA.",
+  "show_form.card_expiry_invalid": "Escribe a caducidade como MM/AA, por exemplo 08/27.",
   "show_form.change_type": "Cambiar o tipo",
   "show_form.changed_while_you_were_editing": "Cambiou mentres a editabas",
   "show_form.changes_saved": "Cambios gardados",

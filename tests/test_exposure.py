@@ -28,6 +28,7 @@ PROOF = {"kind": "master_password", "value": MASTER}
 LEAKED = "sk-proj-LEAKED-abcdefghijklmnop0123"
 QUOTED = 'pa"ss\\word-with-quotes'
 CLEAN = "sk-ant-CLEAN-zyxwvutsrqponm9876"
+WIFI = "fake-wifi-password-in-a-file"
 failures = 0
 
 
@@ -75,6 +76,7 @@ def make_profile():
     (project / "node_modules").mkdir()
     (project / "node_modules" / "dep.js").write_text(f"// {CLEAN}", encoding="utf-8")  # skipped folder
     (project / "app.py").write_text("print('hola')\n", encoding="utf-8")
+    (project / "wifi.txt").write_text(f"La wifi de casa: {WIFI}\n", encoding="utf-8")  # a personal item's: not a finding
     git(project, "init", "-q")
     (project / ".env").write_text(f"OPENAI_API_KEY={LEAKED}\n", encoding="utf-8")
     git(project, "add", ".env", "app.py")
@@ -105,8 +107,13 @@ def main():
     call("save_entry", {"entry": {"id": "panel", "name": "Panel", "template": "web_login", "description": "",
                                   "fields": {"url": "https://panel.example.com", "username": "me", "password": QUOTED},
                                   "policy": {"approval": "session"}}}, PROOF)
+    call("save_entry", {"entry": {"id": "wifi", "name": "Wi-Fi de casa", "template": "wifi", "description": "",
+                                  "fields": {"ssid": "Casa", "security": "wpa", "password": WIFI}, "policy": {}}}, PROOF)
 
     print("Needles")
+    card = {"template": "card", "fields": {"number": "4111111111111111", "cvv": "12345678", "notes": "fake private note"}}
+    check(exposure.needles(card) == set() and exposure.redact({**card, "id": "c"}, b"4111111111111111")[1] == 0,
+          "a personal item (a card, a note) has no key: nothing of it is searched for or redacted")
     check(exposure.needles({"template": "generic", "fields": {"value": "short"}}) == set(), "values under 8 characters are not searched")
     key = "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQ\nUNIQUEUNIQUE\n-----END OPENSSH PRIVATE KEY-----\n"
     ssh = {"template": "ssh", "fields": {"auth_method": "key", "private_key": key}}
@@ -137,6 +144,8 @@ def main():
     check(places.get("env:SB_TEST_TOKEN") == "env", "found in an environment variable")
     check(items["panel"]["level"] == "exposed" and items["panel"]["found"] == 1, "password with quotes found JSON-escaped")
     check(items["clean"]["level"] == "ok", "a key found nowhere (node_modules is skipped) is ok")
+    check("wifi" not in items and "wifi" not in by_id(client.request("exposure_report")),
+          "a Wi-Fi's password written in a file is not a finding: personal items are not in the report")
     summary = client.request("exposure_report")
     check(not summary["details"] and "findings" not in by_id(summary)["leaky"], "without a session the report hides where")
     check(by_id(summary)["leaky"]["level"] == "exposed", "... but still says it is exposed")

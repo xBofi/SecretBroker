@@ -567,7 +567,7 @@ class Vault:
             entry = copy.deepcopy(entry)
             entry["updated"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
             entry.pop("secret_since", None)
-            if templates.is_public(entry["template"]):
+            if templates.is_public(entry["template"]) or templates.is_personal(entry["template"]):
                 pass  # no key: nothing ages, nothing to rotate
             elif old is None or secret_fields(old) != secret_fields(entry):
                 entry["secret_since"] = entry["updated"]
@@ -594,7 +594,7 @@ class Vault:
                     continue
                 entry = copy.deepcopy(entry)
                 entry["updated"] = now
-                if not templates.is_public(entry["template"]):
+                if not (templates.is_public(entry["template"]) or templates.is_personal(entry["template"])):
                     entry["secret_since"] = now
                 added[entry["id"]] = entry
                 results.append((entry["id"], None))
