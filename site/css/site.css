@@ -406,6 +406,8 @@ html:not(.js) .theme-toggle { display: none; }
 .foot li + li { margin-top: 4px; }
 .foot a { color: var(--text); text-decoration: none; display: inline-block; padding-block: 3px; }
 .foot a:hover { color: var(--interactive); text-decoration: underline; }
+.foot .brand { display: inline-flex; padding: 0; }
+.foot .brand:hover { color: var(--text); text-decoration: none; }
 @media (min-width: 52rem) { .foot { grid-template-columns: minmax(0, 2.2fr) repeat(3, minmax(0, 1fr)); } .foot-brand { grid-column: auto; } }
 .fineprint { margin-top: clamp(2rem, 5vw, 3rem); padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: .875rem; line-height: 1.55; display: grid; gap: 8px; }
 .fineprint p { max-width: 52rem; }
