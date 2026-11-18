@@ -1616,6 +1616,9 @@ def personal_flow(page):
     nothing about the AI, rotation, checks or copies. Screenshots of the picker (both themes, smallest window), the
     card's form and detail, and the list."""
     print("Personal items: a payment card and a secure note, from «Nueva»")
+    from datetime import date
+    year = date.today().year + 5  # a card that is not about to expire, whenever this runs
+    expiry = f"08/{year % 100:02d}"
     page.js("state.view = 'credentials'; renderMain()")
     page.click("Nueva")
     check(wait_for(lambda: page.js("document.querySelectorAll('.template-picker .template-group').length") == 2, 5),
@@ -1651,23 +1654,23 @@ def personal_flow(page):
     fill(page, "Nombre", "Visa personal", ".modal")
     fill(page, "Titular de la tarjeta", "ANA EJEMPLO", ".modal")
     fill(page, "Número de la tarjeta", "4111111111111111", ".modal")
-    fill(page, "Caducidad", "13/27", ".modal")
+    fill(page, "Caducidad", f"13/{year % 100:02d}", ".modal")
     fill(page, "CVV", "123", ".modal")
     fill(page, "Banco o marca", "Banco Ejemplo", ".modal")
     page.click("Guardar")
     check(wait_for(lambda: "MM/AA" in (page.js("(document.querySelector('.modal .error-text') || {}).innerText") or ""), 5),
           "a month that isn't one is not saved: the form says how to write it")
-    fill(page, "Caducidad", "08/27", ".modal")
+    fill(page, "Caducidad", expiry, ".modal")
     calm_shot(page, "02-card-form")
     page.click("Guardar")
     check(confirm_if_asked(page, lambda: page.js("!document.querySelector('.modal') && state.selected === 'visa-personal'")),
           "the card is saved and selected")
     stored = page.js("state.entries.find((e) => e.id === 'visa-personal')") or {}
-    check(stored.get("expires") == "2027-08-31" and sorted(stored.get("secrets_set") or []) == ["cvv", "number"]
+    check(stored.get("expires") == f"{year}-08-31" and sorted(stored.get("secrets_set") or []) == ["cvv", "number"]
           and stored.get("fields") == {"holder": "ANA EJEMPLO", "brand": "Banco Ejemplo"} and stored.get("policy") == {"approval": "always"},
           f"with its number and CVV hidden, its expiry as the entry's date, and no AI permissions: {stored.get('fields')} {stored.get('expires')}")
     detail = page.js("document.querySelector('.detail').innerText")
-    check("08/27" in detail and "Banco Ejemplo" in detail and "4111" not in detail and "Solo para ti: la IA no lo ve ni puede usarlo." in detail
+    check(expiry in detail and "Banco Ejemplo" in detail and "4111" not in detail and "Solo para ti: la IA no lo ve ni puede usarlo." in detail
           and not any(text in detail for text in ("Qué puede hacer la IA", "La IA la conoce como", "Rotar", "Actividad reciente",
                                                   "Sin buscar copias", "Instrucciones para la IA")),
           f"its detail: the card's data, and nothing about the AI, rotation, checks or copies: {detail[:300]!r}")
@@ -1693,7 +1696,7 @@ def personal_flow(page):
     check(confirm_if_asked(page, lambda: page.js("!document.querySelector('.modal') && state.selected === 'codigos-de-recuperacion'")),
           "the note is saved and selected")
     rows = page.js("[...document.querySelectorAll('.list .row')].map((r) => r.innerText.replace(/\\n+/g, ' | '))")
-    check("Visa personal | Banco Ejemplo · 08/27" in rows and "Códigos de recuperación | Nota segura" in rows
+    check(f"Visa personal | Banco Ejemplo · {expiry}" in rows and "Códigos de recuperación | Nota segura" in rows
           and "fake-code" not in " ".join(rows) and "4111" not in " ".join(rows),
           f"in the list each says which one it is, and nothing it hides: {rows}")
     check(page.js("[...document.querySelectorAll('.list .row .glyph')].map((g) => g.className).filter((c) => /card|note/.test(c)).length") == 2,
