@@ -37,6 +37,7 @@ def check(condition, message):
 
 def _clipboard(read):
     import ctypes
+    import time
     from ctypes import wintypes
     user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
     user32.GetClipboardData.restype = wintypes.HANDLE
@@ -44,8 +45,13 @@ def _clipboard(read):
     kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
     kernel32.GlobalLock.restype = ctypes.c_void_p
     kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
-    if not user32.OpenClipboard(None):
-        return None
+    # Another program may have the clipboard open for a moment right after it changes (a clipboard manager,
+    # Windows' own history): wait for it, as the app does when it clears what it copied.
+    deadline = time.monotonic() + 3
+    while not user32.OpenClipboard(None):
+        if time.monotonic() >= deadline:
+            return None
+        time.sleep(0.05)
     try:
         return read(user32, kernel32, ctypes)
     finally:
